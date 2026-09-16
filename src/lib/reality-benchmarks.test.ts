@@ -169,5 +169,7 @@ describe("Economic reality relationships", () => {
     }
 
     expect(highMortalitySold).toBeLessThan(baseSold * 0.9);
-  });
+    // Sixteen five-year farms, because one seed is luck and this claim is about
+    // the trend. That is well past the default per-test timeout.
+  }, 60_000);
 });

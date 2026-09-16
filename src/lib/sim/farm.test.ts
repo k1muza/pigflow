@@ -2,12 +2,13 @@ import { addMonths, format, parseISO, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
+import { generatedTotal, isGenerated, planCashInjections, planCashWithdrawals } from "../funding";
 import { calculateProjection } from "../model";
 import {
   expensesOf,
   Farm,
   farmStateAt,
-  farmWeeklyTimeline,
+  farmTimeline,
   GrowingPig,
   horizonDay,
   incomeOf,
@@ -396,29 +397,35 @@ describe("Point-in-time farm state", () => {
     expect(state.date).toBe("2029-12-31");
   });
 
-  it("builds selectable week-end stock snapshots across the planning horizon", () => {
+  it("lays the plan out as clickable days and as a list of months", () => {
     const input = config();
     input.project.months = 12;
-    const weeks = farmWeeklyTimeline(input);
+    const { days, months } = farmTimeline(input);
 
-    expect(weeks.length).toBeGreaterThanOrEqual(52);
-    expect(weeks[0].week).toBe(1);
-    expect(weeks[0].day).toBe(6);
-    expect(weeks.at(-1)!.day).toBe(horizonDay(input));
+    expect(days.length).toBe(horizonDay(input) + 1);
+    expect(days[0].date).toBe(input.project.startDate);
+    expect(days.at(-1)!.day).toBe(horizonDay(input));
+    expect(months.length).toBe(12);
+    expect(months[0].date).toBe(input.project.startDate);
+    expect(months.at(-1)!.endDate).toBe(days.at(-1)!.date);
 
-    const weekTwo = weeks[1];
-    const state = farmStateAt(input, weekTwo.date + "T23:00");
-    expect(weekTwo.total).toBe(state.herd.total);
-    expect(weekTwo.groups.reduce((total, group) => total + group.count, 0)).toBe(
-      state.stock.length,
-    );
-    expect(weeks.flatMap((week) => week.events).every((event) => event.count > 0)).toBe(true);
-    expect(weeks.flatMap((week) => week.events).some((event) => event.type === "service")).toBe(
-      true,
-    );
-    expect(
-      weeks.flatMap((week) => week.events).some((event) => event.type === "vaccination"),
-    ).toBe(true);
+    // A calendar square and the farm read at that moment are the same farm.
+    const square = days[40];
+    const state = farmStateAt(input, square.date + "T23:00");
+    expect(square.total).toBe(state.herd.total);
+    expect(square.closingCash).toBeCloseTo(state.finance.cash, 6);
+
+    // A month is its own days, nothing lost and nothing counted twice.
+    const first = months[0];
+    const itsDays = days.filter((day) => day.date.startsWith(first.date.slice(0, 7)));
+    expect(first.sold).toBe(itsDays.reduce((total, day) => total + day.sold, 0));
+    expect(first.total).toBe(itsDays.at(-1)!.total);
+
+    const events = months.flatMap((month) => month.events);
+    expect(events.every((event) => event.count > 0)).toBe(true);
+    expect(events.some((event) => event.type === "service")).toBe(true);
+    expect(events.some((event) => event.type === "vaccination")).toBe(true);
+    expect(events.some((event) => event.type === "feed")).toBe(true);
   });
 });
 
@@ -628,5 +635,322 @@ describe("What a market pig costs reconciles with the cash book", () => {
     const healthyCost = runFarm(healthy).costOfProduction().directPerPig;
     const lossyCost = runFarm(lossy).costOfProduction().directPerPig;
     expect(lossyCost).toBeGreaterThan(healthyCost);
+  });
+});
+
+describe("Feed comes by the truckload, planned backwards from what was eaten", () => {
+  function busyFarm(): PlannerConfig {
+    const input = config();
+    input.stock.sows = 20;
+    input.herd.startMode = "staggered";
+    input.project.months = 36;
+    return input;
+  }
+
+  it("cuts the plan's feeding into full loads, with the part load at the start", () => {
+    const farm = runFarm(busyFarm());
+    const loads = farm.feedPlan.deliveries;
+    const capacity = farm.config.feed.truckCapacityKg;
+    expect(loads.length).toBeGreaterThan(20);
+
+    // Walking backwards is what puts the short load first: every later trip is a
+    // full lorry, and only the opening one is part-filled.
+    for (const load of loads) expect(load.loadKg).toBeLessThanOrEqual(capacity + 1e-6);
+    expect(loads[0].loadKg).toBeLessThan(capacity);
+    for (const load of loads.slice(1)) expect(load.loadKg).toBeCloseTo(capacity, 6);
+
+    // Every trip carries an order list, and it adds up to the load.
+    for (const load of loads) {
+      expect(load.lines.length).toBeGreaterThan(0);
+      const listed = load.lines.reduce((kg, line) => kg + line.kg, 0);
+      expect(listed).toBeCloseTo(load.loadKg, 6);
+    }
+    // A working herd is on more than one ration at a time.
+    expect(loads.at(-1)!.lines.length).toBeGreaterThan(1);
+  });
+
+  it("delivers nothing the herd does not eat, and delivers it before it is needed", () => {
+    const input = busyFarm();
+    const farm = runFarm(input);
+    const eaten = farm.history.reduce((kg, day) => kg + day.sowFeedKg + day.growingFeedKg, 0);
+
+    // Planned off feeding that has already happened, so the two agree exactly.
+    expect(farm.lifetime.feedDeliveredKg).toBeCloseTo(eaten, 3);
+
+    for (const load of farm.feedPlan.deliveries) {
+      expect(load.day).toBeLessThanOrEqual(load.neededFromDay);
+      expect(load.day).toBeGreaterThanOrEqual(0);
+      // Feed lands the buffer ahead of the day the herd starts on it, unless the
+      // plan has not been running long enough for the full buffer.
+      const early = load.neededFromDay - load.day;
+      expect(early).toBe(Math.min(input.feed.feedBufferDays, load.neededFromDay));
+    }
+
+    // The bins never run dry: on any day, what has landed covers what was eaten.
+    let delivered = 0;
+    let consumed = 0;
+    for (const day of farm.history) {
+      delivered += day.feedDeliveredKg;
+      consumed += day.sowFeedKg + day.growingFeedKg;
+      expect(delivered).toBeGreaterThanOrEqual(consumed - 1e-6);
+    }
+  });
+
+  it("reads the same on any date, because the trips are anchored to the horizon", () => {
+    const input = busyFarm();
+    const wholePlan = runFarm(input).feedPlan.deliveries;
+    const halfway = farmStateAt(input, "2028-06-15T23:00");
+
+    const landedByThen = wholePlan.filter((load) => load.day <= halfway.day).length;
+    expect(halfway.lifetime.feedLoads).toBe(landedByThen);
+    expect(halfway.finance.totals["feed-haulage"]).toBeCloseTo(
+      landedByThen * input.feed.deliveryCostPerTrip,
+      6,
+    );
+  });
+
+  it("puts the haulage on the pigs that ate the load", () => {
+    const paid = busyFarm();
+    const free = structuredClone(paid);
+    free.feed.deliveryCostPerTrip = 0;
+
+    const withTruck = runFarm(paid);
+    const without = runFarm(free);
+
+    // The lorry changes no biology at all: same pigs, same feed, same kilograms.
+    expect(withTruck.lifetime.sold).toBe(without.lifetime.sold);
+    expect(withTruck.ledger.totals.feed).toBeCloseTo(without.ledger.totals.feed, 6);
+
+    // It only adds money, and the money it adds is the trips it made.
+    const haulage = withTruck.ledger.totals["feed-haulage"];
+    expect(haulage).toBeCloseTo(withTruck.lifetime.feedLoads * paid.feed.deliveryCostPerTrip, 6);
+    expect(without.ledger.totals["feed-haulage"]).toBe(0);
+
+    // Every last cent of it reaches an animal, because each kilogram eaten is
+    // known to have come off one particular load.
+    const attributed =
+      withTruck.history.reduce(
+        (total, day) =>
+          total +
+          (day.sowFeedKg + day.growingFeedKg) *
+            (withTruck.feedPlan.haulagePerKgByDay[day.day] ?? 0),
+        0,
+      ) ?? 0;
+    expect(attributed).toBeCloseTo(haulage, 3);
+
+    const dearer = withTruck.costOfProduction();
+    const cheaper = without.costOfProduction();
+    expect(dearer.directPerPig).toBeGreaterThan(cheaper.directPerPig);
+    expect(dearer.directByType.transport).toBeGreaterThan(cheaper.directByType.transport);
+  });
+
+  it("makes fewer, bigger trips when the farm runs a bigger truck", () => {
+    const small = busyFarm();
+    small.feed.truckCapacityKg = 1_000;
+    const big = busyFarm();
+    big.feed.truckCapacityKg = 5_000;
+
+    const smallTruck = runFarm(small);
+    const bigTruck = runFarm(big);
+
+    expect(smallTruck.lifetime.feedLoads).toBeGreaterThan(bigTruck.lifetime.feedLoads * 2);
+    expect(smallTruck.ledger.totals["feed-haulage"]).toBeGreaterThan(
+      bigTruck.ledger.totals["feed-haulage"],
+    );
+    // The same feed either way — only the number of trips moves.
+    expect(smallTruck.lifetime.feedDeliveredKg).toBeCloseTo(bigTruck.lifetime.feedDeliveredKg, 3);
+  });
+
+  it("does not land a two-sow herd with a lorry-load it cannot eat", () => {
+    const small = config();
+    small.project.months = 12;
+    const farm = runFarm(small);
+    const opening = farm.feedPlan.deliveries[0];
+    const eatenInAYear = farm.history.reduce(
+      (kg, day) => kg + day.sowFeedKg + day.growingFeedKg,
+      0,
+    );
+
+    expect(opening.loadKg).toBeLessThan(farm.config.feed.truckCapacityKg);
+    expect(opening.loadKg).toBeLessThan(eatenInAYear);
+  });
+
+  it("shows the lorry in the day's activities, with what was on it", () => {
+    const input = busyFarm();
+    const { days, months } = farmTimeline(input);
+    const deliveryDay = days.find((day) => day.feedLoads > 0)!;
+
+    const lorry = deliveryDay.events.find((event) => event.type === "feed")!;
+    expect(lorry.label).toContain("Feed lorry in");
+    expect(lorry.label).toMatch(/sow \d+/);
+
+    // Zoomed out to a month, the same trips are counted rather than listed.
+    const busyMonth = months.find((month) => month.feedLoads > 1)!;
+    expect(busyMonth.events.some((event) => event.label.includes("feed loads"))).toBe(true);
+  });
+});
+
+describe("Income and costs the owner adds by hand", () => {
+  it("lands the money in the month it is booked to, and nowhere else", () => {
+    const plain = config();
+    const added = config();
+    added.finance.cashMovements = [
+      { id: "a", monthIndex: 3, kind: "in", amount: 20_000, note: "Grant", auto: false },
+      { id: "b", monthIndex: 24, kind: "out", amount: 5_000, note: "Roof repair", auto: false },
+    ];
+
+    const before = calculateProjection(plain);
+    const after = calculateProjection(added);
+
+    // Nothing moves until the month it is booked to.
+    expect(after.months[2].closingCash).toBeCloseTo(before.months[2].closingCash, 6);
+    expect(after.months[4].totals["other-income"]).toBeCloseTo(
+      before.months[4].totals["other-income"],
+      6,
+    );
+
+    // It joins the farm's own general lines rather than a line of its own.
+    expect(after.months[3].totals["other-income"]).toBeCloseTo(
+      before.months[3].totals["other-income"] + 20_000,
+      6,
+    );
+    expect(after.months[24].totals.overheads).toBeCloseTo(
+      before.months[24].totals.overheads + 5_000,
+      6,
+    );
+
+    // From there on the balance carries it.
+    expect(after.months[3].closingCash).toBeCloseTo(before.months[3].closingCash + 20_000, 6);
+    expect(after.summary.peakFundingNeed).toBeLessThan(before.summary.peakFundingNeed);
+  });
+
+  it("is money, not pigs: the herd and what it produces do not move", () => {
+    const plain = config();
+    const added = config();
+    added.finance.cashMovements = [
+      { id: "a", monthIndex: 6, kind: "in", amount: 30_000, note: "", auto: false },
+      { id: "b", monthIndex: 12, kind: "out", amount: 9_000, note: "", auto: false },
+    ];
+
+    const before = calculateProjection(plain);
+    const after = calculateProjection(added);
+
+    expect(after.summary.totalPigsSold).toBe(before.summary.totalPigsSold);
+    expect(after.summary.totalWeaned).toBe(before.summary.totalWeaned);
+    expect(after.summary.totalRevenue).toBeCloseTo(before.summary.totalRevenue + 30_000, 6);
+
+    // A cost the owner adds is a cost of the business, so it is carried over the
+    // pigs sold like any other overhead — and the contingency covers it too.
+    expect(after.costOfProduction.fullCostPerPig).toBeGreaterThan(
+      before.costOfProduction.fullCostPerPig,
+    );
+    expect(after.months[12].totals.contingency).toBeGreaterThan(
+      before.months[12].totals.contingency,
+    );
+  });
+
+  it("ignores a row booked past the end of the plan", () => {
+    const input = config();
+    input.finance.cashMovements = [
+      { id: "a", monthIndex: input.project.months + 5, kind: "in", amount: 50_000, note: "", auto: false },
+    ];
+
+    const projection = calculateProjection(input);
+    expect(projection.summary.closingCash).toBeCloseTo(
+      calculateProjection(config()).summary.closingCash,
+      6,
+    );
+  });
+});
+
+describe("Funding the plan: cash in to stay solvent, cash out when it is spare", () => {
+  function fundedPlan(workingCapital: number) {
+    const input = config();
+    input.finance.workingCapitalTarget = workingCapital;
+    return input;
+  }
+
+  it("injects exactly enough, month by month, to never close below the target", () => {
+    const input = fundedPlan(2_500);
+    const bare = calculateProjection(input);
+    expect(bare.summary.peakFundingNeed).toBeGreaterThan(0);
+
+    input.finance.cashMovements = planCashInjections(input, bare);
+    const funded = calculateProjection(input);
+
+    expect(input.finance.cashMovements.length).toBeGreaterThan(0);
+    for (const month of funded.months) {
+      expect(month.closingCash).toBeGreaterThanOrEqual(2_500 - 0.02);
+    }
+    // Enough, and not a penny more: some month sits exactly on the target.
+    const lowest = Math.min(...funded.months.map((month) => month.closingCash));
+    expect(lowest).toBeCloseTo(2_500, 1);
+    expect(funded.summary.peakFundingNeed).toBe(0);
+  });
+
+  it("takes the surplus out without ever putting a later month short", () => {
+    const input = fundedPlan(3_000);
+    input.stock.sows = 20;
+    input.herd.startMode = "staggered";
+    input.project.months = 60;
+
+    // Fund it first, so there is a surplus to take out at all.
+    const bare = calculateProjection(input);
+    input.finance.cashMovements = planCashInjections(input, bare);
+    const funded = calculateProjection(input);
+
+    input.finance.cashMovements = [
+      ...input.finance.cashMovements,
+      ...planCashWithdrawals(input, funded),
+    ];
+    const drawn = calculateProjection(input);
+
+    expect(generatedTotal(input.finance.cashMovements, "out")).toBeGreaterThan(0);
+    for (const month of drawn.months) {
+      expect(month.closingCash).toBeGreaterThanOrEqual(3_000 - 0.02);
+    }
+    // The business is left with its working capital and no more.
+    expect(drawn.summary.closingCash).toBeCloseTo(3_000, 1);
+  });
+
+  it("is financing, not farming: it costs nothing to service", () => {
+    const plain = config();
+    const drawn = config();
+    drawn.finance.cashMovements = [
+      { id: "auto-out-20", monthIndex: 20, kind: "out", amount: 4_000, note: "Cash withdrawal", auto: true },
+    ];
+
+    const before = calculateProjection(plain);
+    const after = calculateProjection(drawn);
+
+    // It shows in the cashflow under fixed overheads, as every other cost does.
+    expect(after.months[20].totals.overheads).toBeCloseTo(
+      before.months[20].totals.overheads + 4_000,
+      6,
+    );
+    // But no contingency is charged on it, and no pig is any dearer for it.
+    expect(after.months[20].totals.contingency).toBeCloseTo(
+      before.months[20].totals.contingency,
+      6,
+    );
+    expect(after.costOfProduction.fullCostPerPig).toBeCloseTo(
+      before.costOfProduction.fullCostPerPig,
+      6,
+    );
+    expect(after.summary.closingCash).toBeCloseTo(before.summary.closingCash - 4_000, 6);
+  });
+
+  it("gives the same answer however many times the button is pressed", () => {
+    const input = fundedPlan(1_000);
+    const once = planCashInjections(input, calculateProjection(input));
+
+    const repeated = { ...input, finance: { ...input.finance, cashMovements: once } };
+    const kept = repeated.finance.cashMovements.filter(
+      (movement) => !isGenerated(movement, "in"),
+    );
+    const base = { ...repeated, finance: { ...repeated.finance, cashMovements: kept } };
+    const twice = planCashInjections(base, calculateProjection(base));
+
+    expect(twice).toEqual(once);
   });
 });

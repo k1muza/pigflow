@@ -12,6 +12,30 @@ export const vaccinationSchema = z.object({
 
 export type Vaccination = z.infer<typeof vaccinationSchema>;
 
+/**
+ * An income or cost the owner adds to one month by hand, for the things a herd
+ * model cannot know about — a grant, a repair, a licence. Money in joins other
+ * income and money out joins fixed overheads, so it is planned and reported the
+ * same way as everything else the farm receives and pays. The kind is held apart
+ * from the amount so a row can sit at zero while it is being typed.
+ */
+const cashMovementSchema = z.object({
+  id: z.string().min(1).max(40),
+  monthIndex: z.number().int().min(0).max(359),
+  kind: z.enum(["in", "out"]),
+  amount: nonNegative,
+  note: z.string().max(80),
+  /**
+   * True for the rows the funding buttons write. A row you type is a farm item —
+   * a grant, a repair — and is costed like one. A generated row is financing:
+   * it moves cash without the farm having earned or spent anything, so it is
+   * kept out of the contingency and out of what a pig costs to produce.
+   */
+  auto: z.boolean().default(false),
+});
+
+export type CashMovement = z.infer<typeof cashMovementSchema>;
+
 export const plannerSchema = z.object({
   project: z.object({
     name: z.string().min(1),
@@ -79,6 +103,9 @@ export const plannerSchema = z.object({
     weanerFeedCostKg: nonNegative,
     growerFeedCostKg: nonNegative,
     finisherFeedCostKg: nonNegative,
+    truckCapacityKg: z.number().min(100).max(30_000),
+    deliveryCostPerTrip: nonNegative,
+    feedBufferDays: z.number().int().min(1).max(120),
   }),
   health: z.object({
     vaccinations: z.array(vaccinationSchema).max(16),
@@ -100,6 +127,9 @@ export const plannerSchema = z.object({
     otherIncomeMonthly: nonNegative,
     initialCapitalCosts: nonNegative,
     contingencyPct: percentage,
+    /** Cash the business is meant to keep in hand once surplus is taken out. */
+    workingCapitalTarget: nonNegative,
+    cashMovements: z.array(cashMovementSchema).max(240),
   }),
 });
 
@@ -205,6 +235,9 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weanerFeedCostKg: 0.68,
     growerFeedCostKg: 0.56,
     finisherFeedCostKg: 0.52,
+    truckCapacityKg: 2_500,
+    deliveryCostPerTrip: 60,
+    feedBufferDays: 7,
   },
   health: {
     vaccinations: DEFAULT_VACCINATIONS,
@@ -226,6 +259,8 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     otherIncomeMonthly: 0,
     initialCapitalCosts: 8_000,
     contingencyPct: 5,
+    workingCapitalTarget: 0,
+    cashMovements: [],
   },
 };
 

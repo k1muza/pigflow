@@ -1,6 +1,6 @@
 # PigFlow
 
-PigFlow is a transparent piggery cashflow planner built with Next.js, TypeScript, Tailwind CSS, Recharts, date-fns and Zod.
+PigFlow is a transparent piggery cashflow planner built with Next.js, TypeScript, Tailwind CSS, shadcn/ui, Recharts, date-fns and Zod.
 
 The farm is simulated one day at a time. Every sow, boar and growing pig is an object with a sex, a weight, an age and a dam, and it posts its own money to a ledger.
 
@@ -20,12 +20,20 @@ The farm is simulated one day at a time. Every sow, boar and growing pig is an o
 
 **Labour is a head-count cost, not a fixed overhead.** Set a wage per stockperson and how many head one can run. The payroll is re-read every month from the herd averaged over the month just gone: a post is taken on as soon as the work is there, and shed only once the herd has fallen clearly below it, so a batch-farrowing herd does not hire and fire month to month.
 
+**Feed comes by the truckload, and the trips are planned backwards.** Feed is not bought by the mouthful. Once the herd has been simulated, its feeding is walked backwards from the last day and the running total cut into lorry-loads; each trip is then placed on the day the herd starts eating into its load, a buffer ahead of when it is first needed. Walking backwards is the point: it lands the part load at the start of the plan, where a two-sow herd eating six kilograms a day belongs, and leaves every later trip full. Filling forwards would put a full 2.5 tonnes on the farm on day one and the part load at the end, which is the wrong way round.
+
+Because the schedule is read off feeding that has already happened rather than forecast, nothing is delivered that is not eaten and the bins never run dry. Every trip carries an order list — the exact rations it was drawn on for — and shows up in that day's activities. The haulage is paid when the load lands and then rides on the kilograms it brought, so a pig carries its share of the lorry as it eats: about $9 on a market pig at the default 2.5 tonne truck and $60 a trip, small beside the feed itself and invisible if you leave it out.
+
+**You can put income and costs in by hand.** A herd model cannot know about a grant, a roof repair or a licence fee, so any month will take rows of your own. They land on the first day of that month and join the farm's own general lines — money in under `Other income`, money out under `Fixed overheads` — so the cashflow, the workbook and the export all carry them the same way as everything else, with no extra lines to reconcile. A cost you add is a cost of the business: it attracts the contingency percentage and is carried over the pigs sold like any other overhead.
+
+**Funding the plan is two decisions, and it will make both for you.** *Add cash injections* walks the months in order and puts in exactly what each one is short, so the balance never closes below the working capital the plan says to keep. *Withdraw excess* takes the surplus back out as it builds — but only what the leanest month still to come can spare, because money taken out now is gone from every month after it, and drawing each month down to its own surplus would simply hand the shortfall to the next one. Both write ordinary rows you can read, edit and delete, and both can be cleared again. These generated rows are financing rather than farming: they show in the cashflow on the same two lines as everything else, but no contingency is charged on them and they are kept out of what a pig costs to produce, so funding the plan never makes the pork look dearer.
+
 **Pigs are priced on the carcass.** The sale price is quoted per kilogram deadweight, because that is how abattoirs pay. A pig's liveweight is dressed out at the dressing percentage you set — 70% by default — before it meets the price.
 
 ## Reading the plan
 
-- **Money** — switch between months and plan years, and pick any period to see exactly what it is expected to receive and spend, line by line, with the production that drove it.
-- **Farm simulator** — pick any date and time inside the plan. The herd is rebuilt animal by animal up to that moment and reports stock numbers, the breeding herd, generations, cost of production and financial standing together.
+- **Financial planning** — switch between months and plan years, and open any period to see exactly what it is expected to receive and spend, line by line, with the production that drove it. On a month you can add your own rows under Income or Expenditure; the panel itemises them and shows the line they post to net of them, so the statement still adds up. Under the table, one button funds the whole plan and another takes the surplus back out.
+- **Farm simulator** — a full plan year as a calendar, or the same plan as a list of months. Open any date for that day's cash in and out, everything the farm did — farrowings, weanings, sales, treatments, the feed lorry and what was on it — and the herd split by stage and by what each sow is doing. The page behind it rebuilds the herd animal by animal to that date and reports cost of production and financial standing.
 - **Overview** — the cash curve at monthly or yearly zoom, growing stock by stage, and the checks that need attention.
 
 ## Run locally
@@ -54,11 +62,13 @@ The plan is saved in the browser on the current device. Use **Export CSV** to sa
 | `src/lib/config.ts` | The plan schema, defaults and biological constants. |
 | `src/lib/sim/animals.ts` | `Animal`, `Sow`, `Boar`, `GrowingPig` and the per-animal `CostRecord`. |
 | `src/lib/sim/farm.ts` | The day-by-day `Farm` simulation and its point-in-time read-out. |
+| `src/lib/sim/feed-plan.ts` | Cuts the plan's feeding into lorry-loads and places each trip. |
 | `src/lib/sim/ledger.ts` | Every cost and receipt, by category and by day. |
+| `src/lib/funding.ts` | Works out the cash to put in to stay solvent, and the surplus to take out. |
 | `src/lib/model.ts` | Rolls the daily record up into months, plan years and warnings. |
 
 `farmStateAt(config, "2028-06-15T14:30")` rebuilds the herd up to that moment and returns the stock numbers and the financial standing together.
 
 ## Modeling boundary
 
-Litter size, conception, mortality, growth and timing are drawn from a seeded random generator, so one run is a plausible farm rather than the average of many — change the scenario seed to see how much the outcome moves. Sow places are the only capacity limit; growing pens and feed storage are not. Labour scales with head count, but only in money: there is no model of whether the people are available. Inbreeding avoidance goes as far as never serving a female with her own sire; half-sib and cousin matings are not tracked. Heating is a flat daily rate with no seasonal swing. PigFlow is not a diagnosis or treatment tool, a diet-formulation system, or a guarantee of production results. Replace benchmark defaults with local farm records, supplier quotations and a herd-specific veterinary programme.
+Litter size, conception, mortality, growth and timing are drawn from a seeded random generator, so one run is a plausible farm rather than the average of many — change the scenario seed to see how much the outcome moves. Sow places are the only capacity limit; growing pens are not, and the feed bins are assumed big enough to hold a full load. Feed is costed as it is eaten while the haulage is paid on delivery, so the cashflow shows lumpy delivery charges against a smooth feed bill rather than the full lumpy invoice. The feed schedule is planned with hindsight — it is the cheapest set of trips that would have fed the herd, not a rule a stockperson could follow on the day — and it assumes feed keeps for as long as a load lasts. Labour scales with head count, but only in money: there is no model of whether the people are available. Inbreeding avoidance goes as far as never serving a female with her own sire; half-sib and cousin matings are not tracked. Heating is a flat daily rate with no seasonal swing. PigFlow is not a diagnosis or treatment tool, a diet-formulation system, or a guarantee of production results. Replace benchmark defaults with local farm records, supplier quotations and a herd-specific veterinary programme.

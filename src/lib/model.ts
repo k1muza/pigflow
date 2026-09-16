@@ -25,6 +25,7 @@ export {
   plannerSchema,
   SERVICES_PER_BOAR_PER_WEEK,
   withConfigDefaults,
+  type CashMovement,
   type PlannerConfig,
   type PlannerSection,
   type Vaccination,
@@ -60,6 +61,9 @@ export type MonthlyProjection = {
   workers: number;
   sowFeedKg: number;
   growingFeedKg: number;
+  /** Loads of feed hauled in this month, and what they carried. */
+  feedLoads: number;
+  feedDeliveredKg: number;
   /** Every income and cost line for the month, by ledger category. */
   totals: CategoryTotals;
   revenue: number;
@@ -213,6 +217,8 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     workers: 0,
     sowFeedKg: 0,
     growingFeedKg: 0,
+    feedLoads: 0,
+    feedDeliveredKg: 0,
     totals,
     revenue: 0,
     totalCost: 0,
@@ -233,6 +239,8 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     month.deaths += day.pigletDeaths + day.growingDeaths + day.breedingDeaths;
     month.sowFeedKg += day.sowFeedKg;
     month.growingFeedKg += day.growingFeedKg;
+    month.feedLoads += day.feedLoads;
+    month.feedDeliveredKg += day.feedDeliveredKg;
     addTotals(totals, day.totals);
   }
 
@@ -317,7 +325,7 @@ export function calculateProjection(input: PlannerConfig): ProjectionResult {
     months.reduce((total, month) => total + pick(month), 0);
 
   const totalCost = sum((month) => month.totalCost);
-  const totalFeedCost = sum((month) => month.totals.feed);
+  const totalFeedCost = sum((month) => month.totals.feed + month.totals["feed-haulage"]);
   const operatingCostExcludingCapital = totalCost - sum((month) => month.totals.capital);
   const lowestCash = Math.min(
     config.project.openingCash,
@@ -504,6 +512,8 @@ export function projectionToCsv(result: ProjectionResult) {
     "Cull sales",
     "Other income",
     "Feed",
+    "Feed delivery",
+    "Feed loads",
     "Vaccination",
     "Veterinary",
     "Heating",
@@ -541,6 +551,8 @@ export function projectionToCsv(result: ProjectionResult) {
     row.totals["cull-sales"],
     row.totals["other-income"],
     row.totals.feed,
+    row.totals["feed-haulage"],
+    row.feedLoads,
     row.totals.vaccination,
     row.totals.veterinary,
     row.totals.heating,

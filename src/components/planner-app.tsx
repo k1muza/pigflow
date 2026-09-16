@@ -1,7 +1,14 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { addMonths, format, parseISO, subDays } from "date-fns";
+import {
+  addMonths,
+  differenceInCalendarMonths,
+  format,
+  parseISO,
+  startOfMonth,
+  subDays,
+} from "date-fns";
 import {
   Area,
   AreaChart,
@@ -22,17 +29,21 @@ import {
   BarChart3,
   BookOpen,
   CalendarClock,
+  CalendarDays,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Download,
   Gauge,
   HeartPulse,
   Info,
   Landmark,
+  Minus,
   PanelLeftClose,
   PanelLeftOpen,
   PiggyBank,
   RefreshCcw,
+  Rows3,
   Save,
   Scale,
   Plus,
@@ -41,6 +52,7 @@ import {
   Syringe,
   Trash2,
   TableProperties,
+  Truck,
   WalletCards,
   Wheat,
   X,
@@ -54,6 +66,7 @@ import {
   plannerSchema,
   SERVICES_PER_BOAR_PER_WEEK,
   withConfigDefaults,
+  type CashMovement,
   type MonthlyProjection,
   type PeriodSummary,
   type PlannerConfig,
@@ -61,18 +74,51 @@ import {
   type Vaccination,
 } from "@/lib/model";
 import {
+  generatedTotal,
+  isGenerated,
+  planCashInjections,
+  planCashWithdrawals,
+} from "@/lib/funding";
+import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
   farmStateAt,
-  farmWeeklyTimeline,
+  farmTimeline,
   INCOME_CATEGORIES,
   type CategoryTotals,
+  type FarmCalendarDay,
+  type FarmCalendarMonth,
+  type FarmPeriodEvent,
   type FarmState,
-  type FarmWeekEvent,
   type LedgerCategory,
-  type StockAgeGroup,
-  type StockKind,
 } from "@/lib/sim";
+import { Button } from "@/components/ui/button";
+import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Tab = "overview" | "simulator" | "inputs" | "cashflow" | "money" | "method";
 
@@ -84,7 +130,7 @@ const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "simulator", label: "Farm simulator", icon: CalendarClock },
   { id: "inputs", label: "Plan inputs", icon: Settings2 },
   { id: "cashflow", label: "Cashflow", icon: TableProperties },
-  { id: "money", label: "Money", icon: WalletCards },
+  { id: "money", label: "Financial planning", icon: WalletCards },
   { id: "method", label: "Method & sources", icon: BookOpen },
 ];
 
@@ -95,6 +141,7 @@ const CHART = {
   baseline: "#c3c2b7",
   cash: "#2a78d6",
   flow: "#eb6834",
+  warning: "#fab219",
   stage: {
     piglets: "#86b6ef",
     weaners: "#5598e7",
@@ -142,32 +189,6 @@ function plural(count: number, noun: string) {
   return `${number(count, 0)} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function toLocalInput(date: Date) {
-  return format(date, "yyyy-MM-dd'T'HH:mm");
-}
-
-const STOCK_LABELS: Record<StockKind, { singular: string; plural: string }> = {
-  sow: { singular: "Sow", plural: "Sows" },
-  gilt: { singular: "Gilt", plural: "Gilts" },
-  boar: { singular: "Boar", plural: "Boars" },
-  piglet: { singular: "Piglet", plural: "Piglets" },
-  weaner: { singular: "Weaner", plural: "Weaners" },
-  grower: { singular: "Grower", plural: "Growers" },
-  finisher: { singular: "Finisher", plural: "Finishers" },
-};
-
-function compactAge(ageDays: number) {
-  if (ageDays < 112) return `${Math.max(0, Math.round(ageDays / 7))}w`;
-  if (ageDays < 730) return `${Math.round(ageDays / 30.4375)}m`;
-  return `${number(ageDays / 365.25, 1)}y`;
-}
-
-function ageSpan(group: StockAgeGroup) {
-  const youngest = compactAge(group.youngestDays);
-  const oldest = compactAge(group.oldestDays);
-  return youngest === oldest ? `${youngest} old` : `${youngest}–${oldest} old`;
-}
-
 function HerdTooltip({ active, label, payload }: TooltipContentProps) {
   if (!active || payload.length === 0) return null;
   const total = payload.reduce((sum, item) => sum + Number(item.value ?? 0), 0);
@@ -200,18 +221,37 @@ function HerdTooltip({ active, label, payload }: TooltipContentProps) {
   );
 }
 
-const WEEK_EVENT_TONES: Record<FarmWeekEvent["type"], string> = {
-  vaccination: "bg-accent-soft text-accent",
+const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
+  vaccination: "bg-brand-soft text-brand",
   service: "bg-warning-soft text-ink-muted",
   farrowing: "bg-good-soft text-good",
   weaning: "bg-good-soft text-good",
-  sale: "bg-accent-soft text-accent",
+  sale: "bg-brand-soft text-brand",
   selection: "bg-plane text-ink-muted",
   promotion: "bg-plane text-ink-muted",
   loss: "bg-critical-soft text-critical",
   cull: "bg-critical-soft text-critical",
   purchase: "bg-warning-soft text-ink-muted",
+  feed: "bg-warning-soft text-ink-muted",
 };
+
+/** A short word for the kind of activity, so the day reads as a work list. */
+const EVENT_NAMES: Record<FarmPeriodEvent["type"], string> = {
+  vaccination: "Health",
+  service: "Service",
+  farrowing: "Farrow",
+  weaning: "Wean",
+  sale: "Sale",
+  selection: "Select",
+  promotion: "Promote",
+  loss: "Loss",
+  cull: "Cull",
+  purchase: "Buy",
+  feed: "Feed",
+};
+
+/** Calendar or a list of months — the same plan, read at two zoom levels. */
+type TimelineView = "calendar" | "months";
 
 // --------------------------------------------------------------------- pieces
 
@@ -240,14 +280,14 @@ function Field({
         <span className="text-[13px] font-medium text-ink-muted">{label}</span>
         {suffix ? <span className="text-[11px] text-ink-faint">{suffix}</span> : null}
       </span>
-      <input
+      <Input
         type="number"
         value={value}
         min={min}
         max={max}
         step={step}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm font-medium tabular-nums text-ink outline-none transition focus:border-accent"
+        className="font-medium tabular-nums"
       />
       {hint ? <span className="mt-1.5 block text-xs leading-5 text-ink-faint">{hint}</span> : null}
     </label>
@@ -268,12 +308,7 @@ function TextField({
   return (
     <label className="block">
       <span className="mb-1.5 block text-[13px] font-medium text-ink-muted">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm font-medium text-ink outline-none transition focus:border-accent"
-      />
+      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
 }
@@ -294,17 +329,18 @@ function SelectField<T extends string>({
   return (
     <label className="block">
       <span className="mb-1.5 block text-[13px] font-medium text-ink-muted">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="w-full rounded-lg border border-hairline bg-surface px-3 py-2 text-sm font-medium text-ink outline-none transition focus:border-accent"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={(next) => onChange(next as T)}>
+        <SelectTrigger className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {hint ? <span className="mt-1.5 block text-xs leading-5 text-ink-faint">{hint}</span> : null}
     </label>
   );
@@ -327,7 +363,7 @@ function Toggle({
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 size-4 accent-accent"
+        className="mt-0.5 size-4 accent-brand"
       />
       <span>
         <span className="block text-[13px] font-medium text-ink">{label}</span>
@@ -351,18 +387,14 @@ function Panel({
   className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-hairline bg-surface p-5 ${className}`}>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h3>
-          {description ? (
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-ink-faint">{description}</p>
-          ) : null}
-        </div>
-        {action}
-      </div>
-      {children}
-    </section>
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        {description ? <CardDescription>{description}</CardDescription> : null}
+        {action ? <CardAction>{action}</CardAction> : null}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
@@ -378,18 +410,16 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-hairline bg-surface p-5 lg:p-6">
-      <div className="mb-5 flex items-start gap-3">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-raised text-ink-muted">
+    <Card className="[--card-spacing:--spacing(5)]">
+      <CardHeader className="grid-cols-[auto_1fr] gap-x-3">
+        <span className="row-span-2 flex size-8 items-center justify-center rounded-lg bg-raised text-ink-muted">
           <Icon size={16} strokeWidth={1.75} />
         </span>
-        <div>
-          <h2 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-ink-faint">{description}</p>
-        </div>
-      </div>
-      {children}
-    </section>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }
 
@@ -407,11 +437,13 @@ function StatTile({
   const valueTone =
     tone === "good" ? "text-good" : tone === "critical" ? "text-critical" : "text-ink";
   return (
-    <div className="rounded-xl border border-hairline bg-surface p-4">
-      <p className="text-xs font-medium text-ink-faint">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold tracking-tight ${valueTone}`}>{value}</p>
-      {context ? <p className="mt-1.5 text-xs leading-5 text-ink-faint">{context}</p> : null}
-    </div>
+    <Card size="sm">
+      <CardContent>
+        <p className="text-xs font-medium text-ink-faint">{label}</p>
+        <p className={`mt-2 text-2xl font-semibold tracking-tight ${valueTone}`}>{value}</p>
+        {context ? <p className="mt-1.5 text-xs leading-5 text-ink-faint">{context}</p> : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -558,11 +590,10 @@ export default function PlannerApp() {
                       if (window.innerWidth < 1024) toggleSidebar();
                     }}
                     aria-current={selected ? "page" : undefined}
-                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
-                      selected
-                        ? "bg-accent-soft font-medium text-accent"
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${selected
+                        ? "bg-brand-soft font-medium text-brand"
                         : "text-ink-muted hover:bg-raised hover:text-ink"
-                    }`}
+                      }`}
                   >
                     <Icon size={16} strokeWidth={1.75} />
                     {item.label}
@@ -671,7 +702,7 @@ export default function PlannerApp() {
           ) : null}
 
           {activeTab === "money" && projection ? (
-            <Money config={config} projection={projection} />
+            <Money config={config} projection={projection} update={update} />
           ) : null}
 
           {activeTab === "method" ? <Methodology config={config} metrics={modelMetrics} /> : null}
@@ -700,15 +731,15 @@ function Overview({
   const cashData =
     zoom === "month"
       ? projection.months.map((row) => ({
-          label: row.month,
-          closingCash: Math.round(row.closingCash),
-          netCashFlow: Math.round(row.netCashFlow),
-        }))
+        label: row.month,
+        closingCash: Math.round(row.closingCash),
+        netCashFlow: Math.round(row.netCashFlow),
+      }))
       : projection.years.map((year) => ({
-          label: year.label,
-          closingCash: Math.round(year.closingCash),
-          netCashFlow: Math.round(year.netCashFlow),
-        }));
+        label: year.label,
+        closingCash: Math.round(year.closingCash),
+        netCashFlow: Math.round(year.netCashFlow),
+      }));
 
   const herdData = projection.months.map((row) => ({
     label: row.month,
@@ -801,7 +832,7 @@ function Overview({
                   aria-pressed={zoom === value}
                   className={
                     "rounded-md px-2.5 py-1 text-[11px] font-medium transition " +
-                    (zoom === value ? "bg-accent-soft text-accent" : "text-ink-muted hover:text-ink")
+                    (zoom === value ? "bg-brand-soft text-brand" : "text-ink-muted hover:text-ink")
                   }
                 >
                   {label}
@@ -862,11 +893,10 @@ function Overview({
             {projection.warnings.slice(0, 4).map((warning) => (
               <div
                 key={warning.title}
-                className={`rounded-lg border p-3 ${
-                  warning.level === "attention"
+                className={`rounded-lg border p-3 ${warning.level === "attention"
                     ? "border-warning/40 bg-warning-soft"
                     : "border-hairline bg-plane"
-                }`}
+                  }`}
               >
                 <div className="flex gap-2.5">
                   {warning.level === "attention" ? (
@@ -953,74 +983,83 @@ function Overview({
 
 // ------------------------------------------------------------------ simulator
 
-const SOW_STATE_LABELS: Record<FarmState["sows"][number]["state"], string> = {
-  gestating: "In pig",
-  lactating: "Suckling",
-  open: "Awaiting service",
-};
-
 function Simulator({ config }: { config: PlannerConfig }) {
   const start = parseISO(config.project.startDate);
   const end = addMonths(start, config.project.months);
+  const lastDay = subDays(end, 1);
   const currency = config.project.currency;
 
-  const [instant, setInstant] = useState(() => toLocalInput(start));
-  const [stockFilter, setStockFilter] = useState<"all" | StockKind>("all");
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const timeline = useMemo(() => farmTimeline(config), [config]);
+  const [view, setView] = useState<TimelineView>("calendar");
+  const [picked, setPicked] = useState(() => config.project.startDate);
+  const [yearIndex, setYearIndex] = useState(0);
+  const [dayOpen, setDayOpen] = useState(false);
 
-  // A new plan can move the horizon out from under the chosen moment.
-  const clamped = useMemo(() => {
-    const min = start.getTime();
-    const max = subDays(end, 1).getTime();
-    const chosen = parseISO(instant).getTime();
-    if (Number.isNaN(chosen)) return toLocalInput(start);
-    if (chosen < min) return toLocalInput(start);
-    if (chosen > max) return toLocalInput(subDays(end, 1));
-    return instant;
-  }, [instant, start, end]);
+  // A new plan can move the horizon out from under the chosen day.
+  const selected = useMemo(() => {
+    const chosen = parseISO(picked).getTime();
+    if (Number.isNaN(chosen)) return format(start, "yyyy-MM-dd");
+    if (chosen < start.getTime()) return format(start, "yyyy-MM-dd");
+    if (chosen > lastDay.getTime()) return format(lastDay, "yyyy-MM-dd");
+    return picked;
+  }, [picked, start, lastDay]);
 
-  const state = useMemo(() => farmStateAt(config, clamped), [config, clamped]);
-  const timeline = useMemo(() => farmWeeklyTimeline(config), [config]);
-  const selectedWeek = Math.min(
-    timeline.length,
-    Math.max(1, Math.floor(Math.max(state.day, 0) / 7) + 1),
+  const state = useMemo(() => farmStateAt(config, `${selected}T23:00`), [config, selected]);
+  const byDate = useMemo(
+    () => new Map(timeline.days.map((day) => [day.date, day])),
+    [timeline],
   );
+  const selectedDay = byDate.get(selected) ?? null;
+  const selectedMonth =
+    timeline.months.find((month) => selected >= month.date && selected <= month.endDate) ?? null;
 
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDrawerOpen(false);
-    };
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [drawerOpen]);
+  // The calendar shows a whole plan year at a time, so a year is the unit the
+  // arrows move by.
+  const planYears = Math.max(1, Math.ceil(config.project.months / 12));
+  const year = Math.min(Math.max(yearIndex, 0), planYears - 1);
+  const yearStart = addMonths(startOfMonth(start), year * 12);
+  const monthsThisYear = Math.min(12, config.project.months - year * 12);
 
-  const presets: { label: string; value: string }[] = [
-    { label: "Start", value: toLocalInput(start) },
-    { label: "6 months", value: toLocalInput(addMonths(start, 6)) },
-    { label: "1 year", value: toLocalInput(addMonths(start, 12)) },
-    { label: "2 years", value: toLocalInput(addMonths(start, 24)) },
-    { label: "Horizon end", value: toLocalInput(subDays(end, 1)) },
-  ].filter((preset) => parseISO(preset.value).getTime() <= subDays(end, 1).getTime());
+  function choose(date: string, open = true) {
+    setPicked(date);
+    const months = differenceInCalendarMonths(parseISO(date), startOfMonth(start));
+    setYearIndex(Math.floor(months / 12));
+    if (open) setDayOpen(true);
+  }
 
-  const stages = [
-    { key: "piglets", label: "Piglets", count: state.herd.piglets, color: CHART.stage.piglets },
-    { key: "weaners", label: "Weaners", count: state.herd.weaners, color: CHART.stage.weaners },
-    { key: "growers", label: "Growers", count: state.herd.growers, color: CHART.stage.growers },
-    {
-      key: "finishers",
-      label: "Finishers",
-      count: state.herd.finishers,
-      color: CHART.stage.finishers,
-    },
-    { key: "gilts", label: "Gilts", count: state.herd.gilts, color: CHART.stage.gilts },
-  ];
-  const growingTotal = Math.max(state.herd.growingTotal, 1);
+  /**
+   * Each square carries a dot for the kinds of thing that happened on it, so a
+   * year of the plan can be read for shape before any day is opened.
+   */
+  const DayCell = useMemo(() => {
+    function DayCell(props: React.ComponentProps<typeof CalendarDayButton>) {
+      const entry = byDate.get(format(props.day.date, "yyyy-MM-dd"));
+      const dots: string[] = [];
+      if (entry) {
+        if (entry.bornAlive > 0) dots.push(CHART.stage.sows);
+        if (entry.sold > 0) dots.push(CHART.cash);
+        if (entry.feedLoads > 0) dots.push(CHART.warning);
+      }
+      return (
+        // The day button stamps data-day with a locale-formatted date. Left to
+        // the ambient locale that is one string on the server and another in the
+        // browser, which fails hydration, so the format is pinned here.
+        <CalendarDayButton {...props} locale={{ code: "en-GB" }}>
+          {props.children}
+          <span className="flex h-1 items-center justify-center gap-0.5 opacity-100!">
+            {dots.map((colour) => (
+              <span
+                key={colour}
+                className="size-1 rounded-full"
+                style={{ backgroundColor: colour }}
+              />
+            ))}
+          </span>
+        </CalendarDayButton>
+      );
+    }
+    return DayCell;
+  }, [byDate]);
 
   const costLines = EXPENSE_CATEGORIES.map((category) => ({
     label: CATEGORY_LABELS[category],
@@ -1030,634 +1069,516 @@ function Simulator({ config }: { config: PlannerConfig }) {
     label: CATEGORY_LABELS[category],
     amount: state.finance.totals[category],
   }));
-  const stockGroups = useMemo(
-    () =>
-      (Object.keys(STOCK_LABELS) as StockKind[]).flatMap((kind) => {
-        const animals = state.stock.filter((animal) => animal.kind === kind);
-        if (animals.length === 0) return [];
-        const ages = animals.reduce(
-          (range, animal) => ({
-            youngest: Math.min(range.youngest, animal.ageDays),
-            oldest: Math.max(range.oldest, animal.ageDays),
-          }),
-          { youngest: Number.POSITIVE_INFINITY, oldest: Number.NEGATIVE_INFINITY },
-        );
-        return [
-          {
-            kind,
-            count: animals.length,
-            youngestDays: ages.youngest,
-            oldestDays: ages.oldest,
-          },
-        ];
-      }),
-    [state.stock],
-  );
-  const filteredStock =
-    stockFilter === "all" ? state.stock : state.stock.filter((animal) => animal.kind === stockFilter);
-  const selectedTimelineWeek = timeline[selectedWeek - 1];
-
-  function openWeek(week: (typeof timeline)[number]) {
-    setInstant(`${week.date}T23:00`);
-    setStockFilter("all");
-    setDrawerOpen(true);
-  }
 
   return (
     <div className="space-y-5">
       <div>
         <h2 className="text-xl font-semibold tracking-tight text-ink">Farm simulator</h2>
         <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink-muted">
-          Pick any date and time inside the plan. The herd is rebuilt animal by animal up to that
-          moment, so the stock numbers and the money are the same farm seen from one instant.
+          A year of the plan at a time. Open any date to see what the farm did that day, what it
+          took in and paid out, and every animal standing on it.
         </p>
       </div>
 
-      <Panel
-        title="Weekly stock timeline"
-        description="Stock standing at each week end. Select a row to open its stock and activity details."
-        action={
-          <span className="rounded-full bg-plane px-2.5 py-1 text-xs font-medium text-ink-muted">
-            {timeline.length} weeks
-          </span>
-        }
-      >
-        <div className="max-h-[540px] overflow-y-auto rounded-lg border border-hairline">
-          <ul className="divide-y divide-hairline" aria-label="Farm stock by week">
-            {timeline.map((week) => {
-              const selected = week.week === selectedWeek;
-              return (
-                <li key={week.week}>
-                  <button
-                    type="button"
-                    onClick={() => openWeek(week)}
-                    className={`flex w-full items-center gap-4 px-4 py-3 text-left transition ${
-                      selected ? "bg-accent-soft" : "bg-surface hover:bg-plane"
-                    }`}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className={`block text-sm font-semibold ${selected ? "text-accent" : "text-ink"}`}>
-                        Week {week.week} - {number(week.total, 0)} head
-                      </span>
-                      <span className="mt-0.5 block text-xs text-ink-faint">
-                        {format(parseISO(week.startDate), "d MMM")}–{format(parseISO(week.date), "d MMM yyyy")}
-                      </span>
-                    </span>
-                    <span className="hidden text-xs text-ink-faint sm:block">
-                      {week.events.length === 0
-                        ? "No herd events"
-                        : `${week.events.length} ${week.events.length === 1 ? "event" : "events"}`}
-                    </span>
-                    <ChevronRight size={16} className={selected ? "text-accent" : "text-ink-faint"} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </Panel>
-
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-hairline bg-surface p-4">
-        <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-ink-muted">Date and time</span>
-          <input
-            type="datetime-local"
-            value={clamped}
-            min={toLocalInput(start)}
-            max={toLocalInput(subDays(end, 1))}
-            onChange={(event) => setInstant(event.target.value)}
-            className="rounded-lg border border-hairline bg-surface px-3 py-2 text-sm font-medium text-ink outline-none transition focus:border-accent"
-          />
-        </label>
-        <div className="flex flex-wrap gap-1.5">
-          {presets.map((preset) => (
-            <button
-              key={preset.label}
-              onClick={() => setInstant(preset.value)}
-              className={`rounded-lg border px-3 py-2 text-xs font-medium transition ${
-                clamped === preset.value
-                  ? "border-accent bg-accent-soft text-accent"
-                  : "border-hairline text-ink-muted hover:bg-raised hover:text-ink"
-              }`}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <p className="font-semibold text-ink">
+              Plan year {year + 1}
+              <span className="ml-2 font-normal text-ink-faint">
+                {format(yearStart, "MMM yyyy")} –{" "}
+                {format(addMonths(yearStart, monthsThisYear - 1), "MMM yyyy")}
+              </span>
+            </p>
+          </CardTitle>
+          <CardAction>
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={view}
+              onValueChange={(next) => {
+                if (next) setView(next as TimelineView);
+              }}
+              aria-label="Timeline view"
             >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-        <p className="ml-auto text-xs text-ink-faint">
-          Day {state.day + 1} of the plan · {format(parseISO(state.date), "EEEE d MMMM yyyy")}
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label="Pigs on the farm"
-          value={number(state.herd.total, 0)}
-          context={`${state.herd.growingTotal} growing · ${plural(state.herd.sows, "sow")} · ${plural(state.herd.boars, "boar")}`}
-        />
-        <StatTile
-          label="Liveweight on hand"
-          value={`${number(state.herd.liveweightKg, 0)} kg`}
-          context={`Finishers average ${number(state.herd.averageWeightKg.finisher, 1)} kg.`}
-        />
-        <StatTile
-          label="Cash"
-          value={money(state.finance.cash, currency)}
-          context={`Opened at ${money(state.finance.openingCash, currency)}.`}
-          tone={state.finance.cash >= 0 ? "good" : "critical"}
-        />
-        <StatTile
-          label="Net worth"
-          value={money(state.finance.netWorth, currency)}
-          context={`Cash plus ${money(state.finance.herdValue, currency)} of stock on hand.`}
-        />
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Panel
-          title="Herd on this date"
-          description="Counted from the individual animals standing on the farm."
-        >
-          <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full">
-            {stages.map((stage) => (
-              <span
-                key={stage.key}
-                style={{
-                  width: `${(stage.count / growingTotal) * 100}%`,
-                  backgroundColor: stage.color,
-                }}
-                className="block first:rounded-l-full last:rounded-r-full"
-              />
-            ))}
-          </div>
-          <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-            {stages.map((stage) => (
-              <div key={stage.key} className="rounded-lg border border-hairline p-3">
-                <dt className="flex items-center gap-1.5 text-xs text-ink-faint">
-                  <span
-                    className="size-2 rounded-full"
-                    style={{ backgroundColor: stage.color }}
-                    aria-hidden
-                  />
-                  {stage.label}
-                </dt>
-                <dd className="mt-1.5 text-lg font-semibold tracking-tight">{stage.count}</dd>
-                <dd className="text-xs text-ink-faint">
-                  {number(
-                    state.herd.averageWeightKg[
-                      stage.key.slice(0, -1) as keyof typeof state.herd.averageWeightKg
-                    ],
-                    1,
-                  )}{" "}
-                  kg average
-                </dd>
-              </div>
-            ))}
-          </dl>
-
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {[
-              ["Sows in pig", String(state.herd.gestatingSows)],
-              ["Sows suckling", String(state.herd.lactatingSows)],
-              ["Sows to serve", String(state.herd.openSows)],
-              ["Sow places used", state.herd.sows + " of " + state.herd.maxSows],
-              ["Replacement gilts coming", String(state.herd.replacementPipeline)],
-              ["Boars", String(state.herd.boars)],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-lg bg-plane p-3">
-                <p className="text-xs text-ink-faint">{label}</p>
-                <p className="mt-1 text-lg font-semibold tracking-tight">{value}</p>
-              </div>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel
-          title="Financial standing"
-          description={`Everything posted to the ledger between the start date and ${format(parseISO(state.date), "d MMM yyyy")}.`}
-        >
-          <table className="w-full text-sm">
-            <tbody>
-              {incomeLines.map((line) => (
-                <tr key={line.label} className="border-b border-hairline last:border-0">
-                  <td className="py-1.5 text-ink-muted">{line.label}</td>
-                  <td className="py-1.5 text-right tabular-nums">
-                    {money(line.amount, currency)}
-                  </td>
-                </tr>
-              ))}
-              <tr className="border-y border-hairline">
-                <td className="py-2 font-medium">Income to date</td>
-                <td className="py-2 text-right font-medium tabular-nums">
-                  {money(state.finance.income, currency)}
-                </td>
-              </tr>
-              {costLines.map((line) => (
-                <tr key={line.label} className="border-b border-hairline">
-                  <td className="py-1.5 text-ink-muted">{line.label}</td>
-                  <td className="py-1.5 text-right tabular-nums">
-                    {money(line.amount, currency)}
-                  </td>
-                </tr>
-              ))}
-              <tr className="border-b border-hairline">
-                <td className="py-2 font-medium">Costs to date</td>
-                <td className="py-2 text-right font-medium tabular-nums">
-                  {money(state.finance.expenses, currency)}
-                </td>
-              </tr>
-              <tr>
-                <td className="py-2 font-medium">Cash on hand</td>
-                <td
-                  className={`py-2 text-right font-semibold tabular-nums ${
-                    state.finance.cash < 0 ? "text-critical" : ""
-                  }`}
-                >
-                  {money(state.finance.cash, currency)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="mt-3 text-xs leading-5 text-ink-faint">
-            Last 30 days: {money(state.finance.last30Days.income, currency)} in,{" "}
-            {money(state.finance.last30Days.expenses, currency)} out, net{" "}
-            <span className={state.finance.last30Days.net < 0 ? "text-critical" : "text-good"}>
-              {money(state.finance.last30Days.net, currency)}
-            </span>
-            .
-          </p>
-        </Panel>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Panel
-          title="Generations on the farm"
-          description="Founding stock is generation 0. Every piglet is one past its dam, so overlapping generations breed side by side."
-        >
-          <div className="overflow-hidden rounded-lg border border-hairline">
-            <table className="w-full text-sm">
-              <thead className="border-b border-hairline bg-plane text-left text-xs text-ink-muted">
-                <tr>
-                  {["Generation", "Born", "On the farm", "Breeding", "Sold", "Lost"].map(
-                    (heading, index) => (
-                      <th
-                        key={heading}
-                        className={
-                          "whitespace-nowrap px-3 py-2 font-medium " +
-                          (index > 0 ? "text-right" : "")
-                        }
-                      >
-                        {heading}
-                      </th>
-                    ),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {state.generations.map((row) => (
-                  <tr key={row.generation} className="border-b border-hairline last:border-0">
-                    <td className="px-3 py-2 font-medium">
-                      {row.generation === 0 ? "Founding stock" : "Generation " + row.generation}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-ink-muted">
-                      {number(row.born, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium tabular-nums">
-                      {number(row.alive, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-ink-muted">
-                      {number(row.breedingFemales, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-ink-muted">
-                      {number(row.sold, 0)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-ink-muted">
-                      {number(row.died, 0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 text-xs leading-5 text-ink-faint">
-            {plural(state.generations.filter((row) => row.alive > 0).length, "generation")} standing
-            on the farm on this date.
-          </p>
-        </Panel>
-
-        <Panel
-          title="What a market pig costs"
-          description="Averaged over every pig sold so far. The stage bars are the pig's own bill; the breeding herd it came out of is carried underneath."
-        >
-          <div className="space-y-2">
-            {(
-              [
-                ["piglet", "Farrowing house"],
-                ["weaner", "Weaner"],
-                ["grower", "Grower"],
-                ["finisher", "Finisher"],
-              ] as const
-            ).map(([stage, label]) => {
-              const amount = state.costOfProduction.directByStage[stage];
-              const share = state.costOfProduction.directPerPig
-                ? (amount / state.costOfProduction.directPerPig) * 100
-                : 0;
-              return (
-                <div key={stage}>
-                  <div className="flex items-baseline justify-between text-sm">
-                    <span className="text-ink-muted">{label}</span>
-                    <span className="tabular-nums">{money(amount, currency)}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-raised">
-                    <span
-                      className="block h-full rounded-full"
-                      style={{
-                        width: share + "%",
-                        backgroundColor: CHART.stage[(stage + "s") as keyof typeof CHART.stage],
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <table className="mt-5 w-full text-sm">
-            <tbody>
-              {(
-                [
-                  ["Direct cost per pig", state.costOfProduction.directPerPig],
-                  ["Breeding herd share", state.costOfProduction.breedingCostPerPig],
-                  ["Share of overheads", state.costOfProduction.allocatedOverheadPerPig],
-                  ["Full cost per pig", state.costOfProduction.fullCostPerPig],
-                  ["Sold for", state.costOfProduction.revenuePerPig],
-                ] as const
-              ).map(([label, amount], index) => (
-                <tr key={label} className="border-b border-hairline">
-                  <td className={"py-1.5 " + (index === 3 ? "font-medium" : "text-ink-muted")}>
-                    {label}
-                  </td>
-                  <td
-                    className={
-                      "py-1.5 text-right tabular-nums " + (index === 3 ? "font-medium" : "")
-                    }
+              <ToggleGroupItem value="calendar" aria-label="Calendar of days">
+                <CalendarDays size={14} />
+                Calendar
+              </ToggleGroupItem>
+              <ToggleGroupItem value="months" aria-label="List of months">
+                <Rows3 size={14} />
+                Months
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          {view === "calendar" ? (
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Previous plan year"
+                    disabled={year === 0}
+                    onClick={() => setYearIndex(year - 1)}
                   >
-                    {money(amount, currency)}
-                  </td>
-                </tr>
-              ))}
-              <tr>
-                <td className="py-2 font-medium">Margin per pig</td>
-                <td
-                  className={
-                    "py-2 text-right font-semibold tabular-nums " +
-                    (state.costOfProduction.marginPerPig < 0 ? "text-critical" : "text-good")
-                  }
-                >
-                  {money(state.costOfProduction.marginPerPig, currency)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="mt-3 text-xs leading-5 text-ink-faint">
-            {rate(state.costOfProduction.fullCostPerDeadweightKg, currency)} per kg deadweight
-            against a {rate(config.finance.salePriceKg, currency)} price, over{" "}
-            {plural(state.costOfProduction.pigsSold, "pig")} sold at{" "}
-            {number(state.costOfProduction.averageSaleWeightKg, 1)} kg live /{" "}
-            {number(state.costOfProduction.averageDeadweightKg, 1)} kg carcass.
-          </p>
-        </Panel>
-      </div>
+                    <ChevronLeft size={16} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Next plan year"
+                    disabled={year >= planYears - 1}
+                    onClick={() => setYearIndex(year + 1)}
+                  >
+                    <ChevronRight size={16} />
+                  </Button>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <Panel
-          title="Breeding herd"
-          description="Each row is one sow object. A home-bred sow keeps the ear tag she was born with."
-        >
-          <div className="max-h-[420px] overflow-auto rounded-lg border border-hairline">
-            <table className="w-full min-w-[600px] text-sm">
-              <thead className="sticky top-0 bg-plane text-left text-xs text-ink-faint">
-                <tr>
-                  {["Tag", "Bred", "Status", "Parity", "Age", "Litter", "Weaned", "Next"].map((heading) => (
-                    <th key={heading} className="whitespace-nowrap px-3 py-2 font-medium">
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {state.sows.map((sow) => (
-                  <tr key={sow.tag} className="border-t border-hairline">
-                    <td className="whitespace-nowrap px-3 py-2 font-medium">{sow.tag}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-faint">
-                      {sow.homeBred ? "Home gen " + sow.generation : "Founding"}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink-muted">
-                      {SOW_STATE_LABELS[sow.state]}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums">{sow.parity}</td>
-                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-ink-muted">
-                      {number(sow.ageMonths, 0)} mo
-                    </td>
-                    <td className="px-3 py-2 tabular-nums">{sow.litterSize || "—"}</td>
-                    <td className="px-3 py-2 tabular-nums text-ink-muted">{sow.totalWeaned}</td>
-                    <td className="whitespace-nowrap px-3 py-2 text-ink-muted">
-                      {sow.nextEvent} in {sow.daysToNextEvent ?? 0}d
-                    </td>
-                  </tr>
-                ))}
-                {state.sows.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-3 py-6 text-center text-ink-faint">
-                      No breeding females on the farm on this date.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-
-        <div className="space-y-5">
-          <Panel title="Since the plan started" description="Cumulative production to this moment.">
-            <dl className="grid grid-cols-2 gap-3">
-              {[
-                ["Litters farrowed", number(state.lifetime.litters, 0)],
-                ["Piglets born alive", number(state.lifetime.bornAlive, 0)],
-                ["Piglets weaned", number(state.lifetime.weaned, 0)],
-                ["Pigs sold", number(state.lifetime.sold, 0)],
-                ["Pre-weaning losses", number(state.lifetime.pigletDeaths, 0)],
-                ["Post-weaning losses", number(state.lifetime.growingDeaths, 0)],
-                ["Sows culled", number(state.lifetime.sowsCulled, 0)],
-                ["Replacements bought", number(state.lifetime.giltsPurchased, 0)],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-lg bg-plane p-3">
-                  <dt className="text-xs text-ink-faint">{label}</dt>
-                  <dd className="mt-1 text-base font-semibold tracking-tight">{value}</dd>
                 </div>
-              ))}
-            </dl>
-          </Panel>
-
-          <Panel title="Latest events" description="What the farm did just before this moment.">
-            <ol className="space-y-2.5">
-              {state.recentEvents.map((event, index) => (
-                <li key={`${event.day}-${index}`} className="flex gap-3 text-sm">
-                  <span className="w-20 shrink-0 text-xs tabular-nums text-ink-faint">
-                    {format(parseISO(event.date), "d MMM yy")}
-                  </span>
-                  <span className="text-ink-muted">{event.message}</span>
-                </li>
-              ))}
-              {state.recentEvents.length === 0 ? (
-                <li className="text-sm text-ink-faint">Nothing has happened yet on this plan.</li>
-              ) : null}
-            </ol>
-          </Panel>
-        </div>
-      </div>
-
-      {drawerOpen && selectedTimelineWeek ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close week details"
-            onClick={() => setDrawerOpen(false)}
-            className="fixed inset-0 z-40 cursor-default bg-black/25"
-          />
-          <aside
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="week-drawer-title"
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l border-hairline bg-surface shadow-2xl"
-          >
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-hairline px-5 py-4 sm:px-6">
-              <div>
-                <p className="text-xs font-medium text-accent">Farm stock timeline</p>
-                <h3 id="week-drawer-title" className="mt-1 text-xl font-semibold tracking-tight text-ink">
-                  Week {selectedWeek} - {number(state.stock.length, 0)} head
-                </h3>
-                <p className="mt-1 text-xs text-ink-faint">
-                  {format(parseISO(selectedTimelineWeek.startDate), "d MMM")}–{format(parseISO(selectedTimelineWeek.date), "d MMM yyyy")}
+                <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-faint">
+                  <Marker color={CHART.stage.sows}>Farrowing</Marker>
+                  <Marker color={CHART.cash}>Sale</Marker>
+                  <Marker color={CHART.warning}>Feed lorry</Marker>
                 </p>
               </div>
-              <button
-                type="button"
-                aria-label="Close week details"
-                onClick={() => setDrawerOpen(false)}
-                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-hairline text-ink-muted transition hover:bg-plane hover:text-ink"
-              >
-                <X size={17} />
-              </button>
-            </header>
-
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <section className="border-b border-hairline px-5 py-5 sm:px-6">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-ink">Events this week</h4>
-                    <p className="mt-0.5 text-xs text-ink-faint">Work and herd movements recorded by the simulation.</p>
-                  </div>
-                  <span className="rounded-full bg-plane px-2.5 py-1 text-xs text-ink-muted">
-                    {selectedTimelineWeek.events.length}
-                  </span>
-                </div>
-                {selectedTimelineWeek.events.length > 0 ? (
-                  <ul className="space-y-2">
-                    {selectedTimelineWeek.events.map((event, index) => (
-                      <li
-                        key={`${event.type}-${index}`}
-                        className="flex items-center gap-3 rounded-lg border border-hairline px-3 py-2.5"
-                      >
-                        <span
-                          className={`size-2.5 shrink-0 rounded-full ${WEEK_EVENT_TONES[event.type]}`}
-                          aria-hidden
-                        />
-                        <span className="text-sm font-medium text-ink">{event.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="rounded-lg bg-plane px-4 py-5 text-sm text-ink-faint">
-                    No vaccinations, services, sales, births, weaning, purchases, or losses this week.
-                  </div>
-                )}
-              </section>
-
-              <section className="px-5 py-5 sm:px-6">
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-ink">Available stock</h4>
-                  <p className="mt-0.5 text-xs text-ink-faint">
-                    Every live animal at week end, including its age and current status.
-                  </p>
-                </div>
-
-                <div className="mb-4 flex flex-wrap gap-2" aria-label="Filter available stock">
-                  <button
-                    type="button"
-                    onClick={() => setStockFilter("all")}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                      stockFilter === "all"
-                        ? "border-accent bg-accent text-white"
-                        : "border-hairline text-ink-muted hover:bg-plane"
-                    }`}
-                  >
-                    All {state.stock.length}
-                  </button>
-                  {stockGroups.map((group) => (
-                    <button
-                      key={group.kind}
-                      type="button"
-                      onClick={() => setStockFilter(group.kind)}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                        stockFilter === group.kind
-                          ? "border-accent bg-accent text-white"
-                          : "border-hairline text-ink-muted hover:bg-plane"
-                      }`}
-                    >
-                      {STOCK_LABELS[group.kind].plural} {group.count} · {ageSpan(group)}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="overflow-hidden rounded-lg border border-hairline">
-                  <div className="divide-y divide-hairline">
-                    {filteredStock.map((animal) => (
-                      <div key={animal.tag} className="flex items-start justify-between gap-4 px-3 py-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-ink">
-                            {animal.tag}
-                            <span className="ml-2 font-normal text-ink-muted">
-                              {STOCK_LABELS[animal.kind].singular}
-                            </span>
-                          </p>
-                          <p className="mt-1 text-xs capitalize text-ink-faint">
-                            {animal.sex} · {animal.status} · generation {animal.generation}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-semibold tabular-nums text-ink">
-                            {compactAge(animal.ageDays)}
-                          </p>
-                          <p className="mt-1 text-xs tabular-nums text-ink-faint">
-                            {number(animal.weightKg, 1)} kg · {number(animal.ageDays, 0)}d
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {filteredStock.length === 0 ? (
-                      <p className="px-4 py-8 text-center text-sm text-ink-faint">
-                        No stock in this category for Week {selectedWeek}.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </section>
+              <Calendar
+                mode="single"
+                required
+                selected={parseISO(selected)}
+                onSelect={(date) => {
+                  if (date) choose(format(date, "yyyy-MM-dd"));
+                }}
+                month={yearStart}
+                numberOfMonths={monthsThisYear}
+                hideNavigation
+                showOutsideDays={false}
+                startMonth={startOfMonth(start)}
+                endMonth={startOfMonth(lastDay)}
+                disabled={{ before: start, after: lastDay }}
+                components={{ DayButton: DayCell }}
+                className="w-full p-0 [--cell-size:--spacing(9)]"
+                classNames={{
+                  months:
+                    "grid w-full grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
+                  month_caption: "flex h-8 items-center",
+                  caption_label: "text-[13px] font-semibold text-ink",
+                }}
+              />
             </div>
-          </aside>
-        </>
-      ) : null}
+          ) : (
+            <ScrollArea className="h-[520px] w-full rounded-xl border border-hairline">
+              <ul className="divide-y divide-hairline">
+                {timeline.months.map((month) => {
+                  const active = selected >= month.date && selected <= month.endDate;
+                  return (
+                    <li key={month.date}>
+                      <button
+                        type="button"
+                        onClick={() => choose(month.endDate)}
+                        className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${active ? "bg-brand-soft" : "hover:bg-plane"
+                          }`}
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span
+                            className={`block text-sm font-semibold ${active ? "text-brand" : "text-ink"}`}
+                          >
+                            {month.label}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-ink-faint">
+                            {number(month.total, 0)} head · {number(month.sold, 0)} sold ·{" "}
+                            {plural(month.feedLoads, "feed load")} ·{" "}
+                            {money(month.netCashFlow, currency)} net
+                          </span>
+                        </span>
+                        <ChevronRight
+                          size={16}
+                          className={active ? "text-brand" : "text-ink-faint"}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ScrollArea>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-plane px-4 py-3">
+            <div>
+              <p className="text-xs text-ink-faint">Showing the farm as it stood on</p>
+              <p className="text-sm font-semibold text-ink">
+                {format(parseISO(state.date), "EEEE d MMMM yyyy")} · day {state.day + 1}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setDayOpen(true)}>
+              {view === "months" ? "Open this month" : "Open this day"}
+              <ChevronRight size={14} />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Financial standing</CardTitle>
+            <CardDescription>
+              Everything posted to the ledger between the start date and{" "}
+              {format(parseISO(state.date), "d MMM yyyy")}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <table className="w-full text-sm">
+              <tbody>
+                {incomeLines.map((line) => (
+                  <tr key={line.label} className="border-b border-hairline last:border-0">
+                    <td className="py-1.5 text-ink-muted">{line.label}</td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {money(line.amount, currency)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-y border-hairline">
+                  <td className="py-2 font-medium">Income to date</td>
+                  <td className="py-2 text-right font-medium tabular-nums">
+                    {money(state.finance.income, currency)}
+                  </td>
+                </tr>
+                {costLines.map((line) => (
+                  <tr key={line.label} className="border-b border-hairline">
+                    <td className="py-1.5 text-ink-muted">{line.label}</td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {money(line.amount, currency)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-b border-hairline">
+                  <td className="py-2 font-medium">Costs to date</td>
+                  <td className="py-2 text-right font-medium tabular-nums">
+                    {money(state.finance.expenses, currency)}
+                  </td>
+                </tr>
+                <tr className="border-b border-hairline">
+                  <td className="py-2 font-medium">Cash on hand</td>
+                  <td
+                    className={`py-2 text-right font-semibold tabular-nums ${state.finance.cash < 0 ? "text-critical" : ""
+                      }`}
+                  >
+                    {money(state.finance.cash, currency)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 font-medium">Net worth</td>
+                  <td className="py-2 text-right font-semibold tabular-nums">
+                    {money(state.finance.netWorth, currency)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs leading-5 text-ink-faint">
+              Cash plus {money(state.finance.herdValue, currency)} of stock on hand. Last 30 days:{" "}
+              {money(state.finance.last30Days.income, currency)} in,{" "}
+              {money(state.finance.last30Days.expenses, currency)} out, net{" "}
+              <span className={state.finance.last30Days.net < 0 ? "text-critical" : "text-good"}>
+                {money(state.finance.last30Days.net, currency)}
+              </span>
+              .
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>What a market pig costs</CardTitle>
+            <CardDescription>
+              Averaged over every pig sold so far. The stage bars are the pig&apos;s own bill; the
+              breeding herd it came out of is carried underneath.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {(
+                [
+                  ["piglet", "Farrowing house"],
+                  ["weaner", "Weaner"],
+                  ["grower", "Grower"],
+                  ["finisher", "Finisher"],
+                ] as const
+              ).map(([stage, label]) => {
+                const amount = state.costOfProduction.directByStage[stage];
+                const share = state.costOfProduction.directPerPig
+                  ? (amount / state.costOfProduction.directPerPig) * 100
+                  : 0;
+                return (
+                  <div key={stage}>
+                    <div className="flex items-baseline justify-between text-sm">
+                      <span className="text-ink-muted">{label}</span>
+                      <span className="tabular-nums">{money(amount, currency)}</span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-raised">
+                      <span
+                        className="block h-full rounded-full"
+                        style={{
+                          width: share + "%",
+                          backgroundColor: CHART.stage[(stage + "s") as keyof typeof CHART.stage],
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <table className="mt-5 w-full text-sm">
+              <tbody>
+                {(
+                  [
+                    ["Direct cost per pig", state.costOfProduction.directPerPig],
+                    ["Breeding herd share", state.costOfProduction.breedingCostPerPig],
+                    ["Share of overheads", state.costOfProduction.allocatedOverheadPerPig],
+                    ["Full cost per pig", state.costOfProduction.fullCostPerPig],
+                    ["Sold for", state.costOfProduction.revenuePerPig],
+                  ] as const
+                ).map(([label, amount], index) => (
+                  <tr key={label} className="border-b border-hairline">
+                    <td className={"py-1.5 " + (index === 3 ? "font-medium" : "text-ink-muted")}>
+                      {label}
+                    </td>
+                    <td
+                      className={
+                        "py-1.5 text-right tabular-nums " + (index === 3 ? "font-medium" : "")
+                      }
+                    >
+                      {money(amount, currency)}
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td className="py-2 font-medium">Margin per pig</td>
+                  <td
+                    className={
+                      "py-2 text-right font-semibold tabular-nums " +
+                      (state.costOfProduction.marginPerPig < 0 ? "text-critical" : "text-good")
+                    }
+                  >
+                    {money(state.costOfProduction.marginPerPig, currency)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs leading-5 text-ink-faint">
+              {rate(state.costOfProduction.fullCostPerDeadweightKg, currency)} per kg deadweight
+              against a {rate(config.finance.salePriceKg, currency)} price, over{" "}
+              {plural(state.costOfProduction.pigsSold, "pig")} sold at{" "}
+              {number(state.costOfProduction.averageSaleWeightKg, 1)} kg live /{" "}
+              {number(state.costOfProduction.averageDeadweightKg, 1)} kg carcass.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <DetailPanel
+        open={dayOpen}
+        onOpenChange={setDayOpen}
+        view={view}
+        day={selectedDay}
+        month={selectedMonth}
+        monthEnd={selectedMonth ? (byDate.get(selectedMonth.endDate) ?? null) : null}
+        state={state}
+        currency={currency}
+      />
     </div>
+  );
+}
+
+/** A coloured dot beside a word, for the calendar's key. */
+function Marker({ color, children }: { color: string; children: React.ReactNode }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+/**
+ * The panel the timeline opens into. A day shows what the farm did and what was
+ * standing on it; a month shows the same, led by the income and expenditure the
+ * month posted — which is the question a month-at-a-time view is being asked.
+ */
+function DetailPanel({
+  open,
+  onOpenChange,
+  view,
+  day,
+  month,
+  monthEnd,
+  state,
+  currency,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  view: TimelineView;
+  day: FarmCalendarDay | null;
+  month: FarmCalendarMonth | null;
+  monthEnd: FarmCalendarDay | null;
+  state: FarmState;
+  currency: string;
+}) {
+  const months = view === "months";
+  const herd = months ? monthEnd : day;
+  const events = months ? month?.events : day?.events;
+  if (months ? !month : !day) return null;
+
+  const counts = herd?.counts ?? null;
+  const distribution: [string, number][] = counts
+    ? [
+      ["Piglets", counts.piglets],
+      ["Weaners", counts.weaners],
+      ["Growers", counts.growers],
+      ["Finishers", counts.finishers],
+      ["Gilts", counts.gilts],
+      ["Sows in pig", counts.gestatingSows],
+      ["Sows suckling", counts.lactatingSows],
+      ["Sows to serve", counts.openSows],
+      ["Boars", counts.boars],
+    ]
+    : [];
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full gap-0 sm:max-w-lg">
+        <SheetHeader className="shrink-0 border-b border-hairline">
+          <p className="text-xs font-medium text-brand">
+            {months
+              ? `Month ${(month?.index ?? 0) + 1} of the plan`
+              : `Day ${(day?.day ?? 0) + 1} of the plan`}
+          </p>
+          <SheetTitle>
+            {months
+              ? month?.label
+              : format(parseISO(day?.date ?? state.date), "EEEE d MMMM yyyy")}
+          </SheetTitle>
+          <SheetDescription>
+            {number(herd?.total ?? 0, 0)} head on the farm
+            {months ? " at the end of the month" : " when the day closed"}.
+          </SheetDescription>
+        </SheetHeader>
+
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-6 px-4 py-5">
+            {months && month ? (
+              <section>
+                <h4 className="text-sm font-semibold text-ink">Income and expenditure</h4>
+                <table className="mt-3 w-full text-sm">
+                  <tbody>
+                    {INCOME_CATEGORIES.map((category) => (
+                      <tr key={category} className="border-b border-hairline">
+                        <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[category]}</td>
+                        <td className="py-1.5 text-right tabular-nums">
+                          {money(month.totals[category], currency)}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-b border-hairline">
+                      <td className="py-2 font-medium">Money in</td>
+                      <td className="py-2 text-right font-medium tabular-nums">
+                        {money(month.cashIn, currency)}
+                      </td>
+                    </tr>
+                    {EXPENSE_CATEGORIES.map((category) => (
+                      <tr key={category} className="border-b border-hairline">
+                        <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[category]}</td>
+                        <td className="py-1.5 text-right tabular-nums">
+                          {money(month.totals[category], currency)}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-b border-hairline">
+                      <td className="py-2 font-medium">Money out</td>
+                      <td className="py-2 text-right font-medium tabular-nums">
+                        {money(month.cashOut, currency)}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-hairline">
+                      <td className="py-2 font-medium">Net for the month</td>
+                      <td
+                        className={`py-2 text-right font-semibold tabular-nums ${month.netCashFlow < 0 ? "text-critical" : "text-good"
+                          }`}
+                      >
+                        {money(month.netCashFlow, currency)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 font-medium">Cash at month end</td>
+                      <td
+                        className={`py-2 text-right font-semibold tabular-nums ${month.closingCash < 0 ? "text-critical" : ""
+                          }`}
+                      >
+                        {money(month.closingCash, currency)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </section>
+            ) : null}
+
+            <section>
+              <h4 className="text-sm font-semibold text-ink">
+                {months ? "Activities this month" : "Activities"}
+              </h4>
+              {events && events.length > 0 ? (
+                <ul className="mt-3 space-y-2">
+                  {events.map((event, index) => (
+                    <li
+                      key={`${event.type}-${index}`}
+                      className="flex items-start gap-2.5 text-sm text-ink-muted"
+                    >
+                      <span
+                        className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${EVENT_TONES[event.type]}`}
+                      >
+                        {EVENT_NAMES[event.type]}
+                      </span>
+                      <span className="min-w-0">{event.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-3 text-sm text-ink-faint">
+                  {months
+                    ? "A quiet month: the herd is fed and grown, and nothing else falls due."
+                    : "A quiet day: the herd is fed and grown, and nothing else falls due."}
+                </p>
+              )}
+            </section>
+
+            <section>
+              <h4 className="text-sm font-semibold text-ink">Pigs on the farm</h4>
+              <dl className="mt-3 grid grid-cols-3 gap-2.5">
+                {distribution.map(([label, count]) => (
+                  <div key={label} className="rounded-lg border border-hairline p-2.5">
+                    <dt className="text-[11px] leading-4 text-ink-faint">{label}</dt>
+                    <dd className="mt-0.5 text-lg font-semibold tracking-tight tabular-nums">
+                      {number(count, 0)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              {counts ? (
+                <p className="mt-3 text-xs leading-5 text-ink-faint">
+                  {number(counts.total, 0)} head in all, carrying{" "}
+                  {number(state.herd.liveweightKg, 0)} kg of liveweight.{" "}
+                  {plural(counts.replacementPipeline, "gilt")} are growing on to replace the{" "}
+                  {plural(counts.sows, "sow")} in the herd.
+                </p>
+              ) : null}
+            </section>
+          </div>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -2206,6 +2127,43 @@ function Inputs({
       </SectionCard>
 
       <SectionCard
+        title="Getting the feed here"
+        description="Feed is bought by the load, not by the mouthful. The plan's whole feeding is walked backwards and cut into lorry-loads, each trip placed on the day the herd starts eating into it — so nothing is delivered that is not eaten, and the haulage is charged to the pigs that eat that load."
+        icon={Truck}
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field
+            label="Truck capacity"
+            value={config.feed.truckCapacityKg}
+            onChange={(v) => update("feed", "truckCapacityKg", v)}
+            suffix="kg per load"
+            min={100}
+            max={30000}
+            step={100}
+            hint="A bigger lorry means fewer trips for the same feed."
+          />
+          <Field
+            label="Cost per delivery"
+            value={config.feed.deliveryCostPerTrip}
+            onChange={(v) => update("feed", "deliveryCostPerTrip", v)}
+            suffix={`${config.project.currency}/load`}
+            step={5}
+            hint="What one round trip to the mill costs, whatever is on the truck."
+          />
+          <Field
+            label="Feed buffer held"
+            value={config.feed.feedBufferDays}
+            onChange={(v) => update("feed", "feedBufferDays", v)}
+            suffix="days"
+            min={1}
+            max={120}
+            step={1}
+            hint="Each load lands this many days before the herd starts eating into it."
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard
         title="Health costs by age"
         description="Every pig is charged for each treatment on the day it reaches that age, and for heat while it is still young enough to need it."
         icon={Syringe}
@@ -2267,7 +2225,7 @@ function Inputs({
                       onChange={(event) =>
                         updateVaccination(index, { name: event.target.value })
                       }
-                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm outline-none transition hover:border-hairline focus:border-accent"
+                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm outline-none transition hover:border-hairline focus:border-brand"
                     />
                   </td>
                   <td className="px-2 py-1.5">
@@ -2281,7 +2239,7 @@ function Inputs({
                       onChange={(event) =>
                         updateVaccination(index, { ageDays: Number(event.target.value) })
                       }
-                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none transition hover:border-hairline focus:border-accent"
+                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none transition hover:border-hairline focus:border-brand"
                     />
                   </td>
                   <td className="px-2 py-1.5">
@@ -2294,7 +2252,7 @@ function Inputs({
                       onChange={(event) =>
                         updateVaccination(index, { costPerPig: Number(event.target.value) })
                       }
-                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none transition hover:border-hairline focus:border-accent"
+                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none transition hover:border-hairline focus:border-brand"
                     />
                   </td>
                   <td className="px-2 py-1.5 text-right">
@@ -2420,6 +2378,14 @@ function Inputs({
             suffix="% of operating costs"
             max={100}
           />
+          <Field
+            label="Working capital to keep"
+            value={config.finance.workingCapitalTarget}
+            onChange={(v) => update("finance", "workingCapitalTarget", v)}
+            suffix={config.project.currency}
+            step={500}
+            hint="The cash the business should never drop below. Financial planning tops the balance up to it and leaves it behind when surplus is taken out."
+          />
         </div>
       </SectionCard>
     </div>
@@ -2503,6 +2469,12 @@ function CashflowPreview({
       label: "Feed",
       monthValue: (month) => month.totals.feed,
       planValue: total((month) => month.totals.feed),
+    },
+    {
+      key: "feed-haulage",
+      label: "Feed delivery",
+      monthValue: (month) => month.totals["feed-haulage"],
+      planValue: total((month) => month.totals["feed-haulage"]),
     },
     {
       key: "vaccination",
@@ -2643,7 +2615,7 @@ function CashflowPreview({
                     {month.month}
                   </th>
                 ))}
-                <th className="min-w-32 border-b border-hairline bg-accent-soft px-3 py-3 text-right font-semibold text-accent">
+                <th className="min-w-32 border-b border-hairline bg-brand-soft px-3 py-3 text-right font-semibold text-brand">
                   Plan total / end
                 </th>
               </tr>
@@ -2707,7 +2679,7 @@ function CashflowPreview({
                     })}
                     <td
                       className={
-                        "whitespace-nowrap border-b border-hairline bg-accent-soft/50 px-3 py-2.5 text-right font-semibold tabular-nums " +
+                        "whitespace-nowrap border-b border-hairline bg-brand-soft/50 px-3 py-2.5 text-right font-semibold tabular-nums " +
                         (row.planValue < 0 || (row.kind === "funding" && row.planValue > 0)
                           ? "text-critical"
                           : "text-ink")
@@ -2737,6 +2709,8 @@ type PeriodView = {
   key: string;
   label: string;
   sublabel: string;
+  /** The month this view is of, or null for a rolled-up plan year. */
+  monthIndex: number | null;
   totals: CategoryTotals;
   revenue: number;
   totalCost: number;
@@ -2756,6 +2730,7 @@ function monthView(month: MonthlyProjection): PeriodView {
     key: month.date,
     label: month.month,
     sublabel: format(parseISO(month.date), "MMMM yyyy"),
+    monthIndex: month.index,
     totals: month.totals,
     revenue: month.revenue,
     totalCost: month.totalCost,
@@ -2780,6 +2755,7 @@ function yearView(year: PeriodSummary, months: MonthlyProjection[]): PeriodView 
       format(parseISO(year.startDate), "MMM yyyy") +
       " – " +
       format(parseISO(covered.at(-1)!.date), "MMM yyyy"),
+    monthIndex: null,
     totals: year.totals,
     revenue: year.revenue,
     totalCost: year.totalCost,
@@ -2795,12 +2771,148 @@ function yearView(year: PeriodSummary, months: MonthlyProjection[]): PeriodView 
   };
 }
 
-function Money({
+/**
+ * The two funding decisions a plan needs once the farming is settled: how much
+ * money has to go in to keep the business solvent, and how much can come back
+ * out once it is. Both are worked out month by month against the working capital
+ * the plan says to keep, and both write rows you can then read and edit like any
+ * other — they are simply written for you rather than typed.
+ */
+function FundingControls({
   config,
   projection,
+  update,
 }: {
   config: PlannerConfig;
   projection: ReturnType<typeof calculateProjection>;
+  update: <S extends PlannerSection, K extends keyof PlannerConfig[S]>(
+    section: S,
+    key: K,
+    value: PlannerConfig[S][K],
+  ) => void;
+}) {
+  const currency = config.project.currency;
+  const movements = config.finance.cashMovements;
+  const target = config.finance.workingCapitalTarget;
+
+  const injected = generatedTotal(movements, "in");
+  const withdrawn = generatedTotal(movements, "out");
+
+  /**
+   * Each side is planned against the farm as it stands without that side's own
+   * rows, so pressing a button twice gives the same answer as pressing it once,
+   * and the two compose: money put in is there to be left alone when the surplus
+   * is taken out.
+   */
+  function replace(kind: CashMovement["kind"], plan: typeof planCashInjections) {
+    const kept = movements.filter((movement) => !isGenerated(movement, kind));
+    const base = {
+      ...config,
+      finance: { ...config.finance, cashMovements: kept },
+    };
+    update("finance", "cashMovements", [...kept, ...plan(base, calculateProjection(base))]);
+  }
+
+  function clear(kind: CashMovement["kind"]) {
+    update(
+      "finance",
+      "cashMovements",
+      movements.filter((movement) => !isGenerated(movement, kind)),
+    );
+  }
+
+  return (
+    <div className="mt-5 grid gap-4 md:grid-cols-2">
+      <Card size="sm">
+        <CardContent>
+          <p className="text-sm font-semibold text-ink">Cash injections</p>
+          <p className="mt-1 text-xs leading-5 text-ink-faint">
+            Puts money in month by month, exactly enough to cancel out the months that spend more
+            than they take, so the balance never closes below{" "}
+            {money(target, currency)}.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => replace("in", planCashInjections)}>
+              <Plus size={14} />
+              Add cash injections
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={injected === 0}
+              onClick={() => clear("in")}
+            >
+              Remove cash injections
+            </Button>
+          </div>
+          <div className="mt-4 flex items-baseline justify-between border-t border-hairline pt-3">
+            <span className="text-xs text-ink-faint">Total cash injections</span>
+            <span className="text-lg font-semibold tracking-tight tabular-nums text-good">
+              {money(injected, currency)}
+            </span>
+          </div>
+          <p className="mt-1.5 text-xs text-ink-faint">
+            Lowest the plan gets as it stands:{" "}
+            <span className={projection.summary.lowestCash < target ? "text-critical" : ""}>
+              {money(projection.summary.lowestCash, currency)}
+            </span>
+            .
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card size="sm">
+        <CardContent>
+          <p className="text-sm font-semibold text-ink">Cash withdrawals</p>
+          <p className="mt-1 text-xs leading-5 text-ink-faint">
+            Takes the surplus out as it builds, leaving {money(target, currency)} of working
+            capital behind — and never more than the leanest month still to come can spare.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => replace("out", planCashWithdrawals)}>
+              <Minus size={14} />
+              Withdraw excess
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={withdrawn === 0}
+              onClick={() => clear("out")}
+            >
+              Remove withdrawals
+            </Button>
+          </div>
+          <div className="mt-4 flex items-baseline justify-between border-t border-hairline pt-3">
+            <span className="text-xs text-ink-faint">Total cash withdrawn</span>
+            <span className="text-lg font-semibold tracking-tight tabular-nums">
+              {money(withdrawn, currency)}
+            </span>
+          </div>
+          <p className="mt-1.5 text-xs text-ink-faint">
+            Cash left at the end of the plan:{" "}
+            <span className={projection.summary.closingCash < 0 ? "text-critical" : ""}>
+              {money(projection.summary.closingCash, currency)}
+            </span>
+            .
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Money({
+  config,
+  projection,
+  update,
+}: {
+  config: PlannerConfig;
+  projection: ReturnType<typeof calculateProjection>;
+  update: <S extends PlannerSection, K extends keyof PlannerConfig[S]>(
+    section: S,
+    key: K,
+    value: PlannerConfig[S][K],
+  ) => void;
 }) {
   const [granularity, setGranularity] = useState<Granularity>("month");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -2814,16 +2926,22 @@ function Money({
     [granularity, projection],
   );
 
-  const selected = periods.find((period) => period.key === selectedKey) ?? periods[0];
+  const selected = periods.find((period) => period.key === selectedKey) ?? null;
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  function openPeriod(key: string) {
+    setSelectedKey(key);
+    setPanelOpen(true);
+  }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-ink">Money in and money out</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-ink">Financial planning</h2>
           <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-muted">
-            Zoom out to plan years for the shape of the business, or stay on months and pick one to
-            see exactly what it is expected to earn and spend.
+            What the farm earns and spends, month by month or zoomed out to plan years — and the
+            money you put in or take out to carry it between the two.
           </p>
         </div>
         <div className="flex rounded-lg border border-hairline p-0.5">
@@ -2843,7 +2961,7 @@ function Money({
               className={
                 "rounded-md px-3 py-1.5 text-xs font-medium transition " +
                 (granularity === value
-                  ? "bg-accent-soft text-accent"
+                  ? "bg-brand-soft text-brand"
                   : "text-ink-muted hover:text-ink")
               }
             >
@@ -2853,7 +2971,7 @@ function Money({
         </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(330px,0.65fr)]">
+      <div>
         <div className="overflow-hidden rounded-xl border border-hairline bg-surface">
           <div className="max-h-[640px] overflow-auto">
             <table className="w-full min-w-[520px] border-collapse text-xs">
@@ -2880,11 +2998,11 @@ function Money({
                   return (
                     <tr
                       key={period.key}
-                      onClick={() => setSelectedKey(period.key)}
+                      onClick={() => openPeriod(period.key)}
                       aria-selected={active}
                       className={
                         "cursor-pointer border-b border-hairline last:border-0 " +
-                        (active ? "bg-accent-soft" : "hover:bg-plane")
+                        (active ? "bg-brand-soft" : "hover:bg-plane")
                       }
                     >
                       <td className="whitespace-nowrap px-3.5 py-2.5 font-medium">
@@ -2919,122 +3037,277 @@ function Money({
             </table>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline bg-plane px-4 py-3 text-xs text-ink-faint">
-            <span>Pick a row to break it down.</span>
+            <span>
+              Pick a {granularity === "month" ? "month" : "plan year"} to break it down and add
+              money in or out.
+            </span>
             <span>
               {periods.length} {granularity === "month" ? "months" : "plan years"} simulated
             </span>
           </div>
         </div>
 
-        {selected ? <PeriodDetail period={selected} currency={currency} /> : null}
+        <FundingControls config={config} projection={projection} update={update} />
+
       </div>
+
+      <PeriodPanel
+        open={panelOpen}
+        onOpenChange={setPanelOpen}
+        period={selected}
+        config={config}
+        update={update}
+      />
     </div>
   );
 }
 
-function PeriodDetail({ period, currency }: { period: PeriodView; currency: string }) {
+/**
+ * A period opened from the table: what it is expected to receive and spend,
+ * and — on a month — the rows you add yourself. Those post to the farm's own
+ * general lines, other income and fixed overheads, so they read the same way in
+ * the cashflow and the workbook as everything else. Here they are itemised, with
+ * the line they belong to shown net of them so the statement still adds up.
+ */
+function ownTotal(rows: { movement: CashMovement }[], kind: CashMovement["kind"]): number {
+  return rows.reduce(
+    (sum, row) => (row.movement.kind === kind ? sum + row.movement.amount : sum),
+    0,
+  );
+}
+
+function PeriodPanel({
+  open,
+  onOpenChange,
+  period,
+  config,
+  update,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  period: PeriodView | null;
+  config: PlannerConfig;
+  update: <S extends PlannerSection, K extends keyof PlannerConfig[S]>(
+    section: S,
+    key: K,
+    value: PlannerConfig[S][K],
+  ) => void;
+}) {
+  const currency = config.project.currency;
+  const movements = config.finance.cashMovements;
+  const monthIndex = period?.monthIndex ?? null;
+  // A plan year is not a month, so there is no single month to book a row into.
+  const editable = monthIndex !== null;
+
+  const mine = movements
+    .map((movement, index) => ({ movement, index }))
+    .filter((row) => row.movement.monthIndex === monthIndex);
+
+  function write(next: CashMovement[]) {
+    update("finance", "cashMovements", next);
+  }
+
+  function addRow(kind: CashMovement["kind"]) {
+    if (monthIndex === null) return;
+    write([
+      ...movements,
+      { id: `cash-${Date.now()}`, monthIndex, kind, amount: 0, note: "", auto: false },
+    ]);
+  }
+
+  function change(index: number, patch: Partial<CashMovement>) {
+    write(movements.map((row, position) => (position === index ? { ...row, ...patch } : row)));
+  }
+
+  function remove(index: number) {
+    write(movements.filter((_, position) => position !== index));
+  }
+
+  if (!period) return null;
+
+  // The owner's rows post to other income and to fixed overheads. Itemising
+  // them here means taking them back out of the line they were added to, or the
+  // same money would be shown twice.
+  const netOff: Partial<Record<LedgerCategory, number>> = editable
+    ? { "other-income": ownTotal(mine, "in"), overheads: ownTotal(mine, "out") }
+    : {};
   const lines = (categories: readonly LedgerCategory[]) =>
     categories
-      .map((category) => ({ category, amount: period.totals[category] }))
+      .map((category) => ({ category, amount: period.totals[category] - (netOff[category] ?? 0) }))
       .filter((line) => line.amount !== 0)
       .sort((a, b) => b.amount - a.amount);
 
   const income = lines(INCOME_CATEGORIES);
   const spend = lines(EXPENSE_CATEGORIES);
 
+  const ownRows = (kind: CashMovement["kind"]) =>
+    mine
+      .filter((row) => row.movement.kind === kind)
+      .map(({ movement, index }) => (
+        <tr key={movement.id} className="border-b border-hairline">
+          <td className="py-1.5 pr-2">
+            <Input
+              value={movement.note}
+              placeholder={kind === "in" ? "What the money is for" : "What the cost is for"}
+              onChange={(event) => change(index, { note: event.target.value.slice(0, 80) })}
+              className="h-8"
+            />
+          </td>
+          <td className="py-1.5">
+            <div className="flex items-center justify-end gap-1">
+              <Input
+                type="number"
+                min={0}
+                step={100}
+                value={movement.amount}
+                onChange={(event) => change(index, { amount: Math.max(0, Number(event.target.value)) })}
+                className="h-8 w-28 text-right tabular-nums"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Remove this row"
+                onClick={() => remove(index)}
+              >
+                <Trash2 size={15} />
+              </Button>
+            </div>
+          </td>
+        </tr>
+      ));
+
   return (
-    <section className="h-fit rounded-xl border border-hairline bg-surface p-5 xl:sticky xl:top-24">
-      <p className="text-xs text-ink-faint">{period.sublabel}</p>
-      <h3 className="mt-0.5 text-[15px] font-semibold tracking-tight text-ink">
-        Expected to receive and spend
-      </h3>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full gap-0 sm:max-w-xl">
+        <SheetHeader className="shrink-0 border-b border-hairline">
+          <p className="text-xs font-medium text-brand">{period.sublabel}</p>
+          <SheetTitle>Expected to receive and spend</SheetTitle>
+          <SheetDescription>
+            {editable
+              ? "Add a row under either heading for money in or out this month. Income joins other income; costs join fixed overheads."
+              : "A plan year rolls its months up; open a single month to add money in or out."}
+          </SheetDescription>
+        </SheetHeader>
 
-      <p className="mt-5 text-xs font-medium text-ink-faint">Money in</p>
-      <table className="mt-1.5 w-full text-sm">
-        <tbody>
-          {income.map((line) => (
-            <tr key={line.category} className="border-b border-hairline">
-              <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[line.category]}</td>
-              <td className="py-1.5 text-right tabular-nums">{money(line.amount, currency)}</td>
-            </tr>
-          ))}
-          {income.length === 0 ? (
-            <tr>
-              <td className="py-1.5 text-ink-faint">Nothing sold in this period</td>
-              <td className="py-1.5 text-right tabular-nums text-ink-faint">
-                {money(0, currency)}
-              </td>
-            </tr>
-          ) : null}
-          <tr>
-            <td className="py-2 font-medium">Total received</td>
-            <td className="py-2 text-right font-medium tabular-nums">
-              {money(period.revenue, currency)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-6 px-4 py-5">
+            <section>
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-sm font-semibold text-ink">Income</h4>
+                {editable ? (
+                  <Button variant="outline" size="sm" onClick={() => addRow("in")}>
+                    <Plus size={14} />
+                    Add a row
+                  </Button>
+                ) : null}
+              </div>
+              <table className="mt-2 w-full text-sm">
+                <tbody>
+                  {income.map((line) => (
+                    <tr key={line.category} className="border-b border-hairline">
+                      <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[line.category]}</td>
+                      <td className="py-1.5 text-right tabular-nums">
+                        {money(line.amount, currency)}
+                      </td>
+                    </tr>
+                  ))}
+                  {ownRows("in")}
+                  {income.length === 0 && mine.every((row) => row.movement.kind === "out") ? (
+                    <tr className="border-b border-hairline">
+                      <td className="py-1.5 text-ink-faint">Nothing sold in this period</td>
+                      <td className="py-1.5 text-right tabular-nums text-ink-faint">
+                        {money(0, currency)}
+                      </td>
+                    </tr>
+                  ) : null}
+                  <tr>
+                    <td className="py-2 font-medium">Total received</td>
+                    <td className="py-2 pr-10 text-right font-medium tabular-nums">
+                      {money(period.revenue, currency)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
 
-      <p className="mt-5 text-xs font-medium text-ink-faint">Money out</p>
-      <table className="mt-1.5 w-full text-sm">
-        <tbody>
-          {spend.map((line) => (
-            <tr key={line.category} className="border-b border-hairline">
-              <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[line.category]}</td>
-              <td className="py-1.5 text-right tabular-nums">{money(line.amount, currency)}</td>
-            </tr>
-          ))}
-          <tr>
-            <td className="py-2 font-medium">Total spent</td>
-            <td className="py-2 text-right font-medium tabular-nums">
-              {money(period.totalCost, currency)}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            <section>
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-sm font-semibold text-ink">Expenditure</h4>
+                {editable ? (
+                  <Button variant="outline" size="sm" onClick={() => addRow("out")}>
+                    <Plus size={14} />
+                    Add a row
+                  </Button>
+                ) : null}
+              </div>
+              <table className="mt-2 w-full text-sm">
+                <tbody>
+                  {spend.map((line) => (
+                    <tr key={line.category} className="border-b border-hairline">
+                      <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[line.category]}</td>
+                      <td className="py-1.5 text-right tabular-nums">
+                        {money(line.amount, currency)}
+                      </td>
+                    </tr>
+                  ))}
+                  {ownRows("out")}
+                  <tr>
+                    <td className="py-2 font-medium">Total spent</td>
+                    <td className="py-2 pr-10 text-right font-medium tabular-nums">
+                      {money(period.totalCost, currency)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
 
-      <div className="mt-4 space-y-1.5 rounded-lg bg-plane p-3.5 text-sm">
-        <div className="flex justify-between">
-          <span className="text-ink-muted">Net for the period</span>
-          <span
-            className={
-              "font-semibold tabular-nums " +
-              (period.netCashFlow < 0 ? "text-critical" : "text-good")
-            }
-          >
-            {money(period.netCashFlow, currency)}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-ink-muted">Cash at the end</span>
-          <span
-            className={
-              "font-medium tabular-nums " + (period.closingCash < 0 ? "text-critical" : "")
-            }
-          >
-            {money(period.closingCash, currency)}
-          </span>
-        </div>
-      </div>
+            <div className="space-y-1.5 rounded-lg bg-plane p-3.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Net for the period</span>
+                <span
+                  className={
+                    "font-semibold tabular-nums " +
+                    (period.netCashFlow < 0 ? "text-critical" : "text-good")
+                  }
+                >
+                  {money(period.netCashFlow, currency)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-ink-muted">Cash at the end</span>
+                <span
+                  className={
+                    "font-medium tabular-nums " + (period.closingCash < 0 ? "text-critical" : "")
+                  }
+                >
+                  {money(period.closingCash, currency)}
+                </span>
+              </div>
+            </div>
 
-      <p className="mt-4 text-xs font-medium text-ink-faint">What drove it</p>
-      <dl className="mt-1.5 grid grid-cols-2 gap-2">
-        {[
-          ["Piglets born", number(period.bornAlive, 0)],
-          ["Piglets weaned", number(period.weaned, 0)],
-          ["Pigs sold", number(period.pigsSold, 0)],
-          ["Liveweight sold", number(period.saleLiveweightKg, 0) + " kg"],
-          ["Deadweight sold", number(period.saleDeadweightKg, 0) + " kg"],
-          ["Gilts sold", number(period.giltsSold, 0)],
-          ["Losses", number(period.deaths, 0)],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-hairline px-3 py-2">
-            <dt className="text-[11px] text-ink-faint">{label}</dt>
-            <dd className="mt-0.5 text-sm font-medium tabular-nums">{value}</dd>
+            <section>
+              <h4 className="text-sm font-semibold text-ink">What drove it</h4>
+              <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {[
+                  ["Piglets born", number(period.bornAlive, 0)],
+                  ["Piglets weaned", number(period.weaned, 0)],
+                  ["Pigs sold", number(period.pigsSold, 0)],
+                  ["Liveweight sold", number(period.saleLiveweightKg, 0) + " kg"],
+                  ["Deadweight sold", number(period.saleDeadweightKg, 0) + " kg"],
+                  ["Gilts sold", number(period.giltsSold, 0)],
+                  ["Losses", number(period.deaths, 0)],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-hairline px-3 py-2">
+                    <dt className="text-[11px] text-ink-faint">{label}</dt>
+                    <dd className="mt-0.5 text-sm font-medium tabular-nums">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
           </div>
-        ))}
-      </dl>
-    </section>
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -3087,10 +3360,10 @@ function Methodology({
       "Pig sales",
       "sale liveweight × dressing % × deadweight price",
       config.growth.saleWeightKg +
-        " kg live → " +
-        number((config.growth.saleWeightKg * config.finance.dressingPct) / 100, 1) +
-        " kg carcass × " +
-        rate(config.finance.salePriceKg, config.project.currency),
+      " kg live → " +
+      number((config.growth.saleWeightKg * config.finance.dressingPct) / 100, 1) +
+      " kg carcass × " +
+      rate(config.finance.salePriceKg, config.project.currency),
     ],
     [
       "Labour",
@@ -3149,7 +3422,7 @@ function Methodology({
                 href={source.url}
                 target="_blank"
                 rel="noreferrer"
-                className="group flex items-start justify-between gap-4 rounded-lg border border-hairline p-3.5 transition hover:border-accent hover:bg-accent-soft"
+                className="group flex items-start justify-between gap-4 rounded-lg border border-hairline p-3.5 transition hover:border-brand hover:bg-brand-soft"
               >
                 <div>
                   <p className="text-[13px] font-medium text-ink">{source.title}</p>

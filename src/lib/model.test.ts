@@ -4,6 +4,7 @@ import {
   calculateProjection,
   cloneDefaultConfig,
   getModelMetrics,
+  withConfigDefaults,
   type PlannerConfig,
 } from "./model";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, runFarm } from "./sim";
@@ -211,5 +212,33 @@ describe("Herd flow", () => {
     const firstTen = promotionDays.slice(0, 10);
     // The first ten replacements arrive over months, not over one week.
     expect(firstTen.at(-1)! - firstTen[0]).toBeGreaterThan(45);
+  });
+});
+
+describe("Plans saved before a field existed still load", () => {
+  it("fills in what a stored plan does not know about", () => {
+    const stored = JSON.parse(JSON.stringify(cloneDefaultConfig())) as Record<
+      string,
+      Record<string, unknown>
+    >;
+    // A plan saved before working capital and the generated-row flag arrived.
+    delete stored.finance.workingCapitalTarget;
+    stored.finance.cashMovements = [
+      { id: "old", monthIndex: 2, kind: "in", amount: 1_000, note: "Grant" },
+    ];
+    delete stored.feed.truckCapacityKg;
+
+    const restored = withConfigDefaults(stored);
+    expect(restored).not.toBeNull();
+    expect(restored!.finance.workingCapitalTarget).toBe(0);
+    expect(restored!.feed.truckCapacityKg).toBe(2_500);
+    // A row typed before the flag existed is a row you typed, not a generated one.
+    expect(restored!.finance.cashMovements[0].auto).toBe(false);
+    expect(restored!.finance.cashMovements[0].amount).toBe(1_000);
+  });
+
+  it("refuses a plan that is not a plan at all", () => {
+    expect(withConfigDefaults(null)).toBeNull();
+    expect(withConfigDefaults({ project: { months: -4 } })).toBeNull();
   });
 });

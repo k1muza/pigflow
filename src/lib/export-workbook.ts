@@ -1,6 +1,7 @@
 import type { Cell, Row, Worksheet } from "exceljs";
 
-import type { PlannerConfig, ProjectionResult } from "./model";
+import type { MonthlyProjection, PlannerConfig, ProjectionResult } from "./model";
+import type { LedgerCategory } from "./sim";
 
 const COLORS = {
   navy: "17324D",
@@ -17,6 +18,71 @@ const COLORS = {
   plane: "F6F7F9",
   white: "FFFFFF",
 } as const;
+
+/**
+ * The cashflow sheet, line by line. Rows are counted off these lists rather than
+ * written down, so adding a cost line moves every formula below it with no
+ * chance of a total quietly summing the wrong range.
+ */
+const RECEIPT_LINES: { label: string; category: LedgerCategory }[] = [
+  { label: "Pig sales", category: "pig-sales" },
+  { label: "Breeding gilt sales", category: "gilt-sales" },
+  { label: "Cull sow sales", category: "cull-sales" },
+  { label: "Other income", category: "other-income" },
+];
+
+const PAYMENT_LINES: { label: string; category: LedgerCategory }[] = [
+  { label: "Feed", category: "feed" },
+  { label: "Feed delivery", category: "feed-haulage" },
+  { label: "Vaccination & treatment", category: "vaccination" },
+  { label: "Routine veterinary", category: "veterinary" },
+  { label: "Heating", category: "heating" },
+  { label: "Labour", category: "labour" },
+  { label: "Fixed overheads", category: "overheads" },
+  { label: "Transport", category: "transport" },
+  { label: "Bought-in breeding stock", category: "breeding-stock" },
+  { label: "Contingency", category: "contingency" },
+  { label: "Capital expenditure", category: "capital" },
+];
+
+const CASHFLOW_ROWS = (() => {
+  const opening = 4;
+  const receiptsHeading = 6;
+  const firstReceipt = receiptsHeading + 1;
+  const totalReceipts = firstReceipt + RECEIPT_LINES.length;
+  const paymentsHeading = totalReceipts + 2;
+  const firstPayment = paymentsHeading + 1;
+  const totalPayments = firstPayment + PAYMENT_LINES.length;
+  const netCashFlow = totalPayments + 2;
+  return {
+    opening,
+    receiptsHeading,
+    firstReceipt,
+    lastReceipt: totalReceipts - 1,
+    totalReceipts,
+    paymentsHeading,
+    firstPayment,
+    lastPayment: totalPayments - 1,
+    totalPayments,
+    netCashFlow,
+    closingCash: netCashFlow + 1,
+    funding: netCashFlow + 2,
+  };
+})();
+
+/** Each cashflow line's row and this month's amount for it. */
+function cashflowValues(month: MonthlyProjection): [number, number][] {
+  return [
+    ...RECEIPT_LINES.map(
+      (line, index) =>
+        [CASHFLOW_ROWS.firstReceipt + index, month.totals[line.category]] as [number, number],
+    ),
+    ...PAYMENT_LINES.map(
+      (line, index) =>
+        [CASHFLOW_ROWS.firstPayment + index, month.totals[line.category]] as [number, number],
+    ),
+  ];
+}
 
 const FONT = "Aptos";
 const MONEY_FORMAT = '$#,##0;[Red]($#,##0);-';
@@ -247,9 +313,9 @@ function addSummarySheet(
   sheet.getCell(checkRow, 2).font = { name: FONT, size: 11, bold: true, color: { argb: COLORS.navy } };
   const monthlyLastColumn = columnLetter(projection.months.length + 1);
   const checkRows: Array<[string, string, number]> = [
-    ["Opening cash + total net cash − closing cash", `'Cash Flow'!B4+'Cash Flow'!${columnLetter(projection.months.length + 2)}26-'Cash Flow'!${monthlyLastColumn}27`, 0],
-    ["Annual receipts less monthly receipts", `SUM(C20:C${19 + projection.years.length})-'Cash Flow'!${columnLetter(projection.months.length + 2)}11`, 0],
-    ["Annual payments less monthly payments", `SUM(D20:D${19 + projection.years.length})-'Cash Flow'!${columnLetter(projection.months.length + 2)}24`, 0],
+    ["Opening cash + total net cash − closing cash", `'Cash Flow'!B${CASHFLOW_ROWS.opening}+'Cash Flow'!${columnLetter(projection.months.length + 2)}${CASHFLOW_ROWS.netCashFlow}-'Cash Flow'!${monthlyLastColumn}${CASHFLOW_ROWS.closingCash}`, 0],
+    ["Annual receipts less monthly receipts", `SUM(C20:C${19 + projection.years.length})-'Cash Flow'!${columnLetter(projection.months.length + 2)}${CASHFLOW_ROWS.totalReceipts}`, 0],
+    ["Annual payments less monthly payments", `SUM(D20:D${19 + projection.years.length})-'Cash Flow'!${columnLetter(projection.months.length + 2)}${CASHFLOW_ROWS.totalPayments}`, 0],
   ];
   checkRows.forEach(([label, formula, result], index) => {
     const row = checkRow + 1 + index;
@@ -305,131 +371,114 @@ function addCashFlowSheet(
   sheet.getCell(5, totalColumn).value = "Plan total / end";
   styleTableHeader(sheet.getRow(5), 1, totalColumn);
 
-  const lines = [
-    [4, "Opening cash balance"],
-    [6, "CASH RECEIPTS"],
-    [7, "  Pig sales"],
-    [8, "  Breeding gilt sales"],
-    [9, "  Cull sow sales"],
-    [10, "  Other income"],
-    [11, "Total receipts"],
-    [13, "CASH PAYMENTS"],
-    [14, "  Feed"],
-    [15, "  Vaccination & treatment"],
-    [16, "  Routine veterinary"],
-    [17, "  Heating"],
-    [18, "  Labour"],
-    [19, "  Fixed overheads"],
-    [20, "  Transport"],
-    [21, "  Bought-in breeding stock"],
-    [22, "  Contingency"],
-    [23, "  Capital expenditure"],
-    [24, "Total payments"],
-    [26, "Net cash flow"],
-    [27, "Closing cash balance"],
-    [28, "Funding requirement"],
-  ] as const;
+  const lines: [number, string][] = [
+    [CASHFLOW_ROWS.opening, "Opening cash balance"],
+    [CASHFLOW_ROWS.receiptsHeading, "CASH RECEIPTS"],
+    ...RECEIPT_LINES.map(
+      (line, index) => [CASHFLOW_ROWS.firstReceipt + index, "  " + line.label] as [number, string],
+    ),
+    [CASHFLOW_ROWS.totalReceipts, "Total receipts"],
+    [CASHFLOW_ROWS.paymentsHeading, "CASH PAYMENTS"],
+    ...PAYMENT_LINES.map(
+      (line, index) => [CASHFLOW_ROWS.firstPayment + index, "  " + line.label] as [number, string],
+    ),
+    [CASHFLOW_ROWS.totalPayments, "Total payments"],
+    [CASHFLOW_ROWS.netCashFlow, "Net cash flow"],
+    [CASHFLOW_ROWS.closingCash, "Closing cash balance"],
+    [CASHFLOW_ROWS.funding, "Funding requirement"],
+  ];
   for (const [row, label] of lines) sheet.getCell(row, 1).value = label;
-  styleSection(sheet.getRow(6), totalColumn);
-  styleSection(sheet.getRow(13), totalColumn);
+  styleSection(sheet.getRow(CASHFLOW_ROWS.receiptsHeading), totalColumn);
+  styleSection(sheet.getRow(CASHFLOW_ROWS.paymentsHeading), totalColumn);
 
   projection.months.forEach((month, index) => {
     const column = index + 2;
     const letter = columnLetter(column);
     const priorLetter = columnLetter(column - 1);
-    const values: Array<[number, number]> = [
-      [7, month.totals["pig-sales"]],
-      [8, month.totals["gilt-sales"]],
-      [9, month.totals["cull-sales"]],
-      [10, month.totals["other-income"]],
-      [14, month.totals.feed],
-      [15, month.totals.vaccination],
-      [16, month.totals.veterinary],
-      [17, month.totals.heating],
-      [18, month.totals.labour],
-      [19, month.totals.overheads],
-      [20, month.totals.transport],
-      [21, month.totals["breeding-stock"]],
-      [22, month.totals.contingency],
-      [23, month.totals.capital],
-    ];
-    values.forEach(([row, value]) => {
+    cashflowValues(month).forEach(([row, value]) => {
       sheet.getCell(row, column).value = value;
     });
-    sheet.getCell(4, column).value =
+    sheet.getCell(CASHFLOW_ROWS.opening, column).value =
       index === 0
         ? config.project.openingCash
-        : { formula: `${priorLetter}27`, result: projection.months[index - 1].closingCash };
-    setResultFormula(sheet.getCell(11, column), `SUM(${letter}7:${letter}10)`, month.revenue);
+        : {
+            formula: `${priorLetter}${CASHFLOW_ROWS.closingCash}`,
+            result: projection.months[index - 1].closingCash,
+          };
     setResultFormula(
-      sheet.getCell(24, column),
-      `SUM(${letter}14:${letter}23)`,
+      sheet.getCell(CASHFLOW_ROWS.totalReceipts, column),
+      `SUM(${letter}${CASHFLOW_ROWS.firstReceipt}:${letter}${CASHFLOW_ROWS.lastReceipt})`,
+      month.revenue,
+    );
+    setResultFormula(
+      sheet.getCell(CASHFLOW_ROWS.totalPayments, column),
+      `SUM(${letter}${CASHFLOW_ROWS.firstPayment}:${letter}${CASHFLOW_ROWS.lastPayment})`,
       month.totalCost,
     );
     setResultFormula(
-      sheet.getCell(26, column),
-      `${letter}11-${letter}24`,
+      sheet.getCell(CASHFLOW_ROWS.netCashFlow, column),
+      `${letter}${CASHFLOW_ROWS.totalReceipts}-${letter}${CASHFLOW_ROWS.totalPayments}`,
       month.netCashFlow,
     );
     setResultFormula(
-      sheet.getCell(27, column),
-      `${letter}4+${letter}26`,
+      sheet.getCell(CASHFLOW_ROWS.closingCash, column),
+      `${letter}${CASHFLOW_ROWS.opening}+${letter}${CASHFLOW_ROWS.netCashFlow}`,
       month.closingCash,
     );
     setResultFormula(
-      sheet.getCell(28, column),
-      `MAX(0,-${letter}27)`,
+      sheet.getCell(CASHFLOW_ROWS.funding, column),
+      `MAX(0,-${letter}${CASHFLOW_ROWS.closingCash})`,
       Math.max(0, -month.closingCash),
     );
   });
 
-  [7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26].forEach((row) => {
+  const summedRows = [
+    ...RECEIPT_LINES.map((_, index) => CASHFLOW_ROWS.firstReceipt + index),
+    CASHFLOW_ROWS.totalReceipts,
+    ...PAYMENT_LINES.map((_, index) => CASHFLOW_ROWS.firstPayment + index),
+    CASHFLOW_ROWS.totalPayments,
+    CASHFLOW_ROWS.netCashFlow,
+  ];
+  summedRows.forEach((row) => {
     const result =
-      row === 11
+      row === CASHFLOW_ROWS.totalReceipts
         ? projection.summary.totalRevenue
-        : row === 24
+        : row === CASHFLOW_ROWS.totalPayments
           ? projection.summary.totalCost
-          : row === 26
+          : row === CASHFLOW_ROWS.netCashFlow
             ? projection.months.reduce((sum, month) => sum + month.netCashFlow, 0)
             : projection.months.reduce((sum, month) => {
-                const lineByRow: Record<number, number> = {
-                  7: month.totals["pig-sales"],
-                  8: month.totals["gilt-sales"],
-                  9: month.totals["cull-sales"],
-                  10: month.totals["other-income"],
-                  14: month.totals.feed,
-                  15: month.totals.vaccination,
-                  16: month.totals.veterinary,
-                  17: month.totals.heating,
-                  18: month.totals.labour,
-                  19: month.totals.overheads,
-                  20: month.totals.transport,
-                  21: month.totals["breeding-stock"],
-                  22: month.totals.contingency,
-                  23: month.totals.capital,
-                };
-                return sum + (lineByRow[row] ?? 0);
+                const line = cashflowValues(month).find(([lineRow]) => lineRow === row);
+                return sum + (line ? line[1] : 0);
               }, 0);
     setResultFormula(sheet.getCell(row, totalColumn), `SUM(B${row}:${columnLetter(monthCount + 1)}${row})`, result);
   });
-  sheet.getCell(4, totalColumn).value = config.project.openingCash;
-  sheet.getCell(27, totalColumn).value = projection.summary.closingCash;
+  sheet.getCell(CASHFLOW_ROWS.opening, totalColumn).value = config.project.openingCash;
+  sheet.getCell(CASHFLOW_ROWS.closingCash, totalColumn).value = projection.summary.closingCash;
   setResultFormula(
-    sheet.getCell(28, totalColumn),
-    `MAX(B28:${columnLetter(monthCount + 1)}28)`,
+    sheet.getCell(CASHFLOW_ROWS.funding, totalColumn),
+    `MAX(B${CASHFLOW_ROWS.funding}:${columnLetter(monthCount + 1)}${CASHFLOW_ROWS.funding})`,
     projection.summary.peakFundingNeed,
   );
 
   // Row 5 carries the month headings and keeps its own date format; sweeping the
   // money format across it would render each heading as a currency amount.
-  forCells(sheet, 4, 4, 2, totalColumn, (cell) => {
+  forCells(sheet, CASHFLOW_ROWS.opening, CASHFLOW_ROWS.opening, 2, totalColumn, (cell) => {
     cell.numFmt = MONEY_FORMAT;
   });
-  forCells(sheet, 6, 28, 2, totalColumn, (cell) => {
+  forCells(sheet, CASHFLOW_ROWS.receiptsHeading, CASHFLOW_ROWS.funding, 2, totalColumn, (cell) => {
     cell.numFmt = MONEY_FORMAT;
   });
-  [11, 24, 26, 27, 28].forEach((row) => styleTotal(sheet.getRow(row), totalColumn, row >= 26));
-  forCells(sheet, 28, 28, 1, totalColumn, (cell) => {
+  [
+    CASHFLOW_ROWS.totalReceipts,
+    CASHFLOW_ROWS.totalPayments,
+    CASHFLOW_ROWS.netCashFlow,
+    CASHFLOW_ROWS.closingCash,
+    CASHFLOW_ROWS.funding,
+  ].forEach((row) =>
+    styleTotal(sheet.getRow(row), totalColumn, row >= CASHFLOW_ROWS.netCashFlow),
+  );
+  forCells(sheet, CASHFLOW_ROWS.funding, CASHFLOW_ROWS.funding, 1, totalColumn, (cell) => {
     cell.fill = solidFill(COLORS.paleGold);
     cell.font = { name: FONT, size: 10, bold: true, color: { argb: COLORS.red } };
   });
@@ -535,6 +584,15 @@ function addHerdSheet(
   return sheet;
 }
 
+/** The unit a feed assumption is quoted in, which its name alone does not say. */
+function feedUnit(key: string, currency: string): string {
+  if (key === "truckCapacityKg") return "kg per load";
+  if (key === "deliveryCostPerTrip") return `${currency}/load`;
+  if (key.endsWith("Days")) return "days";
+  if (key.toLowerCase().includes("cost")) return `${currency}/kg`;
+  return "kg/day";
+}
+
 function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: PlannerConfig) {
   const sheet = workbook.addWorksheet("Assumptions", {
     properties: { tabColor: { argb: "8EB8E8" } },
@@ -626,8 +684,31 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
       Object.entries(config.feed).map(([key, value]) => [
         key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase()),
         value,
-        key.toLowerCase().includes("cost") ? `${config.project.currency}/kg` : key.toLowerCase().includes("age") ? "days" : "kg/day",
+        feedUnit(key, config.project.currency),
       ]),
+    ],
+    [
+      "FEED DELIVERY",
+      [
+        [
+          "Truck capacity",
+          config.feed.truckCapacityKg,
+          "kg per load",
+          "Trips are placed by walking the plan's feeding backwards and cutting it into loads of this size.",
+        ],
+        [
+          "Cost per delivery",
+          config.feed.deliveryCostPerTrip,
+          `${config.project.currency}/load`,
+          "Haulage rides on the kilograms delivered, so it reaches each pig as that pig eats.",
+        ],
+        [
+          "Feed buffer held",
+          config.feed.feedBufferDays,
+          "days",
+          "Each load lands this many days before the herd starts eating into it.",
+        ],
+      ],
     ],
     [
       "LABOUR",
@@ -658,7 +739,13 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
     [
       "FINANCE",
       Object.entries(config.finance)
-        .filter(([key]) => !key.startsWith("labour") && !key.startsWith("pigsPer") && key !== "minimumWorkers")
+        .filter(
+          (entry): entry is [string, number] =>
+            typeof entry[1] === "number" &&
+            !entry[0].startsWith("labour") &&
+            !entry[0].startsWith("pigsPer") &&
+            entry[0] !== "minimumWorkers",
+        )
         .map(([key, value]) => [
           key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase()),
           value,

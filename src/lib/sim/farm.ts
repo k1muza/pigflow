@@ -23,8 +23,17 @@ import {
   Sow,
   type CostStage,
   type CostType,
+  type FeedRation,
   type PigStage,
 } from "./animals";
+import {
+  emptyRations,
+  EMPTY_FEED_PLAN,
+  planFeedDeliveries,
+  type FeedDelivery,
+  type FeedPlan,
+  type RationTally,
+} from "./feed-plan";
 import { emptyTotals, Ledger, type CategoryTotals } from "./ledger";
 import { dailyHazard, Rng } from "./rng";
 
@@ -37,6 +46,7 @@ export type FarmEventType =
   | "death"
   | "cull"
   | "purchase"
+  | "funding"
   | "capacity";
 
 export type FarmEvent = {
@@ -87,6 +97,12 @@ export type DayRecord = {
   vaccinations: Record<PigStage, number>;
   sowFeedKg: number;
   growingFeedKg: number;
+  /** What the herd ate today, ration by ration. */
+  feedByRation: RationTally;
+  /** Loads that came through the gate today, each with the order it carried. */
+  feedDeliveries: FeedDelivery[];
+  feedLoads: number;
+  feedDeliveredKg: number;
   counts: StageCounts;
   totals: CategoryTotals;
   netCashFlow: number;
@@ -110,6 +126,10 @@ export type LifetimeTotals = {
   giltsPurchased: number;
   boarsRotated: number;
   servicesAttempted: number;
+  /** Feed loads hauled in since the plan started. */
+  feedLoads: number;
+  feedDeliveredKg: number;
+  feedHaulageCost: number;
   servicesMissedForBoarCapacity: number;
   /** Services deferred because the only boar standing was the female's own sire. */
   servicesMissedForGenetics: number;
@@ -142,14 +162,6 @@ export type StockRow = {
   weightKg: number;
   generation: number;
   status: string;
-};
-
-/** Compact stock totals used by each stop on the weekly timeline. */
-export type StockAgeGroup = {
-  kind: StockKind;
-  count: number;
-  youngestDays: number;
-  oldestDays: number;
 };
 
 export type GenerationRow = {
@@ -295,6 +307,45 @@ function stageDurationDays(stage: PigStage, config: PlannerConfig): number {
   }
 }
 
+/** The note on a cash movement, if the owner wrote one. */
+function noteOf(note: string): string {
+  return note.trim() ? `: ${note.trim()}` : "";
+}
+
+/** Plans kept against the config that produced them; a few is plenty. */
+const PLAN_CACHE_SIZE = 8;
+const planCache = new Map<string, FeedPlan>();
+
+/**
+ * The lorry trips a plan needs. Working them out means knowing what the herd ate
+ * on every day of the plan, which takes a run of the farm in its own right — so
+ * the answer is kept against the plan that produced it. Without the cache, every
+ * farm built from the same plan would pay for the same extra run.
+ *
+ * Anchoring the schedule to the end of the horizon is what keeps it stable: read
+ * the farm on any date and the trips behind that date are the same trips.
+ */
+export function feedPlanFor(config: PlannerConfig): FeedPlan {
+  const key = JSON.stringify(config);
+  const cached = planCache.get(key);
+  if (cached) return cached;
+
+  const start = parseISO(config.project.startDate);
+  const horizon = differenceInCalendarDays(addMonths(start, config.project.months), start) - 1;
+  const probe = new Farm(config, EMPTY_FEED_PLAN).advanceTo(horizon);
+  const plan = planFeedDeliveries(
+    probe.history.map((day) => day.feedByRation),
+    config,
+  );
+
+  if (planCache.size >= PLAN_CACHE_SIZE) {
+    const oldest = planCache.keys().next().value;
+    if (oldest !== undefined) planCache.delete(oldest);
+  }
+  planCache.set(key, plan);
+  return plan;
+}
+
 /**
  * A piggery simulated one day at a time. Every sow, boar and growing pig is a
  * live object with a sex, a weight, an age and a lineage: it eats according to
@@ -324,6 +375,9 @@ export class Farm {
     sowsCulled: 0,
     giltsPurchased: 0,
     boarsRotated: 0,
+    feedLoads: 0,
+    feedDeliveredKg: 0,
+    feedHaulageCost: 0,
     servicesAttempted: 0,
     servicesMissedForBoarCapacity: 0,
     servicesMissedForGenetics: 0,
@@ -336,6 +390,9 @@ export class Farm {
   /** Index of the last simulated day; -1 before the start date. */
   day = -1;
 
+  /** The lorry trips this plan needs, worked out before the first day is run. */
+  readonly feedPlan: FeedPlan;
+  private readonly deliveriesByDay = new Map<number, FeedDelivery[]>();
   private readonly rng: Rng;
   private readonly hazard: Record<PigStage, number>;
   private readonly breedingHazard: number;
@@ -343,6 +400,12 @@ export class Farm {
   private readonly soldPigCosts = new CostRecord();
   /** Everything spent on keeping the breeding herd and rearing its replacements. */
   private readonly breedingCosts = new CostRecord();
+  /**
+   * Generated withdrawals posted to overheads. They are cash leaving the
+   * business, not a cost of producing pork, so they come back out again before
+   * overheads are carried over the pigs sold.
+   */
+  private financingCosts = 0;
   private readonly generationStats = new Map<
     number,
     { born: number; sold: number; died: number }
@@ -358,11 +421,21 @@ export class Farm {
   private boarSequence = 0;
   private pigSequence = 0;
 
-  constructor(input: PlannerConfig) {
+  /**
+   * A feed plan may be handed in; without one the farm works its own out, which
+   * takes a run of its own (see {@link feedPlanFor}).
+   */
+  constructor(input: PlannerConfig, feedPlan?: FeedPlan) {
     this.config = plannerSchema.parse(input);
     this.start = parseISO(this.config.project.startDate);
     this.rng = new Rng(this.config.project.seed);
     this.ledger = new Ledger(this.config.project.openingCash);
+    this.feedPlan = feedPlan ?? feedPlanFor(this.config);
+    for (const load of this.feedPlan.deliveries) {
+      const sameDay = this.deliveriesByDay.get(load.day);
+      if (sameDay) sameDay.push(load);
+      else this.deliveriesByDay.set(load.day, [load]);
+    }
     this.vaccinations = [...this.config.health.vaccinations].sort(
       (a, b) => a.ageDays - b.ageDays,
     );
@@ -647,6 +720,10 @@ export class Farm {
       vaccinations: emptyVaccinations(),
       sowFeedKg: 0,
       growingFeedKg: 0,
+      feedByRation: emptyRations(),
+      feedDeliveries: [],
+      feedLoads: 0,
+      feedDeliveredKg: 0,
       counts: emptyCounts(),
       totals: emptyTotals(),
       netCashFlow: 0,
@@ -658,6 +735,10 @@ export class Farm {
     }
 
     if (day === 0) ledger.accrue("capital", config.finance.initialCapitalCosts);
+
+    // Taken before the monthly block moves the counter on, so the financing for
+    // this month can be posted later in the day, after the contingency is struck.
+    const chargedMonth = day === this.nextMonthlyChargeDay ? this.monthsCharged : null;
 
     if (day === this.nextMonthlyChargeDay) {
       // Labour is not a fixed overhead: a bigger herd is more people. The payroll
@@ -676,6 +757,19 @@ export class Farm {
           config.finance.otherFixedMonthly,
       );
       ledger.accrue("other-income", config.finance.otherIncomeMonthly);
+      // What the owner has added to this month by hand, posted alongside the
+      // farm's own other income and fixed overheads rather than off to one side.
+      for (const movement of config.finance.cashMovements) {
+        if (movement.auto || movement.monthIndex !== this.monthsCharged) continue;
+        if (movement.amount <= 0) continue;
+        if (movement.kind === "in") {
+          ledger.accrue("other-income", movement.amount);
+          this.log(day, date, "funding", `Money in${noteOf(movement.note)}`);
+        } else {
+          ledger.accrue("overheads", movement.amount);
+          this.log(day, date, "funding", `Money out${noteOf(movement.note)}`);
+        }
+      }
       for (const sow of this.sows) {
         sow.costs.add("health", "breeding", config.health.vetCostPerSowMonth);
         this.breedingCosts.add("health", "breeding", config.health.vetCostPerSowMonth);
@@ -686,6 +780,7 @@ export class Farm {
     }
 
     this.runReproduction(day, date, record);
+    this.runFeedDeliveries(day, record);
     this.runDailyCare(day, record);
     this.runSelection(day, date, record);
     this.runGrowthAndSales(day, date, record);
@@ -696,6 +791,8 @@ export class Farm {
       "contingency",
       ledger.pendingOperatingCost() * (config.finance.contingencyPct / 100),
     );
+
+    if (chargedMonth !== null) this.runFinancing(chargedMonth, day, date);
 
     this.pigs = this.pigs.filter((pig) => pig.alive);
     this.sows = this.sows.filter((sow) => sow.alive);
@@ -858,6 +955,41 @@ export class Farm {
    * One pass over the herd for everything an animal needs today: its ration, the
    * creep feed and heat its age calls for, and any vaccination now due.
    */
+  /**
+   * Cash the funding buttons move in or out this month. It is posted after the
+   * contingency has been struck, because topping the bank up — or taking a
+   * surplus out — is not the farm running up a cost to be covered.
+   */
+  private runFinancing(monthIndex: number, day: number, date: string): void {
+    for (const movement of this.config.finance.cashMovements) {
+      if (!movement.auto || movement.monthIndex !== monthIndex) continue;
+      if (movement.amount <= 0) continue;
+      if (movement.kind === "in") {
+        this.ledger.accrue("other-income", movement.amount);
+        this.log(day, date, "funding", `Cash injection${noteOf(movement.note)}`);
+      } else {
+        this.ledger.accrue("overheads", movement.amount);
+        this.financingCosts += movement.amount;
+        this.log(day, date, "funding", `Cash withdrawal${noteOf(movement.note)}`);
+      }
+    }
+  }
+
+  /** Takes in the loads the plan has standing for today and pays their haulage. */
+  private runFeedDeliveries(day: number, record: DayRecord): void {
+    const arrivals = this.deliveriesByDay.get(day);
+    if (!arrivals) return;
+    record.feedDeliveries = arrivals;
+    for (const load of arrivals) {
+      this.ledger.accrue("feed-haulage", load.haulageCost);
+      record.feedLoads += 1;
+      record.feedDeliveredKg += load.loadKg;
+      this.lifetime.feedLoads += 1;
+      this.lifetime.feedDeliveredKg += load.loadKg;
+      this.lifetime.feedHaulageCost += load.haulageCost;
+    }
+  }
+
   private runDailyCare(day: number, record: DayRecord): void {
     const { config } = this;
     let sowFeedKg = 0;
@@ -866,21 +998,36 @@ export class Farm {
     let heatingCost = 0;
     let vaccinationCost = 0;
 
+    // Haulage is paid when a load lands, and the plan knows which load every
+    // kilogram eaten today came off. Charging it out with the feed is what puts
+    // a share of the lorry on the animal that ate it.
+    const haulageRate = this.feedPlan.haulagePerKgByDay[day] ?? 0;
+    const haul = (ration: FeedRation, kg: number) => {
+      record.feedByRation[ration] += kg;
+      return kg * haulageRate;
+    };
+
     for (const sow of this.sows) {
-      const { kg, costPerKg } = sow.dailyFeed(config);
+      const { kg, costPerKg, ration } = sow.dailyFeed(config);
       sowFeedKg += kg;
       const cost = kg * costPerKg;
+      const haulage = haul(ration, kg);
       feedCost += cost;
       sow.costs.add("feed", "breeding", cost);
+      sow.costs.add("transport", "breeding", haulage);
       this.breedingCosts.add("feed", "breeding", cost);
+      this.breedingCosts.add("transport", "breeding", haulage);
     }
     for (const boar of this.boars) {
-      const { kg, costPerKg } = boar.dailyFeed(config);
+      const { kg, costPerKg, ration } = boar.dailyFeed(config);
       sowFeedKg += kg;
       const cost = kg * costPerKg;
+      const haulage = haul(ration, kg);
       feedCost += cost;
       boar.costs.add("feed", "breeding", cost);
+      boar.costs.add("transport", "breeding", haulage);
       this.breedingCosts.add("feed", "breeding", cost);
+      this.breedingCosts.add("transport", "breeding", haulage);
     }
 
     for (const pig of this.pigs) {
@@ -900,6 +1047,7 @@ export class Farm {
         else growingFeedKg += ration.kg;
         feedCost += cost;
         charge("feed", cost);
+        charge("transport", haul(ration.ration, ration.kg));
       }
 
       const creep = pig.creepFeed(day, config);
@@ -908,6 +1056,7 @@ export class Farm {
         growingFeedKg += creep.kg;
         feedCost += cost;
         charge("feed", cost);
+        charge("transport", haul(creep.ration, creep.kg));
       }
 
       const ageDays = pig.ageDays(day);
@@ -1345,8 +1494,11 @@ export class Farm {
       COST_TYPES.map((type) => [type, pigsSold > 0 ? this.soldPigCosts.byType[type] / pigsSold : 0]),
     ) as Record<CostType, number>;
 
+    // Generated withdrawals ride in the overheads line for reporting, but taking
+    // cash out of the business is not part of what a pig cost to produce.
     const overheads =
-      this.ledger.totals.overheads +
+      this.ledger.totals.overheads -
+      this.financingCosts +
       this.ledger.totals.labour +
       this.ledger.totals.contingency +
       this.ledger.totals.capital;
@@ -1525,36 +1677,6 @@ export class Farm {
         b.ageDays - a.ageDays ||
         a.tag.localeCompare(b.tag),
     );
-  }
-
-  /** Counts and age spans for timeline cards without retaining every animal row. */
-  stockAgeGroups(): StockAgeGroup[] {
-    const groups = new Map<StockKind, StockAgeGroup>();
-    const day = Math.max(this.day, 0);
-    const add = (kind: StockKind, ageDays: number) => {
-      const existing = groups.get(kind);
-      if (existing) {
-        existing.count += 1;
-        existing.youngestDays = Math.min(existing.youngestDays, ageDays);
-        existing.oldestDays = Math.max(existing.oldestDays, ageDays);
-      } else {
-        groups.set(kind, {
-          kind,
-          count: 1,
-          youngestDays: ageDays,
-          oldestDays: ageDays,
-        });
-      }
-    };
-
-    for (const sow of this.sows) if (sow.alive) add("sow", sow.ageDays(day));
-    for (const boar of this.boars) if (boar.alive) add("boar", boar.ageDays(day));
-    for (const pig of this.pigs) if (pig.alive) add(pig.stage, pig.ageDays(day));
-
-    return STOCK_ORDER.flatMap((kind) => {
-      const group = groups.get(kind);
-      return group ? [group] : [];
-    });
   }
 
   private sowRoster(): SowRow[] {

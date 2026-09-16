@@ -32,9 +32,17 @@ export const COST_STAGES = [
 ] as const;
 export type CostStage = (typeof COST_STAGES)[number];
 
-export type FeedDemand = { kg: number; costPerKg: number };
+/**
+ * The five rations a piggery buys. A demand carries the ration it draws on as
+ * well as its price, because two rations can be priced the same and the feed
+ * store still has to know which bin the kilograms come out of.
+ */
+export const FEED_RATIONS = ["sow", "creep", "weaner", "grower", "finisher"] as const;
+export type FeedRation = (typeof FEED_RATIONS)[number];
 
-const NO_FEED: FeedDemand = { kg: 0, costPerKg: 0 };
+export type FeedDemand = { kg: number; costPerKg: number; ration: FeedRation };
+
+const NO_FEED: FeedDemand = { kg: 0, costPerKg: 0, ration: "sow" };
 
 function zeroed<T extends readonly string[]>(keys: T): Record<T[number], number> {
   return Object.fromEntries(keys.map((key) => [key, 0])) as Record<T[number], number>;
@@ -216,6 +224,7 @@ export class GrowingPig extends Animal {
       return {
         kg: config.feed.gestationKgDay * this.maintenanceScale(config),
         costPerKg: config.feed.sowFeedCostKg,
+        ration: "sow",
       };
     }
     const fcr =
@@ -224,13 +233,19 @@ export class GrowingPig extends Animal {
         : this.stage === "grower"
           ? config.growth.growerFcr
           : config.growth.finisherFcr;
+    const ration: FeedRation =
+      this.stage === "weaner" ? "weaner" : this.stage === "grower" ? "grower" : "finisher";
     const costPerKg =
-      this.stage === "weaner"
+      ration === "weaner"
         ? config.feed.weanerFeedCostKg
-        : this.stage === "grower"
+        : ration === "grower"
           ? config.feed.growerFeedCostKg
           : config.feed.finisherFeedCostKg;
-    return { kg: this.dailyGainKg(config) * fcr * this.maintenanceScale(config), costPerKg };
+    return {
+      kg: this.dailyGainKg(config) * fcr * this.maintenanceScale(config),
+      costPerKg,
+      ration,
+    };
   }
 
   /** 1.0 at the middle of the stage; above and below it as the pig grows through. */
@@ -243,7 +258,11 @@ export class GrowingPig extends Animal {
   creepFeed(day: number, config: PlannerConfig): FeedDemand {
     if (this.stage !== "piglet") return NO_FEED;
     if (this.ageDays(day) < config.feed.creepStartAgeDays) return NO_FEED;
-    return { kg: config.feed.creepKgPerPigDay, costPerKg: config.feed.creepFeedCostKg };
+    return {
+      kg: config.feed.creepKgPerPigDay,
+      costPerKg: config.feed.creepFeedCostKg,
+      ration: "creep",
+    };
   }
 
   /** Adds one day of liveweight and moves the pig up a stage once it qualifies. */
@@ -350,7 +369,7 @@ export class Sow extends Animal {
       this.state === "lactating" ? config.feed.lactationKgDay : config.feed.gestationKgDay;
     // A lighter young sow on the same ration plan eats less than a mature one.
     const scale = Math.pow(this.weightKg / MATURE_SOW_WEIGHT_KG, 0.75);
-    return { kg: ration * scale, costPerKg: config.feed.sowFeedCostKg };
+    return { kg: ration * scale, costPerKg: config.feed.sowFeedCostKg, ration: "sow" };
   }
 
   dueForService(day: number): boolean {
@@ -441,6 +460,6 @@ export class Boar extends Animal {
 
   dailyFeed(config: PlannerConfig): FeedDemand {
     const scale = Math.pow(this.weightKg / BOAR_WEIGHT_KG, 0.75);
-    return { kg: config.feed.boarKgDay * scale, costPerKg: config.feed.sowFeedCostKg };
+    return { kg: config.feed.boarKgDay * scale, costPerKg: config.feed.sowFeedCostKg, ration: "sow" };
   }
 }

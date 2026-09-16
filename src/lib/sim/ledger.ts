@@ -4,6 +4,7 @@ export type LedgerCategory =
   | "cull-sales"
   | "other-income"
   | "feed"
+  | "feed-haulage"
   | "vaccination"
   | "veterinary"
   | "heating"
@@ -22,6 +23,7 @@ export const LEDGER_CATEGORIES: { id: LedgerCategory; label: string; kind: Ledge
   { id: "cull-sales", label: "Cull sow sales", kind: "income" },
   { id: "other-income", label: "Other income", kind: "income" },
   { id: "feed", label: "Feed", kind: "expense" },
+  { id: "feed-haulage", label: "Feed delivery", kind: "expense" },
   { id: "vaccination", label: "Vaccination & treatment", kind: "expense" },
   { id: "veterinary", label: "Routine veterinary", kind: "expense" },
   { id: "heating", label: "Heating", kind: "expense" },

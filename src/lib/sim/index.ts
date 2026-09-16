@@ -2,11 +2,13 @@ import { addMonths, differenceInCalendarDays, format, parseISO } from "date-fns"
 
 import type { PlannerConfig } from "../config";
 import { Farm } from "./farm";
-import type { DayRecord, StockAgeGroup } from "./farm";
-import type { PigStage } from "./animals";
+import type { DayRecord, StageCounts } from "./farm";
+import { addTotals, emptyTotals, expensesOf, incomeOf, type CategoryTotals } from "./ledger";
+import type { FeedRation, PigStage } from "./animals";
 
 export * from "./animals";
 export * from "./farm";
+export * from "./feed-plan";
 export * from "./ledger";
 export { dailyHazard, Rng } from "./rng";
 
@@ -33,17 +35,8 @@ export function farmStateAt(config: PlannerConfig, timestamp: string) {
   return farm.advanceTo(day).state(timestamp);
 }
 
-export type FarmWeek = {
-  week: number;
-  startDate: string;
-  day: number;
-  date: string;
-  total: number;
-  groups: StockAgeGroup[];
-  events: FarmWeekEvent[];
-};
-
-export type FarmWeekEvent = {
+/** One line of "what the farm did" over a stretch of days. */
+export type FarmPeriodEvent = {
   type:
     | "vaccination"
     | "service"
@@ -54,9 +47,29 @@ export type FarmWeekEvent = {
     | "promotion"
     | "loss"
     | "cull"
-    | "purchase";
+    | "purchase"
+    | "feed";
   label: string;
   count: number;
+};
+
+/**
+ * Thousands separators without Intl. These labels are built on the server and
+ * again in the browser, and the two do not always agree on how to group a
+ * number — which shows up as a hydration mismatch rather than a wrong figure.
+ */
+function grouped(value: number): string {
+  return Math.round(value)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+const RATION_NAMES: Record<FeedRation, string> = {
+  sow: "sow",
+  creep: "creep",
+  weaner: "weaner",
+  grower: "grower",
+  finisher: "finisher",
 };
 
 const STAGE_NAMES: Record<PigStage, string> = {
@@ -67,11 +80,12 @@ const STAGE_NAMES: Record<PigStage, string> = {
   gilt: "gilts",
 };
 
-function weekEvents(days: DayRecord[]): FarmWeekEvent[] {
+/** Rolls a run of days up into the handful of things worth reading about them. */
+function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   const sum = (pick: (day: DayRecord) => number) =>
     days.reduce((total, day) => total + pick(day), 0);
-  const events: FarmWeekEvent[] = [];
-  const push = (event: FarmWeekEvent) => {
+  const events: FarmPeriodEvent[] = [];
+  const push = (event: FarmPeriodEvent) => {
     if (event.count > 0) events.push(event);
   };
 
@@ -104,6 +118,29 @@ function weekEvents(days: DayRecord[]): FarmWeekEvent[] {
   const promoted = sum((day) => day.giltsPromoted);
   push({ type: "promotion", label: `Move ${promoted} gilts into the sow herd`, count: promoted });
 
+  // One day shows the lorry itself, order list and all; a whole month shows how
+  // many times it came.
+  if (days.length === 1) {
+    for (const load of days[0].feedDeliveries) {
+      const order = load.lines
+        .map((line) => `${RATION_NAMES[line.ration]} ${grouped(line.kg)} kg`)
+        .join(" · ");
+      push({
+        type: "feed",
+        label: `Feed lorry in, ${grouped(load.loadKg)} kg — ${order}`,
+        count: 1,
+      });
+    }
+  } else {
+    const loads = sum((day) => day.feedLoads);
+    const loadKg = sum((day) => day.feedDeliveredKg);
+    push({
+      type: "feed",
+      label: `Take in ${loads} ${loads === 1 ? "feed load" : "feed loads"} · ${grouped(loadKg)} kg`,
+      count: loads,
+    });
+  }
+
   const losses = sum((day) => day.pigletDeaths + day.growingDeaths + day.breedingDeaths);
   push({ type: "loss", label: `Record ${losses} stock losses`, count: losses });
   const culled = sum((day) => day.sowsCulled);
@@ -114,30 +151,109 @@ function weekEvents(days: DayRecord[]): FarmWeekEvent[] {
   return events;
 }
 
-/**
- * Week-end stock snapshots for the whole plan. The farm advances once from left
- * to right, so a long timeline does not rebuild the simulation for every week.
- */
-export function farmWeeklyTimeline(config: PlannerConfig): FarmWeek[] {
-  const farm = new Farm(config);
-  const finalDay = horizonDay(config);
-  const weeks: FarmWeek[] = [];
+/** A single dated square on the calendar, and everything its panel shows. */
+export type FarmCalendarDay = {
+  day: number;
+  date: string;
+  /** Head standing on the farm when the day closed. */
+  total: number;
+  sold: number;
+  bornAlive: number;
+  deaths: number;
+  feedLoads: number;
+  cashIn: number;
+  cashOut: number;
+  netCashFlow: number;
+  closingCash: number;
+  /** The herd split by stage and by what each sow is doing on the day. */
+  counts: StageCounts;
+  events: FarmPeriodEvent[];
+};
 
-  for (let firstDay = 0, week = 1; firstDay <= finalDay; firstDay += 7, week += 1) {
-    const day = Math.min(firstDay + 6, finalDay);
-    farm.advanceTo(day);
-    const groups = farm.stockAgeGroups();
-    const days = farm.history.slice(firstDay, day + 1);
-    weeks.push({
-      week,
-      startDate: format(farm.dateOf(firstDay), "yyyy-MM-dd"),
-      day,
-      date: format(farm.dateOf(day), "yyyy-MM-dd"),
-      total: groups.reduce((sum, group) => sum + group.count, 0),
-      groups,
-      events: weekEvents(days),
+/** A month of the plan, for reading the same timeline zoomed out. */
+export type FarmCalendarMonth = {
+  index: number;
+  /** First day of the month, and the last day of it the plan covers. */
+  date: string;
+  endDate: string;
+  label: string;
+  total: number;
+  sold: number;
+  bornAlive: number;
+  weaned: number;
+  deaths: number;
+  feedLoads: number;
+  /** The month's income and expenditure, line by line. */
+  totals: CategoryTotals;
+  cashIn: number;
+  cashOut: number;
+  netCashFlow: number;
+  closingCash: number;
+  events: FarmPeriodEvent[];
+};
+
+export type FarmTimeline = {
+  days: FarmCalendarDay[];
+  months: FarmCalendarMonth[];
+};
+
+/**
+ * The whole plan day by day, and the same days grouped into months. The farm is
+ * run once and read twice, so switching the timeline between a calendar and a
+ * list of months costs nothing.
+ */
+export function farmTimeline(config: PlannerConfig): FarmTimeline {
+  const farm = new Farm(config);
+  farm.advanceTo(horizonDay(config));
+
+  const days: FarmCalendarDay[] = farm.history.map((record) => ({
+    day: record.day,
+    date: record.date,
+    total: record.counts.total,
+    sold: record.sold,
+    bornAlive: record.bornAlive,
+    deaths: record.pigletDeaths + record.growingDeaths + record.breedingDeaths,
+    feedLoads: record.feedLoads,
+    cashIn: incomeOf(record.totals),
+    cashOut: expensesOf(record.totals),
+    netCashFlow: record.netCashFlow,
+    closingCash: record.closingCash,
+    counts: record.counts,
+    events: periodEvents([record]),
+  }));
+
+  const start = parseISO(config.project.startDate);
+  const months: FarmCalendarMonth[] = [];
+  for (let index = 0; index < config.project.months; index += 1) {
+    const monthStart = addMonths(start, index);
+    const firstDay = farm.dayOf(monthStart);
+    const lastDay = farm.dayOf(addMonths(start, index + 1)) - 1;
+    const records = farm.history.filter((day) => day.day >= firstDay && day.day <= lastDay);
+    if (records.length === 0) continue;
+    const sum = (pick: (day: DayRecord) => number) =>
+      records.reduce((total, day) => total + pick(day), 0);
+    const last = records[records.length - 1];
+    const totals = emptyTotals();
+    for (const record of records) addTotals(totals, record.totals);
+    months.push({
+      index,
+      date: format(monthStart, "yyyy-MM-dd"),
+      endDate: last.date,
+      label: format(monthStart, "MMMM yyyy"),
+      total: last.counts.total,
+      sold: sum((day) => day.sold),
+      bornAlive: sum((day) => day.bornAlive),
+      weaned: sum((day) => day.weaned),
+      deaths: sum((day) => day.pigletDeaths + day.growingDeaths + day.breedingDeaths),
+      feedLoads: sum((day) => day.feedLoads),
+      totals,
+      cashIn: incomeOf(totals),
+      cashOut: expensesOf(totals),
+      netCashFlow: sum((day) => day.netCashFlow),
+      closingCash: last.closingCash,
+      events: periodEvents(records),
     });
   }
 
-  return weeks;
+  return { days, months };
 }
