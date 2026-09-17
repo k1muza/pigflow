@@ -239,6 +239,7 @@ function Field({
   min = 0,
   max,
   step = 0.1,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -248,6 +249,8 @@ function Field({
   min?: number;
   max?: number;
   step?: number;
+  /** Greyed out for an input the plan is not currently reading. */
+  disabled?: boolean;
 }) {
   return (
     <label className="block">
@@ -261,8 +264,9 @@ function Field({
         min={min}
         max={max}
         step={step}
+        disabled={disabled}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="font-medium tabular-nums"
+        className="font-medium tabular-nums disabled:opacity-50"
       />
       {hint ? <span className="mt-1.5 block text-xs leading-5 text-ink-faint">{hint}</span> : null}
     </label>
@@ -1790,6 +1794,20 @@ export function Inputs({
             step={100}
             hint="Pens, equipment and setup paid in month one."
           />
+          <SelectField
+            label="How the plan comes out"
+            value={config.project.variation}
+            onChange={(v) => update("project", "variation", v)}
+            options={[
+              { value: "chance", label: "Chance — one plausible year" },
+              { value: "settled", label: "Settled — exactly the planned rates" },
+            ]}
+            hint={
+              config.project.variation === "settled"
+                ? "Nothing is drawn. A rate that does not come to a whole animal carries its remainder to the next one until it does, so a herd at 12.4 born alive farrows 12, 12, 13, 12, 13. The plan has one answer, and two plans can be read off side by side."
+                : "Litter size, conception, gestation and growth are drawn from the seed, so this is one plausible farm rather than the average of many. Two plans compared on one seed can differ by luck as much as by what you changed."
+            }
+          />
           <Field
             label="Scenario seed"
             value={config.project.seed}
@@ -1797,7 +1815,12 @@ export function Inputs({
             min={1}
             max={1000000}
             step={1}
-            hint="Litter size, conception and mortality are drawn at random. Change the seed to replay the same plan with different luck."
+            disabled={config.project.variation === "settled"}
+            hint={
+              config.project.variation === "settled"
+                ? "Not used: a settled plan draws nothing, so it comes out the same whatever this says."
+                : "Change the seed to replay the same plan with a different year's luck. Mortality is not drawn either way — the losses a stage owes are placed, so those percentages come back as you set them."
+            }
           />
         </div>
       </SectionCard>
@@ -2351,13 +2374,24 @@ export function Inputs({
             step={1}
             hint={`Costs ${money(config.health.heatingCostPerPigDay * config.health.heatedUntilAgeDays, config.project.currency)} per pig reared.`}
           />
-          <div className="flex items-end">
-            <div className="w-full rounded-lg bg-plane px-3 py-2.5 text-xs text-ink-muted">
-              <span className="font-medium text-ink">
-                {money(metrics.vaccinationCostPerPig, config.project.currency)}
-              </span>{" "}
-              of treatment per pig across the schedule below.
-            </div>
+          <SelectField
+            label="Mortality timing"
+            value={config.health.mortalityTiming}
+            onChange={(v) => update("health", "mortalityTiming", v)}
+            options={[
+              { value: "profiled", label: "Follow the risk curve" },
+              { value: "even", label: "Spread evenly" },
+            ]}
+            hint="How the mortality percentages are spread inside each stage. The percentages themselves are set with the herd and growth inputs; this only moves when those losses land."
+          />
+        </div>
+
+        <div className="mt-4">
+          <div className="w-full rounded-lg bg-plane px-3 py-2.5 text-xs text-ink-muted">
+            <span className="font-medium text-ink">
+              {money(metrics.vaccinationCostPerPig, config.project.currency)}
+            </span>{" "}
+            of treatment per pig across the schedule below.
           </div>
         </div>
 
@@ -3636,7 +3670,9 @@ export function Methodology({
         >
           <ul className="space-y-2.5 text-sm leading-6 text-ink-muted">
             {[
-              "One random run per seed: this is a plausible farm, not the average of many.",
+              config.project.variation === "settled"
+                ? "Settled mode gives one comparison answer but does not show the downside of a bad biological year."
+                : "Chance mode is one plausible farm per seed; compare matched seed bands rather than isolated runs.",
               "No loan interest, tax, depreciation or inflation unless entered through costs.",
               "No disease outbreak, seasonal fertility effect or market-price volatility.",
               "Sow places are the only capacity limit: growing pens, feed storage and labour are not.",
@@ -3655,6 +3691,17 @@ export function Methodology({
               <strong className="font-medium text-ink">Animal-health note:</strong> this app supports
               budgeting. Diagnosis, treatment, vaccination schedules, medicine use and biosecurity
               decisions require a veterinarian familiar with your herd and local disease risks.
+            </p>
+          </div>
+          <div className="mt-3 flex gap-3 rounded-lg border border-hairline bg-plane p-3.5">
+            <Info size={16} className="mt-0.5 shrink-0 text-ink-faint" />
+            <p className="text-xs leading-5 text-ink-muted">
+              <strong className="font-medium text-ink">Mortality-profile assumption:</strong>{" "}
+              profiled timing assigns 55% / 20% / 25% of pre-weaning deaths to days 0–3,
+              4–7 and the remainder, and 45% / 25% / 30% of weaner deaths to days 0–7,
+              8–14 and the remainder. These are transparent planning assumptions, not values
+              established by the benchmark sources above; replace them with herd-specific evidence
+              before using timing-sensitive cost results operationally.
             </p>
           </div>
         </SectionCard>

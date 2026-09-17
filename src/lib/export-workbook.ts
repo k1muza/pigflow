@@ -636,6 +636,7 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
         ["Planning horizon", config.project.months, "months"],
         ["Currency", config.project.currency, ""],
         ["Opening cash", config.project.openingCash, config.project.currency],
+        ["Plan outcome mode", config.project.variation, "chance / settled"],
         ["Simulation seed", config.project.seed, ""],
       ],
     ],
@@ -760,6 +761,12 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
         ["Veterinary cost per sow", config.health.vetCostPerSowMonth, `${config.project.currency}/month`],
         ["Heating cost per pig", config.health.heatingCostPerPigDay, `${config.project.currency}/day`],
         ["Heated until age", config.health.heatedUntilAgeDays, "days"],
+        [
+          "Mortality timing",
+          config.health.mortalityTiming,
+          "",
+          "Profiled timing uses explicit model assumptions documented on the Method & sources page; even timing spreads losses across the stage.",
+        ],
       ],
     ],
     [

@@ -493,12 +493,21 @@ function buildWarnings(
         "Enter a locally agreed vaccination schedule and a routine veterinary allowance before relying on the cash result.",
     });
   }
-  warnings.push({
-    level: "info",
-    title: "This is one run of many possible farms",
-    detail:
-      "Litter size, conception, mortality and timing are drawn at random from your assumptions. Change the scenario seed to see how much the outcome moves before you commit to a plan.",
-  });
+  warnings.push(
+    config.project.variation === "settled"
+      ? {
+          level: "info",
+          title: "This is the settled planning case",
+          detail:
+            "Rates are carried into whole-animal outcomes without random draws. This gives one clean comparison answer, but it does not show the downside of a bad biological year; use Chance mode and its seed band for risk.",
+        }
+      : {
+          level: "info",
+          title: "This is one run of many possible farms",
+          detail:
+            "Litter size, conception, gestation and growth are drawn from this scenario seed. Mortality is placed at the rates entered. Compare plans over matched seeds before treating a small difference as meaningful.",
+        },
+  );
 
   return warnings;
 }

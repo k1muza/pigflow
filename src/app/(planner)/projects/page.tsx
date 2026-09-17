@@ -1,6 +1,6 @@
-import OpenLastPlan from "@/components/open-last-plan";
+import ProjectsDashboard from "@/components/projects-dashboard";
 
-/** No plan named, so open the one you were last in. */
+/** The plan table and matched-seed comparison workspace. */
 export default function Page() {
-  return <OpenLastPlan />;
+  return <ProjectsDashboard />;
 }

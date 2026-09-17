@@ -35,7 +35,8 @@ import {
   type RationTally,
 } from "./feed-plan";
 import { emptyTotals, Ledger, type CategoryTotals } from "./ledger";
-import { dailyHazard, Rng } from "./rng";
+import { MortalityScheduler } from "./mortality";
+import { variationFor, type Variation } from "./variation";
 
 export type FarmEventType =
   | "farrowing"
@@ -295,29 +296,6 @@ function emptyVaccinations(): Record<PigStage, number> {
   return { piglet: 0, weaner: 0, grower: 0, finisher: 0, gilt: 0 };
 }
 
-function stageDurationDays(stage: PigStage, config: PlannerConfig): number {
-  switch (stage) {
-    case "piglet":
-      return config.reproduction.weaningAgeDays;
-    case "weaner":
-      return (
-        (config.growth.growerStartWeightKg - config.growth.weaningWeightKg) /
-        config.growth.weanerDailyGainKg
-      );
-    case "grower":
-      return (
-        (config.growth.finisherStartWeightKg - config.growth.growerStartWeightKg) /
-        config.growth.growerDailyGainKg
-      );
-    case "finisher":
-      return (
-        (config.growth.saleWeightKg - config.growth.finisherStartWeightKg) /
-        config.growth.finisherDailyGainKg
-      );
-    case "gilt":
-      return 60;
-  }
-}
 
 /** The note on a cash movement, if the owner wrote one. */
 function noteOf(note: string): string {
@@ -407,9 +385,10 @@ export class Farm {
   /** The lorry trips this plan needs, worked out before the first day is run. */
   readonly feedPlan: FeedPlan;
   private readonly deliveriesByDay = new Map<number, FeedDelivery[]>();
-  private readonly rng: Rng;
-  private readonly hazard: Record<PigStage, number>;
-  private readonly breedingHazard: number;
+  /** Whether this plan rolls for its outcomes or takes its rates exactly. */
+  private readonly variation: Variation;
+  /** Books every loss in advance instead of rolling for one each morning. */
+  private readonly mortality: MortalityScheduler;
   private readonly vaccinations: Vaccination[];
   private readonly soldPigCosts = new CostRecord();
   /** Everything spent on keeping the breeding herd and rearing its replacements. */
@@ -442,7 +421,15 @@ export class Farm {
   constructor(input: PlannerConfig, feedPlan?: FeedPlan) {
     this.config = plannerSchema.parse(input);
     this.start = parseISO(this.config.project.startDate);
-    this.rng = new Rng(this.config.project.seed);
+    this.variation = variationFor(
+      this.config.project.variation,
+      this.config.project.seed,
+      {
+        litter: LITTER_SIZE_DEVIATION,
+        gestation: GESTATION_DEVIATION_DAYS,
+        weanToService: WEAN_TO_SERVICE_DEVIATION_DAYS,
+      },
+    );
     this.ledger = new Ledger(this.config.project.openingCash);
     this.feedPlan = feedPlan ?? feedPlanFor(this.config);
     for (const load of this.feedPlan.deliveries) {
@@ -453,26 +440,7 @@ export class Farm {
     this.vaccinations = [...this.config.health.vaccinations].sort(
       (a, b) => a.ageDays - b.ageDays,
     );
-    this.breedingHazard = dailyHazard(this.config.herd.sowAnnualMortalityPct, 365);
-    this.hazard = {
-      piglet: dailyHazard(
-        this.config.reproduction.preWeanMortalityPct,
-        stageDurationDays("piglet", this.config),
-      ),
-      weaner: dailyHazard(
-        this.config.growth.weanerMortalityPct,
-        stageDurationDays("weaner", this.config),
-      ),
-      grower: dailyHazard(
-        this.config.growth.growerMortalityPct,
-        stageDurationDays("grower", this.config),
-      ),
-      finisher: dailyHazard(
-        this.config.growth.finisherMortalityPct,
-        stageDurationDays("finisher", this.config),
-      ),
-      gilt: this.breedingHazard,
-    };
+    this.mortality = new MortalityScheduler(this.config);
     this.seedHerd();
   }
 
@@ -538,8 +506,8 @@ export class Farm {
   /** Every pig is drawn its own thriftiness and its own first-heat timing. */
   private growthDraw(): { growthFactor: number; estrusOffsetDays: number } {
     return {
-      growthFactor: Math.min(1.3, Math.max(0.7, this.rng.normal(1, GROWTH_FACTOR_DEVIATION))),
-      estrusOffsetDays: Math.floor(this.rng.next() * GILT_HEAT_WINDOW_DAYS),
+      growthFactor: this.variation.growthFactor(GROWTH_FACTOR_DEVIATION),
+      estrusOffsetDays: this.variation.estrusOffsetDays(GILT_HEAT_WINDOW_DAYS),
     };
   }
 
@@ -548,7 +516,7 @@ export class Farm {
     const piglet = new GrowingPig({
       id: tag,
       tag,
-      sex: this.rng.chance(0.5) ? "female" : "male",
+      sex: this.variation.sex(),
       birthDay,
       weightKg,
       stage: "piglet",
@@ -592,12 +560,7 @@ export class Farm {
         sow.state = "lactating";
         sow.parity = Math.max(1, parity);
         sow.weanDay = Math.round(reproduction.gestationDays + reproduction.weaningAgeDays - phase);
-        const litterSize = this.rng.intAround(
-          reproduction.bornAlivePerLitter,
-          LITTER_SIZE_DEVIATION,
-          1,
-          25,
-        );
+        const litterSize = this.variation.litterSize(reproduction.bornAlivePerLitter);
         const gain = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
         for (let p = 0; p < litterSize; p += 1) {
           const piglet = this.createPiglet(sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
@@ -605,6 +568,8 @@ export class Farm {
           sow.litter.push(piglet);
           this.pigs.push(piglet);
         }
+        // Booked for only the part of the suckling stage still ahead of them.
+        this.mortality.enterStage(sow.litter, "piglet", 0);
       } else {
         sow.state = "open";
         sow.nextServiceDay = Math.round(cycleDays - phase);
@@ -628,6 +593,7 @@ export class Farm {
     }
 
     // Starting gilts are maiden females already close to service weight.
+    const startingGilts: GrowingPig[] = [];
     for (let i = 0; i < Math.round(stock.gilts); i += 1) {
       const tag = this.nextPigTag();
       const weightKg = Math.max(
@@ -647,7 +613,9 @@ export class Farm {
       gilt.weanedOnDay = -Math.round(herd.giltServiceAgeDays - 40);
       this.catchUpVaccinations(gilt, 0);
       this.pigs.push(gilt);
+      startingGilts.push(gilt);
     }
+    this.mortality.enterStage(startingGilts, "gilt", 0);
 
     this.seedGrowingStock("weaner", Math.round(stock.weaners));
     this.seedGrowingStock("grower", Math.round(stock.growers));
@@ -677,6 +645,7 @@ export class Farm {
           ? growth.growerDailyGainKg
           : growth.finisherDailyGainKg;
 
+    const placed: GrowingPig[] = [];
     for (let i = 0; i < count; i += 1) {
       const progress = count === 1 ? 0 : i / count;
       const weightKg = startWeight + progress * (endWeight - startWeight);
@@ -689,7 +658,7 @@ export class Farm {
       const pig = new GrowingPig({
         id: tag,
         tag,
-        sex: this.rng.chance(0.5) ? "female" : "male",
+        sex: this.variation.sex(),
         birthDay: -Math.round(ageDays),
         weightKg,
         stage,
@@ -698,7 +667,9 @@ export class Farm {
       pig.weanedOnDay = -Math.round(daysInStage);
       this.catchUpVaccinations(pig, 0);
       this.pigs.push(pig);
+      placed.push(pig);
     }
+    this.mortality.enterStage(placed, stage, 0);
   }
 
   // -------------------------------------------------------------- daily update
@@ -842,12 +813,7 @@ export class Farm {
       }
 
       if (sow.state === "gestating" && sow.dueDay !== null && day >= sow.dueDay) {
-        const litterSize = this.rng.intAround(
-          config.reproduction.bornAlivePerLitter,
-          LITTER_SIZE_DEVIATION,
-          1,
-          25,
-        );
+        const litterSize = this.variation.litterSize(config.reproduction.bornAlivePerLitter);
         const piglets: GrowingPig[] = [];
         for (let i = 0; i < litterSize; i += 1) {
           const piglet = this.createPiglet(sow, day, BIRTH_WEIGHT_KG);
@@ -855,6 +821,7 @@ export class Farm {
           this.pigs.push(piglet);
         }
         sow.farrow(day, piglets, config);
+        this.mortality.enterStage(piglets, "piglet", day);
         record.farrowings += 1;
         record.bornAlive += litterSize;
         this.lifetime.litters += 1;
@@ -878,8 +845,13 @@ export class Farm {
         const weaned = sow.wean(
           day,
           config,
-          this.rng.normal(config.reproduction.weanToServiceDays, WEAN_TO_SERVICE_DEVIATION_DAYS),
+          this.variation.weanToServiceDays(config.reproduction.weanToServiceDays),
         );
+        // They are through the suckling stage, so anything it still had booked
+        // against them goes back on its slate. A heavy piglet can wean straight
+        // past the weaner house, so they are re-booked by the stage they land in.
+        for (const piglet of weaned) this.mortality.release(piglet);
+        this.bookByStage(weaned, day);
         record.weaned += weaned.length;
         this.lifetime.weaned += weaned.length;
         this.log(day, date, "weaning", sow.tag + " weaned " + weaned.length + " piglets");
@@ -912,8 +884,8 @@ export class Farm {
       record.services += 1;
       sow.serve(
         day,
-        this.rng.chance(config.reproduction.farrowingSuccessPct / 100),
-        this.rng.normal(config.reproduction.gestationDays, GESTATION_DEVIATION_DAYS),
+        this.variation.conceives(config.reproduction.farrowingSuccessPct / 100),
+        this.variation.gestationDays(config.reproduction.gestationDays),
         boar.tag,
       );
     }
@@ -1222,13 +1194,18 @@ export class Farm {
     let giltSaleValue = 0;
     let freeSowPlaces = config.herd.maxSows - this.sows.filter((sow) => sow.alive).length;
 
+    const movedOn: GrowingPig[] = [];
     for (const pig of this.pigs) {
       const was = pig.stage;
       pig.grow(config);
       if (pig.stage === was) continue;
       if (pig.stage === "grower") record.movedToGrower += 1;
       else if (pig.stage === "finisher") record.movedToFinisher += 1;
+      // It left the old stage on its feet, so that stage takes its loss back.
+      this.mortality.release(pig);
+      movedOn.push(pig);
     }
+    this.bookByStage(movedOn, day);
 
     // Pigs are killed by cohort: litter mates born on one day go on one day,
     // when the cohort's average weight reaches the target. Some are drawn a
@@ -1246,6 +1223,7 @@ export class Farm {
         members.reduce((total, pig) => total + pig.weightKg, 0) / members.length;
       if (average < config.growth.saleWeightKg) continue;
       for (const pig of members) {
+        this.mortality.release(pig);
         pig.leave(day, "sold");
         this.noteExit(pig.generation, true);
         this.soldPigCosts.absorb(pig.costs);
@@ -1263,12 +1241,14 @@ export class Farm {
         // She does not leave the farm, she changes role: the pig record closes
         // and the same animal carries on as a sow, keeping her tag, her lineage
         // and the cost of rearing her.
+        this.mortality.release(pig);
         this.sows.push(Sow.fromGilt(pig, day));
         pig.alive = false;
         pig.exitDay = day;
         freeSowPlaces -= 1;
         record.giltsPromoted += 1;
       } else {
+        this.mortality.release(pig);
         pig.leave(day, "sold-as-gilt");
         this.noteExit(pig.generation, true);
         giltSaleValue += config.herd.surplusGiltSaleValue;
@@ -1321,6 +1301,24 @@ export class Farm {
    * abattoir, because that is what producing them actually cost — a replacement
    * gilt's loss is already carried by the breeding herd instead.
    */
+  /**
+   * Books a set of pigs into whichever stage each has just landed in. They are
+   * grouped first because a stage is charged on the whole lot arriving at once:
+   * that is what lets the fraction of a death a small cohort owes be carried on
+   * to the next cohort rather than rounded away.
+   */
+  private bookByStage(pigs: readonly GrowingPig[], day: number): void {
+    if (pigs.length === 0) return;
+    const byStage = new Map<PigStage, GrowingPig[]>();
+    for (const pig of pigs) {
+      if (!pig.alive) continue;
+      const group = byStage.get(pig.stage);
+      if (group) group.push(pig);
+      else byStage.set(pig.stage, [pig]);
+    }
+    for (const [stage, group] of byStage) this.mortality.enterStage(group, stage, day);
+  }
+
   private absorbLoss(pig: GrowingPig): void {
     if (pig.destination === "market") this.soldPigCosts.absorb(pig.costs);
   }
@@ -1328,7 +1326,8 @@ export class Farm {
   private runMortality(day: number, date: string, record: DayRecord): void {
     for (const pig of this.pigs) {
       if (!pig.alive) continue;
-      if (!this.rng.chance(this.hazard[pig.stage])) continue;
+      if (!this.mortality.isDue(pig, day)) continue;
+      this.mortality.settle(pig);
       pig.leave(day, "died");
       this.absorbLoss(pig);
       this.noteExit(pig.generation, false);
@@ -1347,15 +1346,24 @@ export class Farm {
       );
     }
 
+    // Sows and boars carry one risk between them, so they go to the scheduler
+    // together. It knows how long each of them has stood, which is what settles
+    // who goes rather than simply who is frailest on paper.
+    const breeders: (Sow | Boar)[] = [
+      ...this.sows.filter((sow) => sow.alive),
+      ...this.boars.filter((boar) => boar.alive),
+    ];
+    const doomed = new Set<Sow | Boar>(this.mortality.claimBreedingDeaths(breeders));
+
     for (const boar of this.boars) {
-      if (!this.rng.chance(this.breedingHazard)) continue;
+      if (!doomed.has(boar)) continue;
       boar.leave(day, "died");
       record.breedingDeaths += 1;
       this.log(day, date, "death", boar.tag + " died");
     }
 
     for (const sow of this.sows) {
-      if (!this.rng.chance(this.breedingHazard)) continue;
+      if (!doomed.has(sow)) continue;
       sow.leave(day, "died");
       this.noteExit(sow.generation, false);
       record.breedingDeaths += 1;

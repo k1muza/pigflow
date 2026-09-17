@@ -21,6 +21,7 @@ import {
   CloudOff,
   Copy,
   Download,
+  GitCompareArrows,
   HeartPulse,
   LogOut,
   PanelLeftClose,
@@ -252,6 +253,7 @@ function ProjectSwitcher({
   onDuplicate,
   onRename,
   onDelete,
+  onCompare,
 }: {
   workspace: Workspace;
   /** The plan the address names, or null while there is no such plan here. */
@@ -263,6 +265,7 @@ function ProjectSwitcher({
   onDuplicate: () => void;
   onRename: () => void;
   onDelete: () => void;
+  onCompare: () => void;
 }) {
   const full = workspace.projects.length >= MAX_PROJECTS;
   const onlyPlan = workspace.projects.length < 2;
@@ -293,6 +296,10 @@ function ProjectSwitcher({
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onCompare}>
+            <GitCompareArrows size={14} /> Compare plans
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onNew} disabled={full}>
             <Plus size={14} /> New plan
@@ -576,6 +583,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
                   onDuplicate={duplicatePlan}
                   onRename={renamePlan}
                   onDelete={deletePlan}
+                  onCompare={() => router.push("/projects")}
                 />
               </div>
             </div>

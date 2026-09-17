@@ -44,6 +44,21 @@ export const plannerSchema = z.object({
     currency: z.enum(["USD", "ZAR", "GBP", "EUR"]),
     openingCash: z.number().finite(),
     seed: z.number().int().min(1).max(1_000_000),
+    /**
+     * Whether the plan rolls for its outcomes or takes its rates exactly.
+     *
+     * "chance" draws litter size, conception, gestation, weaning-to-service,
+     * sex and thriftiness from the seed, so one run is a plausible farm rather
+     * than the average of many — and the seed is what you change to see a
+     * different year's luck.
+     *
+     * "settled" draws nothing. Every rate is taken as stated and a rate that
+     * does not come to a whole animal carries its remainder to the next one
+     * until it does, so a herd at 12.4 born alive farrows 12, 12, 13, 12, 13.
+     * The plan then has one answer rather than a spread of them, the seed does
+     * nothing, and two plans can be read off side by side.
+     */
+    variation: z.enum(["chance", "settled"]).default("chance"),
   }),
   stock: z.object({
     sows: nonNegative,
@@ -131,6 +146,14 @@ export const plannerSchema = z.object({
     vetCostPerSowMonth: nonNegative,
     heatingCostPerPigDay: nonNegative,
     heatedUntilAgeDays: z.number().min(0).max(120),
+    /**
+     * How a stage's mortality percentage is spread across that stage. The
+     * percentage itself stays the input; this only says when inside the stage
+     * those losses land. "profiled" follows the shape a herd really loses stock
+     * in — heavily in the first days of life and over the weaning check — while
+     * "even" spreads them flat across the stage.
+     */
+    mortalityTiming: z.enum(["profiled", "even"]).default("profiled"),
   }),
   finance: z.object({
     salePriceKg: nonNegative,
@@ -205,6 +228,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     currency: "USD",
     openingCash: 0,
     seed: 1,
+    variation: "chance",
   },
   stock: {
     sows: 2,
@@ -279,6 +303,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     vetCostPerSowMonth: 2.5,
     heatingCostPerPigDay: 0.04,
     heatedUntilAgeDays: 56,
+    mortalityTiming: "profiled",
   },
   finance: {
     salePriceKg: 3.5,

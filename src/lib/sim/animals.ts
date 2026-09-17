@@ -151,6 +151,14 @@ export class GrowingPig extends Animal {
   estrusOffsetDays = 0;
   /** Set once this pig has been looked over for breeding, kept or not. */
   assessedForBreeding = false;
+  /**
+   * The day this pig is booked to die, and the stage that booked it. Mortality
+   * is scheduled when a cohort enters a stage rather than rolled every morning,
+   * so a pig carries its own appointment. Both are cleared when the day comes,
+   * and handed back to the stage if the pig leaves it alive first.
+   */
+  deathDay: number | null = null;
+  deathStage: PigStage | null = null;
 
   constructor(init: {
     id: string;
