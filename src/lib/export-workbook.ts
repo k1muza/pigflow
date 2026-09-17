@@ -1,5 +1,6 @@
 import type { Cell, Row, Worksheet } from "exceljs";
 
+import { expectedGiltServiceAgeDays } from "./config";
 import type { MonthlyProjection, PlannerConfig, ProjectionResult } from "./model";
 import type { LedgerCategory } from "./sim";
 
@@ -41,6 +42,7 @@ const PAYMENT_LINES: { label: string; category: LedgerCategory }[] = [
   { label: "Fixed overheads", category: "overheads" },
   { label: "Haulage to abattoir", category: "transport" },
   { label: "Bought-in breeding stock", category: "breeding-stock" },
+  { label: "AI semen & service", category: "semen" },
   { label: "Contingency", category: "contingency" },
   { label: "Capital expenditure", category: "capital" },
 ];
@@ -656,8 +658,12 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
         ["Buy gilts when short", config.herd.buyGiltsWhenShort, "yes/no"],
         ["Sow & boar mortality", config.herd.sowAnnualMortalityPct, "% per year"],
         ["Gilt selection weight", config.herd.giltSelectionWeightKg, "kg"],
-        ["Gilt service weight", config.herd.giltServiceWeightKg, "kg"],
-        ["Gilt service age", config.herd.giltServiceAgeDays, "days"],
+        ["Gilt puberty age", config.herd.giltPubertyAgeDays, "days"],
+        ["Gilt puberty weight", config.herd.giltPubertyWeightKg, "kg"],
+        ["Served on heat number", config.herd.giltServeAtHeat, "standing heat"],
+        ["Gilt service weight floor", config.herd.giltServiceWeightKg, "kg"],
+        ["Gilt service age floor", config.herd.giltServiceAgeDays, "days"],
+        ["Gilt service age, as planned", expectedGiltServiceAgeDays(config), "days"],
         ["Gilt purchase cost", config.herd.giltPurchaseCost, config.project.currency],
         ["Boar purchase cost", config.herd.boarPurchaseCost, config.project.currency],
         [
@@ -668,6 +674,15 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
         ],
         ["Surplus gilt sale value", config.herd.surplusGiltSaleValue, config.project.currency],
         ["Cull sow sale value", config.herd.cullSowSaleValue, config.project.currency],
+        ["Late returns", config.reproduction.irregularReturnSharePct, "% of returns"],
+        ["Pregnancy scan", config.reproduction.pregnancyScanDays, "days after service"],
+        ["Scan cost", config.reproduction.pregnancyScanCost, config.project.currency],
+        ["Artificial insemination", config.service.useAi ? "Yes" : "No", ""],
+        ["AI share of services", config.service.aiSharePct, "%"],
+        ["AI cost per service", config.service.aiCostPerService, config.project.currency],
+        ["AI doses per service", config.service.aiInseminationsPerService, "doses"],
+        ["AI conception difference", config.service.aiConceptionDeltaPct, "percentage points"],
+        ["AI stud lines", config.service.aiStudPanelSize, "studs"],
       ],
     ],
     [

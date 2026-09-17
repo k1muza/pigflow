@@ -87,7 +87,14 @@ export abstract class Animal {
   /** 0 for founding stock; a piglet is always one past its dam. */
   readonly generation: number;
   readonly damTag: string | null;
-  readonly sireTag: string | null;
+  /**
+   * The sires standing behind this animal on its dam's side, nearest first: its
+   * own sire, then its maternal grandsire, and so on as deep as
+   * ANCESTRY_EXCLUSION_DEPTH keeps. Every one of them is barred from serving
+   * her, which is what keeps a boar off his own granddaughters once he has been
+   * standing long enough to meet them.
+   */
+  readonly sireLine: readonly string[];
   weightKg: number;
   alive = true;
   exitDay: number | null = null;
@@ -102,7 +109,7 @@ export abstract class Animal {
     weightKg: number;
     generation?: number;
     damTag?: string | null;
-    sireTag?: string | null;
+    sireLine?: readonly string[];
   }) {
     this.id = init.id;
     this.tag = init.tag;
@@ -111,7 +118,17 @@ export abstract class Animal {
     this.weightKg = init.weightKg;
     this.generation = init.generation ?? 0;
     this.damTag = init.damTag ?? null;
-    this.sireTag = init.sireTag ?? null;
+    this.sireLine = init.sireLine ?? [];
+  }
+
+  /** This animal's own sire, which is simply the nearest name in its sire line. */
+  get sireTag(): string | null {
+    return this.sireLine[0] ?? null;
+  }
+
+  /** Whether this boar or stud is close enough kin to be kept off this female. */
+  relatedTo(sireTag: string): boolean {
+    return this.sireLine.includes(sireTag);
   }
 
   ageDays(day: number): number {
@@ -147,8 +164,18 @@ export class GrowingPig extends Animal {
    * so they do not all reach sale weight — or breeding age — on the same day.
    */
   growthFactor: number;
-  /** Days past the service minimum before this gilt shows a standing heat. */
+  /**
+   * This gilt's own days past the herd's puberty age before she first stands.
+   * Litter mates do not come into season together, and it is that spread —
+   * carried forward through her cycle — that keeps a batch of them from all
+   * being served on one day.
+   */
   estrusOffsetDays = 0;
+  /**
+   * The day she first stood, or null before she has. Every heat after it is a
+   * cycle on from it, so this one day fixes her whole breeding calendar.
+   */
+  firstHeatDay: number | null = null;
   /** Set once this pig has been looked over for breeding, kept or not. */
   assessedForBreeding = false;
   /**
@@ -169,7 +196,7 @@ export class GrowingPig extends Animal {
     stage: PigStage;
     generation?: number;
     damTag?: string | null;
-    sireTag?: string | null;
+    sireLine?: readonly string[];
     growthFactor?: number;
     estrusOffsetDays?: number;
   }) {
@@ -294,16 +321,44 @@ export class GrowingPig extends Animal {
   }
 
   /**
-   * A selected gilt joins the breeding herd on weight and age together, and then
-   * only on her next standing heat — which is what keeps a batch of litter mates
-   * from all being served on the same day.
+   * Records the day this gilt reaches puberty: the first day she is both old
+   * enough and heavy enough to stand. Called once a day; it only ever writes
+   * once, because a herd's breeding calendar hangs off that one day.
+   */
+  noteFirstHeat(day: number, config: PlannerConfig): void {
+    if (this.firstHeatDay !== null) return;
+    if (this.destination !== "breeding" || this.stage !== "gilt") return;
+    const old = this.ageDays(day) >= config.herd.giltPubertyAgeDays + this.estrusOffsetDays;
+    const grown = this.weightKg >= config.herd.giltPubertyWeightKg;
+    if (old && grown) this.firstHeatDay = day;
+  }
+
+  /**
+   * Which standing heat she is on today — 1 at puberty, 2 a cycle later — or 0
+   * on any day between them. A gilt can only be served on a day she stands, so
+   * a batch coming to weight together still goes to the boar a cycle apart
+   * rather than all on the morning the scale says they are ready.
+   */
+  heatNumberOn(day: number): number {
+    if (this.firstHeatDay === null || day < this.firstHeatDay) return 0;
+    const since = day - this.firstHeatDay;
+    return since % ESTRUS_CYCLE_DAYS === 0 ? since / ESTRUS_CYCLE_DAYS + 1 : 0;
+  }
+
+  /**
+   * A selected gilt joins the breeding herd on a standing heat: the plan's
+   * chosen heat or later, and then only if she is carrying the weight and the
+   * age by the time it comes round. Missing either holds her to the next heat
+   * rather than to the next day, which is what puts a herd's services a cycle
+   * apart instead of spreading them over whatever days the gilts hit target.
    */
   readyToBreed(day: number, config: PlannerConfig): boolean {
     return (
       this.destination === "breeding" &&
       this.stage === "gilt" &&
+      this.heatNumberOn(day) >= config.herd.giltServeAtHeat &&
       this.weightKg >= config.herd.giltServiceWeightKg &&
-      this.ageDays(day) >= config.herd.giltServiceAgeDays + this.estrusOffsetDays
+      this.ageDays(day) >= config.herd.giltServiceAgeDays
     );
   }
 }
@@ -315,14 +370,18 @@ export class Sow extends Animal {
   nextServiceDay: number;
   dueDay: number | null = null;
   weanDay: number | null = null;
-  /**
-   * The day a service is read. A sow that has not come back into heat one cycle
-   * after being served is taken to be in pig — which is how a farm learns it,
-   * rather than on the day of the service itself.
-   */
-  confirmDay: number | null = null;
   litter: GrowingPig[] = [];
   servicesUsed = 0;
+  /**
+   * The day she is due to be scanned for this service, or null when there is
+   * nothing to scan for. A scan tells the farm what the sow will not: that she
+   * is empty, before she has spent another three weeks looking otherwise.
+   */
+  scanDay: number | null = null;
+  /** Whether the service she is carrying came back — or would come back — late. */
+  lastReturnIrregular = false;
+  /** The day she is due back in heat when this service did not hold. */
+  returnDay: number | null = null;
   totalBornAlive = 0;
   totalWeaned = 0;
   lastSireTag: string | null = null;
@@ -338,7 +397,7 @@ export class Sow extends Animal {
     nextServiceDay?: number;
     generation?: number;
     damTag?: string | null;
-    sireTag?: string | null;
+    sireLine?: readonly string[];
     homeBred?: boolean;
   }) {
     super({ ...init, sex: "female" });
@@ -358,7 +417,7 @@ export class Sow extends Animal {
       nextServiceDay: day,
       generation: pig.generation,
       damTag: pig.damTag,
-      sireTag: pig.sireTag,
+      sireLine: pig.sireLine,
       homeBred: true,
     });
     sow.costs.absorb(pig.costs);
@@ -382,23 +441,33 @@ export class Sow extends Animal {
   }
 
   /**
-   * Records a service. A service that does not hold returns to estrus one cycle
-   * later. Gestation length is passed in because it varies from sow to sow.
+   * Records a service. One that holds puts her in pig; one that does not brings
+   * her back in heat, on the next cycle or a week or two past it depending on
+   * whether she never took or lost it after she had. Both are scanned: a scan
+   * is booked off the service, not off what the service turned out to be.
+   *
+   * Gestation length, the return interval and whether the return is irregular
+   * are all passed in, because each varies from sow to sow and the farm is what
+   * holds the plan's variation.
    */
   serve(
     day: number,
     conceived: boolean,
     gestationDays: number,
     sireTag: string | null,
+    outcome: { returnDays: number; irregular: boolean; scanDays: number },
   ): void {
     this.servicesUsed += 1;
     this.lastSireTag = sireTag;
-    this.confirmDay = day + ESTRUS_CYCLE_DAYS;
+    this.scanDay = day + outcome.scanDays;
+    this.lastReturnIrregular = !conceived && outcome.irregular;
     if (conceived) {
       this.state = "gestating";
       this.dueDay = day + Math.round(gestationDays);
+      this.returnDay = null;
     } else {
-      this.nextServiceDay = day + ESTRUS_CYCLE_DAYS;
+      this.returnDay = day + outcome.returnDays;
+      this.nextServiceDay = this.returnDay;
     }
   }
 

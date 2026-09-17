@@ -23,12 +23,12 @@ describe("Funding cashflow workbook", () => {
     expect(cashFlow.getCell("B4").value).toBe(config.project.openingCash);
     expect(cashFlow.getCell("B7").value).toBe(projection.months[0].totals["pig-sales"]);
     // Rows are counted off the line lists, so the totals move with them: four
-    // receipt lines and eleven payment lines put total receipts on 11, total
-    // payments on 25, net cash flow on 27 and the closing balance on 28.
+    // receipt lines and twelve payment lines put total receipts on 11, total
+    // payments on 26, net cash flow on 28 and the closing balance on 29.
     expect(cashFlow.getCell("A15").value).toBe("  Feed delivery");
     expect(cashFlow.getCell("B15").value).toBe(projection.months[0].totals["feed-haulage"]);
-    expect(cashFlow.getCell("B27").formula).toBe("B11-B25");
-    expect(cashFlow.getCell("B28").result).toBeCloseTo(projection.months[0].closingCash, 6);
+    expect(cashFlow.getCell("B28").formula).toBe("B11-B26");
+    expect(cashFlow.getCell("B29").result).toBeCloseTo(projection.months[0].closingCash, 6);
 
     // The month headings are read back as the months the plan actually covers.
     // ExcelJS serialises a Date off its UTC epoch, so building these cells at

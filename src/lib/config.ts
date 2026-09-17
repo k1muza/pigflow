@@ -8,6 +8,18 @@ export const vaccinationSchema = z.object({
   name: z.string().min(1),
   ageDays: z.number().finite().min(0).max(400),
   costPerPig: nonNegative,
+  /**
+   * What sort of job this is. Both are booked the same way and cost the same
+   * way; they are told apart so that the log reads as a stockperson's day —
+   * iron and castration are processing, a needle against a disease is not.
+   */
+  kind: z.enum(["vaccination", "processing"]).default("vaccination"),
+  /**
+   * Which piglets it is done to. Castration is the reason this exists: a job
+   * done to half the litter costs half as much as one done to all of it, and a
+   * plan that plays it across every pig overstates the bill.
+   */
+  appliesTo: z.enum(["all", "males", "females"]).default("all"),
 });
 
 export type Vaccination = z.infer<typeof vaccinationSchema>;
@@ -76,6 +88,25 @@ export const plannerSchema = z.object({
     buyGiltsWhenShort: z.boolean(),
     sowAnnualMortalityPct: percentage,
     giltSelectionWeightKg: z.number().min(15).max(90),
+    /**
+     * Puberty: the age and weight at which a gilt starts cycling. She is not
+     * served at her first standing heat — she is recorded at it, and bred a
+     * cycle or two later, by which time she is carrying the condition to hold a
+     * litter and rear it.
+     */
+    giltPubertyAgeDays: z.number().min(140).max(280),
+    giltPubertyWeightKg: z.number().min(60).max(140),
+    /**
+     * Which standing heat she is bred on. 1 is her first, which is the practice
+     * that costs a herd its second litter; 2 or 3 is the usual target, and is
+     * what puts service a cycle or two past puberty rather than on a date.
+     */
+    giltServeAtHeat: z.number().int().min(1).max(5),
+    /**
+     * Floors, not targets. A gilt is bred on the first standing heat at or past
+     * the one above on which she also clears both of these, so raising either
+     * pushes her to the next heat rather than to the next day.
+     */
     giltServiceWeightKg: z.number().min(90).max(180),
     giltServiceAgeDays: z.number().min(180).max(400),
     giltPurchaseCost: nonNegative,
@@ -95,8 +126,73 @@ export const plannerSchema = z.object({
     weaningAgeDays: z.number().min(18).max(56),
     weanToServiceDays: z.number().min(3).max(35),
     farrowingSuccessPct: percentage,
+    /**
+     * Of the services that do not hold, the share that come back late rather
+     * than on the next cycle. A regular return is a service that simply did not
+     * take and shows at the next heat; an irregular one is an embryo lost after
+     * it had started, and she comes back a week or two later than that. The
+     * difference matters to a plan because a late return is a heat's worth of
+     * feed with nothing at the end of it.
+     */
+    irregularReturnSharePct: percentage,
+    /**
+     * Days after service that a sow is scanned. Commonly 26-30: earlier than
+     * that reads too many false empties, later wastes the days a sow found
+     * empty could have spent getting back in pig.
+     */
+    pregnancyScanDays: z.number().int().min(21).max(45),
+    /** What one scan costs, charged whatever it finds. 0 turns scanning off. */
+    pregnancyScanCost: nonNegative,
     bornAlivePerLitter: z.number().min(1).max(25),
     preWeanMortalityPct: percentage,
+  }),
+  /**
+   * How the herd is served. Natural service is the boar team; artificial
+   * insemination is semen bought in from a stud, which costs money per service
+   * but stands no boar, eats nothing and is related to nothing on the farm.
+   */
+  service: z.object({
+    /**
+     * Whether semen can be bought at all. Off, the farm is exactly the natural
+     * service herd it has always been. On, AI also acts as the release valve
+     * for the two things that otherwise defer a service: a boar team that is
+     * fully worked for the week, and a female whose only mate standing is one
+     * of her own ancestors.
+     */
+    useAi: z.boolean(),
+    /**
+     * Share of services put to AI as policy, over and above those two rescues.
+     * At 0 with AI on, semen is only bought when the boar team cannot cover the
+     * service; at 100 the boars still standing are there to find heats rather
+     * than to work.
+     */
+    aiSharePct: percentage,
+    /**
+     * What one served sow costs in semen and technician time. It is charged per
+     * service, so a service that does not hold is charged again when she comes
+     * back three weeks later — which is the real price of a poor hold rate.
+     */
+    aiCostPerService: nonNegative,
+    /**
+     * Doses put in over one standing heat. Two, a day apart, is the usual
+     * practice. It does not change what a service costs — that is the figure
+     * above, for the heat — but it is what the log records, because a service
+     * that was one dose rather than two is worth being able to see.
+     */
+    aiInseminationsPerService: z.number().int().min(1).max(3),
+    /**
+     * Points added to the conception rate when the service is AI rather than
+     * natural. Negative on a unit whose heat detection is weak, positive where
+     * stud semen outperforms a tired boar. 0 treats both channels alike.
+     */
+    aiConceptionDeltaPct: z.number().min(-30).max(30),
+    /**
+     * How many stud lines the semen comes from. The panel is rotated the way the
+     * boar team is, and a stud is barred from a female for exactly the same
+     * generations a boar is, so AI cannot quietly re-introduce the mating the
+     * boar rota exists to prevent.
+     */
+    aiStudPanelSize: z.number().int().min(1).max(20),
   }),
   growth: z.object({
     weaningWeightKg: z.number().min(2).max(20),
@@ -188,10 +284,44 @@ export type PlannerSection = keyof PlannerConfig;
 export const DAYS_PER_MONTH = 30.4375;
 /** Days between returns to estrus when a service does not hold. */
 export const ESTRUS_CYCLE_DAYS = 21;
+/**
+ * When a sow comes back after a service that did not hold. A regular return is
+ * the next cycle — three weeks, give or take a few days for how tightly heats
+ * are read. An irregular one is an embryo lost after implantation had started,
+ * which puts her back a week or two beyond that, and is the return a herd
+ * notices because it is the one that costs it a farrowing slot.
+ */
+export const REGULAR_RETURN_DAYS = { min: 18, max: 24 } as const;
+export const IRREGULAR_RETURN_DAYS = { min: 25, max: 38 } as const;
 /** Liveweight of a piglet at birth, used to grow suckling pigs to weaning weight. */
 export const BIRTH_WEIGHT_KG = 1.4;
 /** Natural services one working boar can cover in a week. */
 export const SERVICES_PER_BOAR_PER_WEEK = 5;
+/**
+ * How many generations of a female's paternal line bar a sire from serving her.
+ * 1 is her own sire; 2 adds the maternal grandsire, which a boar standing a full
+ * working life can reach — his granddaughters come to service at around day 708
+ * on the default cycle, and he is not rotated off until day 730.
+ *
+ * Because boars are only ever bought in and never bred on the farm, a boar
+ * shares no ancestry with anything here except the females he has sired himself.
+ * Barring a female's paternal line is therefore the whole of relatedness in this
+ * model rather than an approximation of it.
+ */
+export const ANCESTRY_EXCLUSION_DEPTH = 2;
+/**
+ * The age a gilt is actually served at under this plan: puberty, plus the
+ * cycles she is held back for. The weight and age floors can push her past it,
+ * never before it, so this is the earliest the plan can breed her — and it is
+ * what a herd means by "gilts served at 230 days", rather than the floors.
+ */
+export function expectedGiltServiceAgeDays(config: PlannerConfig): number {
+  const { giltPubertyAgeDays, giltServeAtHeat } = config.herd;
+  return Math.max(
+    config.herd.giltServiceAgeDays,
+    giltPubertyAgeDays + (giltServeAtHeat - 1) * ESTRUS_CYCLE_DAYS,
+  );
+}
 /** Days a bought-in gilt acclimatises before her first service. */
 export const GILT_ACCLIMATISATION_DAYS = 14;
 /** Age at which a purchased replacement gilt joins the breeding herd. */
@@ -213,11 +343,24 @@ export const SOW_WEIGHT_GAIN_PER_PARITY_KG = 12;
 export const MAX_SOW_WEIGHT_KG = 260;
 export const BOAR_WEIGHT_KG = 250;
 
+/**
+ * The jobs a piglet is put through, and the needles it is given, in the order
+ * its age brings them round. Processing a litter is ordinary indoor practice
+ * and ordinary indoor cost; a plan that leaves it out is short by it.
+ *
+ * Teeth and tails are here because many units do them and a plan has to be able
+ * to cost them. A unit that does not is a row deleted, not a setting.
+ */
 export const DEFAULT_VACCINATIONS: Vaccination[] = [
-  { id: "iron", name: "Iron injection", ageDays: 3, costPerPig: 0.35 },
-  { id: "mycoplasma", name: "Mycoplasma", ageDays: 21, costPerPig: 1.1 },
-  { id: "circovirus", name: "PCV2 / circovirus", ageDays: 42, costPerPig: 1.4 },
-  { id: "deworm", name: "Deworming", ageDays: 70, costPerPig: 0.45 },
+  { id: "navel", name: "Navel dressing", ageDays: 0, costPerPig: 0.05, kind: "processing", appliesTo: "all" },
+  { id: "teeth", name: "Teeth reduction", ageDays: 1, costPerPig: 0.05, kind: "processing", appliesTo: "all" },
+  { id: "ident", name: "Identification", ageDays: 1, costPerPig: 0.12, kind: "processing", appliesTo: "all" },
+  { id: "iron", name: "Iron injection", ageDays: 3, costPerPig: 0.35, kind: "processing", appliesTo: "all" },
+  { id: "tail", name: "Tail docking", ageDays: 3, costPerPig: 0.06, kind: "processing", appliesTo: "all" },
+  { id: "castration", name: "Castration", ageDays: 5, costPerPig: 0.3, kind: "processing", appliesTo: "males" },
+  { id: "mycoplasma", name: "Mycoplasma", ageDays: 21, costPerPig: 1.1, kind: "vaccination", appliesTo: "all" },
+  { id: "circovirus", name: "PCV2 / circovirus", ageDays: 42, costPerPig: 1.4, kind: "vaccination", appliesTo: "all" },
+  { id: "deworm", name: "Deworming", ageDays: 70, costPerPig: 0.45, kind: "vaccination", appliesTo: "all" },
 ];
 
 export const DEFAULT_CONFIG: PlannerConfig = {
@@ -246,8 +389,11 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     buyGiltsWhenShort: false,
     sowAnnualMortalityPct: 8,
     giltSelectionWeightKg: 30,
-    giltServiceWeightKg: 140,
-    giltServiceAgeDays: 240,
+    giltPubertyAgeDays: 195,
+    giltPubertyWeightKg: 95,
+    giltServeAtHeat: 2,
+    giltServiceWeightKg: 135,
+    giltServiceAgeDays: 200,
     giltPurchaseCost: 350,
     boarPurchaseCost: 600,
     boarWorkingLifeMonths: 24,
@@ -265,8 +411,19 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weaningAgeDays: 28,
     weanToServiceDays: 7,
     farrowingSuccessPct: 85,
+    irregularReturnSharePct: 25,
+    pregnancyScanDays: 28,
+    pregnancyScanCost: 1.5,
     bornAlivePerLitter: 12.4,
     preWeanMortalityPct: 12.5,
+  },
+  service: {
+    useAi: false,
+    aiSharePct: 0,
+    aiCostPerService: 50,
+    aiInseminationsPerService: 2,
+    aiConceptionDeltaPct: 0,
+    aiStudPanelSize: 4,
   },
   growth: {
     weaningWeightKg: 7.5,

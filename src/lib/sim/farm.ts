@@ -8,6 +8,8 @@ import {
   GILT_ENTRY_AGE_DAYS,
   MATURE_SOW_WEIGHT_KG,
   SERVICES_PER_BOAR_PER_WEEK,
+  ANCESTRY_EXCLUSION_DEPTH,
+  expectedGiltServiceAgeDays,
   deadweightKg,
   plannerSchema,
   workersNeeded,
@@ -49,6 +51,10 @@ export type FarmEventType =
   | "purchase"
   | "funding"
   | "market"
+  | "service"
+  | "return"
+  | "scan"
+  | "processing"
   | "capacity";
 
 export type FarmEvent = {
@@ -90,6 +96,12 @@ export type DayRecord = {
   /** Services read a cycle later: held, or back in heat to be served again. */
   conceptions: number;
   returnsToHeat: number;
+  /** Of those returns, the ones that came back late rather than on the cycle. */
+  irregularReturns: number;
+  /** Sows scanned today, whatever the scan found. */
+  scans: number;
+  /** Piglets processed today, job by job. */
+  processing: Record<string, number>;
   /** Growing pigs that moved up a stage today. */
   movedToGrower: number;
   movedToFinisher: number;
@@ -100,6 +112,8 @@ export type DayRecord = {
   giltsPurchased: number;
   boarsRotated: number;
   services: number;
+  /** Of those services, the ones put to bought-in semen rather than to a boar. */
+  aiServices: number;
   /** Stockpeople the herd needs at this size. */
   workers: number;
   vaccinations: Record<PigStage, number>;
@@ -136,6 +150,16 @@ export type LifetimeTotals = {
   giltsPurchased: number;
   boarsRotated: number;
   servicesAttempted: number;
+  /** Services put to bought-in semen, and what the herd spent on them. */
+  aiServices: number;
+  aiCost: number;
+  /** Returns to heat, split by whether she came back on the cycle or past it. */
+  regularReturns: number;
+  irregularReturns: number;
+  /** Scans done, and what they found. */
+  scans: number;
+  pregnanciesConfirmed: number;
+  scannedEmpty: number;
   /** Feed loads hauled in since the plan started. */
   feedLoads: number;
   feedDeliveredKg: number;
@@ -144,7 +168,7 @@ export type LifetimeTotals = {
   marketTrips: number;
   marketHaulageCost: number;
   servicesMissedForBoarCapacity: number;
-  /** Services deferred because the only boar standing was the female's own sire. */
+  /** Services deferred because every mate standing was one of the female's own sires. */
   servicesMissedForGenetics: number;
 };
 
@@ -337,6 +361,32 @@ export function feedPlanFor(config: PlannerConfig): FeedPlan {
 }
 
 /**
+ * The name a stud line goes under. It cannot collide with a boar tag, so a
+ * female's sire line reads the same whether the sire was standing here or
+ * arrived in a flask.
+ */
+/** Whether a job on the schedule is done to this pig at all. */
+function appliesTo(job: Vaccination, pig: GrowingPig): boolean {
+  if (job.appliesTo === "all") return true;
+  return job.appliesTo === (pig.sex === "male" ? "males" : "females");
+}
+
+function studTag(index: number): string {
+  return "AI-" + String(index + 1).padStart(2, "0");
+}
+
+/**
+ * The sires standing behind a piglet of this dam: the boar or stud that got it,
+ * then hers, cut off at the depth matings are barred to. Keeping only that much
+ * is what bounds the line — nothing further back can block a mating, so nothing
+ * further back is worth carrying on every animal in a five thousand sow herd.
+ */
+function sireLineFor(mother: Sow): string[] {
+  const line = mother.lastSireTag === null ? [] : [mother.lastSireTag];
+  return [...line, ...mother.sireLine].slice(0, ANCESTRY_EXCLUSION_DEPTH);
+}
+
+/**
  * A piggery simulated one day at a time. Every sow, boar and growing pig is a
  * live object with a sex, a weight, an age and a lineage: it eats according to
  * what it is, is charged for the vaccinations and heat its age calls for, and
@@ -349,6 +399,8 @@ export class Farm {
   readonly ledger: Ledger;
   readonly history: DayRecord[] = [];
   readonly events: FarmEvent[] = [];
+  /** How much of the log is kept. The whole of it, when it is to be read. */
+  private readonly eventLimit: number;
   readonly lifetime: LifetimeTotals = {
     litters: 0,
     bornAlive: 0,
@@ -371,6 +423,13 @@ export class Farm {
     marketTrips: 0,
     marketHaulageCost: 0,
     servicesAttempted: 0,
+    aiServices: 0,
+    aiCost: 0,
+    regularReturns: 0,
+    irregularReturns: 0,
+    scans: 0,
+    pregnanciesConfirmed: 0,
+    scannedEmpty: 0,
     servicesMissedForBoarCapacity: 0,
     servicesMissedForGenetics: 0,
   };
@@ -408,6 +467,8 @@ export class Farm {
   private readonly giltsKeptPerLitter = new Map<string, number>();
   /** Where the service rotation left off, so the team is worked in turn. */
   private boarCursor = 0;
+  /** Where the AI stud panel stands in its own rotation. */
+  private studCursor = 0;
   /** Stockpeople currently on the payroll; re-read once a month, not daily. */
   private workersOnPayroll = 0;
   private sowSequence = 0;
@@ -418,7 +479,8 @@ export class Farm {
    * A feed plan may be handed in; without one the farm works its own out, which
    * takes a run of its own (see {@link feedPlanFor}).
    */
-  constructor(input: PlannerConfig, feedPlan?: FeedPlan) {
+  constructor(input: PlannerConfig, feedPlan?: FeedPlan, options?: { keepEveryEvent?: boolean }) {
+    this.eventLimit = options?.keepEveryEvent === true ? Infinity : MAX_EVENTS;
     this.config = plannerSchema.parse(input);
     this.start = parseISO(this.config.project.startDate);
     this.variation = variationFor(
@@ -522,7 +584,7 @@ export class Farm {
       stage: "piglet",
       generation: mother.generation + 1,
       damTag: mother.tag,
-      sireTag: mother.lastSireTag,
+      sireLine: sireLineFor(mother),
       ...this.growthDraw(),
     });
     this.noteBirth(piglet.generation);
@@ -592,25 +654,32 @@ export class Farm {
       );
     }
 
-    // Starting gilts are maiden females already close to service weight.
+    // Starting gilts are maiden females already close to service weight, and
+    // already cycling — a farm does not buy in gilts that have never stood.
     const startingGilts: GrowingPig[] = [];
+    const serviceAge = expectedGiltServiceAgeDays(this.config);
     for (let i = 0; i < Math.round(stock.gilts); i += 1) {
       const tag = this.nextPigTag();
       const weightKg = Math.max(
         growth.saleWeightKg,
         herd.giltServiceWeightKg - 4 - (i % 6) * 4,
       );
+      const ageOnDayZero = Math.round(serviceAge - 10 - (i % 6) * 8);
       const gilt = new GrowingPig({
         id: tag,
         tag,
         sex: "female",
-        birthDay: -Math.round(herd.giltServiceAgeDays - 10 - (i % 6) * 8),
+        birthDay: -ageOnDayZero,
         weightKg,
         stage: "gilt",
         ...this.growthDraw(),
       });
       gilt.destination = "breeding";
-      gilt.weanedOnDay = -Math.round(herd.giltServiceAgeDays - 40);
+      gilt.weanedOnDay = -Math.round(serviceAge - 40);
+      // The heats she has already had, so she comes to service on her own cycle
+      // rather than starting one the day the plan opens.
+      const sincePuberty = ageOnDayZero - herd.giltPubertyAgeDays - gilt.estrusOffsetDays;
+      if (sincePuberty >= 0) gilt.firstHeatDay = -sincePuberty;
       this.catchUpVaccinations(gilt, 0);
       this.pigs.push(gilt);
       startingGilts.push(gilt);
@@ -676,7 +745,7 @@ export class Farm {
 
   private log(day: number, date: string, type: FarmEventType, message: string): void {
     this.events.push({ day, date, type, message });
-    if (this.events.length > MAX_EVENTS) this.events.shift();
+    if (this.events.length > this.eventLimit) this.events.shift();
   }
 
   private step(day: number): void {
@@ -696,6 +765,9 @@ export class Farm {
       giltsSold: 0,
       conceptions: 0,
       returnsToHeat: 0,
+      irregularReturns: 0,
+      scans: 0,
+      processing: {},
       movedToGrower: 0,
       movedToFinisher: 0,
       pigletDeaths: 0,
@@ -705,6 +777,7 @@ export class Farm {
       giltsPurchased: 0,
       boarsRotated: 0,
       services: 0,
+      aiServices: 0,
       workers: 0,
       vaccinations: emptyVaccinations(),
       sowFeedKg: 0,
@@ -771,7 +844,7 @@ export class Farm {
 
     this.runReproduction(day, date, record);
     this.runFeedDeliveries(day, record);
-    this.runDailyCare(day, record);
+    this.runDailyCare(day, date, record);
     this.runSelection(day, date, record);
     this.runGrowthAndSales(day, date, record);
     this.runMortality(day, date, record);
@@ -804,12 +877,57 @@ export class Farm {
     for (const sow of this.sows) {
       if (!sow.alive) continue;
 
-      // Three weeks on, a served sow either shows no heat and is in pig, or she
-      // is back in heat and goes to the boar again.
-      if (sow.confirmDay !== null && day >= sow.confirmDay) {
-        sow.confirmDay = null;
-        if (sow.state === "gestating") record.conceptions += 1;
-        else record.returnsToHeat += 1;
+      // She comes back in heat on the day the service she did not hold brings
+      // her back — the next cycle, or a week or two past it if she lost it after
+      // it had started. That is the day the farm sees, and the day it records.
+      if (sow.returnDay !== null && day >= sow.returnDay) {
+        sow.returnDay = null;
+        record.returnsToHeat += 1;
+        if (sow.lastReturnIrregular) {
+          record.irregularReturns += 1;
+          this.lifetime.irregularReturns += 1;
+        } else {
+          this.lifetime.regularReturns += 1;
+        }
+        this.log(
+          day,
+          date,
+          "return",
+          sow.tag +
+            " returned to heat " +
+            (sow.lastReturnIrregular ? "irregularly" : "regularly") +
+            ", " +
+            (sow.lastSireTag === null ? "unserved" : "served by " + sow.lastSireTag),
+        );
+      }
+
+      // The scan, which is the only thing on the farm that can tell an empty sow
+      // from one in pig before she either farrows or comes back.
+      if (sow.scanDay !== null && day >= sow.scanDay) {
+        sow.scanDay = null;
+        const inPig = sow.state === "gestating";
+        record.scans += 1;
+        this.lifetime.scans += 1;
+        if (inPig) {
+          record.conceptions += 1;
+          this.lifetime.pregnanciesConfirmed += 1;
+        } else {
+          this.lifetime.scannedEmpty += 1;
+        }
+        if (config.reproduction.pregnancyScanCost > 0) {
+          this.ledger.accrue("veterinary", config.reproduction.pregnancyScanCost);
+          this.breedingCosts.add("health", "breeding", config.reproduction.pregnancyScanCost);
+          sow.costs.add("health", "breeding", config.reproduction.pregnancyScanCost);
+        }
+        this.log(
+          day,
+          date,
+          "scan",
+          sow.tag +
+            (inPig
+              ? " scanned in pig, due day " + (sow.dueDay ?? 0)
+              : " scanned not in pig, back to service"),
+        );
       }
 
       if (sow.state === "gestating" && sow.dueDay !== null && day >= sow.dueDay) {
@@ -858,10 +976,11 @@ export class Farm {
       }
     }
 
-    // Services are limited by the boars actually standing on the farm.
+    // Services are limited by the mates the farm can actually put to a sow:
+    // the boars standing, plus bought-in semen if the plan buys any.
     const waiting = this.sows.filter((sow) => sow.dueForService(day));
     if (waiting.length === 0) return;
-    if (this.boars.length === 0) {
+    if (this.boars.length === 0 && !config.service.useAi) {
       this.lifetime.servicesMissedForBoarCapacity += waiting.length;
       if (day % 30 === 0) {
         this.log(day, date, "capacity", waiting.length + " sows are waiting: no boar on the farm");
@@ -872,22 +991,44 @@ export class Farm {
     let missed = 0;
     let missedForGenetics = 0;
     for (const sow of waiting) {
-      const boar = this.pickBoar(sow);
-      if (!boar) {
-        if (this.everyBoarIsHerSire(sow)) missedForGenetics += 1;
+      const sire = this.pickSire(sow);
+      if (!sire) {
+        if (this.everyMateIsHerAncestor(sow)) missedForGenetics += 1;
         else missed += 1;
         continue;
       }
-      boar.servicesThisWeek += 1;
-      boar.totalServices += 1;
+      if (sire.boar) {
+        sire.boar.servicesThisWeek += 1;
+        sire.boar.totalServices += 1;
+      } else {
+        record.aiServices += 1;
+        this.lifetime.aiServices += 1;
+        this.lifetime.aiCost += config.service.aiCostPerService;
+        this.ledger.accrue("semen", config.service.aiCostPerService);
+        this.breedingCosts.add("health", "breeding", config.service.aiCostPerService);
+        sow.costs.add("health", "breeding", config.service.aiCostPerService);
+      }
       this.lifetime.servicesAttempted += 1;
       record.services += 1;
+
+      const held = this.variation.conceives(this.conceptionRate(sire.boar === null) / 100);
+      // Drawn whether or not it is needed, so that a plan's draws fall in the
+      // same order however many services happen to hold.
+      const irregular = this.variation.returnsIrregular(
+        config.reproduction.irregularReturnSharePct,
+      );
       sow.serve(
         day,
-        this.variation.conceives(config.reproduction.farrowingSuccessPct / 100),
+        held,
         this.variation.gestationDays(config.reproduction.gestationDays),
-        boar.tag,
+        sire.tag,
+        {
+          returnDays: this.variation.returnDays(irregular),
+          irregular,
+          scanDays: config.reproduction.pregnancyScanDays,
+        },
       );
+      this.log(day, date, "service", this.serviceLine(sow, sire));
     }
     if (missed > 0) {
       this.lifetime.servicesMissedForBoarCapacity += missed;
@@ -905,7 +1046,82 @@ export class Farm {
   }
 
   /**
-   * The next boar in the rotation who is not this female's own sire. Working the
+   * The mate this female is put to today, or null when the farm has none to give
+   * her. AI is only reached for when the plan buys semen, and then in two ways:
+   * as policy, for the share of services the plan puts to it, and as the release
+   * valve when the boar team is worked out or every boar standing is one of her
+   * own sires. A closed herd that would otherwise have had to stand — and feed —
+   * another boar can buy a dose instead.
+   */
+  private pickSire(sow: Sow): { tag: string; boar: Boar | null } | null {
+    const { service } = this.config;
+    if (!service.useAi) {
+      const boar = this.pickBoar(sow);
+      return boar ? { tag: boar.tag, boar } : null;
+    }
+    // The draw is taken on every service while a share is set, so that a settled
+    // plan puts exactly that share of them to semen rather than drifting with
+    // however often the boars happen to be free.
+    if (this.variation.usesAi(service.aiSharePct)) {
+      const stud = this.pickStud(sow);
+      if (stud) return { tag: stud, boar: null };
+    }
+    const boar = this.pickBoar(sow);
+    if (boar) return { tag: boar.tag, boar };
+    const stud = this.pickStud(sow);
+    return stud ? { tag: stud, boar: null } : null;
+  }
+
+  /**
+   * The next stud line in the panel that is not already behind this female. A
+   * stud is barred for the same generations a boar is: semen arriving under the
+   * same name as her sire is the same mating, however it got there.
+   */
+  private pickStud(sow: Sow): string | null {
+    const panel = Math.max(1, Math.round(this.config.service.aiStudPanelSize));
+    for (let offset = 0; offset < panel; offset += 1) {
+      const tag = studTag((this.studCursor + offset) % panel);
+      if (sow.relatedTo(tag)) continue;
+      this.studCursor = (this.studCursor + offset + 1) % panel;
+      return tag;
+    }
+    return null;
+  }
+
+  /**
+   * One service, written the way a service card reads: who was served, by what,
+   * and at which parity. A herd's breeding cycle starts here, so this is the
+   * line the rest of a sow's record hangs off.
+   */
+  private serviceLine(sow: Sow, sire: { tag: string; boar: Boar | null }): string {
+    const parity = "parity " + (sow.parity + 1);
+    if (sire.boar) return sow.tag + " served by " + sire.tag + ", natural, " + parity;
+    const { aiInseminationsPerService: doses, aiCostPerService } = this.config.service;
+    return (
+      sow.tag +
+      " inseminated with " +
+      sire.tag +
+      ", AI " +
+      doses +
+      (doses === 1 ? " dose, " : " doses, ") +
+      parity +
+      ", " +
+      aiCostPerService +
+      " " +
+      this.config.project.currency
+    );
+  }
+
+  /** The rate a service holds at, which AI may be better or worse at than a boar. */
+  private conceptionRate(byAi: boolean): number {
+    const { reproduction, service } = this.config;
+    if (!byAi) return reproduction.farrowingSuccessPct;
+    const rate = reproduction.farrowingSuccessPct + service.aiConceptionDeltaPct;
+    return Math.min(100, Math.max(0, rate));
+  }
+
+  /**
+   * The next boar in the rotation who is not among this female's sires. Working the
    * team in turn spreads the genetics through the herd; refusing her sire is
    * what stops an expanding closed herd from breeding daughters back to their
    * father as the second generation comes to service.
@@ -916,18 +1132,22 @@ export class Farm {
     for (let offset = 0; offset < team.length; offset += 1) {
       const boar = team[(this.boarCursor + offset) % team.length];
       if (boar.servicesThisWeek >= SERVICES_PER_BOAR_PER_WEEK) continue;
-      if (sow.sireTag !== null && boar.tag === sow.sireTag) continue;
+      if (sow.relatedTo(boar.tag)) continue;
       this.boarCursor = (this.boarCursor + offset + 1) % team.length;
       return boar;
     }
     return null;
   }
 
-  /** True when this female's only possible mate on the farm is her own sire. */
-  private everyBoarIsHerSire(sow: Sow): boolean {
-    if (sow.sireTag === null) return false;
+  /** True when every mate the farm could offer this female is one of her sires. */
+  private everyMateIsHerAncestor(sow: Sow): boolean {
+    if (sow.sireLine.length === 0) return false;
     const team = this.boars.filter((boar) => boar.alive);
-    return team.length > 0 && team.every((boar) => boar.tag === sow.sireTag);
+    if (team.length === 0 || !team.every((boar) => sow.relatedTo(boar.tag))) return false;
+    // Semen only counts as a mate she cannot have if the whole panel stands
+    // behind her too, which takes a panel narrower than the generations barred.
+    if (!this.config.service.useAi) return true;
+    return this.pickStud(sow) === null;
   }
 
   /**
@@ -936,16 +1156,18 @@ export class Farm {
    * closed herd has to stand a second, unrelated boar.
    */
   private needsUnrelatedBoar(): boolean {
+    // A farm that buys semen has a cheaper answer than another boar, and uses it.
+    if (this.config.service.useAi) return false;
     const team = this.boars.filter((boar) => boar.alive);
     if (team.length === 0) return false;
-    const blocked = (sireTag: string | null) =>
-      sireTag !== null && team.every((boar) => boar.tag === sireTag);
-    for (const sow of this.sows) if (sow.alive && blocked(sow.sireTag)) return true;
+    const blocked = (female: Sow | GrowingPig) =>
+      female.sireLine.length > 0 && team.every((boar) => female.relatedTo(boar.tag));
+    for (const sow of this.sows) if (sow.alive && blocked(sow)) return true;
     // Only gilts already on the developer ration count. Buying a boar the day a
     // weaner is picked out would stand him — and feed him — for half a year
     // before the first of those females is old enough to serve.
     for (const pig of this.pigs) {
-      if (pig.alive && pig.stage === "gilt" && blocked(pig.sireTag)) return true;
+      if (pig.alive && pig.stage === "gilt" && blocked(pig)) return true;
     }
     return false;
   }
@@ -1017,7 +1239,7 @@ export class Farm {
     }
   }
 
-  private runDailyCare(day: number, record: DayRecord): void {
+  private runDailyCare(day: number, date: string, record: DayRecord): void {
     const { config } = this;
     let sowFeedKg = 0;
     let growingFeedKg = 0;
@@ -1097,10 +1319,16 @@ export class Farm {
         ageDays >= this.vaccinations[pig.vaccinationsGiven].ageDays
       ) {
         const dose = this.vaccinations[pig.vaccinationsGiven];
+        // The cursor moves past every job whether or not this pig is one it is
+        // done to, so a gilt does not queue behind the castrations forever.
+        pig.vaccinationsGiven += 1;
+        if (!appliesTo(dose, pig)) continue;
         vaccinationCost += dose.costPerPig;
         charge("health", dose.costPerPig);
         record.vaccinations[pig.stage] += 1;
-        pig.vaccinationsGiven += 1;
+        if (dose.kind === "processing") {
+          record.processing[dose.name] = (record.processing[dose.name] ?? 0) + 1;
+        }
       }
     }
 
@@ -1109,6 +1337,13 @@ export class Farm {
     this.ledger.accrue("feed", feedCost);
     this.ledger.accrue("heating", heatingCost);
     this.ledger.accrue("vaccination", vaccinationCost);
+
+    // Processing is a job done to a batch, so it is logged as one: a line per
+    // job per day rather than a line per piglet, which would bury everything
+    // else a day did under a litter's worth of iron injections.
+    for (const [job, count] of Object.entries(record.processing)) {
+      this.log(day, date, "processing", job + " done to " + count + (count === 1 ? " piglet" : " piglets"));
+    }
   }
 
   /**
@@ -1234,6 +1469,7 @@ export class Farm {
 
     for (const pig of this.pigs) {
       if (!pig.alive) continue;
+      pig.noteFirstHeat(day, config);
       if (!pig.readyToBreed(day, config)) continue;
 
       // A mature gilt either takes a sow place or is sold as breeding stock.

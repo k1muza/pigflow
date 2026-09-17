@@ -1,7 +1,12 @@
 import { addMonths, format, parseISO, subDays } from "date-fns";
 import { describe, expect, it } from "vitest";
 
-import { cloneDefaultConfig, type PlannerConfig } from "../config";
+import {
+  cloneDefaultConfig,
+  ESTRUS_CYCLE_DAYS,
+  expectedGiltServiceAgeDays,
+  type PlannerConfig,
+} from "../config";
 import { generatedTotal, isGenerated, planCashInjections, planCashWithdrawals } from "../funding";
 import { feedConversionAt, growoutFeedConversion, upkeepFeedKgDay } from "../growth-curve";
 import { calculateProjection } from "../model";
@@ -457,6 +462,8 @@ describe("Boar rotation and the genetics of a closed herd", () => {
     const farm = new Farm(input);
     const finalDay = horizonDay(input);
     let sireDaughterMatings = 0;
+    let ancestorMatings = 0;
+    let aiMatings = 0;
     let homeBredServed = 0;
     let mostBoarsStanding = 0;
     const boarsSeen = new Set<string>();
@@ -468,10 +475,20 @@ describe("Boar rotation and the genetics of a closed herd", () => {
       for (const sow of farm.sows) {
         if (sow.lastSireTag === null) continue;
         if (sow.sireTag !== null && sow.lastSireTag === sow.sireTag) sireDaughterMatings += 1;
+        if (sow.relatedTo(sow.lastSireTag)) ancestorMatings += 1;
+        if (sow.lastSireTag.startsWith("AI-")) aiMatings += 1;
         if (sow.homeBred) homeBredServed += 1;
       }
     }
-    return { farm, sireDaughterMatings, homeBredServed, mostBoarsStanding, boarsSeen };
+    return {
+      farm,
+      sireDaughterMatings,
+      ancestorMatings,
+      aiMatings,
+      homeBredServed,
+      mostBoarsStanding,
+      boarsSeen,
+    };
   }
 
   it("never serves a female with her own sire", () => {
@@ -511,6 +528,97 @@ describe("Boar rotation and the genetics of a closed herd", () => {
     }
   });
 
+  it("never serves a female with her own maternal grandsire", () => {
+    const input = config();
+    input.project.months = 60;
+    // A boar standing his full term meets his granddaughters at about day 708,
+    // three weeks before he is rotated off. Standing him for longer than that
+    // widens the window rather than opening it.
+    input.herd.boarWorkingLifeMonths = 36;
+    const watched = runWatchingMatings(input);
+
+    expect(watched.homeBredServed).toBeGreaterThan(0);
+    expect(watched.ancestorMatings).toBe(0);
+  });
+
+  it("buys semen instead of standing another boar once AI is on", () => {
+    const natural = config();
+    natural.project.months = 60;
+    const withAi = config();
+    withAi.project.months = 60;
+    withAi.service.useAi = true;
+
+    const a = runWatchingMatings(natural);
+    const b = runWatchingMatings(withAi);
+
+    // Natural service has to stand a second boar for the home-bred females. AI
+    // covers exactly those matings, so the farm keeps the one boar it planned.
+    expect(a.mostBoarsStanding).toBeGreaterThanOrEqual(2);
+    expect(b.mostBoarsStanding).toBe(withAi.stock.boars);
+    expect(b.aiMatings).toBeGreaterThan(0);
+    expect(b.ancestorMatings).toBe(0);
+    expect(b.farm.lifetime.aiCost).toBeCloseTo(
+      b.farm.lifetime.aiServices * withAi.service.aiCostPerService,
+      6,
+    );
+  });
+
+  it("puts the share of services to AI that the plan asks for", () => {
+    function shareAtBoars(boars: number) {
+      const input = config();
+      input.project.months = 36;
+      input.project.variation = "settled";
+      input.service.useAi = true;
+      input.service.aiSharePct = 40;
+      input.stock.boars = boars;
+      const farm = runFarm(input);
+      expect(farm.lifetime.aiCost).toBe(farm.lifetime.aiServices * input.service.aiCostPerService);
+      return farm.lifetime.aiServices / farm.lifetime.servicesAttempted;
+    }
+
+    // With a team wide enough that every female can always find an unrelated
+    // boar, the share is the plan's and nothing else: settled takes it exactly,
+    // bar the part-service of remainder it is always carrying.
+    const spoiltForChoice = shareAtBoars(3);
+    expect(spoiltForChoice).toBeCloseTo(0.4, 2);
+
+    // On one boar it is a floor rather than a figure. Once the herd is his own
+    // daughters, their services can only go to semen, so the realised share
+    // climbs above what was asked for — which is the plan working, not drifting.
+    const oneBoar = shareAtBoars(1);
+    expect(oneBoar).toBeGreaterThan(spoiltForChoice + 0.05);
+  });
+
+  it("breeds on with no boar at all when every service is by AI", () => {
+    const input = config();
+    input.project.months = 36;
+    input.service.useAi = true;
+    input.service.aiSharePct = 100;
+    input.stock.boars = 0;
+    const farm = runFarm(input);
+
+    expect(farm.boars.length).toBe(0);
+    expect(farm.lifetime.aiServices).toBe(farm.lifetime.servicesAttempted);
+    expect(farm.lifetime.bornAlive).toBeGreaterThan(0);
+    expect(farm.lifetime.servicesMissedForBoarCapacity).toBe(0);
+    // Nothing is spent on boars to buy, feed or rotate.
+    expect(farm.lifetime.boarsRotated).toBe(0);
+  });
+
+  it("charges a service that did not hold again when she comes back", () => {
+    const input = config();
+    input.project.months = 36;
+    input.service.useAi = true;
+    input.service.aiSharePct = 100;
+    input.stock.boars = 0;
+    input.reproduction.farrowingSuccessPct = 50;
+    const farm = runFarm(input);
+
+    // At half the services holding, the herd pays for about two per litter.
+    expect(farm.lifetime.aiServices).toBeGreaterThan(farm.lifetime.litters * 1.5);
+    expect(farm.lifetime.aiCost).toBe(farm.lifetime.aiServices * input.service.aiCostPerService);
+  });
+
   it("spreads services across the team instead of working one boar", () => {
     const input = config();
     input.project.months = 60;
@@ -523,13 +631,97 @@ describe("Boar rotation and the genetics of a closed herd", () => {
   });
 });
 
+/**
+ * Every home-bred female's first service: her age and weight on the day, and
+ * how many cycles past her own first heat it fell.
+ */
+function firstServices(input: PlannerConfig) {
+  const farm = new Farm(input);
+  const served: { ageDays: number; weightKg: number; cycles: number }[] = [];
+  const seen = new Set<string>();
+  const firstHeat = new Map<string, number>();
+  const joinedOn = new Map<string, number>();
+  for (let day = 0; day <= horizonDay(input); day += 1) {
+    farm.advanceTo(day);
+    for (const pig of farm.pigs) {
+      if (pig.firstHeatDay !== null) firstHeat.set(pig.tag, pig.firstHeatDay);
+    }
+    for (const sow of farm.sows) {
+      if (!joinedOn.has(sow.tag)) joinedOn.set(sow.tag, day);
+    }
+    for (const sow of farm.sows) {
+      if (!sow.homeBred || sow.lastSireTag === null || seen.has(sow.tag)) continue;
+      // Only females this plan reared. The starting gilts are seeded part-grown
+      // and already cycling, so their age at service says nothing about how the
+      // plan rears one.
+      if (sow.birthDay < 0) continue;
+      seen.add(sow.tag);
+      const heat = firstHeat.get(sow.tag);
+      // Counted from the day she joined the herd, not the day she was served:
+      // she joins on a standing heat, and is served on it unless the boar team
+      // was busy, in which case she waits a day or two for one.
+      const joined = joinedOn.get(sow.tag) ?? day;
+      served.push({
+        ageDays: sow.ageDays(day),
+        weightKg: sow.weightKg,
+        cycles: heat === undefined ? NaN : (joined - heat) / ESTRUS_CYCLE_DAYS,
+      });
+    }
+  }
+  return served;
+}
+
+function median(list: number[]): number {
+  return [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)];
+}
+
 describe("First service at the weight and age good practice calls for", () => {
-  it("defaults to the commonly recommended 135–170 kg at 220–270 days", () => {
+  it("serves home-bred gilts on a standing heat at about 210-240 days and 135-150 kg", () => {
     const input = config();
-    expect(input.herd.giltServiceWeightKg).toBeGreaterThanOrEqual(135);
-    expect(input.herd.giltServiceWeightKg).toBeLessThanOrEqual(170);
-    expect(input.herd.giltServiceAgeDays).toBeGreaterThanOrEqual(220);
-    expect(input.herd.giltServiceAgeDays).toBeLessThanOrEqual(270);
+    input.project.months = 30;
+    input.project.variation = "settled";
+
+    // The floors cannot be the target: a gilt is served on a heat, so the age
+    // the plan really breeds at is puberty plus the cycles she is held for.
+    expect(expectedGiltServiceAgeDays(input)).toBeGreaterThanOrEqual(210);
+    expect(expectedGiltServiceAgeDays(input)).toBeLessThanOrEqual(240);
+
+    const served = firstServices(input);
+    expect(served.length).toBeGreaterThan(10);
+
+    expect(median(served.map((entry) => entry.ageDays))).toBeGreaterThanOrEqual(210);
+    expect(median(served.map((entry) => entry.ageDays))).toBeLessThanOrEqual(240);
+    expect(median(served.map((entry) => entry.weightKg))).toBeGreaterThanOrEqual(135);
+    expect(median(served.map((entry) => entry.weightKg))).toBeLessThanOrEqual(150);
+
+    // A whole cycle of slack either way, because a gilt short of her weight on
+    // one heat waits three weeks for the next rather than a day for the scale —
+    // but no straggler far outside the band.
+    const inBand = served.filter((e) => e.ageDays >= 210 && e.ageDays <= 240).length;
+    expect(inBand / served.length).toBeGreaterThan(0.85);
+
+    for (const entry of served) {
+      // Served a whole number of cycles past her own first heat, never a part
+      // of one, and never before the heat the plan holds her to.
+      expect(Number.isInteger(entry.cycles)).toBe(true);
+      expect(entry.cycles).toBeGreaterThanOrEqual(input.herd.giltServeAtHeat - 1);
+    }
+  });
+
+  it("holds her a whole cycle longer when the plan waits for a later heat", () => {
+    function medianAge(serveAtHeat: number) {
+      const input = config();
+      input.project.months = 30;
+      input.project.variation = "settled";
+      input.herd.giltServeAtHeat = serveAtHeat;
+      return median(firstServices(input).map((entry) => entry.ageDays));
+    }
+
+    // Waiting for the third heat rather than the second costs about one cycle,
+    // which is the whole point of counting heats instead of days.
+    const gap = medianAge(3) - medianAge(2);
+    expect(gap).toBeGreaterThanOrEqual(ESTRUS_CYCLE_DAYS - 7);
+    expect(gap).toBeLessThanOrEqual(ESTRUS_CYCLE_DAYS + 7);
   });
 
   it("holds every home-bred gilt back until she meets both thresholds", () => {

@@ -15,6 +15,7 @@ export type EnsembleMetric =
   | "profitOrLossPerYear"
   | "pigsSoldPerYear"
   | "pigsWeanedPerSowYear"
+  | "peakHeadCount"
   | "peakFundingNeed";
 
 export type PlanEnsemble = {
@@ -109,6 +110,7 @@ export function buildPlanEnsemble(
     profitOrLossPerYear: [],
     pigsSoldPerYear: [],
     pigsWeanedPerSowYear: [],
+    peakHeadCount: [],
     peakFundingNeed: [],
   };
   const years = input.project.months / 12;
@@ -133,6 +135,7 @@ export function buildPlanEnsemble(
       years > 0 ? projection.summary.totalPigsSold / years : 0,
     );
     values.pigsWeanedPerSowYear.push(projection.summary.pigsWeanedPerSowYear);
+    values.peakHeadCount.push(projection.summary.peakHeadCount);
     values.peakFundingNeed.push(projection.summary.peakFundingNeed);
   }
 
@@ -146,6 +149,7 @@ export function buildPlanEnsemble(
       profitOrLossPerYear: band(values.profitOrLossPerYear),
       pigsSoldPerYear: band(values.pigsSoldPerYear),
       pigsWeanedPerSowYear: band(values.pigsWeanedPerSowYear),
+      peakHeadCount: band(values.peakHeadCount),
       peakFundingNeed: band(values.peakFundingNeed),
     },
   };

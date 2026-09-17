@@ -1,3 +1,4 @@
+import { IRREGULAR_RETURN_DAYS, REGULAR_RETURN_DAYS } from "../config";
 import type { Sex } from "./animals";
 import { Rng } from "./rng";
 
@@ -32,6 +33,12 @@ export interface Variation {
   litterSize(mean: number): number;
   /** Whether one service holds. */
   conceives(rate: number): boolean;
+  /** Whether this service goes to AI rather than to the boar team. */
+  usesAi(sharePct: number): boolean;
+  /** Whether a service that did not hold comes back late rather than on cue. */
+  returnsIrregular(sharePct: number): boolean;
+  /** How many days until she is back in heat, given which kind of return it is. */
+  returnDays(irregular: boolean): number;
   /** How long this sow carries. */
   gestationDays(mean: number): number;
   /** How long this sow takes to come back into heat after weaning. */
@@ -83,6 +90,19 @@ export class ChanceVariation implements Variation {
     return this.rng.chance(rate);
   }
 
+  usesAi(sharePct: number): boolean {
+    return this.rng.chance(sharePct / 100);
+  }
+
+  returnsIrregular(sharePct: number): boolean {
+    return this.rng.chance(sharePct / 100);
+  }
+
+  returnDays(irregular: boolean): number {
+    const band = irregular ? IRREGULAR_RETURN_DAYS : REGULAR_RETURN_DAYS;
+    return band.min + Math.floor(this.rng.next() * (band.max - band.min + 1));
+  }
+
   gestationDays(mean: number): number {
     return this.rng.normal(mean, this.gestationDeviation);
   }
@@ -128,6 +148,9 @@ export class SettledVariation implements Variation {
   private sexOwed = OPENING;
   private litterOwed = OPENING;
   private conceptionOwed = OPENING;
+  private aiOwed = OPENING;
+  private irregularOwed = OPENING;
+  private returnCursor = 0;
   private growthCursor = 0;
   private heatCursor = 0;
 
@@ -166,6 +189,47 @@ export class SettledVariation implements Variation {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Services go to AI at exactly the share the plan states, the same way
+   * conception is taken at exactly its rate. At 30% the fourth service in ten is
+   * where the carried remainder has come to a whole one.
+   */
+  usesAi(sharePct: number): boolean {
+    if (sharePct <= 0) return false;
+    if (sharePct >= 100) return true;
+    this.aiOwed += sharePct / 100;
+    if (this.aiOwed >= 1 - SLACK) {
+      this.aiOwed -= 1;
+      return true;
+    }
+    return false;
+  }
+
+  /** Returns come back late at exactly the share the plan states. */
+  returnsIrregular(sharePct: number): boolean {
+    if (sharePct <= 0) return false;
+    if (sharePct >= 100) return true;
+    this.irregularOwed += sharePct / 100;
+    if (this.irregularOwed >= 1 - SLACK) {
+      this.irregularOwed -= 1;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Across its band in turn rather than drawn from it, so that a settled plan
+   * still has sows coming back on different days — a herd whose every return
+   * landed together would batch its farrowings in a way no real one does.
+   */
+  returnDays(irregular: boolean): number {
+    const band = irregular ? IRREGULAR_RETURN_DAYS : REGULAR_RETURN_DAYS;
+    const width = band.max - band.min + 1;
+    const day = band.min + (this.returnCursor % width);
+    this.returnCursor += 1;
+    return day;
   }
 
   /** Every sow carries for exactly as long as the plan says. */

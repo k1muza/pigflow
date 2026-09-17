@@ -91,6 +91,11 @@ const METRICS: {
     format: (value) => number(value, 1),
   },
   {
+    key: "peakHeadCount",
+    label: "Peak head count",
+    format: (value) => number(value, 0),
+  },
+  {
     key: "peakFundingNeed",
     label: "Peak funding need",
     format: (value, currency) => money(value, currency, true),

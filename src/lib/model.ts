@@ -58,6 +58,12 @@ export type MonthlyProjection = {
   replacementPipeline: number;
   sows: number;
   breedingStock: number;
+  /**
+   * The most head the farm carried on any one day of the month — every pig on
+   * the place, breeding stock included. Month-end counts miss a batch that
+   * arrived and went inside the month, and it is the peak that has to be housed.
+   */
+  peakHead: number;
   /** Stockpeople the herd needs at the end of the month. */
   workers: number;
   sowFeedKg: number;
@@ -108,6 +114,8 @@ export type ProjectionSummary = {
   littersPerSowYear: number;
   averageSows: number;
   finalSows: number;
+  /** The most head the farm ever carries at once over the whole horizon. */
+  peakHeadCount: number;
   firstPositiveMonth: string | null;
   herdValueAtEnd: number;
   netWorthAtEnd: number;
@@ -227,6 +235,7 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     replacementPipeline: 0,
     sows: 0,
     breedingStock: 0,
+    peakHead: 0,
     workers: 0,
     sowFeedKg: 0,
     growingFeedKg: 0,
@@ -254,6 +263,7 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     month.growingFeedKg += day.growingFeedKg;
     month.feedLoads += day.feedLoads;
     month.feedDeliveredKg += day.feedDeliveredKg;
+    month.peakHead = Math.max(month.peakHead, day.counts.total);
     addTotals(totals, day.totals);
   }
 
@@ -368,6 +378,7 @@ export function calculateProjection(input: PlannerConfig): ProjectionResult {
       averageSows > 0 && years > 0 ? farm.lifetime.litters / (averageSows * years) : 0,
     averageSows,
     finalSows: months.at(-1)?.sows ?? 0,
+    peakHeadCount: Math.max(0, ...months.map((month) => month.peakHead)),
     firstPositiveMonth:
       months.find((month) => month.closingCash >= 0 && month.index > 0)?.month ?? null,
     herdValueAtEnd: state.finance.herdValue,
@@ -399,12 +410,13 @@ function buildWarnings(
         "The lowest projected cash balance is below zero. Plan at least the calculated funding gap plus a liquidity buffer.",
     });
   }
-  if (config.stock.sows + config.stock.gilts > 0 && config.stock.boars === 0) {
+  const breedingFemales = config.stock.sows + config.stock.gilts;
+  if (breedingFemales > 0 && config.stock.boars === 0 && !config.service.useAi) {
     warnings.push({
       level: "attention",
       title: "No boar on the farm",
       detail:
-        "Sows cannot be served, so the simulation produces no litters. Add a boar, or plan and cost artificial insemination separately.",
+        "Sows cannot be served, so the simulation produces no litters. Add a boar, or turn on artificial insemination.",
     });
   } else if (farm.lifetime.servicesMissedForBoarCapacity > 0) {
     warnings.push({
@@ -413,6 +425,29 @@ function buildWarnings(
       detail:
         farm.lifetime.servicesMissedForBoarCapacity +
         " services were deferred because every boar was already working. Add boars or use artificial insemination.",
+    });
+  }
+  if (breedingFemales > 0 && config.service.useAi && config.stock.boars === 0) {
+    warnings.push({
+      level: "info",
+      title: "No boar on the farm to find heats",
+      detail:
+        "Every service is by AI, which the plan costs correctly, but it assumes heats are spotted. A unit running AI with no boar for detection usually loses services rather than money, which this plan will not show you.",
+    });
+  }
+  if (farm.lifetime.aiServices > 0) {
+    warnings.push({
+      level: "info",
+      title: "Part of the herd is served by AI",
+      detail:
+        farm.lifetime.aiServices +
+        " of " +
+        farm.lifetime.servicesAttempted +
+        " services were by bought-in semen, at " +
+        Math.round(farm.lifetime.aiCost) +
+        " " +
+        config.project.currency +
+        ". Set against that, the farm stands fewer boars to buy, feed and rotate.",
     });
   }
   if (config.stock.sows > config.herd.maxSows) {
@@ -452,10 +487,10 @@ function buildWarnings(
   if (farm.lifetime.servicesMissedForGenetics > 0) {
     warnings.push({
       level: "info",
-      title: "Females were held over to avoid mating them to their sire",
+      title: "Females were held over to avoid mating them to their own line",
       detail:
         farm.lifetime.servicesMissedForGenetics +
-        " services waited a day or so for an unrelated boar. The farm buys a second boar as soon as home-bred females come to service, so this is the herd turning over its genetics rather than a shortage.",
+        " services waited a day or so for an unrelated mate. No female is served by her own sire or her maternal grandsire, so this is the herd turning over its genetics rather than a shortage.",
     });
   }
   if (config.reproduction.preWeanMortalityPct > 15) {

@@ -2,7 +2,7 @@ import { addMonths, differenceInCalendarDays, format, parseISO } from "date-fns"
 
 import type { PlannerConfig } from "../config";
 import { Farm } from "./farm";
-import type { DayRecord, StageCounts } from "./farm";
+import type { DayRecord, FarmEvent, StageCounts } from "./farm";
 import { addTotals, emptyTotals, expensesOf, incomeOf, type CategoryTotals } from "./ledger";
 import type { FeedRation, PigStage } from "./animals";
 
@@ -35,6 +35,18 @@ export function farmStateAt(config: PlannerConfig, timestamp: string) {
   return farm.advanceTo(day).state(timestamp);
 }
 
+/**
+ * Every line the farm wrote as it ran, start to finish. The running log is
+ * capped so that a long plan does not carry the whole of it in memory for the
+ * sake of the last dozen lines; this asks for all of it, which is the point of
+ * a log you are going to read.
+ */
+export function farmEventLog(config: PlannerConfig): FarmEvent[] {
+  const farm = new Farm(config, undefined, { keepEveryEvent: true });
+  farm.advanceTo(horizonDay(config));
+  return farm.events;
+}
+
 /** One line of "what the farm did" over a stretch of days. */
 export type FarmPeriodEvent = {
   type:
@@ -50,6 +62,8 @@ export type FarmPeriodEvent = {
     | "loss"
     | "cull"
     | "purchase"
+    | "processing"
+    | "scan"
     | "feed";
   label: string;
   count: number;
@@ -87,6 +101,18 @@ function head(count: number, plural: string): string {
   return count + " " + (count === 1 ? plural.replace(/s$/, "") : plural);
 }
 
+/**
+ * How the sows were served, and by what. A herd running both channels wants to
+ * see the split rather than a total, because the two are not the same cost and
+ * not the same genetics.
+ */
+function serviceLabel(services: number, byAi: number): string {
+  const sows = services === 1 ? "sow" : "sows";
+  if (byAi === 0) return `Service ${services} ${sows}`;
+  if (byAi === services) return `Serve ${services} ${sows} by AI`;
+  return `Service ${services} ${sows} · ${byAi} by AI, ${services - byAi} to the boar`;
+}
+
 /** Rolls a run of days up into the handful of things worth reading about them. */
 function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   const sum = (pick: (day: DayRecord) => number) =>
@@ -102,7 +128,8 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   }
 
   const services = sum((day) => day.services);
-  push({ type: "service", label: `Service ${services} ${services === 1 ? "sow" : "sows"}`, count: services });
+  const aiServices = sum((day) => day.aiServices);
+  push({ type: "service", label: serviceLabel(services, aiServices), count: services });
 
   // What those services came to, read a cycle after they were made.
   const conceptions = sum((day) => day.conceptions);
@@ -111,11 +138,24 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
     label: `${conceptions} ${conceptions === 1 ? "sow is" : "sows are"} confirmed in pig`,
     count: conceptions,
   });
+  // A return that came back on the cycle is a service that did not take; one
+  // that came back late is an embryo lost. They cost a herd differently, so the
+  // day says which it was rather than reporting one number for both.
   const returns = sum((day) => day.returnsToHeat);
+  const irregular = sum((day) => day.irregularReturns);
   push({
     type: "service",
-    label: `${returns} ${returns === 1 ? "sow returns" : "sows return"} to heat, to be served again`,
+    label:
+      `${returns} ${returns === 1 ? "sow returns" : "sows return"} to heat, to be served again` +
+      (irregular > 0 ? ` · ${irregular} late` : ""),
     count: returns,
+  });
+
+  const scans = sum((day) => day.scans);
+  push({
+    type: "scan",
+    label: `Scan ${head(scans, "sows")} · ${conceptions} in pig`,
+    count: scans,
   });
 
   const farrowings = sum((day) => day.farrowings);
@@ -176,6 +216,17 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
     });
   }
 
+
+  // Iron, identification, castration and the rest, each named and counted.
+  const jobs = new Map<string, number>();
+  for (const day of days) {
+    for (const [job, count] of Object.entries(day.processing)) {
+      jobs.set(job, (jobs.get(job) ?? 0) + count);
+    }
+  }
+  for (const [job, count] of jobs) {
+    push({ type: "processing", label: `${job} · ${head(count, "piglets")}`, count });
+  }
 
   const losses = sum((day) => day.pigletDeaths + day.growingDeaths + day.breedingDeaths);
   // "loss" does not lose its s the way the other names do.

@@ -44,12 +44,14 @@ import {
   Plus,
   ShieldCheck,
   Syringe,
+  TestTubes,
   Trash2,
   Truck,
   WalletCards,
   Wheat,
 } from "lucide-react";
 
+import { expectedGiltServiceAgeDays } from "@/lib/config";
 import { money, number, plural, rate } from "@/lib/format";
 import {
   BENCHMARK_SOURCES,
@@ -172,7 +174,9 @@ function HerdTooltip({ active, label, payload }: TooltipContentProps) {
 
 const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
   vaccination: "bg-brand-soft text-brand",
+  processing: "bg-brand-soft text-brand",
   service: "bg-warning-soft text-ink-muted",
+  scan: "bg-warning-soft text-ink-muted",
   conception: "bg-good-soft text-good",
   growth: "bg-plane text-ink-muted",
   farrowing: "bg-good-soft text-good",
@@ -195,6 +199,7 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
  */
 const DAY_MARKS: Partial<Record<FarmPeriodEvent["type"], string>> = {
   service: CHART.stage.sows,
+  scan: CHART.stage.sows,
   conception: CHART.stage.sows,
   farrowing: CHART.stage.sows,
   weaning: CHART.stage.gilts,
@@ -211,6 +216,8 @@ const MARK_ORDER = [CHART.stage.sows, CHART.stage.gilts, CHART.cash, CHART.warni
 /** A short word for the kind of activity, so the day reads as a work list. */
 const EVENT_NAMES: Record<FarmPeriodEvent["type"], string> = {
   vaccination: "Health",
+  processing: "Process",
+  scan: "Scan",
   service: "Service",
   conception: "In pig",
   growth: "Grow on",
@@ -1097,6 +1104,32 @@ export function Simulator({ config }: { config: PlannerConfig }) {
   const [picked, setPicked] = useState(() => config.project.startDate);
   const [yearIndex, setYearIndex] = useState(0);
   const [dayOpen, setDayOpen] = useState(false);
+  const [savingLog, setSavingLog] = useState(false);
+
+  /**
+   * The farm's own log of the run, as a CSV. It is built here rather than held
+   * with the timeline because the whole of it is wanted only when it is asked
+   * for — a five year plan writes thousands of lines the calendar never shows.
+   */
+  async function downloadEventLog() {
+    if (savingLog) return;
+    setSavingLog(true);
+    try {
+      const { buildEventLogCsv, eventLogFilename } = await import("@/lib/export-event-log");
+      const blob = new Blob([buildEventLogCsv(config)], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = eventLogFilename(config);
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      console.error(error);
+      window.alert("The event log could not be created. Please try again.");
+    } finally {
+      setSavingLog(false);
+    }
+  }
 
   // A new plan can move the horizon out from under the chosen day.
   const selected = useMemo(() => {
@@ -1178,7 +1211,8 @@ export function Simulator({ config }: { config: PlannerConfig }) {
         <h2 className="text-xl font-semibold tracking-tight text-ink">Farm simulator</h2>
         <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink-muted">
           A year of the plan at a time. Open any date to see what the farm did that day, what it
-          took in and paid out, and every animal standing on it.
+          took in and paid out, and every animal standing on it. The event log takes the whole run
+          away as a spreadsheet, line by line, in the order the farm wrote it.
         </p>
       </div>
 
@@ -1193,7 +1227,7 @@ export function Simulator({ config }: { config: PlannerConfig }) {
               </span>
             </p>
           </CardTitle>
-          <CardAction>
+          <CardAction className="flex flex-wrap items-center justify-end gap-2">
             <ToggleGroup
               type="single"
               size="sm"
@@ -1213,6 +1247,15 @@ export function Simulator({ config }: { config: PlannerConfig }) {
                 Months
               </ToggleGroupItem>
             </ToggleGroup>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={savingLog}
+              onClick={downloadEventLog}
+            >
+              <Download size={14} />
+              {savingLog ? "Preparing…" : "Event log"}
+            </Button>
           </CardAction>
         </CardHeader>
         <CardContent>
@@ -1718,7 +1761,14 @@ export function Inputs({
   function addVaccination() {
     update("health", "vaccinations", [
       ...config.health.vaccinations,
-      { id: "dose-" + Date.now(), name: "New treatment", ageDays: 28, costPerPig: 0.5 },
+      {
+        id: "dose-" + Date.now(),
+        name: "New treatment",
+        ageDays: 28,
+        costPerPig: 0.5,
+        kind: "vaccination" as const,
+        appliesTo: "all" as const,
+      },
     ]);
   }
 
@@ -1976,13 +2026,46 @@ export function Inputs({
             hint="Female pigs are picked out for breeding at this weight instead of going on to market."
           />
           <Field
+            label="Gilt puberty age"
+            value={config.herd.giltPubertyAgeDays}
+            onChange={(v) => update("herd", "giltPubertyAgeDays", Math.round(v))}
+            suffix="days"
+            min={140}
+            max={280}
+            step={5}
+            hint="When she first stands. She is not bred on that heat — it starts the clock the plan counts cycles from."
+          />
+          <Field
+            label="Gilt puberty weight"
+            value={config.herd.giltPubertyWeightKg}
+            onChange={(v) => update("herd", "giltPubertyWeightKg", v)}
+            suffix="kg"
+            min={60}
+            max={140}
+            hint="A gilt that has not grown does not cycle, whatever her age. Both have to be met before her first heat is recorded."
+          />
+          <Field
+            label="Serve on heat number"
+            value={config.herd.giltServeAtHeat}
+            onChange={(v) => update("herd", "giltServeAtHeat", Math.round(v))}
+            suffix="standing heat"
+            min={1}
+            max={5}
+            step={1}
+            hint={
+              "Breeding on the second or third heat puts more pigs in her first litter and keeps her in the herd longer. On this plan that is service at about " +
+              expectedGiltServiceAgeDays(config) +
+              " days."
+            }
+          />
+          <Field
             label="Gilt service weight"
             value={config.herd.giltServiceWeightKg}
             onChange={(v) => update("herd", "giltServiceWeightKg", v)}
             suffix="kg"
             min={90}
             max={180}
-            hint="Common guidance puts a first service at 135–170 kg."
+            hint="A floor, not a target: 135–150 kg is the usual aim. Short of it on her heat, she waits for the next one."
           />
           <Field
             label="Gilt service age"
@@ -1992,7 +2075,7 @@ export function Inputs({
             min={180}
             max={400}
             step={5}
-            hint="Commonly 220–270 days. She joins the herd only once both her weight and her age are met."
+            hint="The other floor. Raise it above the heat she would otherwise be served on and she is held to the first heat past it."
           />
           <Field
             label="Replacement gilt cost"
@@ -2032,7 +2115,7 @@ export function Inputs({
             min={6}
             max={72}
             step={1}
-            hint="Boars are rotated off at this point. No female is ever served by her own sire, so the farm stands a second boar once home-bred gilts come to service."
+            hint="Boars are rotated off at this point. No female is served by her own sire or her maternal grandsire, so the farm stands a second boar once home-bred gilts come to service — or buys semen instead, if AI is on."
           />
           <Toggle
             label="Grow replacement gilts on the farm"
@@ -2045,6 +2128,62 @@ export function Inputs({
             checked={config.herd.buyGiltsWhenShort}
             onChange={(value) => update("herd", "buyGiltsWhenShort", value)}
             hint="Fills empty sow places immediately instead of waiting for home-bred gilts."
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Service & artificial insemination"
+        description="How sows are served. AI stands no boar and is related to nothing on the farm, so it covers the matings a closed herd would otherwise need another boar for."
+        icon={TestTubes}
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Toggle
+            label="Use artificial insemination"
+            checked={config.service.useAi}
+            onChange={(value) => update("service", "useAi", value)}
+            hint="Semen can be bought whenever the boar team is fully worked for the week, or when every boar standing is one of the female's own sires."
+          />
+          <Field
+            label="Share of services by AI"
+            value={config.service.aiSharePct}
+            onChange={(v) => update("service", "aiSharePct", v)}
+            suffix="% of services"
+            max={100}
+            step={5}
+            disabled={!config.service.useAi}
+            hint="A floor, not a ceiling: services the boars cannot cover go to AI on top of this."
+          />
+          <Field
+            label="AI cost per service"
+            value={config.service.aiCostPerService}
+            onChange={(v) => update("service", "aiCostPerService", v)}
+            suffix={`${config.project.currency}/service`}
+            step={5}
+            disabled={!config.service.useAi}
+            hint="Semen and technician, charged every time a sow is served. A service that does not hold is charged again three weeks later."
+          />
+          <Field
+            label="AI conception difference"
+            value={config.service.aiConceptionDeltaPct}
+            onChange={(v) => update("service", "aiConceptionDeltaPct", v)}
+            suffix="percentage points"
+            min={-30}
+            max={30}
+            step={1}
+            disabled={!config.service.useAi}
+            hint="Added to the conception rate when the service is AI. Negative where heat detection is weak, since a dose put in on the wrong day is a dose wasted."
+          />
+          <Field
+            label="Stud lines on the panel"
+            value={config.service.aiStudPanelSize}
+            onChange={(v) => update("service", "aiStudPanelSize", Math.round(v))}
+            suffix="studs"
+            min={1}
+            max={20}
+            step={1}
+            disabled={!config.service.useAi}
+            hint="Semen is rotated across the panel and barred from a female for the same generations a boar is, so a narrow panel can hold services up the way a single boar does."
           />
         </div>
       </SectionCard>
@@ -2092,6 +2231,33 @@ export function Inputs({
             max={100}
             step={1}
             hint="A service that does not hold costs another 21-day cycle."
+          />
+          <Field
+            label="Late returns"
+            value={config.reproduction.irregularReturnSharePct}
+            onChange={(v) => update("reproduction", "irregularReturnSharePct", v)}
+            suffix="% of returns"
+            max={100}
+            step={5}
+            hint="Of the services that do not hold, the share that come back past the next cycle rather than on it — an embryo lost rather than a service that never took."
+          />
+          <Field
+            label="Pregnancy scan"
+            value={config.reproduction.pregnancyScanDays}
+            onChange={(v) => update("reproduction", "pregnancyScanDays", Math.round(v))}
+            suffix="days after service"
+            min={21}
+            max={45}
+            step={1}
+            hint="Commonly 26–30 days. Earlier reads too many false empties; later wastes the days an empty sow could spend getting back in pig."
+          />
+          <Field
+            label="Scan cost"
+            value={config.reproduction.pregnancyScanCost}
+            onChange={(v) => update("reproduction", "pregnancyScanCost", v)}
+            suffix={`${config.project.currency}/sow`}
+            step={0.5}
+            hint="Charged on every scan, whatever it finds. Set it to 0 for a herd that does not scan."
           />
           <Field
             label="Born alive per litter"
@@ -2400,6 +2566,7 @@ export function Inputs({
             <thead className="border-b border-hairline bg-plane text-left text-xs text-ink-muted">
               <tr>
                 <th className="px-3 py-2 font-medium">Treatment</th>
+                <th className="w-32 px-3 py-2 font-medium">Done to</th>
                 <th className="w-32 px-3 py-2 text-right font-medium">Age (days)</th>
                 <th className="w-36 px-3 py-2 text-right font-medium">
                   Cost ({config.project.currency}/pig)
@@ -2419,6 +2586,22 @@ export function Inputs({
                       }
                       className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm outline-none transition hover:border-hairline focus:border-brand"
                     />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <select
+                      value={dose.appliesTo}
+                      aria-label={"Treatment " + (index + 1) + " applies to"}
+                      onChange={(event) =>
+                        updateVaccination(index, {
+                          appliesTo: event.target.value as Vaccination["appliesTo"],
+                        })
+                      }
+                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm outline-none transition hover:border-hairline focus:border-brand"
+                    >
+                      <option value="all">Every piglet</option>
+                      <option value="males">Males only</option>
+                      <option value="females">Females only</option>
+                    </select>
                   </td>
                   <td className="px-2 py-1.5">
                     <input

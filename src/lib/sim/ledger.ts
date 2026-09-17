@@ -12,6 +12,7 @@ export type LedgerCategory =
   | "overheads"
   | "transport"
   | "breeding-stock"
+  | "semen"
   | "contingency"
   | "capital";
 
@@ -31,6 +32,7 @@ export const LEDGER_CATEGORIES: { id: LedgerCategory; label: string; kind: Ledge
   { id: "overheads", label: "Fixed overheads", kind: "expense" },
   { id: "transport", label: "Haulage to abattoir", kind: "expense" },
   { id: "breeding-stock", label: "Bought-in breeding stock", kind: "expense" },
+  { id: "semen", label: "AI semen & service", kind: "expense" },
   { id: "contingency", label: "Contingency", kind: "expense" },
   { id: "capital", label: "Capital", kind: "expense" },
 ];
