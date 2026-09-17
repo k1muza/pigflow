@@ -38,6 +38,8 @@ The cost of this is that the cashflow is lumpy, and honestly so: on the default 
 
 ## Reading the plan
 
+- **The plan picker** — the name in the top bar opens every plan kept on this device. A plan is its inputs and nothing else, so opening another one swaps the herd, the cashflow, the calendar and the workbook together; there is no shared state to leak between them. Duplicating is the point: take the plan you believe in, change one thing — a bigger shed, next year's feed price, a second boar — and keep both to compare. Plans are shared: they live in Cloud Firestore, so a plan built on the farm opens for someone remote, and an edit made in one browser appears in the others within a second. A single plan saved by an earlier version opens as the first one in the list.
+
 - **Financial planning** — switch between months and plan years, and open any period to see exactly what it is expected to receive and spend, line by line, with the production that drove it. On a month you can add your own rows under Income or Expenditure; the panel itemises them and shows the line they post to net of them, so the statement still adds up. Under the table, one button funds the whole plan and another takes the surplus back out.
 - **Farm simulator** — a full plan year as a calendar, or the same plan as a list of months. Open any date for that day's cash in and out, everything the farm did — farrowings, weanings, sales, treatments, the feed lorry and what was on it — and the herd split by stage and by what each sow is doing. The page behind it rebuilds the herd animal by animal to that date and reports cost of production and financial standing.
 - **Overview** — the cash curve at monthly or yearly zoom, growing stock by stage, and the checks that need attention. Both charts answer to one set of year chips: click a year to look at it on its own, click a second to take in every year between.
@@ -59,7 +61,35 @@ npm run lint
 npm run build
 ```
 
-The plan is saved in the browser on the current device. Use **Export CSV** to save the monthly cashflow outside the browser.
+## Where the plans are kept
+
+Plans live in Cloud Firestore, in one shared collection — there is no per-person
+ownership, because the point is that a plan can be opened by someone who is not
+on the farm. Getting in needs an email and password account, which you create in
+the Firebase console; the app has no sign-up. See
+[docs/firebase-setup.md](docs/firebase-setup.md) for the console steps, the
+security rules, and what "shared" costs you in privacy.
+
+Offline is not an afterthought. Firestore answers from an on-device IndexedDB
+cache and queues writes, so a tab that is already open keeps working on a bad
+line and catches up by itself; the badge in the header says which of the two you
+are on. A copy of the plans also stays in the browser, which is what opens the
+planner if Firebase is unreachable. What this does *not* cover is reloading the
+page with no connection — that needs a service worker, which the app does not
+ship.
+
+**With no Firebase project configured the app still runs**, keeping plans in the
+browser exactly as it did before, and with no sign-in to get past — so a fresh
+clone works without credentials.
+
+## Analytics
+
+Page views go to [Vercel Analytics](https://vercel.com/docs/analytics) through
+`<Analytics />` in the root layout. It only reports once the app is deployed on
+Vercel with Analytics switched on for the project; locally it does nothing. No
+plan data is sent — it sees the route, not what is on it.
+
+Use **Export Excel** to take the cashflow out of the app entirely.
 
 ## Where the code lives
 
@@ -67,6 +97,12 @@ The plan is saved in the browser on the current device. Use **Export CSV** to sa
 | --- | --- |
 | `src/lib/config.ts` | The plan schema, defaults and biological constants. |
 | `src/lib/growth-curve.ts` | Upkeep, the cost of a kilogram of gain, and the conversion they come to at any weight. |
+| `src/lib/workspace.ts` | The set of saved plans, which one is open, and reading them back from the browser. |
+| `src/lib/cloud-plans.ts` | Turns stored documents into plans, and works out the smallest set of writes that makes the cloud match the screen. |
+| `src/lib/firebase.ts` | Connects to Firestore with its offline cache. |
+| `src/lib/auth.ts` | Signing in and out, password resets, and turning Firebase's errors into English. |
+| `src/components/auth-gate.tsx` | Sends a signed-out visitor to `/login` instead of an empty planner. |
+| `src/hooks/use-workspace.ts` | Holds the plans on screen and keeps them level with everyone else's. |
 | `src/lib/sim/animals.ts` | `Animal`, `Sow`, `Boar`, `GrowingPig` and the per-animal `CostRecord`. |
 | `src/lib/sim/farm.ts` | The day-by-day `Farm` simulation and its point-in-time read-out. |
 | `src/lib/sim/feed-plan.ts` | Cuts the plan's feeding into lorry-loads and places each trip. |

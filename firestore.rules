@@ -1,0 +1,42 @@
+rules_version = '2';
+
+// PigFlow keeps one shared set of plans: everyone who signs in sees the same
+// plans and may edit them. There is deliberately no per-person ownership — the
+// point is that a plan set up on the farm can be opened by someone remote.
+//
+// The door is an account, not a URL. Accounts are made in the Firebase console;
+// there is no sign-up in the app, so the people who can read and change these
+// plans are exactly the people somebody deliberately added.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // An email and password account, specifically. Anonymous sessions are
+    // refused even if that provider is left switched on by accident, because
+    // anyone at all can start one.
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    // A plan is exactly these four fields. Pinning the shape stops the
+    // collection being used as free storage by anything that gets this far.
+    function looksLikeAPlan() {
+      let plan = request.resource.data;
+      return plan.keys().hasOnly(['config', 'order', 'updatedAt', 'updatedBy'])
+        && plan.config is map
+        && plan.order is number
+        && plan.updatedBy is string;
+    }
+
+    match /plans/{planId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && looksLikeAPlan();
+      allow delete: if signedIn();
+    }
+
+    // Nothing else in this project is the planner's business.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

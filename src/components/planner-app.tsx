@@ -31,8 +31,12 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  Cloud,
+  CloudOff,
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
+  Copy,
   Download,
   Gauge,
   HeartPulse,
@@ -41,10 +45,13 @@ import {
   Minus,
   PanelLeftClose,
   PanelLeftOpen,
+  PencilLine,
   PiggyBank,
   RefreshCcw,
   Rows3,
   Save,
+  LogOut,
+  ServerCrash,
   Scale,
   Plus,
   Settings2,
@@ -65,7 +72,6 @@ import {
   getModelMetrics,
   plannerSchema,
   SERVICES_PER_BOAR_PER_WEEK,
-  withConfigDefaults,
   type CashMovement,
   type MonthlyProjection,
   type PeriodSummary,
@@ -80,6 +86,21 @@ import {
   planCashWithdrawals,
 } from "@/lib/funding";
 import {
+  activeProject,
+  addProject,
+  duplicateProject,
+  MAX_PROJECTS,
+  openProject,
+  projectName,
+  removeProject,
+  renameProject,
+  setActiveConfig,
+  type Workspace,
+} from "@/lib/workspace";
+import { useWorkspace, type SyncState } from "@/hooks/use-workspace";
+import { useAuth } from "@/hooks/use-auth";
+import { signOutOfPlanner } from "@/lib/auth";
+import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
   farmStateAt,
@@ -93,6 +114,16 @@ import {
   type LedgerCategory,
 } from "@/lib/sim";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import {
   Card,
@@ -122,7 +153,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Tab = "overview" | "simulator" | "inputs" | "cashflow" | "money" | "method";
 
-const STORAGE_KEY = "pigflow-plan-v4";
 const SIDEBAR_KEY = "pigflow-sidebar";
 
 const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
@@ -473,43 +503,114 @@ function StatTile({
   );
 }
 
+/**
+ * Who is signed in, and the way out. It names the account because the plans are
+ * shared: when an edit turns up that nobody in the room made, the first useful
+ * question is which account is open on this machine.
+ */
+function SignedInAs() {
+  const { user, required } = useAuth();
+  if (!required || !user) return null;
+  return (
+    <div className="flex items-center gap-2 px-1">
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] text-ink-faint">Signed in as</span>
+        <span className="block truncate text-xs font-medium text-ink" title={user.email ?? undefined}>
+          {user.email ?? "an account with no email"}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => void signOutOfPlanner()}
+        title="Sign out"
+        aria-label="Sign out"
+        className="shrink-0 rounded-md p-1.5 text-ink-faint transition hover:bg-raised hover:text-ink"
+      >
+        <LogOut size={14} strokeWidth={1.75} />
+      </button>
+    </div>
+  );
+}
+
+/** Stands in for the planner while the shared plans are on their way. */
+function OpeningPlans() {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-hairline bg-raised/50 p-4 text-sm text-ink-muted">
+      <Cloud size={16} className="shrink-0 animate-pulse" />
+      Opening the shared plans…
+    </div>
+  );
+}
+
+/**
+ * Says where the plan on screen has got to. Plans are shared, so "saved" is no
+ * longer the whole story: someone on a bad line needs to know their edit is
+ * held on this device rather than already with everyone else.
+ */
+function SyncBadge({ sync, savedAt }: { sync: SyncState; savedAt: string | null }) {
+  const saved = savedAt ? `Saved ${savedAt}` : "Saved";
+
+  const state = {
+    local: {
+      icon: Save,
+      text: savedAt ? saved + " on this device" : "Stored on this device",
+      tone: "text-ink-faint",
+    },
+    connecting: { icon: Cloud, text: "Connecting…", tone: "text-ink-faint" },
+    offline: { icon: CloudOff, text: savedAt ? saved + " on this device" : "Offline", tone: "text-ink-faint" },
+    synced: { icon: Cloud, text: savedAt ? saved + " to the cloud" : "Shared plans", tone: "text-ink-faint" },
+    error: { icon: ServerCrash, text: "Not syncing", tone: "text-amber-600" },
+  }[sync];
+
+  const Icon = state.icon;
+  return (
+    <span
+      title={
+        sync === "error"
+          ? "The shared copy could not be reached. This plan is still safe in this browser."
+          : sync === "offline"
+            ? "Working offline. Edits are queued and will sync when the connection returns."
+            : undefined
+      }
+      className={`hidden items-center gap-1.5 text-xs lg:flex ${state.tone}`}
+    >
+      <Icon size={13} />
+      {state.text}
+    </span>
+  );
+}
+
 // ------------------------------------------------------------------ container
 
 export default function PlannerApp() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [config, setConfig] = useState<PlannerConfig>(cloneDefaultConfig);
-  const [hydrated, setHydrated] = useState(false);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  // The plans themselves live in Firestore and are shared with everyone else who
+  // has the planner open; this hook keeps the copy on screen level with them.
+  const { workspace, setWorkspace, hydrated, savedAt, sync } = useWorkspace();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [exporting, setExporting] = useState(false);
+
+  // The plan that is open. Every panel below still takes one config, so opening
+  // another plan is the whole of switching to it.
+  const open = activeProject(workspace);
+  const config = open.config;
+
+  /** Writes inputs back to the plan that is open, leaving the other plans alone. */
+  function setConfig(next: PlannerConfig | ((current: PlannerConfig) => PlannerConfig)) {
+    setWorkspace((current) => {
+      const plan = activeProject(current);
+      return setActiveConfig(current, typeof next === "function" ? next(plan.config) : next);
+    });
+  }
 
   useEffect(() => {
     // Deferred so the first client render matches the server-rendered defaults.
     const timeout = window.setTimeout(() => {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        try {
-          const restored = withConfigDefaults(JSON.parse(stored));
-          if (restored) setConfig(restored);
-        } catch {
-          // Keep safe defaults when saved browser data cannot be parsed.
-        }
-      }
       const storedSidebar = window.localStorage.getItem(SIDEBAR_KEY);
       setSidebarOpen(storedSidebar ? storedSidebar === "open" : window.innerWidth >= 1024);
-      setHydrated(true);
     }, 0);
     return () => window.clearTimeout(timeout);
   }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    const timeout = window.setTimeout(() => {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-      setSavedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    }, 350);
-    return () => window.clearTimeout(timeout);
-  }, [config, hydrated]);
 
   function toggleSidebar() {
     setSidebarOpen((open) => {
@@ -540,9 +641,37 @@ export default function PlannerApp() {
   }
 
   function resetPlan() {
-    if (window.confirm("Reset all inputs to the evidence-based starter assumptions?")) {
-      setConfig(cloneDefaultConfig());
+    if (window.confirm("Reset this plan's inputs to the evidence-based starter assumptions?")) {
+      setConfig((current) => {
+        const fresh = cloneDefaultConfig();
+        // Resetting the numbers is not renaming the plan.
+        fresh.project.name = current.project.name;
+        return fresh;
+      });
     }
+  }
+
+  function newPlan() {
+    setWorkspace((current) => addProject(current, "Plan " + (current.projects.length + 1)));
+    // A plan you have just started is a plan you are about to describe.
+    setActiveTab("inputs");
+  }
+
+  function duplicatePlan() {
+    setWorkspace((current) => duplicateProject(current, current.activeId));
+  }
+
+  function renamePlan() {
+    const name = window.prompt("Name this plan", projectName(open));
+    if (name) setWorkspace((current) => renameProject(current, current.activeId, name));
+  }
+
+  function deletePlan() {
+    if (workspace.projects.length < 2) return;
+    const question =
+      "Delete " + projectName(open) + "? Its inputs and its cashflow go with it.";
+    if (!window.confirm(question)) return;
+    setWorkspace((current) => removeProject(current, current.activeId));
   }
 
   async function exportExcel() {
@@ -628,7 +757,7 @@ export default function PlannerApp() {
               })}
             </nav>
 
-            <div className="mt-auto p-4">
+            <div className="mt-auto space-y-3 p-4">
               <div className="rounded-lg border border-hairline bg-plane p-3.5">
                 <div className="flex items-center gap-2 text-xs font-medium text-ink">
                   <HeartPulse size={14} className="text-ink-faint" strokeWidth={1.75} />
@@ -639,6 +768,7 @@ export default function PlannerApp() {
                   veterinarian.
                 </p>
               </div>
+              <SignedInAs />
             </div>
           </aside>
         </>
@@ -646,53 +776,70 @@ export default function PlannerApp() {
 
       <main className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 border-b border-hairline bg-surface/85 px-4 py-3 backdrop-blur sm:px-6">
-          <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
+          <div className="mx-auto flex max-w-[1500px] items-center gap-3 sm:gap-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <button
                 type="button"
                 onClick={toggleSidebar}
                 aria-expanded={sidebarOpen}
                 aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
                 title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                className="rounded-lg border border-hairline p-2 text-ink-muted transition hover:bg-raised hover:text-ink"
+                className="shrink-0 rounded-lg border border-hairline p-2 text-ink-muted transition hover:bg-raised hover:text-ink"
               >
                 {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               </button>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 text-[11px] text-ink-faint">
                   <span>PigFlow</span>
                   <span>/</span>
                   <span className="text-ink-muted">{activeLabel}</span>
                 </div>
-                <h1 className="truncate text-sm font-semibold tracking-tight text-ink sm:text-base">
-                  {config.project.name}
-                </h1>
+                <ProjectSwitcher
+                  workspace={workspace}
+                  shared={sync !== "local"}
+                  onOpen={(id) => setWorkspace((current) => openProject(current, id))}
+                  onNew={newPlan}
+                  onDuplicate={duplicatePlan}
+                  onRename={renamePlan}
+                  onDelete={deletePlan}
+                />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="hidden items-center gap-1.5 text-xs text-ink-faint sm:flex">
-                <Save size={13} />
-                {savedAt ? `Saved ${savedAt}` : "Stored on this device"}
-              </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <SyncBadge sync={sync} savedAt={savedAt} />
               <button
                 onClick={resetPlan}
-                className="inline-flex items-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink"
+                aria-label="Reset this plan"
+                className="inline-flex items-center gap-2 rounded-lg border border-hairline px-2.5 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink sm:px-3"
               >
                 <RefreshCcw size={13} /> <span className="hidden sm:inline">Reset</span>
               </button>
               <button
                 onClick={exportExcel}
                 disabled={!projection || exporting}
-                className="inline-flex items-center gap-2 rounded-lg bg-ink px-3 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:opacity-40"
+                aria-label="Export the cashflow to Excel"
+                className="inline-flex items-center gap-2 rounded-lg bg-ink px-2.5 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:opacity-40 sm:px-3"
               >
-                <Download size={13} /> {exporting ? "Preparing…" : "Export Excel"}
+                <Download size={13} />
+                {/* On a narrow screen the plan's name is worth more room than the word "Excel". */}
+                <span className="hidden sm:inline">
+                  {exporting ? "Preparing…" : "Export Excel"}
+                </span>
+                <span className="sm:hidden">{exporting ? "…" : "Export"}</span>
               </button>
             </div>
           </div>
         </header>
 
         <div className="mx-auto max-w-[1500px] p-4 sm:p-6">
-          {!validation.success ? (
+          {/*
+            Until the shared plans have arrived, what is on screen is only the
+            starting defaults. Showing them as though they were a plan would
+            invite edits that the first reading is about to replace.
+          */}
+          {!hydrated ? <OpeningPlans /> : null}
+
+          {hydrated && !validation.success ? (
             <div className="mb-5 flex gap-3 rounded-xl border border-critical/30 bg-critical-soft p-4 text-sm">
               <AlertTriangle className="mt-0.5 shrink-0 text-critical" size={16} />
               <div>
@@ -706,19 +853,19 @@ export default function PlannerApp() {
             </div>
           ) : null}
 
-          {activeTab === "overview" && projection ? (
+          {hydrated && activeTab === "overview" && projection ? (
             <Overview config={config} projection={projection} setActiveTab={setActiveTab} />
           ) : null}
 
-          {activeTab === "simulator" && validation.success ? (
+          {hydrated && activeTab === "simulator" && validation.success ? (
             <Simulator config={validation.data} />
           ) : null}
 
-          {activeTab === "inputs" ? (
+          {hydrated && activeTab === "inputs" ? (
             <Inputs config={config} update={update} metrics={modelMetrics} />
           ) : null}
 
-          {activeTab === "cashflow" && projection ? (
+          {hydrated && activeTab === "cashflow" && projection ? (
             <CashflowPreview
               config={config}
               projection={projection}
@@ -727,14 +874,98 @@ export default function PlannerApp() {
             />
           ) : null}
 
-          {activeTab === "money" && projection ? (
+          {hydrated && activeTab === "money" && projection ? (
             <Money config={config} projection={projection} update={update} />
           ) : null}
 
-          {activeTab === "method" ? <Methodology config={config} metrics={modelMetrics} /> : null}
+          {hydrated && activeTab === "method" ? (
+            <Methodology config={config} metrics={modelMetrics} />
+          ) : null}
         </div>
       </main>
     </div>
+  );
+}
+
+/**
+ * Picks which plan is open, and manages the set of them. Plans are scenarios of
+ * one farm more often than they are different farms — the same herd with a
+ * bigger shed, or feed at next year's price — so the menu leads with the list
+ * and keeps duplicating the open plan one click away.
+ */
+function ProjectSwitcher({
+  workspace,
+  shared,
+  onOpen,
+  onNew,
+  onDuplicate,
+  onRename,
+  onDelete,
+}: {
+  workspace: Workspace;
+  /** Whether these plans are the shared set or only this browser's. */
+  shared: boolean;
+  onOpen: (id: string) => void;
+  onNew: () => void;
+  onDuplicate: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
+  const open = activeProject(workspace);
+  const full = workspace.projects.length >= MAX_PROJECTS;
+  const onlyPlan = workspace.projects.length < 2;
+
+  return (
+    <h1 className="flex min-w-0 text-sm font-semibold tracking-tight text-ink sm:text-base">
+      <DropdownMenu>
+        <DropdownMenuTrigger className="-ml-1.5 flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-0.5 outline-none transition hover:bg-raised focus-visible:ring-3 focus-visible:ring-brand/40">
+          <span className="truncate">{projectName(open)}</span>
+          <ChevronsUpDown size={14} className="shrink-0 text-ink-faint" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-w-80">
+          <DropdownMenuLabel>
+            {plural(workspace.projects.length, "plan")}
+            {shared ? ", shared with everyone" : " on this device"}
+          </DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={workspace.activeId} onValueChange={onOpen}>
+            {workspace.projects.map((project) => (
+              <DropdownMenuRadioItem key={project.id} value={project.id}>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{projectName(project)}</span>
+                  <span className="block truncate text-[11px] font-normal text-ink-faint">
+                    {plural(project.config.project.months, "month")} ·{" "}
+                    {plural(project.config.herd.maxSows, "sow place")} ·{" "}
+                    {project.config.project.currency}
+                  </span>
+                </span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onNew} disabled={full}>
+            <Plus size={14} /> New plan
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onDuplicate} disabled={full}>
+            <Copy size={14} /> Duplicate this plan
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onRename}>
+            <PencilLine size={14} /> Rename…
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={onDelete}
+            disabled={onlyPlan}
+            className="text-critical data-highlighted:bg-critical-soft"
+          >
+            <Trash2 size={14} /> Delete this plan
+          </DropdownMenuItem>
+          {full ? (
+            <p className="px-2.5 pt-1.5 pb-1 text-[11px] leading-4 text-ink-faint">
+              {MAX_PROJECTS} plans is the limit. Delete one to make room for another.
+            </p>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </h1>
   );
 }
 
