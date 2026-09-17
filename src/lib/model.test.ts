@@ -72,7 +72,7 @@ describe("PigFlow monthly projection", () => {
   it("increases feed cost and reduces closing cash when FCR worsens", () => {
     const base = config();
     const inefficient = config();
-    inefficient.growth.finisherFcr = 4;
+    inefficient.growth.gainFeedKgAt100Kg = 3.4;
     const baseResult = calculateProjection(base);
     const inefficientResult = calculateProjection(inefficient);
     expect(inefficientResult.summary.totalFeedCost).toBeGreaterThan(

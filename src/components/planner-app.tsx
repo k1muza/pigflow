@@ -237,6 +237,28 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
   feed: "bg-warning-soft text-ink-muted",
 };
 
+/**
+ * The dot a kind of activity puts on its square. Related activities share one,
+ * so a year of squares can be read for shape: the breeding cycle turning, pigs
+ * changing what they are, pigs leaving, feed arriving. Vaccinations and losses
+ * are deliberately unmarked — they fall on so many days that a dot for them
+ * would colour the whole calendar and say nothing.
+ */
+const DAY_MARKS: Partial<Record<FarmPeriodEvent["type"], string>> = {
+  service: CHART.stage.sows,
+  conception: CHART.stage.sows,
+  farrowing: CHART.stage.sows,
+  weaning: CHART.stage.gilts,
+  growth: CHART.stage.gilts,
+  selection: CHART.stage.gilts,
+  promotion: CHART.stage.gilts,
+  sale: CHART.cash,
+  feed: CHART.warning,
+};
+
+/** Fixed order, so a square's dots never rearrange themselves day to day. */
+const MARK_ORDER = [CHART.stage.sows, CHART.stage.gilts, CHART.cash, CHART.warning] as const;
+
 /** A short word for the kind of activity, so the day reads as a work list. */
 const EVENT_NAMES: Record<FarmPeriodEvent["type"], string> = {
   vaccination: "Health",
@@ -1426,12 +1448,11 @@ function Simulator({ config }: { config: PlannerConfig }) {
   const DayCell = useMemo(() => {
     function DayCell(props: React.ComponentProps<typeof CalendarDayButton>) {
       const entry = byDate.get(format(props.day.date, "yyyy-MM-dd"));
-      const dots: string[] = [];
-      if (entry) {
-        if (entry.bornAlive > 0) dots.push(CHART.stage.sows);
-        if (entry.sold > 0) dots.push(CHART.cash);
-        if (entry.feedLoads > 0) dots.push(CHART.warning);
-      }
+      const dots = entry
+        ? MARK_ORDER.filter((colour) =>
+          entry.events.some((event) => DAY_MARKS[event.type] === colour),
+        )
+        : [];
       return (
         // The day button stamps data-day with a locale-formatted date. Left to
         // the ambient locale that is one string on the server and another in the
@@ -1531,7 +1552,8 @@ function Simulator({ config }: { config: PlannerConfig }) {
 
                 </div>
                 <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-faint">
-                  <Marker color={CHART.stage.sows}>Farrowing</Marker>
+                  <Marker color={CHART.stage.sows}>Service, in pig, farrowing</Marker>
+                  <Marker color={CHART.stage.gilts}>Weaning and stage changes</Marker>
                   <Marker color={CHART.cash}>Sale</Marker>
                   <Marker color={CHART.warning}>Feed lorry</Marker>
                 </p>
@@ -2383,8 +2405,18 @@ function Inputs({
       </SectionCard>
 
       <SectionCard
-        title="Weights, growth and FCR"
-        description="Feed conversion ratio means kilograms of feed for one kilogram of liveweight gain. Lower is better only when measurements are comparable."
+        title="Weights, growth and feed conversion"
+        description={
+          "Feed conversion is worked out here rather than typed in. A pig eats for upkeep before it eats to grow, and both get dearer as it fills out, so the ratio moves with weight on its own: " +
+          number(metrics.feedConversion.weanerFcr, 2) +
+          " feed to gain in the weaner house, " +
+          number(metrics.feedConversion.growerFcr, 2) +
+          " in the grower house and " +
+          number(metrics.feedConversion.finisherFcr, 2) +
+          " in the finishing house — " +
+          number(metrics.feedConversion.growoutFcr, 2) +
+          " across the whole growout."
+        }
         icon={Gauge}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -2436,26 +2468,28 @@ function Inputs({
           />
           <div className="hidden xl:block" />
           <Field
-            label="Weaner FCR"
-            value={config.growth.weanerFcr}
-            onChange={(v) => update("growth", "weanerFcr", v)}
-            suffix="feed : gain"
+            label="Upkeep feed at 100 kg"
+            value={config.growth.upkeepFeedKgAt100Kg}
+            onChange={(v) => update("growth", "upkeepFeedKgAt100Kg", v)}
+            suffix="kg/day"
             step={0.05}
+            hint="What a 100 kg pig eats before it grows at all. Lighter pigs need less of it, by metabolic weight rather than in proportion."
           />
           <Field
-            label="Grower FCR"
-            value={config.growth.growerFcr}
-            onChange={(v) => update("growth", "growerFcr", v)}
-            suffix="feed : gain"
+            label="Feed per kg gain at 20 kg"
+            value={config.growth.gainFeedKgAt20Kg}
+            onChange={(v) => update("growth", "gainFeedKgAt20Kg", v)}
+            suffix="kg feed"
             step={0.05}
+            hint="Gain in a weaner is lean and largely water, so it comes cheap."
           />
           <Field
-            label="Finisher FCR"
-            value={config.growth.finisherFcr}
-            onChange={(v) => update("growth", "finisherFcr", v)}
-            suffix="feed : gain"
+            label="Feed per kg gain at 100 kg"
+            value={config.growth.gainFeedKgAt100Kg}
+            onChange={(v) => update("growth", "gainFeedKgAt100Kg", v)}
+            suffix="kg feed"
             step={0.05}
-            hint="Pork Gateway: 3.0 average, 2.8 good in its reference system."
+            hint="By finishing, more of each kilogram is fat, which costs several times as much to lay down. Between the two weights the price is read off the straight line."
           />
           <div className="hidden xl:block" />
           <Field
@@ -2484,7 +2518,7 @@ function Inputs({
 
       <SectionCard
         title="Feed consumption and prices"
-        description="Sows eat by daily intake, scaled to their weight. Growing pigs eat daily gain × stage FCR, with the maintenance share scaled by weight and appetite by sex."
+        description="Sows eat by daily intake, scaled to their weight. Growing pigs eat their upkeep plus what the day's gain costs at the weight they are, with appetite scaled by sex. Stage decides which bin the feed comes out of and what it costs."
         icon={Wheat}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -3788,8 +3822,8 @@ function Methodology({
     ],
     [
       "Growing-pig feed",
-      "daily gain × stage FCR, scaled by sex and by weight through the stage",
-      "Charged per pig per day",
+      "upkeep at (weight ÷ 100 kg)^0.75 + daily gain × what a kilogram costs at that weight",
+      number(metrics.feedConversion.growoutFcr, 2) + " feed to gain over the growout",
     ],
     [
       "Days to sale weight",
@@ -3878,21 +3912,35 @@ function Methodology({
           icon={BookOpen}
         >
           <div className="space-y-2.5">
-            {BENCHMARK_SOURCES.map((source) => (
-              <a
-                key={source.url}
-                href={source.url}
-                target="_blank"
-                rel="noreferrer"
-                className="group flex items-start justify-between gap-4 rounded-lg border border-hairline p-3.5 transition hover:border-brand hover:bg-brand-soft"
-              >
+            {BENCHMARK_SOURCES.map((source) => {
+              const body = (
                 <div>
                   <p className="text-[13px] font-medium text-ink">{source.title}</p>
                   <p className="mt-1 text-xs leading-5 text-ink-faint">{source.note}</p>
                 </div>
-                <ChevronRight size={15} className="mt-0.5 shrink-0 text-ink-faint" />
-              </a>
-            ))}
+              );
+              // A source held as a document has nowhere to send you, so it is
+              // listed without the chevron that promises somewhere to go.
+              return source.url ? (
+                <a
+                  key={source.title}
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group flex items-start justify-between gap-4 rounded-lg border border-hairline p-3.5 transition hover:border-brand hover:bg-brand-soft"
+                >
+                  {body}
+                  <ChevronRight size={15} className="mt-0.5 shrink-0 text-ink-faint" />
+                </a>
+              ) : (
+                <div
+                  key={source.title}
+                  className="rounded-lg border border-hairline border-dashed p-3.5"
+                >
+                  {body}
+                </div>
+              );
+            })}
           </div>
         </SectionCard>
 

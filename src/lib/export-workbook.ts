@@ -585,6 +585,15 @@ function addHerdSheet(
 }
 
 /** The unit a feed assumption is quoted in, which its name alone does not say. */
+function growthUnit(key: string): string {
+  const name = key.toLowerCase();
+  if (name.includes("mortality")) return "% per stage";
+  if (name.startsWith("upkeepfeed")) return "kg/day at 100 kg";
+  if (name.startsWith("gainfeed")) return "kg feed per kg gain";
+  if (name.includes("gain")) return "kg/day";
+  return "kg";
+}
+
 function feedUnit(key: string, currency: string): string {
   if (key === "truckCapacityKg") return "kg per load";
   if (key === "deliveryCostPerTrip") return `${currency}/load`;
@@ -676,7 +685,7 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
       Object.entries(config.growth).map(([key, value]) => [
         key.replace(/([A-Z])/g, " $1").replace(/^./, (character) => character.toUpperCase()),
         value,
-        key.toLowerCase().includes("mortality") ? "% per stage" : key.toLowerCase().includes("fcr") ? "feed/gain" : key.toLowerCase().includes("gain") ? "kg/day" : "kg",
+        growthUnit(key),
       ]),
     ],
     [

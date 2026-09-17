@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
 import { generatedTotal, isGenerated, planCashInjections, planCashWithdrawals } from "../funding";
+import { feedConversionAt, growoutFeedConversion, upkeepFeedKgDay } from "../growth-curve";
 import { calculateProjection } from "../model";
 import {
   expensesOf,
@@ -34,13 +35,14 @@ function pig(overrides: Partial<ConstructorParameters<typeof GrowingPig>[0]> = {
 describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
   it("feeds an entire male more than a gilt of the same weight", () => {
     const input = config();
-    const male = pig({ sex: "male" }).dailyFeed(input).kg;
-    const female = pig({ sex: "female" }).dailyFeed(input).kg;
-    expect(male).toBeGreaterThan(female);
-    // Both grow proportionally faster, so feed conversion is unchanged.
-    expect(male / pig({ sex: "male" }).dailyGainKg(input)).toBeCloseTo(
-      female / pig({ sex: "female" }).dailyGainKg(input),
-      6,
+    const male = pig({ sex: "male" });
+    const female = pig({ sex: "female" });
+    expect(male.dailyFeed(input).kg).toBeGreaterThan(female.dailyFeed(input).kg);
+    // Two pigs of the same weight owe the same upkeep, so the faster grower
+    // spreads it over more gain and converts better. That is why an entire male
+    // is cheaper to finish than a gilt even though he eats more each day.
+    expect(male.dailyFeed(input).kg / male.dailyGainKg(input)).toBeLessThan(
+      female.dailyFeed(input).kg / female.dailyGainKg(input),
     );
   });
 
@@ -52,6 +54,28 @@ describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
     expect(heavy / light).toBeGreaterThan(1.05);
   });
 
+  it("converts feed worse the heavier a pig gets", () => {
+    const input = config();
+    const gain = 0.85;
+    const light = feedConversionAt(30, gain, input.growth);
+    const middle = feedConversionAt(65, gain, input.growth);
+    const heavy = feedConversionAt(100, gain, input.growth);
+    expect(light).toBeLessThan(middle);
+    expect(middle).toBeLessThan(heavy);
+    // A weaner converting near 2:1 and a finisher near 3:1 is the shape the
+    // published figures have. A flat ratio across the growout is not.
+    expect(heavy - light).toBeGreaterThan(0.5);
+  });
+
+  it("charges upkeep by metabolic weight, so it does not double when a pig does", () => {
+    const input = config();
+    const fifty = upkeepFeedKgDay(50, input.growth);
+    const hundred = upkeepFeedKgDay(100, input.growth);
+    expect(hundred).toBeGreaterThan(fifty);
+    expect(hundred / fifty).toBeLessThan(2);
+    expect(hundred / fifty).toBeCloseTo(Math.pow(2, 0.75), 6);
+  });
+
   it("offers creep feed only once a suckling piglet is old enough", () => {
     const input = config();
     const piglet = pig({ stage: "piglet", weightKg: 3 });
@@ -60,7 +84,7 @@ describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
     expect(piglet.creepFeed(input.feed.creepStartAgeDays + 1, input).kg).toBeGreaterThan(0);
   });
 
-  it("keeps the herd's feed use close to the planned stage FCR", () => {
+  it("keeps the herd's feed use close to the planned feed curve", () => {
     const input = config();
     input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 2000, growers: 0, finishers: 0 };
     input.growth.weanerMortalityPct = 0;
@@ -71,13 +95,11 @@ describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
     const feedKg = farm.history.reduce((sum, day) => sum + day.growingFeedKg, 0);
     const gainKg =
       farm.lifetime.soldLiveweightKg - 2000 * ((input.growth.weaningWeightKg + 30) / 2);
-    const blendedFcr =
-      (input.growth.weanerFcr * (30 - input.growth.weaningWeightKg) +
-        input.growth.growerFcr * 30 +
-        input.growth.finisherFcr * 40) /
-      (input.growth.saleWeightKg - input.growth.weaningWeightKg);
-    expect(feedKg / gainKg).toBeGreaterThan(blendedFcr * 0.9);
-    expect(feedKg / gainKg).toBeLessThan(blendedFcr * 1.15);
+    // Conversion depends on weight, so the expectation is what one average pig
+    // eats walking the same curve from weaning to sale weight.
+    const plannedFcr = growoutFeedConversion(input.growth).growoutFcr;
+    expect(feedKg / gainKg).toBeGreaterThan(plannedFcr * 0.9);
+    expect(feedKg / gainKg).toBeLessThan(plannedFcr * 1.15);
   });
 });
 
@@ -614,14 +636,21 @@ describe("What a market pig costs reconciles with the cash book", () => {
     const cashNetPerPig =
       (incomeOf(farm.ledger.totals) - expensesOf(farm.ledger.totals)) / farm.lifetime.sold;
 
-    // An allocation never matches the cash book to the cent: the pigs standing on
-    // the farm at the end have been fed but not yet sold, and that stock is worth
-    // something. Selling by cohort leaves a fuller shed at the end than drawing
-    // pigs one at a time did, so the gap is wider — but it must stay the same
-    // order of magnitude, and the same sign.
+    // An allocation never matches the cash book to the cent, and the difference
+    // has a name: everything the farm still owns on the last day was paid for out
+    // of the cash book and has earned nothing yet — the pigs and sows standing in
+    // the sheds, and the capital the plan opened with. So the allocated margin
+    // must read ahead of the cash, by no more than what the farm is holding.
+    // Measuring it that way rather than as a multiple of the margin keeps the
+    // bound honest: a thinner margin does not make the same gap a bigger failure.
+    const standing =
+      farm.pigs.reduce((total, pig) => total + (pig.alive ? pig.costs.total : 0), 0) +
+      farm.sows.reduce((total, sow) => total + (sow.alive ? sow.costs.total : 0), 0) +
+      farm.boars.reduce((total, boar) => total + (boar.alive ? boar.costs.total : 0), 0) +
+      farm.ledger.totals.capital;
     expect(cashNetPerPig).toBeGreaterThan(0);
-    expect(cop.marginPerPig).toBeGreaterThan(cashNetPerPig * 0.8);
-    expect(cop.marginPerPig).toBeLessThan(cashNetPerPig * 1.5);
+    expect(cop.marginPerPig).toBeGreaterThan(cashNetPerPig);
+    expect(cop.marginPerPig - cashNetPerPig).toBeLessThan(standing / farm.lifetime.sold);
   });
 
   it("charges a dead pig's feed to the pigs that did reach the abattoir", () => {

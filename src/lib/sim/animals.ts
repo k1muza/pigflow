@@ -11,6 +11,7 @@ import {
   SOW_WEIGHT_GAIN_PER_PARITY_KG,
   type PlannerConfig,
 } from "../config";
+import { dailyFeedKg } from "../growth-curve";
 
 export type Sex = "female" | "male";
 /** Where a pig sits on its way to the abattoir or the farrowing house. */
@@ -178,23 +179,6 @@ export class GrowingPig extends Animal {
     return this.stage === "piglet";
   }
 
-  /** Midpoint weight of the stage this pig is in, used to scale maintenance feed. */
-  private stageMidWeightKg(config: PlannerConfig): number {
-    const { growth } = config;
-    switch (this.stage) {
-      case "piglet":
-        return (BIRTH_WEIGHT_KG + growth.weaningWeightKg) / 2;
-      case "weaner":
-        return (growth.weaningWeightKg + growth.growerStartWeightKg) / 2;
-      case "grower":
-        return (growth.growerStartWeightKg + growth.finisherStartWeightKg) / 2;
-      case "finisher":
-        return (growth.finisherStartWeightKg + growth.saleWeightKg) / 2;
-      case "gilt":
-        return (growth.saleWeightKg + config.herd.giltServiceWeightKg) / 2;
-    }
-  }
-
   dailyGainKg(config: PlannerConfig): number {
     if (this.stage === "piglet") {
       return (
@@ -212,9 +196,12 @@ export class GrowingPig extends Animal {
   }
 
   /**
-   * Intake is driven by what this pig is: its stage sets the ration, its sex
-   * scales appetite, and its weight scales the maintenance part of the ration,
-   * so a 95 kg finisher eats measurably more than a 62 kg one.
+   * Intake is built the way a pig actually eats: upkeep for the body it is
+   * carrying, and on top of that the feed its day's gain costs at the weight it
+   * is at now. Both terms rise with weight, so conversion worsens across the
+   * growout on its own — a 95 kg finisher eats measurably more than a 62 kg one
+   * and turns less of it into meat. Stage still picks the bin the feed comes out
+   * of, and sex still scales appetite through the gain it supports.
    */
   dailyFeed(config: PlannerConfig): FeedDemand {
     // A suckling pig lives on milk, which is paid for through the sow's ration.
@@ -222,17 +209,11 @@ export class GrowingPig extends Animal {
     if (this.stage === "piglet") return NO_FEED;
     if (this.stage === "gilt") {
       return {
-        kg: config.feed.gestationKgDay * this.maintenanceScale(config),
+        kg: config.feed.gestationKgDay * this.giltRationScale(config),
         costPerKg: config.feed.sowFeedCostKg,
         ration: "sow",
       };
     }
-    const fcr =
-      this.stage === "weaner"
-        ? config.growth.weanerFcr
-        : this.stage === "grower"
-          ? config.growth.growerFcr
-          : config.growth.finisherFcr;
     const ration: FeedRation =
       this.stage === "weaner" ? "weaner" : this.stage === "grower" ? "grower" : "finisher";
     const costPerKg =
@@ -242,15 +223,20 @@ export class GrowingPig extends Animal {
           ? config.feed.growerFeedCostKg
           : config.feed.finisherFeedCostKg;
     return {
-      kg: this.dailyGainKg(config) * fcr * this.maintenanceScale(config),
+      kg: dailyFeedKg(this.weightKg, this.dailyGainKg(config), config.growth),
       costPerKg,
       ration,
     };
   }
 
-  /** 1.0 at the middle of the stage; above and below it as the pig grows through. */
-  private maintenanceScale(config: PlannerConfig): number {
-    const ratio = this.weightKg / Math.max(this.stageMidWeightKg(config), 0.1);
+  /**
+   * A gilt is on a restricted developer ration, so a feeder decides what she
+   * gets rather than her appetite. Only the upkeep part of it moves with her
+   * size: 1.0 at the middle of her stage, above and below it as she grows on.
+   */
+  private giltRationScale(config: PlannerConfig): number {
+    const midWeightKg = (config.growth.saleWeightKg + config.herd.giltServiceWeightKg) / 2;
+    const ratio = this.weightKg / Math.max(midWeightKg, 0.1);
     return 1 - MAINTENANCE_SHARE + MAINTENANCE_SHARE * Math.pow(ratio, 0.75);
   }
 

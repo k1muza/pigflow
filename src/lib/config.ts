@@ -91,9 +91,22 @@ export const plannerSchema = z.object({
     weanerDailyGainKg: z.number().min(0.1).max(1.2),
     growerDailyGainKg: z.number().min(0.2).max(1.5),
     finisherDailyGainKg: z.number().min(0.2).max(1.5),
-    weanerFcr: z.number().min(0.8).max(5),
-    growerFcr: z.number().min(1).max(6),
-    finisherFcr: z.number().min(1).max(7),
+    /**
+     * Feed a pig eats before it grows at all, quoted for a 100 kg pig and read
+     * off metabolic weight for every other size. A pig carries more body to
+     * keep the heavier it gets, which is half of why conversion worsens as it
+     * fills out.
+     */
+    upkeepFeedKgAt100Kg: z.number().min(0.3).max(3),
+    /**
+     * What a kilogram of gain costs in feed, upkeep aside, at 20 kg and at
+     * 100 kg. Early gain is lean and largely water and comes cheap; late gain
+     * carries fat, which costs several times as much to lay down. Between the
+     * two the price of a kilogram is read off the straight line, which is the
+     * other half of why conversion worsens with weight.
+     */
+    gainFeedKgAt20Kg: z.number().min(0.6).max(3),
+    gainFeedKgAt100Kg: z.number().min(1).max(5),
     weanerMortalityPct: percentage,
     growerMortalityPct: percentage,
     finisherMortalityPct: percentage,
@@ -163,7 +176,11 @@ export const GILT_ENTRY_AGE_DAYS = 240;
 /** Entire males eat and grow this much more than the herd average; gilts, less. */
 export const MALE_GROWTH_FACTOR = 1.04;
 export const FEMALE_GROWTH_FACTOR = 0.96;
-/** Share of a growing pig's intake that goes to maintenance and so scales with weight. */
+/**
+ * Share of a selected gilt's restricted ration that goes to upkeep, and so moves
+ * with her weight. Market pigs are not fed this way: what they eat is built up
+ * from the feed curve in growth-curve.ts, upkeep and gain separately.
+ */
 export const MAINTENANCE_SHARE = 0.4;
 /** Daily gain of a selected gilt once she is on a restricted developer ration. */
 export const GILT_DAILY_GAIN_KG = 0.6;
@@ -235,9 +252,9 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weanerDailyGainKg: 0.45,
     growerDailyGainKg: 0.7,
     finisherDailyGainKg: 0.85,
-    weanerFcr: 1.7,
-    growerFcr: 2.4,
-    finisherFcr: 3,
+    upkeepFeedKgAt100Kg: 1.05,
+    gainFeedKgAt20Kg: 1.1,
+    gainFeedKgAt100Kg: 2.35,
     weanerMortalityPct: 2,
     growerMortalityPct: 1.5,
     finisherMortalityPct: 1.5,

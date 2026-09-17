@@ -1,6 +1,7 @@
 import { addMonths, format, parseISO } from "date-fns";
 
 import { ESTRUS_CYCLE_DAYS, plannerSchema, type PlannerConfig } from "./config";
+import { growoutFeedConversion } from "./growth-curve";
 import {
   addTotals,
   emptyTotals,
@@ -127,7 +128,14 @@ export type ModelWarning = {
   detail: string;
 };
 
-export const BENCHMARK_SOURCES = [
+export type BenchmarkSource = {
+  title: string;
+  /** Left off for a source that is a document rather than a page on the web. */
+  url?: string;
+  note: string;
+};
+
+export const BENCHMARK_SOURCES: readonly BenchmarkSource[] = [
   {
     title: "MSD Veterinary Manual — breeding management of pigs",
     url: "https://www.msdvetmanual.com/management-and-nutrition/management-of-reproduction-pigs/breeding-management-of-pigs",
@@ -148,7 +156,11 @@ export const BENCHMARK_SOURCES = [
     url: "https://porkgateway.org/resource/growing-finishing-swine-nutrient-recommendations-and-feeding-management/",
     note: "Feed/gain benchmarks and the share of production cost commonly attributable to feed.",
   },
-] as const;
+  {
+    title: "ARC Institute for Agricultural Engineering — Manual on housing for pigs",
+    note: "Stage weights through the grower and finishing houses, ad lib against restricted feeding, and the load weight puts on upkeep feed. The copy this model was read from is in docs/.",
+  },
+];
 
 /**
  * The planning arithmetic a farmer can check by hand, before any animal is
@@ -177,6 +189,7 @@ export function getModelMetrics(config: PlannerConfig) {
     weanedPerLitter,
     pigsWeanedPerSowYear: littersPerSowYear * weanedPerLitter,
     vaccinationCostPerPig,
+    feedConversion: growoutFeedConversion(config.growth),
     daysToSaleWeight:
       config.reproduction.weaningAgeDays +
       (config.growth.growerStartWeightKg - config.growth.weaningWeightKg) /
@@ -453,12 +466,15 @@ function buildWarnings(
         "Review farrowing supervision, colostrum intake, crushing risk, temperature and herd health with your veterinarian.",
     });
   }
-  if (config.growth.finisherFcr < 2.2 || config.growth.finisherFcr > 4) {
+  const finisherFcr = growoutFeedConversion(config.growth).finisherFcr;
+  if (finisherFcr < 2.2 || finisherFcr > 4) {
     warnings.push({
       level: "attention",
       title: "Finisher FCR is outside the usual planning range",
       detail:
-        "Confirm the unit, weighing method, feed wastage and whether the figure covers the same liveweight range.",
+        "The feed curve works out at " +
+        finisherFcr.toFixed(2) +
+        " feed to gain through the finishing house. Check the upkeep and cost-of-gain figures, and whether the benchmark you are comparing it against covers the same liveweight range.",
     });
   }
   if (summary.feedShareOfOperatingCost < 0.45 || summary.feedShareOfOperatingCost > 0.82) {
