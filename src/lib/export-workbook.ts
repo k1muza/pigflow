@@ -39,7 +39,7 @@ const PAYMENT_LINES: { label: string; category: LedgerCategory }[] = [
   { label: "Heating", category: "heating" },
   { label: "Labour", category: "labour" },
   { label: "Fixed overheads", category: "overheads" },
-  { label: "Transport", category: "transport" },
+  { label: "Haulage to abattoir", category: "transport" },
   { label: "Bought-in breeding stock", category: "breeding-stock" },
   { label: "Contingency", category: "contingency" },
   { label: "Capital expenditure", category: "capital" },
@@ -711,6 +711,23 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
       ],
     ],
     [
+      "HAULAGE TO ABATTOIR",
+      [
+        [
+          "Lorry capacity",
+          config.finance.marketTruckCapacityPigs,
+          "pigs per run",
+          "Sold pigs travel alive on the day they are sold, as many runs as the head needs.",
+        ],
+        [
+          "Cost per run",
+          config.finance.marketTripCost,
+          `${config.project.currency}/run`,
+          "Charged to the pigs that were on the lorry, so a half-empty run still costs a full trip.",
+        ],
+      ],
+    ],
+    [
       "LABOUR",
       [
         [
@@ -743,6 +760,7 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
           (entry): entry is [string, number] =>
             typeof entry[1] === "number" &&
             !entry[0].startsWith("labour") &&
+            !entry[0].startsWith("market") &&
             !entry[0].startsWith("pigsPer") &&
             entry[0] !== "minimumWorkers",
         )

@@ -28,13 +28,17 @@ Because the schedule is read off feeding that has already happened rather than f
 
 **Funding the plan is two decisions, and it will make both for you.** *Add cash injections* walks the months in order and puts in exactly what each one is short, so the balance never closes below the working capital the plan says to keep. *Withdraw excess* takes the surplus back out as it builds — but only what the leanest month still to come can spare, because money taken out now is gone from every month after it, and drawing each month down to its own surplus would simply hand the shortfall to the next one. Both write ordinary rows you can read, edit and delete, and both can be cleared again. These generated rows are financing rather than farming: they show in the cashflow on the same two lines as everything else, but no contingency is charged on them and they are kept out of what a pig costs to produce, so funding the plan never makes the pork look dearer.
 
+**Pigs leave in cohorts, alive, on the day they are sold.** Litter mates born on one day are one cohort and go together, on the day the cohort's average liveweight reaches the target — so some go a little under it and some over, which is what a batch really does. A pig at a time would be a lorry for a pig at a time; a cohort of ten is a load worth moving. They travel live to the abattoir on the day of the sale: head sold over what the lorry holds — 22 pigs by default — rounded up, so a part load still costs a whole trip and a cohort too big for one load takes another. Each run is charged to the pigs that were on it rather than to the farm at large, so there is no flat charge per head. The farm's haulage ends at the abattoir; what happens past it is another business. It shows in the day's activities alongside the feed lorry coming in, and on its own cashflow line.
+
+The cost of this is that the cashflow is lumpy, and honestly so: on the default two-sow plan, nineteen months of thirty-six have no sale in them at all. Drawing pigs one at a time spread the income evenly, but no small farm sells that way.
+
 **Pigs are priced on the carcass.** The sale price is quoted per kilogram deadweight, because that is how abattoirs pay. A pig's liveweight is dressed out at the dressing percentage you set — 70% by default — before it meets the price.
 
 ## Reading the plan
 
 - **Financial planning** — switch between months and plan years, and open any period to see exactly what it is expected to receive and spend, line by line, with the production that drove it. On a month you can add your own rows under Income or Expenditure; the panel itemises them and shows the line they post to net of them, so the statement still adds up. Under the table, one button funds the whole plan and another takes the surplus back out.
 - **Farm simulator** — a full plan year as a calendar, or the same plan as a list of months. Open any date for that day's cash in and out, everything the farm did — farrowings, weanings, sales, treatments, the feed lorry and what was on it — and the herd split by stage and by what each sow is doing. The page behind it rebuilds the herd animal by animal to that date and reports cost of production and financial standing.
-- **Overview** — the cash curve at monthly or yearly zoom, growing stock by stage, and the checks that need attention.
+- **Overview** — the cash curve at monthly or yearly zoom, growing stock by stage, and the checks that need attention. Both charts answer to one set of year chips: click a year to look at it on its own, click a second to take in every year between.
 
 ## Run locally
 

@@ -47,6 +47,7 @@ export type FarmEventType =
   | "cull"
   | "purchase"
   | "funding"
+  | "market"
   | "capacity";
 
 export type FarmEvent = {
@@ -85,6 +86,12 @@ export type DayRecord = {
   giltsSelected: number;
   giltsPromoted: number;
   giltsSold: number;
+  /** Services read a cycle later: held, or back in heat to be served again. */
+  conceptions: number;
+  returnsToHeat: number;
+  /** Growing pigs that moved up a stage today. */
+  movedToGrower: number;
+  movedToFinisher: number;
   pigletDeaths: number;
   growingDeaths: number;
   breedingDeaths: number;
@@ -103,6 +110,8 @@ export type DayRecord = {
   feedDeliveries: FeedDelivery[];
   feedLoads: number;
   feedDeliveredKg: number;
+  /** Runs the lorry made to the abattoir today with the pigs sold. */
+  marketTrips: number;
   counts: StageCounts;
   totals: CategoryTotals;
   netCashFlow: number;
@@ -130,6 +139,9 @@ export type LifetimeTotals = {
   feedLoads: number;
   feedDeliveredKg: number;
   feedHaulageCost: number;
+  /** Runs to the abattoir since the plan started, and what they cost. */
+  marketTrips: number;
+  marketHaulageCost: number;
   servicesMissedForBoarCapacity: number;
   /** Services deferred because the only boar standing was the female's own sire. */
   servicesMissedForGenetics: number;
@@ -378,6 +390,8 @@ export class Farm {
     feedLoads: 0,
     feedDeliveredKg: 0,
     feedHaulageCost: 0,
+    marketTrips: 0,
+    marketHaulageCost: 0,
     servicesAttempted: 0,
     servicesMissedForBoarCapacity: 0,
     servicesMissedForGenetics: 0,
@@ -709,6 +723,10 @@ export class Farm {
       giltsSelected: 0,
       giltsPromoted: 0,
       giltsSold: 0,
+      conceptions: 0,
+      returnsToHeat: 0,
+      movedToGrower: 0,
+      movedToFinisher: 0,
       pigletDeaths: 0,
       growingDeaths: 0,
       breedingDeaths: 0,
@@ -724,6 +742,7 @@ export class Farm {
       feedDeliveries: [],
       feedLoads: 0,
       feedDeliveredKg: 0,
+      marketTrips: 0,
       counts: emptyCounts(),
       totals: emptyTotals(),
       netCashFlow: 0,
@@ -813,6 +832,14 @@ export class Farm {
 
     for (const sow of this.sows) {
       if (!sow.alive) continue;
+
+      // Three weeks on, a served sow either shows no heat and is in pig, or she
+      // is back in heat and goes to the boar again.
+      if (sow.confirmDay !== null && day >= sow.confirmDay) {
+        sow.confirmDay = null;
+        if (sow.state === "gestating") record.conceptions += 1;
+        else record.returnsToHeat += 1;
+      }
 
       if (sow.state === "gestating" && sow.dueDay !== null && day >= sow.dueDay) {
         const litterSize = this.rng.intAround(
@@ -973,6 +1000,34 @@ export class Farm {
         this.log(day, date, "funding", `Cash withdrawal${noteOf(movement.note)}`);
       }
     }
+  }
+
+  /**
+   * Takes the day's sold pigs to the abattoir, alive, on the day they are sold.
+   * How many times the lorry goes is the head sold over what it holds, so a
+   * cohort too big for one load is two runs and a small draw still costs a whole
+   * trip. The bill lands on the pigs that were on the lorry, which is why it is
+   * added to their costs rather than treated as an overhead of the farm.
+   */
+  private runMarketHaulage(day: number, date: string, record: DayRecord): void {
+    const { config } = this;
+    if (record.sold <= 0) return;
+
+    const trips = Math.ceil(record.sold / config.finance.marketTruckCapacityPigs);
+    const cost = trips * config.finance.marketTripCost;
+    this.ledger.accrue("transport", cost);
+    this.soldPigCosts.add("transport", "finisher", cost);
+    record.marketTrips = trips;
+    this.lifetime.marketTrips += trips;
+    this.lifetime.marketHaulageCost += cost;
+    this.log(
+      day,
+      date,
+      "market",
+      trips === 1
+        ? "Lorry to the abattoir with " + record.sold + " pigs"
+        : trips + " lorry runs to the abattoir with " + record.sold + " pigs",
+    );
   }
 
   /** Takes in the loads the plan has standing for today and pays their haulage. */
@@ -1168,18 +1223,39 @@ export class Farm {
     let freeSowPlaces = config.herd.maxSows - this.sows.filter((sow) => sow.alive).length;
 
     for (const pig of this.pigs) {
+      const was = pig.stage;
       pig.grow(config);
+      if (pig.stage === was) continue;
+      if (pig.stage === "grower") record.movedToGrower += 1;
+      else if (pig.stage === "finisher") record.movedToFinisher += 1;
+    }
 
-      if (pig.readyForMarket(config)) {
-        pig.costs.add("transport", pig.costStage, config.finance.transportPerPigSold);
+    // Pigs are killed by cohort: litter mates born on one day go on one day,
+    // when the cohort's average weight reaches the target. Some are drawn a
+    // little light and some a little heavy, which is what a batch really does.
+    const cohorts = new Map<number, GrowingPig[]>();
+    for (const pig of this.pigs) {
+      if (!pig.alive || !pig.readyForMarket()) continue;
+      const members = cohorts.get(pig.cohort);
+      if (members) members.push(pig);
+      else cohorts.set(pig.cohort, [pig]);
+    }
+
+    for (const members of cohorts.values()) {
+      const average =
+        members.reduce((total, pig) => total + pig.weightKg, 0) / members.length;
+      if (average < config.growth.saleWeightKg) continue;
+      for (const pig of members) {
         pig.leave(day, "sold");
         this.noteExit(pig.generation, true);
         this.soldPigCosts.absorb(pig.costs);
         record.sold += 1;
         soldWeight += pig.weightKg;
-        continue;
       }
+    }
 
+    for (const pig of this.pigs) {
+      if (!pig.alive) continue;
       if (!pig.readyToBreed(day, config)) continue;
 
       // A mature gilt either takes a sow place or is sold as breeding stock.
@@ -1231,7 +1307,7 @@ export class Farm {
     this.lifetime.soldLiveweightKg += soldWeight;
     this.lifetime.soldDeadweightKg += soldDeadweight;
     this.ledger.accrue("pig-sales", soldDeadweight * config.finance.salePriceKg);
-    this.ledger.accrue("transport", record.sold * config.finance.transportPerPigSold);
+    this.runMarketHaulage(day, date, record);
     this.log(
       day,
       date,

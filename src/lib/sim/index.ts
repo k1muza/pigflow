@@ -40,6 +40,8 @@ export type FarmPeriodEvent = {
   type:
     | "vaccination"
     | "service"
+    | "conception"
+    | "growth"
     | "farrowing"
     | "weaning"
     | "sale"
@@ -80,6 +82,11 @@ const STAGE_NAMES: Record<PigStage, string> = {
   gilt: "gilts",
 };
 
+/** "1 gilt", "4 gilts" — the names above are plural, and one of a thing is not. */
+function head(count: number, plural: string): string {
+  return count + " " + (count === 1 ? plural.replace(/s$/, "") : plural);
+}
+
 /** Rolls a run of days up into the handful of things worth reading about them. */
 function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   const sum = (pick: (day: DayRecord) => number) =>
@@ -91,11 +98,25 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
 
   for (const stage of Object.keys(STAGE_NAMES) as PigStage[]) {
     const count = sum((day) => day.vaccinations[stage]);
-    push({ type: "vaccination", label: `Vaccinate ${count} ${STAGE_NAMES[stage]}`, count });
+    push({ type: "vaccination", label: `Vaccinate ${head(count, STAGE_NAMES[stage])}`, count });
   }
 
   const services = sum((day) => day.services);
   push({ type: "service", label: `Service ${services} ${services === 1 ? "sow" : "sows"}`, count: services });
+
+  // What those services came to, read a cycle after they were made.
+  const conceptions = sum((day) => day.conceptions);
+  push({
+    type: "conception",
+    label: `${conceptions} ${conceptions === 1 ? "sow is" : "sows are"} confirmed in pig`,
+    count: conceptions,
+  });
+  const returns = sum((day) => day.returnsToHeat);
+  push({
+    type: "service",
+    label: `${returns} ${returns === 1 ? "sow returns" : "sows return"} to heat, to be served again`,
+    count: returns,
+  });
 
   const farrowings = sum((day) => day.farrowings);
   const bornAlive = sum((day) => day.bornAlive);
@@ -106,17 +127,31 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   });
 
   const weaned = sum((day) => day.weaned);
-  push({ type: "weaning", label: `Wean ${weaned} piglets`, count: weaned });
+  push({ type: "weaning", label: `Wean ${head(weaned, "piglets")}`, count: weaned });
+
+  // Growing pigs crossing from one stage into the next.
+  const toGrower = sum((day) => day.movedToGrower);
+  push({
+    type: "growth",
+    label: `${toGrower} ${toGrower === 1 ? "weaner becomes a grower" : "weaners become growers"}`,
+    count: toGrower,
+  });
+  const toFinisher = sum((day) => day.movedToFinisher);
+  push({
+    type: "growth",
+    label: `${toFinisher} ${toFinisher === 1 ? "grower becomes a finisher" : "growers become finishers"}`,
+    count: toFinisher,
+  });
 
   const sold = sum((day) => day.sold);
-  push({ type: "sale", label: `Sell ${sold} market pigs`, count: sold });
+  push({ type: "sale", label: `Sell ${head(sold, "market pigs")}`, count: sold });
   const giltsSold = sum((day) => day.giltsSold);
-  push({ type: "sale", label: `Sell ${giltsSold} breeding gilts`, count: giltsSold });
+  push({ type: "sale", label: `Sell ${head(giltsSold, "breeding gilts")}`, count: giltsSold });
 
   const selected = sum((day) => day.giltsSelected);
-  push({ type: "selection", label: `Select ${selected} replacement gilts`, count: selected });
+  push({ type: "selection", label: `Select ${head(selected, "replacement gilts")}`, count: selected });
   const promoted = sum((day) => day.giltsPromoted);
-  push({ type: "promotion", label: `Move ${promoted} gilts into the sow herd`, count: promoted });
+  push({ type: "promotion", label: `Move ${head(promoted, "gilts")} into the sow herd`, count: promoted });
 
   // One day shows the lorry itself, order list and all; a whole month shows how
   // many times it came.
@@ -141,12 +176,18 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
     });
   }
 
+
   const losses = sum((day) => day.pigletDeaths + day.growingDeaths + day.breedingDeaths);
-  push({ type: "loss", label: `Record ${losses} stock losses`, count: losses });
+  // "loss" does not lose its s the way the other names do.
+  push({
+    type: "loss",
+    label: `Record ${losses} stock ${losses === 1 ? "loss" : "losses"}`,
+    count: losses,
+  });
   const culled = sum((day) => day.sowsCulled);
   push({ type: "cull", label: `Cull ${culled} ${culled === 1 ? "sow" : "sows"}`, count: culled });
   const purchased = sum((day) => day.giltsPurchased);
-  push({ type: "purchase", label: `Buy ${purchased} replacement gilts`, count: purchased });
+  push({ type: "purchase", label: `Buy ${head(purchased, "replacement gilts")}`, count: purchased });
 
   return events;
 }

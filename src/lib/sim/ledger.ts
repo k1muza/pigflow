@@ -29,7 +29,7 @@ export const LEDGER_CATEGORIES: { id: LedgerCategory; label: string; kind: Ledge
   { id: "heating", label: "Heating", kind: "expense" },
   { id: "labour", label: "Labour", kind: "expense" },
   { id: "overheads", label: "Fixed overheads", kind: "expense" },
-  { id: "transport", label: "Transport", kind: "expense" },
+  { id: "transport", label: "Haulage to abattoir", kind: "expense" },
   { id: "breeding-stock", label: "Bought-in breeding stock", kind: "expense" },
   { id: "contingency", label: "Contingency", kind: "expense" },
   { id: "capital", label: "Capital", kind: "expense" },

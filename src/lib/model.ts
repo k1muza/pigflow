@@ -519,7 +519,7 @@ export function projectionToCsv(result: ProjectionResult) {
     "Heating",
     "Labour",
     "Fixed overheads",
-    "Transport",
+    "Haulage to abattoir",
     "Bought-in breeding stock",
     "Contingency",
     "Capital",

@@ -616,10 +616,12 @@ describe("What a market pig costs reconciles with the cash book", () => {
 
     // An allocation never matches the cash book to the cent: the pigs standing on
     // the farm at the end have been fed but not yet sold, and that stock is worth
-    // something. It must stay the same order of magnitude, and the same sign.
+    // something. Selling by cohort leaves a fuller shed at the end than drawing
+    // pigs one at a time did, so the gap is wider — but it must stay the same
+    // order of magnitude, and the same sign.
     expect(cashNetPerPig).toBeGreaterThan(0);
     expect(cop.marginPerPig).toBeGreaterThan(cashNetPerPig * 0.8);
-    expect(cop.marginPerPig).toBeLessThan(cashNetPerPig * 1.35);
+    expect(cop.marginPerPig).toBeLessThan(cashNetPerPig * 1.5);
   });
 
   it("charges a dead pig's feed to the pigs that did reach the abattoir", () => {
@@ -911,7 +913,8 @@ describe("Funding the plan: cash in to stay solvent, cash out when it is spare",
     }
     // The business is left with its working capital and no more.
     expect(drawn.summary.closingCash).toBeCloseTo(3_000, 1);
-  });
+    // Four full 60-month runs of a 20-sow herd: over vitest's 5s default.
+  }, 30_000);
 
   it("is financing, not farming: it costs nothing to service", () => {
     const plain = config();
@@ -952,5 +955,105 @@ describe("Funding the plan: cash in to stay solvent, cash out when it is spare",
     const twice = planCashInjections(base, calculateProjection(base));
 
     expect(twice).toEqual(once);
+  });
+});
+
+describe("Pigs leave in cohorts, on the lorry, the day they are sold", () => {
+  function busyFarm(months = 36): PlannerConfig {
+    const input = config();
+    input.stock.sows = 20;
+    input.herd.startMode = "staggered";
+    input.project.months = months;
+    return input;
+  }
+
+  it("sells a cohort together, on the day its average reaches sale weight", () => {
+    const input = config();
+    const target = input.growth.saleWeightKg;
+    const farm = new Farm(input).advanceTo(1);
+
+    // Three litter mates: one behind the batch, one on it, one ahead. Entire
+    // males, so none of them is taken out of the batch as a replacement gilt.
+    farm.pigs.push(
+      pig({ id: "A", tag: "A", sex: "male", birthDay: 1, weightKg: target - 14 }),
+      pig({ id: "B", tag: "B", sex: "male", birthDay: 1, weightKg: target - 4 }),
+      pig({ id: "C", tag: "C", sex: "male", birthDay: 1, weightKg: target + 6 }),
+    );
+
+    const cohort = () => farm.pigs.filter((animal) => animal.birthDay === 1);
+    let lastAverage = 0;
+    let saleDay = -1;
+    for (let day = 2; day <= 200 && saleDay < 0; day += 1) {
+      const standing = cohort();
+      lastAverage = standing.reduce((total, animal) => total + animal.weightKg, 0) / 3;
+      farm.advanceTo(day);
+      if (cohort().length === 0) saleDay = day;
+      // A cohort is never split: they are all there, or all gone.
+      else expect(cohort()).toHaveLength(3);
+    }
+
+    expect(saleDay).toBeGreaterThan(1);
+    // The heaviest was over the target well before the batch went.
+    expect(lastAverage).toBeLessThan(target);
+    const sold = farm.history.at(-1)!;
+    expect(sold.sold).toBe(3);
+    // They averaged the target between them, which means one went under it.
+    expect(sold.soldLiveweightKg / 3).toBeGreaterThanOrEqual(target);
+    expect(sold.soldLiveweightKg / 3).toBeLessThan(target + 2);
+    // They travel alive, the same day, and three pigs is one lorry.
+    expect(sold.marketTrips).toBe(1);
+  });
+
+  it("sends the lorry on the day of the sale, as often as the head needs", () => {
+    const input = busyFarm();
+    const farm = runFarm(input);
+    const capacity = input.finance.marketTruckCapacityPigs;
+
+    const saleDays = farm.history.filter((day) => day.sold > 0);
+    expect(saleDays.length).toBeGreaterThan(10);
+
+    for (const day of farm.history) {
+      expect(day.marketTrips).toBe(Math.ceil(day.sold / capacity));
+    }
+    // Nothing goes out on a day with no pigs sold, and every sale day travels.
+    for (const day of saleDays) expect(day.marketTrips).toBeGreaterThan(0);
+  });
+
+  it("takes more than one run when the cohort will not fit on the lorry", () => {
+    const small = busyFarm();
+    small.finance.marketTruckCapacityPigs = 4;
+    const farm = runFarm(small);
+
+    const biggest = farm.history.reduce((most, day) => (day.sold > most.sold ? day : most));
+    expect(biggest.sold).toBeGreaterThan(4);
+    expect(biggest.marketTrips).toBe(Math.ceil(biggest.sold / 4));
+    expect(farm.lifetime.marketHaulageCost).toBeCloseTo(
+      farm.lifetime.marketTrips * small.finance.marketTripCost,
+      6,
+    );
+    // A bigger lorry is fewer runs for the same pigs.
+    const roomy = busyFarm();
+    roomy.finance.marketTruckCapacityPigs = 40;
+    expect(runFarm(roomy).lifetime.marketTrips).toBeLessThan(farm.lifetime.marketTrips);
+  });
+
+  it("charges the run to the pigs that were on it, not to the farm at large", () => {
+    const input = busyFarm(24);
+    const farm = runFarm(input);
+    const dearer = { ...structuredClone(input) };
+    dearer.finance.marketTripCost = input.finance.marketTripCost * 2;
+    const dearFarm = runFarm(dearer);
+
+    expect(farm.lifetime.marketTrips).toBe(dearFarm.lifetime.marketTrips);
+    // Doubling the trip lands on the pig, and on the transport line, not on overheads.
+    const extra = farm.lifetime.marketHaulageCost;
+    expect(dearFarm.ledger.totals.transport).toBeCloseTo(
+      farm.ledger.totals.transport + extra,
+      6,
+    );
+    expect(dearFarm.ledger.totals.overheads).toBeCloseTo(farm.ledger.totals.overheads, 6);
+    expect(dearFarm.costOfProduction().directPerPig).toBeGreaterThan(
+      farm.costOfProduction().directPerPig,
+    );
   });
 });

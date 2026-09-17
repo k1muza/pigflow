@@ -285,13 +285,18 @@ export class GrowingPig extends Animal {
     else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
   }
 
-  /** A market pig is drawn the day it reaches sale weight. */
-  readyForMarket(config: PlannerConfig): boolean {
-    return (
-      this.destination === "market" &&
-      !this.suckling &&
-      this.weightKg >= config.growth.saleWeightKg
-    );
+  /**
+   * The cohort this pig is killed with: every market pig born on the same day.
+   * Litter mates are reared together and go in one batch, so the day is settled
+   * by the cohort's average weight, not by each pig's own.
+   */
+  get cohort(): number {
+    return this.birthDay;
+  }
+
+  /** A market pig that is weaned and can be counted into its cohort's kill. */
+  readyForMarket(): boolean {
+    return this.destination === "market" && !this.suckling;
   }
 
   /**
@@ -316,6 +321,12 @@ export class Sow extends Animal {
   nextServiceDay: number;
   dueDay: number | null = null;
   weanDay: number | null = null;
+  /**
+   * The day a service is read. A sow that has not come back into heat one cycle
+   * after being served is taken to be in pig — which is how a farm learns it,
+   * rather than on the day of the service itself.
+   */
+  confirmDay: number | null = null;
   litter: GrowingPig[] = [];
   servicesUsed = 0;
   totalBornAlive = 0;
@@ -388,6 +399,7 @@ export class Sow extends Animal {
   ): void {
     this.servicesUsed += 1;
     this.lastSireTag = sireTag;
+    this.confirmDay = day + ESTRUS_CYCLE_DAYS;
     if (conceived) {
       this.state = "gestating";
       this.dueDay = day + Math.round(gestationDays);

@@ -129,9 +129,9 @@ const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "simulator", label: "Farm simulator", icon: CalendarClock },
   { id: "inputs", label: "Plan inputs", icon: Settings2 },
-  { id: "cashflow", label: "Cashflow", icon: TableProperties },
   { id: "money", label: "Financial planning", icon: WalletCards },
   { id: "method", label: "Method & sources", icon: BookOpen },
+  { id: "cashflow", label: "Cashflow", icon: TableProperties },
 ];
 
 /** Chart palette: one blue for cash, one orange for flows, an ordinal blue ramp for stages. */
@@ -224,6 +224,8 @@ function HerdTooltip({ active, label, payload }: TooltipContentProps) {
 const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
   vaccination: "bg-brand-soft text-brand",
   service: "bg-warning-soft text-ink-muted",
+  conception: "bg-good-soft text-good",
+  growth: "bg-plane text-ink-muted",
   farrowing: "bg-good-soft text-good",
   weaning: "bg-good-soft text-good",
   sale: "bg-brand-soft text-brand",
@@ -239,6 +241,8 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
 const EVENT_NAMES: Record<FarmPeriodEvent["type"], string> = {
   vaccination: "Health",
   service: "Service",
+  conception: "In pig",
+  growth: "Grow on",
   farrowing: "Farrow",
   weaning: "Wean",
   sale: "Sale",
@@ -724,24 +728,47 @@ function Overview({
   setActiveTab: (tab: Tab) => void;
 }) {
   const [zoom, setZoom] = useState<Granularity>("month");
+  const [span, setSpan] = useState<YearSpan>(null);
   const s = projection.summary;
   const currency = config.project.currency;
+
+  const planYears = projection.years.length;
+  // A shorter horizon can leave a stale span pointing past the end of the plan.
+  const shown = clampSpan(span, planYears);
+  const months = shown
+    ? projection.months.filter(
+      (row) => row.index >= shown.from * 12 && row.index < (shown.to + 1) * 12,
+    )
+    : projection.months;
+  const years = shown ? projection.years.slice(shown.from, shown.to + 1) : projection.years;
+
+  function pickYear(year: number) {
+    setSpan((current) => {
+      const held = clampSpan(current, planYears);
+      // One year is showing: a second click opens the view out across both.
+      if (held && held.from === held.to) {
+        if (held.from === year) return null;
+        return { from: Math.min(held.from, year), to: Math.max(held.from, year) };
+      }
+      return { from: year, to: year };
+    });
+  }
 
   // Yearly points keep a multi-year plan readable; monthly shows the swings.
   const cashData =
     zoom === "month"
-      ? projection.months.map((row) => ({
+      ? months.map((row) => ({
         label: row.month,
         closingCash: Math.round(row.closingCash),
         netCashFlow: Math.round(row.netCashFlow),
       }))
-      : projection.years.map((year) => ({
+      : years.map((year) => ({
         label: year.label,
         closingCash: Math.round(year.closingCash),
         netCashFlow: Math.round(year.netCashFlow),
       }));
 
-  const herdData = projection.months.map((row) => ({
+  const herdData = months.map((row) => ({
     label: row.month,
     piglets: row.piglets,
     weaners: row.weaners,
@@ -750,10 +777,100 @@ function Overview({
     gilts: row.gilts,
     sows: row.sows,
     boars: Math.max(0, row.breedingStock - row.sows),
+    total: row.piglets + row.weaners + row.growers + row.finishers + row.gilts + row.breedingStock,
   }));
 
+  const housingCapacity = {
+    farrowing: config.housing.farrowingPlaces,
+    weaners: config.housing.weanerPlaces,
+    growers: config.housing.growerPlaces,
+    finishers: config.housing.finisherPlaces,
+    sows: config.herd.maxSows,
+  };
+  const housingData = months.map((row) => {
+    const farrowingPlaces = row.days > 0
+      ? (row.farrowings * (config.reproduction.weaningAgeDays + 7)) / row.days
+      : 0;
+    return {
+      label: row.month,
+      farrowing: Math.round((farrowingPlaces / housingCapacity.farrowing) * 100),
+      weaners: Math.round((row.weaners / housingCapacity.weaners) * 100),
+      growers: Math.round((row.growers / housingCapacity.growers) * 100),
+      finishers: Math.round((row.finishers / housingCapacity.finishers) * 100),
+      sows: Math.round((row.sows / housingCapacity.sows) * 100),
+    };
+  });
+
+  const feedPlan = projection.months.reduce(
+    (plan, row) => {
+      const consumedKg = row.sowFeedKg + row.growingFeedKg;
+      const rawInventory = plan.inventoryKg + row.feedDeliveredKg - consumedKg;
+      const inventoryKg = Math.abs(rawInventory) < 0.01 ? 0 : rawInventory;
+      return {
+        inventoryKg,
+        rows: [
+          ...plan.rows,
+          {
+            index: row.index,
+            label: row.month,
+            deliveredKg: Math.round(row.feedDeliveredKg),
+            consumedKg: Math.round(consumedKg),
+            inventoryKg: Math.max(0, Math.round(inventoryKg)),
+            days: row.days,
+          },
+        ],
+      };
+    },
+    {
+      inventoryKg: 0,
+      rows: [] as {
+        index: number;
+        label: string;
+        deliveredKg: number;
+        consumedKg: number;
+        inventoryKg: number;
+        days: number;
+      }[],
+    },
+  );
+  const allFeedData = feedPlan.rows;
+  const visibleIndexes = new Set(months.map((row) => row.index));
+  const feedData = allFeedData.filter((row) => visibleIndexes.has(row.index));
+
+  const peakHerd = herdData.reduce(
+    (peak, row) => (row.total > peak.total ? row : peak),
+    herdData[0] ?? { label: "—", total: 0 },
+  );
+  const firstMonth = months[0];
+  const nextFarrowingMonth = months.find((row) => row.farrowings > 0);
+  const nextSaleMonth = months.find((row) => row.pigsSold > 0);
+  const firstFeed = feedData[0];
+  const firstDailyFeed = firstFeed && firstFeed.days > 0
+    ? firstFeed.consumedKg / firstFeed.days
+    : 0;
+  const feedCoverDays = firstDailyFeed > 0 && firstFeed
+    ? firstFeed.inventoryKg / firstDailyFeed
+    : 0;
+  const visibleTotals = months.reduce(
+    (total, row) => ({
+      bornAlive: total.bornAlive + row.bornAlive,
+      weaned: total.weaned + row.weaned,
+      sold: total.sold + row.pigsSold,
+    }),
+    { bornAlive: 0, weaned: 0, sold: 0 },
+  );
+  const funnel = [
+    { label: "Born alive", value: visibleTotals.bornAlive, color: CHART.stage.piglets },
+    { label: "Weaned", value: visibleTotals.weaned, color: CHART.stage.weaners },
+    { label: "Sold", value: visibleTotals.sold, color: CHART.stage.finishers },
+  ];
+  const funnelMax = Math.max(...funnel.map((item) => item.value), 1);
+  const breedingEvents = months
+    .filter((row) => row.farrowings > 0 || row.weaned > 0)
+    .slice(0, 6);
+
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-5">
       <section className="rounded-xl border border-hairline bg-surface p-6">
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-2xl">
@@ -789,32 +906,47 @@ function Overview({
         </div>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatTile
+          label="Peak herd"
+          value={plural(peakHerd.total, "pig")}
+          context={`Highest month-end head count in ${peakHerd.label}.`}
+        />
+        <StatTile
+          label="Upcoming farrowings"
+          value={plural(nextFarrowingMonth?.farrowings ?? 0, "sow")}
+          context={nextFarrowingMonth ? `${nextFarrowingMonth.month} forecast.` : "None in this plan window."}
+        />
+        <StatTile
+          label="Feed cover"
+          value={`${number(feedCoverDays, 1)} days`}
+          context={`Estimated stock left after ${firstMonth?.month ?? "the first month"}.`}
+          tone={feedCoverDays < config.feed.feedBufferDays ? "critical" : "neutral"}
+        />
         <StatTile
           label="Closing cash"
           value={money(s.closingCash, currency)}
-          context={`After ${config.project.months} months, including capital cost.`}
+          context={`Lowest point: ${money(s.lowestCash, currency)}.`}
           tone={s.closingCash >= 0 ? "good" : "critical"}
         />
         <StatTile
-          label="Peak funding need"
-          value={money(s.peakFundingNeed, currency)}
-          context={`Lowest cash point: ${money(s.lowestCash, currency)}.`}
-          tone={s.peakFundingNeed > 0 ? "critical" : "neutral"}
-        />
-        <StatTile
-          label="Total revenue"
-          value={money(s.totalRevenue, currency)}
-          context={`${number(s.totalPigsSold, 0)} pigs sold at ${rate(config.finance.salePriceKg, currency)}/kg deadweight.`}
-        />
-        <StatTile
-          label="Feed share"
-          value={`${number(s.feedShareOfOperatingCost * 100, 0)}%`}
-          context={`${money(s.totalFeedCost, currency)} of feed over the forecast.`}
+          label="Ready for sale"
+          value={plural(nextSaleMonth?.pigsSold ?? 0, "pig")}
+          context={nextSaleMonth ? `Reaching sale weight in ${nextSaleMonth.month}.` : "None in this plan window."}
         />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.75fr)]">
+      {planYears > 1 ? (
+        <YearSpanPicker
+          planYears={planYears}
+          span={shown}
+          onPick={pickYear}
+          onClear={() => setSpan(null)}
+          months={months.length}
+        />
+      ) : null}
+
+      <div className="order-6 grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.75fr)]">
         <Panel
           title="Cash balance and net flows"
           description={currency + " · nominal values · one simulated run of this plan"}
@@ -879,7 +1011,7 @@ function Overview({
                   name="Closing cash"
                   stroke={CHART.cash}
                   strokeWidth={2}
-                  dot={false}
+                  dot={cashData.length <= 14 ? { r: 2.5, strokeWidth: 0, fill: CHART.cash } : false}
                   activeDot={{ r: 4, strokeWidth: 2, stroke: "#ffffff" }}
                   isAnimationActive={false}
                 />
@@ -922,10 +1054,11 @@ function Overview({
       </div>
 
       <Panel
-        title="Whole herd by stage"
-        description="All pigs on the farm at each month end, including sows and boars."
+        className="order-4"
+        title="Herd composition over time"
+        description="Month-end head count by production stage. Use the year control above to inspect a shorter window."
       >
-        <div className="h-[300px]">
+        <div className="h-[340px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={herdData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke={CHART.grid} />
@@ -977,7 +1110,266 @@ function Overview({
           </ResponsiveContainer>
         </div>
       </Panel>
+
+      <div className="order-5 grid gap-5 xl:grid-cols-2">
+        <Panel
+          title="Housing pressure"
+          description="Estimated places used against the capacities entered under Plan inputs. Above 100% signals a likely bottleneck; growing-space limits are not yet enforced."
+        >
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={housingData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke={CHART.grid} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: CHART.axis }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={28}
+                />
+                <YAxis
+                  tickFormatter={(value) => `${value}%`}
+                  tick={{ fontSize: 11, fill: CHART.axis }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={46}
+                />
+                <Tooltip
+                  formatter={(value) => `${number(Number(value), 0)}% used`}
+                  contentStyle={TOOLTIP_STYLE}
+                />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                <ReferenceLine
+                  y={100}
+                  stroke={CHART.flow}
+                  strokeDasharray="5 4"
+                  label={{ value: "capacity", fill: CHART.flow, fontSize: 10, position: "insideTopRight" }}
+                />
+                {(
+                  [
+                    ["farrowing", "Farrowing", CHART.flow],
+                    ["weaners", "Weaner", CHART.stage.weaners],
+                    ["growers", "Grower", CHART.stage.growers],
+                    ["finishers", "Finisher", CHART.stage.finishers],
+                    ["sows", "Sow", CHART.stage.sows],
+                  ] as const
+                ).map(([key, name, color]) => (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    name={name}
+                    stroke={color}
+                    strokeWidth={2}
+                    dot={housingData.length <= 14 ? { r: 2, strokeWidth: 0, fill: color } : false}
+                    isAnimationActive={false}
+                  />
+                ))}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="mt-3 text-[11px] leading-5 text-ink-faint">
+            Entered capacity: {housingCapacity.farrowing} farrowing, {housingCapacity.weaners} weaner,
+            {" "}{housingCapacity.growers} grower, {housingCapacity.finishers} finisher and {housingCapacity.sows} sow places.
+          </p>
+        </Panel>
+
+        <Panel
+          title="Feed demand and inventory"
+          description="Monthly deliveries and consumption, with the estimated physical balance carried forward."
+        >
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={feedData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke={CHART.grid} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: CHART.axis }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={28}
+                />
+                <YAxis
+                  yAxisId="flow"
+                  tickFormatter={(value) => `${number(value / 1000, 1)}t`}
+                  tick={{ fontSize: 11, fill: CHART.axis }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={48}
+                />
+                <YAxis
+                  yAxisId="stock"
+                  orientation="right"
+                  tickFormatter={(value) => `${number(value / 1000, 1)}t`}
+                  tick={{ fontSize: 11, fill: CHART.axis }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={48}
+                />
+                <Tooltip
+                  formatter={(value) => `${number(Number(value), 0)} kg`}
+                  contentStyle={TOOLTIP_STYLE}
+                />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                <Bar
+                  yAxisId="flow"
+                  dataKey="deliveredKg"
+                  name="Delivered"
+                  fill={CHART.stage.sows}
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={16}
+                  isAnimationActive={false}
+                />
+                <Bar
+                  yAxisId="flow"
+                  dataKey="consumedKg"
+                  name="Consumed"
+                  fill={CHART.warning}
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={16}
+                  isAnimationActive={false}
+                />
+                <Line
+                  yAxisId="stock"
+                  type="monotone"
+                  dataKey="inventoryKg"
+                  name="Closing inventory"
+                  stroke={CHART.cash}
+                  strokeWidth={2}
+                  dot={feedData.length <= 14 ? { r: 2.5, strokeWidth: 0, fill: CHART.cash } : false}
+                  isAnimationActive={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+      </div>
+
+      <div className="order-7 grid gap-5 xl:grid-cols-2">
+        <Panel
+          title="Production funnel"
+          description="Animal movements in the selected period. Opening stock means these are flow totals, not one birth cohort."
+        >
+          <div className="space-y-5">
+            {funnel.map((item) => (
+              <div key={item.label}>
+                <div className="mb-1.5 flex items-baseline justify-between gap-4 text-xs">
+                  <span className="font-medium text-ink-muted">{item.label}</span>
+                  <span className="font-semibold tabular-nums text-ink">{number(item.value, 0)}</span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-raised">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.max(2, (item.value / funnelMax) * 100)}%`,
+                      backgroundColor: item.color,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel title="Upcoming breeding events" description="The next active months in the selected plan window.">
+          {breedingEvents.length > 0 ? (
+            <div className="divide-y divide-hairline">
+              {breedingEvents.map((row) => (
+                <div
+                  key={row.index}
+                  className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 py-2.5 text-xs"
+                >
+                  <span className="font-medium text-ink">{row.month}</span>
+                  <span className="rounded-full bg-good-soft px-2 py-1 text-good">
+                    {number(row.farrowings, 0)} farrow
+                  </span>
+                  <span className="rounded-full bg-brand-soft px-2 py-1 text-brand">
+                    {number(row.weaned, 0)} wean
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-muted">No farrowings or weanings fall inside this period.</p>
+          )}
+        </Panel>
+      </div>
     </div>
+  );
+}
+
+/** A run of plan years the charts are held to, or null for the whole plan. */
+type YearSpan = { from: number; to: number } | null;
+
+function clampSpan(span: YearSpan, planYears: number): YearSpan {
+  if (!span || planYears < 1) return null;
+  const last = planYears - 1;
+  const from = Math.min(Math.max(span.from, 0), last);
+  const to = Math.min(Math.max(span.to, 0), last);
+  const low = Math.min(from, to);
+  const high = Math.max(from, to);
+  return low === 0 && high === last ? null : { from: low, to: high };
+}
+
+/**
+ * Picks the years the Overview charts cover. One click holds the charts to a
+ * single year; a second click stretches the view to take in everything between,
+ * which is why the years shown can only ever be a continuous run.
+ */
+function YearSpanPicker({
+  planYears,
+  span,
+  onPick,
+  onClear,
+  months,
+}: {
+  planYears: number;
+  span: YearSpan;
+  onPick: (year: number) => void;
+  onClear: () => void;
+  months: number;
+}) {
+  const caption = !span
+    ? `The whole plan, Year 1 to Year ${planYears}. Click a year to look at it on its own.`
+    : span.from === span.to
+      ? `Year ${span.from + 1} on its own. Click another year to stretch the view across both.`
+      : `Year ${span.from + 1} to Year ${span.to + 1}, ${months} months. Click any year to start again.`;
+
+  function chip(active: boolean) {
+    return (
+      "rounded-lg border px-2.5 py-1 text-xs font-medium transition " +
+      (active
+        ? "border-brand/40 bg-brand-soft text-brand"
+        : "border-hairline text-ink-muted hover:bg-raised hover:text-ink")
+    );
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-hairline bg-surface p-4 lg:flex-row lg:items-center lg:justify-between">
+      <div>
+        <p className="text-[13px] font-medium text-ink">Years in view</p>
+        <p className="mt-0.5 text-xs text-ink-muted">{caption}</p>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <button type="button" onClick={onClear} aria-pressed={!span} className={chip(!span)}>
+          All years
+        </button>
+        {Array.from({ length: planYears }, (unusedYear, year) => {
+          const active = span !== null && year >= span.from && year <= span.to;
+          return (
+            <button
+              key={year}
+              type="button"
+              onClick={() => onPick(year)}
+              aria-pressed={active}
+              className={chip(active)}
+            >
+              Year {year + 1}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -1757,21 +2149,67 @@ function Inputs({
       </SectionCard>
 
       <SectionCard
-        title="Sow places and gilt policy"
-        description="How many sows the farm can carry, how the herd starts, and how replacement gilts are found."
-        icon={Landmark}
+        title="Housing capacity"
+        description="Enter usable animal places, not the number of pens. These values drive the dashboard capacity lines."
+        icon={Rows3}
       >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <Field
-            label="Maximum sows"
+            label="Sow places"
             value={config.herd.maxSows}
             onChange={(v) => update("herd", "maxSows", Math.round(v))}
             suffix="places"
             min={1}
             max={5000}
             step={1}
-            hint="The herd grows towards this and never past it. Gilts that mature with no place are sold."
+            hint="The breeding herd grows towards this limit and never past it."
           />
+          <Field
+            label="Farrowing places"
+            value={config.housing.farrowingPlaces}
+            onChange={(v) => update("housing", "farrowingPlaces", Math.round(v))}
+            suffix="places"
+            min={1}
+            max={100000}
+            step={1}
+            hint="Usable crates or pens available at the same time."
+          />
+          <Field
+            label="Weaner places"
+            value={config.housing.weanerPlaces}
+            onChange={(v) => update("housing", "weanerPlaces", Math.round(v))}
+            suffix="places"
+            min={1}
+            max={100000}
+            step={1}
+          />
+          <Field
+            label="Grower places"
+            value={config.housing.growerPlaces}
+            onChange={(v) => update("housing", "growerPlaces", Math.round(v))}
+            suffix="places"
+            min={1}
+            max={100000}
+            step={1}
+          />
+          <Field
+            label="Finisher places"
+            value={config.housing.finisherPlaces}
+            onChange={(v) => update("housing", "finisherPlaces", Math.round(v))}
+            suffix="places"
+            min={1}
+            max={100000}
+            step={1}
+          />
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Gilt and breeding policy"
+        description="How the herd starts, when breeding animals leave, and how replacements are found."
+        icon={Landmark}
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <SelectField
             label="Herd at the start date"
             value={config.herd.startMode}
@@ -1973,6 +2411,7 @@ function Inputs({
             value={config.growth.saleWeightKg}
             onChange={(v) => update("growth", "saleWeightKg", v)}
             suffix="kg liveweight"
+            hint="Litter mates go as one cohort, on the day the batch averages this — so some go a little under it and some over."
           />
           <Field
             label="Weaner daily gain"
@@ -2311,10 +2750,21 @@ function Inputs({
             hint={`A ${number(config.growth.saleWeightKg, 0)} kg pig dresses out at ${number((config.growth.saleWeightKg * config.finance.dressingPct) / 100, 1)} kg of carcass.`}
           />
           <Field
-            label="Transport per sale pig"
-            value={config.finance.transportPerPigSold}
-            onChange={(v) => update("finance", "transportPerPigSold", v)}
+            label="Lorry capacity"
+            value={config.finance.marketTruckCapacityPigs}
+            onChange={(v) => update("finance", "marketTruckCapacityPigs", v)}
+            suffix="pigs per run"
+            min={1}
+            max={500}
+            step={1}
+            hint="Sold pigs go to the abattoir alive, on the day they are sold. A cohort too big for one load takes another run."
+          />
+          <Field
+            label="Cost per run"
+            value={config.finance.marketTripCost}
+            onChange={(v) => update("finance", "marketTripCost", v)}
             suffix={config.project.currency}
+            hint="Charged to the pigs on the lorry, so a half-empty run still costs a full trip. What happens past the abattoir is another business."
           />
           <Field
             label="Wage per stockperson"
@@ -2508,7 +2958,7 @@ function CashflowPreview({
     },
     {
       key: "transport",
-      label: "Transport",
+      label: "Haulage to abattoir",
       monthValue: (month) => month.totals.transport,
       planValue: total((month) => month.totals.transport),
     },
@@ -3355,6 +3805,18 @@ function Methodology({
       "Gilt retention",
       "female pigs are held back while sow places are uncovered, and sold on if they are not",
       config.herd.maxSows + " sow places",
+    ],
+    [
+      "Sale batches",
+      "pigs born on one day are one cohort, sold together the day the cohort's average reaches sale weight",
+      "One cohort, one sale day",
+    ],
+    [
+      "Haulage to abattoir",
+      "pigs sold ÷ lorry capacity, rounded up to whole runs, on the day they are sold",
+      config.finance.marketTruckCapacityPigs +
+      " pigs per run × " +
+      money(config.finance.marketTripCost, config.project.currency),
     ],
     [
       "Pig sales",

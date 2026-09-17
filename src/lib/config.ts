@@ -69,6 +69,12 @@ export const plannerSchema = z.object({
     surplusGiltSaleValue: nonNegative,
     cullSowSaleValue: nonNegative,
   }),
+  housing: z.object({
+    farrowingPlaces: z.number().int().min(1).max(100_000),
+    weanerPlaces: z.number().int().min(1).max(100_000),
+    growerPlaces: z.number().int().min(1).max(100_000),
+    finisherPlaces: z.number().int().min(1).max(100_000),
+  }),
   reproduction: z.object({
     gestationDays: z.number().min(110).max(122),
     weaningAgeDays: z.number().min(18).max(56),
@@ -116,7 +122,13 @@ export const plannerSchema = z.object({
   finance: z.object({
     salePriceKg: nonNegative,
     dressingPct: z.number().min(45).max(90),
-    transportPerPigSold: nonNegative,
+    /**
+     * The lorry that takes sold pigs to the abattoir on the day they go. How
+     * often it runs is the head sold over what it holds — the farm's haulage
+     * ends at the abattoir, and the legs beyond it belong to other businesses.
+     */
+    marketTruckCapacityPigs: z.number().int().min(1).max(500),
+    marketTripCost: nonNegative,
     labourCostPerWorkerMonth: nonNegative,
     pigsPerWorker: z.number().min(20).max(5000),
     minimumWorkers: z.number().int().min(0).max(100),
@@ -201,6 +213,12 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     surplusGiltSaleValue: 320,
     cullSowSaleValue: 200,
   },
+  housing: {
+    farrowingPlaces: 6,
+    weanerPlaces: 56,
+    growerPlaces: 44,
+    finisherPlaces: 111,
+  },
   reproduction: {
     gestationDays: 115,
     weaningAgeDays: 28,
@@ -248,7 +266,8 @@ export const DEFAULT_CONFIG: PlannerConfig = {
   finance: {
     salePriceKg: 3.5,
     dressingPct: 70,
-    transportPerPigSold: 4,
+    marketTruckCapacityPigs: 22,
+    marketTripCost: 140,
     labourCostPerWorkerMonth: 300,
     pigsPerWorker: 250,
     minimumWorkers: 1,
@@ -295,6 +314,21 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
     if (storedSection && typeof storedSection === "object") {
       merged[section] = { ...merged[section], ...(storedSection as Record<string, unknown>) };
     }
+  }
+  // Older plans predate explicit housing inputs. Preserve the capacity they
+  // previously saw on the dashboard by scaling the old planning ratios once,
+  // then store those values as ordinary user-editable places from here on.
+  if (!("housing" in stored)) {
+    const storedHerd = stored.herd as Record<string, unknown> | undefined;
+    const maxSows = typeof storedHerd?.maxSows === "number"
+      ? storedHerd.maxSows
+      : DEFAULT_CONFIG.herd.maxSows;
+    merged.housing = {
+      farrowingPlaces: Math.max(1, Math.ceil(maxSows * 0.3)),
+      weanerPlaces: Math.max(1, Math.ceil(maxSows * 2.8)),
+      growerPlaces: Math.max(1, Math.ceil(maxSows * 2.16)),
+      finisherPlaces: Math.max(1, Math.ceil(maxSows * 5.52)),
+    };
   }
   const parsed = plannerSchema.safeParse(merged);
   return parsed.success ? parsed.data : null;

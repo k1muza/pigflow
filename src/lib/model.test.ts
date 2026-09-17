@@ -173,7 +173,10 @@ describe("Zooming in and out", () => {
 
   it("answers what a single month is expected to earn and spend", () => {
     const result = calculateProjection(config());
-    const month = result.months[18];
+    // Pigs go in cohorts, so a month either has a kill in it or it does not.
+    // This is a month with one.
+    const month = result.months.find((row) => row.pigsSold > 0)!;
+    expect(month).toBeDefined();
     const income = INCOME_CATEGORIES.reduce((sum, key) => sum + month.totals[key], 0);
     const spend = EXPENSE_CATEGORIES.reduce((sum, key) => sum + month.totals[key], 0);
     expect(income).toBeGreaterThan(0);
@@ -227,11 +230,19 @@ describe("Plans saved before a field existed still load", () => {
       { id: "old", monthIndex: 2, kind: "in", amount: 1_000, note: "Grant" },
     ];
     delete stored.feed.truckCapacityKg;
+    stored.herd.maxSows = 30;
+    delete stored.housing;
 
     const restored = withConfigDefaults(stored);
     expect(restored).not.toBeNull();
     expect(restored!.finance.workingCapitalTarget).toBe(0);
     expect(restored!.feed.truckCapacityKg).toBe(2_500);
+    expect(restored!.housing).toEqual({
+      farrowingPlaces: 9,
+      weanerPlaces: 84,
+      growerPlaces: 65,
+      finisherPlaces: 166,
+    });
     // A row typed before the flag existed is a row you typed, not a generated one.
     expect(restored!.finance.cashMovements[0].auto).toBe(false);
     expect(restored!.finance.cashMovements[0].amount).toBe(1_000);
