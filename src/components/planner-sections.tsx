@@ -1,6 +1,7 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   addMonths,
   differenceInCalendarMonths,
@@ -26,51 +27,34 @@ import {
 } from "recharts";
 import {
   AlertTriangle,
-  BarChart3,
   BookOpen,
-  CalendarClock,
   CalendarDays,
   CheckCircle2,
-  Cloud,
-  CloudOff,
   ChevronLeft,
   ChevronRight,
-  ChevronsUpDown,
-  Copy,
   Download,
   Gauge,
   HeartPulse,
   Info,
   Landmark,
   Minus,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PencilLine,
   PiggyBank,
-  RefreshCcw,
   Rows3,
-  Save,
-  LogOut,
-  ServerCrash,
   Scale,
   Plus,
-  Settings2,
   ShieldCheck,
   Syringe,
   Trash2,
-  TableProperties,
   Truck,
   WalletCards,
   Wheat,
-  X,
 } from "lucide-react";
 
+import { money, number, plural, rate } from "@/lib/format";
 import {
   BENCHMARK_SOURCES,
   calculateProjection,
-  cloneDefaultConfig,
   getModelMetrics,
-  plannerSchema,
   SERVICES_PER_BOAR_PER_WEEK,
   type CashMovement,
   type MonthlyProjection,
@@ -86,21 +70,6 @@ import {
   planCashWithdrawals,
 } from "@/lib/funding";
 import {
-  activeProject,
-  addProject,
-  duplicateProject,
-  MAX_PROJECTS,
-  openProject,
-  projectName,
-  removeProject,
-  renameProject,
-  setActiveConfig,
-  type Workspace,
-} from "@/lib/workspace";
-import { useWorkspace, type SyncState } from "@/hooks/use-workspace";
-import { useAuth } from "@/hooks/use-auth";
-import { signOutOfPlanner } from "@/lib/auth";
-import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
   farmStateAt,
@@ -114,16 +83,6 @@ import {
   type LedgerCategory,
 } from "@/lib/sim";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import {
   Card,
@@ -150,19 +109,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-
-type Tab = "overview" | "simulator" | "inputs" | "cashflow" | "money" | "method";
-
-const SIDEBAR_KEY = "pigflow-sidebar";
-
-const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
-  { id: "overview", label: "Overview", icon: BarChart3 },
-  { id: "simulator", label: "Farm simulator", icon: CalendarClock },
-  { id: "inputs", label: "Plan inputs", icon: Settings2 },
-  { id: "money", label: "Financial planning", icon: WalletCards },
-  { id: "method", label: "Method & sources", icon: BookOpen },
-  { id: "cashflow", label: "Cashflow", icon: TableProperties },
-];
 
 /** Chart palette: one blue for cash, one orange for flows, an ordinal blue ramp for stages. */
 const CHART = {
@@ -191,33 +137,6 @@ const TOOLTIP_STYLE = {
   fontSize: 12,
   color: "#0b0b0b",
 } as const;
-
-function money(value: number, currency: string, compact = false) {
-  return new Intl.NumberFormat("en", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: compact ? 1 : 0,
-    notation: compact ? "compact" : "standard",
-  }).format(value);
-}
-
-/** Per-kilogram prices need their cents: rounding $3.50 to "$4" is not a price. */
-function rate(value: number, currency: string) {
-  return new Intl.NumberFormat("en", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-function number(value: number, digits = 1) {
-  return new Intl.NumberFormat("en", { maximumFractionDigits: digits }).format(value);
-}
-
-function plural(count: number, noun: string) {
-  return `${number(count, 0)} ${noun}${count === 1 ? "" : "s"}`;
-}
 
 function HerdTooltip({ active, label, payload }: TooltipContentProps) {
   if (!active || payload.length === 0) return null;
@@ -503,482 +422,17 @@ function StatTile({
   );
 }
 
-/**
- * Who is signed in, and the way out. It names the account because the plans are
- * shared: when an edit turns up that nobody in the room made, the first useful
- * question is which account is open on this machine.
- */
-function SignedInAs() {
-  const { user, required } = useAuth();
-  if (!required || !user) return null;
-  return (
-    <div className="flex items-center gap-2 px-1">
-      <span className="min-w-0 flex-1">
-        <span className="block text-[11px] text-ink-faint">Signed in as</span>
-        <span className="block truncate text-xs font-medium text-ink" title={user.email ?? undefined}>
-          {user.email ?? "an account with no email"}
-        </span>
-      </span>
-      <button
-        type="button"
-        onClick={() => void signOutOfPlanner()}
-        title="Sign out"
-        aria-label="Sign out"
-        className="shrink-0 rounded-md p-1.5 text-ink-faint transition hover:bg-raised hover:text-ink"
-      >
-        <LogOut size={14} strokeWidth={1.75} />
-      </button>
-    </div>
-  );
-}
-
-/** Stands in for the planner while the shared plans are on their way. */
-function OpeningPlans() {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-hairline bg-raised/50 p-4 text-sm text-ink-muted">
-      <Cloud size={16} className="shrink-0 animate-pulse" />
-      Opening the shared plans…
-    </div>
-  );
-}
-
-/**
- * Says where the plan on screen has got to. Plans are shared, so "saved" is no
- * longer the whole story: someone on a bad line needs to know their edit is
- * held on this device rather than already with everyone else.
- */
-function SyncBadge({ sync, savedAt }: { sync: SyncState; savedAt: string | null }) {
-  const saved = savedAt ? `Saved ${savedAt}` : "Saved";
-
-  const state = {
-    local: {
-      icon: Save,
-      text: savedAt ? saved + " on this device" : "Stored on this device",
-      tone: "text-ink-faint",
-    },
-    connecting: { icon: Cloud, text: "Connecting…", tone: "text-ink-faint" },
-    offline: { icon: CloudOff, text: savedAt ? saved + " on this device" : "Offline", tone: "text-ink-faint" },
-    synced: { icon: Cloud, text: savedAt ? saved + " to the cloud" : "Shared plans", tone: "text-ink-faint" },
-    error: { icon: ServerCrash, text: "Not syncing", tone: "text-amber-600" },
-  }[sync];
-
-  const Icon = state.icon;
-  return (
-    <span
-      title={
-        sync === "error"
-          ? "The shared copy could not be reached. This plan is still safe in this browser."
-          : sync === "offline"
-            ? "Working offline. Edits are queued and will sync when the connection returns."
-            : undefined
-      }
-      className={`hidden items-center gap-1.5 text-xs lg:flex ${state.tone}`}
-    >
-      <Icon size={13} />
-      {state.text}
-    </span>
-  );
-}
-
-// ------------------------------------------------------------------ container
-
-export default function PlannerApp() {
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
-  // The plans themselves live in Firestore and are shared with everyone else who
-  // has the planner open; this hook keeps the copy on screen level with them.
-  const { workspace, setWorkspace, hydrated, savedAt, sync } = useWorkspace();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [exporting, setExporting] = useState(false);
-
-  // The plan that is open. Every panel below still takes one config, so opening
-  // another plan is the whole of switching to it.
-  const open = activeProject(workspace);
-  const config = open.config;
-
-  /** Writes inputs back to the plan that is open, leaving the other plans alone. */
-  function setConfig(next: PlannerConfig | ((current: PlannerConfig) => PlannerConfig)) {
-    setWorkspace((current) => {
-      const plan = activeProject(current);
-      return setActiveConfig(current, typeof next === "function" ? next(plan.config) : next);
-    });
-  }
-
-  useEffect(() => {
-    // Deferred so the first client render matches the server-rendered defaults.
-    const timeout = window.setTimeout(() => {
-      const storedSidebar = window.localStorage.getItem(SIDEBAR_KEY);
-      setSidebarOpen(storedSidebar ? storedSidebar === "open" : window.innerWidth >= 1024);
-    }, 0);
-    return () => window.clearTimeout(timeout);
-  }, []);
-
-  function toggleSidebar() {
-    setSidebarOpen((open) => {
-      window.localStorage.setItem(SIDEBAR_KEY, open ? "closed" : "open");
-      return !open;
-    });
-  }
-
-  // Simulating a large herd over the horizon costs a few hundred milliseconds, so
-  // the inputs stay on the live config and the herd runs against a deferred copy.
-  const settledConfig = useDeferredValue(config);
-  const validation = useMemo(() => plannerSchema.safeParse(settledConfig), [settledConfig]);
-  const projection = useMemo(
-    () => (validation.success ? calculateProjection(validation.data) : null),
-    [validation],
-  );
-  const modelMetrics = useMemo(() => getModelMetrics(config), [config]);
-
-  function update<S extends PlannerSection, K extends keyof PlannerConfig[S]>(
-    section: S,
-    key: K,
-    value: PlannerConfig[S][K],
-  ) {
-    setConfig((current) => ({
-      ...current,
-      [section]: { ...current[section], [key]: value },
-    }));
-  }
-
-  function resetPlan() {
-    if (window.confirm("Reset this plan's inputs to the evidence-based starter assumptions?")) {
-      setConfig((current) => {
-        const fresh = cloneDefaultConfig();
-        // Resetting the numbers is not renaming the plan.
-        fresh.project.name = current.project.name;
-        return fresh;
-      });
-    }
-  }
-
-  function newPlan() {
-    setWorkspace((current) => addProject(current, "Plan " + (current.projects.length + 1)));
-    // A plan you have just started is a plan you are about to describe.
-    setActiveTab("inputs");
-  }
-
-  function duplicatePlan() {
-    setWorkspace((current) => duplicateProject(current, current.activeId));
-  }
-
-  function renamePlan() {
-    const name = window.prompt("Name this plan", projectName(open));
-    if (name) setWorkspace((current) => renameProject(current, current.activeId, name));
-  }
-
-  function deletePlan() {
-    if (workspace.projects.length < 2) return;
-    const question =
-      "Delete " + projectName(open) + "? Its inputs and its cashflow go with it.";
-    if (!window.confirm(question)) return;
-    setWorkspace((current) => removeProject(current, current.activeId));
-  }
-
-  async function exportExcel() {
-    if (!projection || exporting) return;
-    setExporting(true);
-    try {
-      const { buildCashflowWorkbook } = await import("@/lib/export-workbook");
-      const output = await buildCashflowWorkbook(config, projection);
-      const blob = new Blob([output], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${config.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-funding-cashflow.xlsx`;
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
-    } catch (error) {
-      console.error(error);
-      window.alert("The Excel workbook could not be created. Please try again.");
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  const activeLabel = NAV.find((item) => item.id === activeTab)?.label;
-
-  return (
-    <div className="flex min-h-screen bg-plane text-ink">
-      {sidebarOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close navigation"
-            onClick={toggleSidebar}
-            className="fixed inset-0 z-30 bg-ink/20 lg:hidden"
-          />
-          <aside className="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-hairline bg-surface lg:sticky lg:top-0 lg:z-auto lg:h-screen">
-            <div className="flex items-center justify-between gap-2 px-5 py-5">
-              <button
-                className="flex items-center gap-2.5 text-left"
-                onClick={() => setActiveTab("overview")}
-              >
-                <span className="flex size-8 items-center justify-center rounded-lg bg-raised text-ink">
-                  <PiggyBank size={18} strokeWidth={1.75} />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold tracking-tight">PigFlow</span>
-                  <span className="block text-[11px] text-ink-faint">Piggery planning model</span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                aria-label="Hide sidebar"
-                className="rounded-md p-1.5 text-ink-faint transition hover:bg-raised hover:text-ink lg:hidden"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <nav className="space-y-0.5 px-3">
-              {NAV.map((item) => {
-                const Icon = item.icon;
-                const selected = activeTab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setActiveTab(item.id);
-                      if (window.innerWidth < 1024) toggleSidebar();
-                    }}
-                    aria-current={selected ? "page" : undefined}
-                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${selected
-                        ? "bg-brand-soft font-medium text-brand"
-                        : "text-ink-muted hover:bg-raised hover:text-ink"
-                      }`}
-                  >
-                    <Icon size={16} strokeWidth={1.75} />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-
-            <div className="mt-auto space-y-3 p-4">
-              <div className="rounded-lg border border-hairline bg-plane p-3.5">
-                <div className="flex items-center gap-2 text-xs font-medium text-ink">
-                  <HeartPulse size={14} className="text-ink-faint" strokeWidth={1.75} />
-                  Planning support
-                </div>
-                <p className="mt-1.5 text-[11px] leading-5 text-ink-faint">
-                  Validate prices, health plans and production targets with local suppliers and your
-                  veterinarian.
-                </p>
-              </div>
-              <SignedInAs />
-            </div>
-          </aside>
-        </>
-      ) : null}
-
-      <main className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 border-b border-hairline bg-surface/85 px-4 py-3 backdrop-blur sm:px-6">
-          <div className="mx-auto flex max-w-[1500px] items-center gap-3 sm:gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                aria-expanded={sidebarOpen}
-                aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                className="shrink-0 rounded-lg border border-hairline p-2 text-ink-muted transition hover:bg-raised hover:text-ink"
-              >
-                {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
-              </button>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 text-[11px] text-ink-faint">
-                  <span>PigFlow</span>
-                  <span>/</span>
-                  <span className="text-ink-muted">{activeLabel}</span>
-                </div>
-                <ProjectSwitcher
-                  workspace={workspace}
-                  shared={sync !== "local"}
-                  onOpen={(id) => setWorkspace((current) => openProject(current, id))}
-                  onNew={newPlan}
-                  onDuplicate={duplicatePlan}
-                  onRename={renamePlan}
-                  onDelete={deletePlan}
-                />
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <SyncBadge sync={sync} savedAt={savedAt} />
-              <button
-                onClick={resetPlan}
-                aria-label="Reset this plan"
-                className="inline-flex items-center gap-2 rounded-lg border border-hairline px-2.5 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink sm:px-3"
-              >
-                <RefreshCcw size={13} /> <span className="hidden sm:inline">Reset</span>
-              </button>
-              <button
-                onClick={exportExcel}
-                disabled={!projection || exporting}
-                aria-label="Export the cashflow to Excel"
-                className="inline-flex items-center gap-2 rounded-lg bg-ink px-2.5 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:opacity-40 sm:px-3"
-              >
-                <Download size={13} />
-                {/* On a narrow screen the plan's name is worth more room than the word "Excel". */}
-                <span className="hidden sm:inline">
-                  {exporting ? "Preparing…" : "Export Excel"}
-                </span>
-                <span className="sm:hidden">{exporting ? "…" : "Export"}</span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <div className="mx-auto max-w-[1500px] p-4 sm:p-6">
-          {/*
-            Until the shared plans have arrived, what is on screen is only the
-            starting defaults. Showing them as though they were a plan would
-            invite edits that the first reading is about to replace.
-          */}
-          {!hydrated ? <OpeningPlans /> : null}
-
-          {hydrated && !validation.success ? (
-            <div className="mb-5 flex gap-3 rounded-xl border border-critical/30 bg-critical-soft p-4 text-sm">
-              <AlertTriangle className="mt-0.5 shrink-0 text-critical" size={16} />
-              <div>
-                <p className="font-medium text-ink">
-                  One or more inputs are outside the supported range.
-                </p>
-                <p className="mt-1 text-ink-muted">
-                  Review the highlighted planning assumptions before using the forecast.
-                </p>
-              </div>
-            </div>
-          ) : null}
-
-          {hydrated && activeTab === "overview" && projection ? (
-            <Overview config={config} projection={projection} setActiveTab={setActiveTab} />
-          ) : null}
-
-          {hydrated && activeTab === "simulator" && validation.success ? (
-            <Simulator config={validation.data} />
-          ) : null}
-
-          {hydrated && activeTab === "inputs" ? (
-            <Inputs config={config} update={update} metrics={modelMetrics} />
-          ) : null}
-
-          {hydrated && activeTab === "cashflow" && projection ? (
-            <CashflowPreview
-              config={config}
-              projection={projection}
-              exporting={exporting}
-              onExport={exportExcel}
-            />
-          ) : null}
-
-          {hydrated && activeTab === "money" && projection ? (
-            <Money config={config} projection={projection} update={update} />
-          ) : null}
-
-          {hydrated && activeTab === "method" ? (
-            <Methodology config={config} metrics={modelMetrics} />
-          ) : null}
-        </div>
-      </main>
-    </div>
-  );
-}
-
-/**
- * Picks which plan is open, and manages the set of them. Plans are scenarios of
- * one farm more often than they are different farms — the same herd with a
- * bigger shed, or feed at next year's price — so the menu leads with the list
- * and keeps duplicating the open plan one click away.
- */
-function ProjectSwitcher({
-  workspace,
-  shared,
-  onOpen,
-  onNew,
-  onDuplicate,
-  onRename,
-  onDelete,
-}: {
-  workspace: Workspace;
-  /** Whether these plans are the shared set or only this browser's. */
-  shared: boolean;
-  onOpen: (id: string) => void;
-  onNew: () => void;
-  onDuplicate: () => void;
-  onRename: () => void;
-  onDelete: () => void;
-}) {
-  const open = activeProject(workspace);
-  const full = workspace.projects.length >= MAX_PROJECTS;
-  const onlyPlan = workspace.projects.length < 2;
-
-  return (
-    <h1 className="flex min-w-0 text-sm font-semibold tracking-tight text-ink sm:text-base">
-      <DropdownMenu>
-        <DropdownMenuTrigger className="-ml-1.5 flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-0.5 outline-none transition hover:bg-raised focus-visible:ring-3 focus-visible:ring-brand/40">
-          <span className="truncate">{projectName(open)}</span>
-          <ChevronsUpDown size={14} className="shrink-0 text-ink-faint" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-w-80">
-          <DropdownMenuLabel>
-            {plural(workspace.projects.length, "plan")}
-            {shared ? ", shared with everyone" : " on this device"}
-          </DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={workspace.activeId} onValueChange={onOpen}>
-            {workspace.projects.map((project) => (
-              <DropdownMenuRadioItem key={project.id} value={project.id}>
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{projectName(project)}</span>
-                  <span className="block truncate text-[11px] font-normal text-ink-faint">
-                    {plural(project.config.project.months, "month")} ·{" "}
-                    {plural(project.config.herd.maxSows, "sow place")} ·{" "}
-                    {project.config.project.currency}
-                  </span>
-                </span>
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={onNew} disabled={full}>
-            <Plus size={14} /> New plan
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onDuplicate} disabled={full}>
-            <Copy size={14} /> Duplicate this plan
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={onRename}>
-            <PencilLine size={14} /> Rename…
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={onDelete}
-            disabled={onlyPlan}
-            className="text-critical data-highlighted:bg-critical-soft"
-          >
-            <Trash2 size={14} /> Delete this plan
-          </DropdownMenuItem>
-          {full ? (
-            <p className="px-2.5 pt-1.5 pb-1 text-[11px] leading-4 text-ink-faint">
-              {MAX_PROJECTS} plans is the limit. Delete one to make room for another.
-            </p>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </h1>
-  );
-}
-
 // ------------------------------------------------------------------- overview
 
-function Overview({
+export function Overview({
   config,
   projection,
-  setActiveTab,
+  inputsHref,
 }: {
   config: PlannerConfig;
   projection: ReturnType<typeof calculateProjection>;
-  setActiveTab: (tab: Tab) => void;
+  /** Where "Review assumptions" leads: this plan's own inputs page. */
+  inputsHref: string;
 }) {
   const [zoom, setZoom] = useState<Granularity>("month");
   const [span, setSpan] = useState<YearSpan>(null);
@@ -1297,12 +751,12 @@ function Overview({
               </div>
             ))}
           </div>
-          <button
-            onClick={() => setActiveTab("inputs")}
+          <Link
+            href={inputsHref}
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-hairline px-4 py-2 text-sm font-medium text-ink-muted transition hover:bg-raised hover:text-ink"
           >
             Review assumptions <ChevronRight size={14} />
-          </button>
+          </Link>
         </Panel>
       </div>
 
@@ -1628,7 +1082,7 @@ function YearSpanPicker({
 
 // ------------------------------------------------------------------ simulator
 
-function Simulator({ config }: { config: PlannerConfig }) {
+export function Simulator({ config }: { config: PlannerConfig }) {
   const start = parseISO(config.project.startDate);
   const end = addMonths(start, config.project.months);
   const lastDay = subDays(end, 1);
@@ -2229,7 +1683,7 @@ function DetailPanel({
 
 // --------------------------------------------------------------------- inputs
 
-function Inputs({
+export function Inputs({
   config,
   update,
   metrics,
@@ -3123,7 +2577,7 @@ function cashflowMoney(value: number, currency: string) {
   return value < 0 ? `(${formatted})` : formatted;
 }
 
-function CashflowPreview({
+export function CashflowPreview({
   config,
   projection,
   exporting,
@@ -3616,7 +3070,7 @@ function FundingControls({
   );
 }
 
-function Money({
+export function Money({
   config,
   projection,
   update,
@@ -4028,7 +3482,7 @@ function PeriodPanel({
 
 // --------------------------------------------------------------------- method
 
-function Methodology({
+export function Methodology({
   config,
   metrics,
 }: {

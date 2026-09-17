@@ -103,8 +103,9 @@ the console and press **Publish**.
 npm run dev
 ```
 
-You should be sent to `/login`. Sign in with a user you added in step 1.4. The
-badge in the header then tells you where the plans are:
+You should be sent to `/login`. Sign in with a user you added in step 1.4, and
+you land on a plan of your own at `/projects/<plan-id>`. The badge in the header
+then tells you where the plans are:
 
 | Badge                  | Meaning                                                      |
 | ---------------------- | ------------------------------------------------------------ |

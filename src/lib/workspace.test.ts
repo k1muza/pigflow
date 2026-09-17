@@ -9,6 +9,7 @@ import {
   duplicateProject,
   LEGACY_PLAN_KEY,
   loadWorkspace,
+  newProjectId,
   openProject,
   parseWorkspace,
   projectName,
@@ -231,5 +232,35 @@ describe("the first plan of all", () => {
     const second = addProject(start, "Second").projects[1].id;
     const copy = duplicateProject(start, FIRST_PLAN_ID).projects[1].id;
     expect(new Set([FIRST_PLAN_ID, second, copy]).size).toBe(3);
+  });
+});
+
+describe("the id a plan is known by", () => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+  it("is a UUID, because it is also the plan's address and its document name", () => {
+    expect(newProjectId()).toMatch(UUID);
+    expect(addProject(createWorkspace(), "Second").projects[1].id).toMatch(UUID);
+  });
+
+  it("is still a UUID where randomUUID is not allowed", () => {
+    // A phone opening the planner over plain http has no secure context, so
+    // `crypto.randomUUID` is simply absent there. Falling back to something that
+    // is not a UUID would make that phone's plans the odd ones out for good.
+    const real = globalThis.crypto;
+    try {
+      Object.defineProperty(globalThis, "crypto", {
+        value: { getRandomValues: real.getRandomValues.bind(real) },
+        configurable: true,
+      });
+      expect(newProjectId()).toMatch(UUID);
+    } finally {
+      Object.defineProperty(globalThis, "crypto", { value: real, configurable: true });
+    }
+  });
+
+  it("does not repeat itself", () => {
+    const ids = new Set(Array.from({ length: 500 }, () => newProjectId()));
+    expect(ids.size).toBe(500);
   });
 });

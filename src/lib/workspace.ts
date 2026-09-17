@@ -27,10 +27,27 @@ export const LEGACY_PLAN_KEY = "pigflow-plan-v4";
  */
 export const MAX_PROJECTS = 24;
 
-function newId(): string {
-  const uuid = globalThis.crypto?.randomUUID?.();
-  if (uuid) return uuid;
-  return "plan-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+/**
+ * A plan's id names it twice over: it is the document the plan is saved to and
+ * it is the address the plan is read at, and both are shared with people this
+ * browser will never hear from. A UUID is the whole of making that safe — it is
+ * unique without anything having to coordinate it.
+ *
+ * `randomUUID` needs a secure context, which a phone opening the planner over
+ * plain http is not, so the same four bytes-and-a-version dance is done by hand
+ * behind it rather than falling back to something that is not a UUID at all.
+ */
+export function newProjectId(): string {
+  const random = globalThis.crypto;
+  if (random?.randomUUID) return random.randomUUID();
+
+  const bytes = new Uint8Array(16);
+  if (random?.getRandomValues) random.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join("-");
 }
 
 /** The plan that is open, falling back to the first if the active id has gone. */
@@ -55,7 +72,7 @@ export function availableName(workspace: Workspace, wanted: string): string {
     const candidate = base + " " + suffix;
     if (!taken.has(candidate.toLowerCase())) return candidate;
   }
-  return base + " " + newId().slice(0, 4);
+  return base + " " + newProjectId().slice(0, 4);
 }
 
 function withName(config: PlannerConfig, name: string): PlannerConfig {
@@ -64,7 +81,7 @@ function withName(config: PlannerConfig, name: string): PlannerConfig {
 
 export function createWorkspace(
   config: PlannerConfig = cloneDefaultConfig(),
-  id: string = newId(),
+  id: string = newProjectId(),
 ): Workspace {
   const project = { id, config };
   return { activeId: project.id, projects: [project] };
@@ -74,7 +91,7 @@ export function createWorkspace(
 export function addProject(workspace: Workspace, name: string): Workspace {
   if (workspace.projects.length >= MAX_PROJECTS) return workspace;
   const project = {
-    id: newId(),
+    id: newProjectId(),
     config: withName(cloneDefaultConfig(), availableName(workspace, name)),
   };
   return { activeId: project.id, projects: [...workspace.projects, project] };
@@ -89,7 +106,7 @@ export function duplicateProject(workspace: Workspace, id: string): Workspace {
   const source = workspace.projects.find((project) => project.id === id);
   if (!source) return workspace;
   const copy = {
-    id: newId(),
+    id: newProjectId(),
     config: withName(
       structuredClone(source.config),
       availableName(workspace, projectName(source) + " copy"),
@@ -133,15 +150,29 @@ export function openProject(workspace: Workspace, id: string): Workspace {
   return { ...workspace, activeId: id };
 }
 
-/** Writes new inputs back to whichever plan is open, leaving the others alone. */
-export function setActiveConfig(workspace: Workspace, config: PlannerConfig): Workspace {
-  const open = activeProject(workspace);
+/**
+ * Writes new inputs back to one named plan, leaving the others alone. The plan
+ * is named rather than assumed because the plan being edited is the one in the
+ * address bar, and that can change a render before the stored workspace catches
+ * up with it.
+ */
+export function setProjectConfig(
+  workspace: Workspace,
+  id: string,
+  config: PlannerConfig,
+): Workspace {
+  if (!workspace.projects.some((project) => project.id === id)) return workspace;
   return {
     ...workspace,
     projects: workspace.projects.map((project) =>
-      project.id === open.id ? { ...project, config } : project,
+      project.id === id ? { ...project, config } : project,
     ),
   };
+}
+
+/** Writes new inputs back to whichever plan is open. */
+export function setActiveConfig(workspace: Workspace, config: PlannerConfig): Workspace {
+  return setProjectConfig(workspace, activeProject(workspace).id, config);
 }
 
 /**
@@ -161,7 +192,7 @@ export function parseWorkspace(value: unknown): Workspace | null {
     const row = entry as { id?: unknown; config?: unknown };
     const config = withConfigDefaults(row.config);
     if (!config) continue;
-    projects.push({ id: typeof row.id === "string" && row.id ? row.id : newId(), config });
+    projects.push({ id: typeof row.id === "string" && row.id ? row.id : newProjectId(), config });
   }
   if (projects.length === 0) return null;
 

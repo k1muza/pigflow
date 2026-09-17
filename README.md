@@ -38,11 +38,34 @@ The cost of this is that the cashflow is lumpy, and honestly so: on the default 
 
 ## Reading the plan
 
-- **The plan picker** — the name in the top bar opens every plan kept on this device. A plan is its inputs and nothing else, so opening another one swaps the herd, the cashflow, the calendar and the workbook together; there is no shared state to leak between them. Duplicating is the point: take the plan you believe in, change one thing — a bigger shed, next year's feed price, a second boar — and keep both to compare. Plans are shared: they live in Cloud Firestore, so a plan built on the farm opens for someone remote, and an edit made in one browser appears in the others within a second. A single plan saved by an earlier version opens as the first one in the list.
+- **The plan picker** — the name in the top bar opens every plan there is, and each one has an address of its own. A plan is its inputs and nothing else, so opening another one swaps the herd, the cashflow, the calendar and the workbook together; there is no shared state to leak between them. Duplicating is the point: take the plan you believe in, change one thing — a bigger shed, next year's feed price, a second boar — and keep both to compare. Plans are shared: they live in Cloud Firestore, so a plan built on the farm opens for someone remote, and an edit made in one browser appears in the others within a second. A single plan saved by an earlier version opens as the first one in the list.
 
 - **Financial planning** — switch between months and plan years, and open any period to see exactly what it is expected to receive and spend, line by line, with the production that drove it. On a month you can add your own rows under Income or Expenditure; the panel itemises them and shows the line they post to net of them, so the statement still adds up. Under the table, one button funds the whole plan and another takes the surplus back out.
 - **Farm simulator** — a full plan year as a calendar, or the same plan as a list of months. Open any date for that day's cash in and out, everything the farm did — farrowings, weanings, sales, treatments, the feed lorry and what was on it — and the herd split by stage and by what each sow is doing. The page behind it rebuilds the herd animal by animal to that date and reports cost of production and financial standing.
 - **Overview** — the cash curve at monthly or yearly zoom, growing stock by stage, and the checks that need attention. Both charts answer to one set of year chips: click a year to look at it on its own, click a second to take in every year between.
+
+## The address of a plan
+
+A plan is what the app is about, so it is what the address names:
+
+| Address | What it is |
+| --- | --- |
+| `/projects/<plan-id>` | The plan, on its overview. |
+| `/projects/<plan-id>/simulator` | The farm simulator for that plan. |
+| `/projects/<plan-id>/inputs` | Its inputs. |
+| `/projects/<plan-id>/money` | Its financial planning. |
+| `/projects/<plan-id>/method` | The method and sources behind it. |
+| `/projects/<plan-id>/cashflow` | Its detailed cashflow. |
+| `/` and `/projects` | Whichever plan you had open last. |
+| `/login` | Signing in. |
+
+The plan id is a UUID, made in the browser that starts the plan, and it is also
+the name of that plan's document in Firestore — so the address of any page is a
+link a colleague can be sent. Plans saved before the ids were UUIDs keep the ids
+they have and go on working.
+
+An address naming a plan that is not there says so, rather than quietly showing
+a different one.
 
 ## Run locally
 
@@ -101,7 +124,11 @@ Use **Export Excel** to take the cashflow out of the app entirely.
 | `src/lib/cloud-plans.ts` | Turns stored documents into plans, and works out the smallest set of writes that makes the cloud match the screen. |
 | `src/lib/firebase.ts` | Connects to Firestore with its offline cache. |
 | `src/lib/auth.ts` | Signing in and out, password resets, and turning Firebase's errors into English. |
+| `src/lib/routes.ts` | The address of every page of a plan, and reading a page back out of one. |
 | `src/components/auth-gate.tsx` | Sends a signed-out visitor to `/login` instead of an empty planner. |
+| `src/components/plans-provider.tsx` | Holds what has to outlive a change of plan: the plans, and the sidebar. |
+| `src/components/planner-shell.tsx` | The sidebar, the header, and the one simulation every page of a plan reads. |
+| `src/components/planner-sections.tsx` | The pages themselves — overview, simulator, inputs, money, method, cashflow. |
 | `src/hooks/use-workspace.ts` | Holds the plans on screen and keeps them level with everyone else's. |
 | `src/lib/sim/animals.ts` | `Animal`, `Sow`, `Boar`, `GrowingPig` and the per-animal `CostRecord`. |
 | `src/lib/sim/farm.ts` | The day-by-day `Farm` simulation and its point-in-time read-out. |

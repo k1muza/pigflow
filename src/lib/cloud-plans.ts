@@ -13,8 +13,12 @@ export const PLANS_COLLECTION = "plans";
  * Writing the first one to a known document instead means they land on top of
  * each other and only one plan appears. Every plan made afterwards gets an id of
  * its own, because by then the plans are genuinely different.
+ *
+ * It is spelled as a UUID like every other plan id, because it is also the
+ * address that plan is read at and a well-known id should not be the one plan
+ * whose link looks different from the rest.
  */
-export const FIRST_PLAN_ID = "first-plan";
+export const FIRST_PLAN_ID = "00000000-0000-4000-8000-000000000001";
 
 /**
  * A plan as Firestore holds it. `order` is the plan's place in the switcher,
