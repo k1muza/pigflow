@@ -3,11 +3,17 @@ export type LedgerCategory =
   | "gilt-sales"
   | "cull-sales"
   | "other-income"
-  | "feed"
-  | "feed-haulage"
+  | "feed-sow"
+  | "feed-creep"
+  | "feed-weaner"
+  | "feed-grower"
+  | "feed-finisher"
+  | "bedding"
+  | "gas"
+  | "deliveries"
   | "vaccination"
+  | "processing"
   | "veterinary"
-  | "heating"
   | "labour"
   | "overheads"
   | "transport"
@@ -23,11 +29,17 @@ export const LEDGER_CATEGORIES: { id: LedgerCategory; label: string; kind: Ledge
   { id: "gilt-sales", label: "Breeding gilt sales", kind: "income" },
   { id: "cull-sales", label: "Cull sow sales", kind: "income" },
   { id: "other-income", label: "Other income", kind: "income" },
-  { id: "feed", label: "Feed", kind: "expense" },
-  { id: "feed-haulage", label: "Feed delivery", kind: "expense" },
-  { id: "vaccination", label: "Vaccination & treatment", kind: "expense" },
+  { id: "feed-sow", label: "Sow & gilt feed", kind: "expense" },
+  { id: "feed-creep", label: "Creep feed", kind: "expense" },
+  { id: "feed-weaner", label: "Weaner feed", kind: "expense" },
+  { id: "feed-grower", label: "Grower feed", kind: "expense" },
+  { id: "feed-finisher", label: "Finisher feed", kind: "expense" },
+  { id: "bedding", label: "Bedding", kind: "expense" },
+  { id: "gas", label: "Heating gas", kind: "expense" },
+  { id: "deliveries", label: "Deliveries to the farm", kind: "expense" },
+  { id: "vaccination", label: "Vaccination", kind: "expense" },
+  { id: "processing", label: "Piglet processing", kind: "expense" },
   { id: "veterinary", label: "Routine veterinary", kind: "expense" },
-  { id: "heating", label: "Heating", kind: "expense" },
   { id: "labour", label: "Labour", kind: "expense" },
   { id: "overheads", label: "Fixed overheads", kind: "expense" },
   { id: "transport", label: "Haulage to abattoir", kind: "expense" },
@@ -76,6 +88,20 @@ export function addTotals(target: CategoryTotals, source: CategoryTotals): void 
 
 export function incomeOf(totals: CategoryTotals): number {
   return INCOME_CATEGORIES.reduce((sum, category) => sum + totals[category], 0);
+}
+
+/** The five feed stores, for the places that want the whole feed bill at once. */
+export const FEED_CATEGORIES = [
+  "feed-sow",
+  "feed-creep",
+  "feed-weaner",
+  "feed-grower",
+  "feed-finisher",
+] as const satisfies readonly LedgerCategory[];
+
+/** What was spent on feed across every store. */
+export function feedOf(totals: CategoryTotals): number {
+  return FEED_CATEGORIES.reduce((sum, category) => sum + totals[category], 0);
 }
 
 export function expensesOf(totals: CategoryTotals): number {

@@ -2,7 +2,7 @@ import type { Cell, Row, Worksheet } from "exceljs";
 
 import { expectedGiltServiceAgeDays } from "./config";
 import type { MonthlyProjection, PlannerConfig, ProjectionResult } from "./model";
-import type { LedgerCategory } from "./sim";
+import { CATEGORY_LABELS, EXPENSE_CATEGORIES, INCOME_CATEGORIES, type LedgerCategory } from "./sim";
 
 const COLORS = {
   navy: "17324D",
@@ -25,27 +25,13 @@ const COLORS = {
  * written down, so adding a cost line moves every formula below it with no
  * chance of a total quietly summing the wrong range.
  */
-const RECEIPT_LINES: { label: string; category: LedgerCategory }[] = [
-  { label: "Pig sales", category: "pig-sales" },
-  { label: "Breeding gilt sales", category: "gilt-sales" },
-  { label: "Cull sow sales", category: "cull-sales" },
-  { label: "Other income", category: "other-income" },
-];
+const RECEIPT_LINES: { label: string; category: LedgerCategory }[] = INCOME_CATEGORIES.map(
+  (category) => ({ label: CATEGORY_LABELS[category], category }),
+);
 
-const PAYMENT_LINES: { label: string; category: LedgerCategory }[] = [
-  { label: "Feed", category: "feed" },
-  { label: "Feed delivery", category: "feed-haulage" },
-  { label: "Vaccination & treatment", category: "vaccination" },
-  { label: "Routine veterinary", category: "veterinary" },
-  { label: "Heating", category: "heating" },
-  { label: "Labour", category: "labour" },
-  { label: "Fixed overheads", category: "overheads" },
-  { label: "Haulage to abattoir", category: "transport" },
-  { label: "Bought-in breeding stock", category: "breeding-stock" },
-  { label: "AI semen & service", category: "semen" },
-  { label: "Contingency", category: "contingency" },
-  { label: "Capital expenditure", category: "capital" },
-];
+const PAYMENT_LINES: { label: string; category: LedgerCategory }[] = EXPENSE_CATEGORIES.map(
+  (category) => ({ label: CATEGORY_LABELS[category], category }),
+);
 
 const CASHFLOW_ROWS = (() => {
   const opening = 4;
@@ -774,8 +760,15 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
       "HEALTH",
       [
         ["Veterinary cost per sow", config.health.vetCostPerSowMonth, `${config.project.currency}/month`],
-        ["Heating cost per pig", config.health.heatingCostPerPigDay, `${config.project.currency}/day`],
+        ["Gas per heated piglet", config.health.gasKgPerPigDay, "kg/day"],
+        ["Gas price", config.health.gasCostPerKg, `${config.project.currency}/kg`],
+        ["Gas canister", config.health.gasCanisterKg, "kg"],
+        ["Canisters on the farm", config.health.gasCanisters, "bottles"],
         ["Heated until age", config.health.heatedUntilAgeDays, "days"],
+        ["Bedding per head", config.housing.beddingKgPerHeadDay, "kg/head/day"],
+        ["Bedding price", config.housing.beddingCostPerKg, `${config.project.currency}/kg`],
+        ["Bedding load", config.housing.beddingLoadKg, "kg"],
+        ["Bedding delivery", config.housing.beddingDeliveryCost, `${config.project.currency}/trip`],
         [
           "Mortality timing",
           config.health.mortalityTiming,

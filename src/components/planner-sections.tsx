@@ -1701,6 +1701,51 @@ function DetailPanel({
             </section>
 
             <section>
+              <h4 className="text-sm font-semibold text-ink">In the stores</h4>
+              <p className="mt-1 text-xs leading-5 text-ink-faint">
+                What is standing on the farm at the close of this day, and how long the herd
+                can go on it at the rate it is using it now.
+              </p>
+              <dl className="mt-3 space-y-1.5">
+                {state.stores.map((store) => (
+                  <div
+                    key={store.id}
+                    className="flex items-baseline justify-between gap-3 border-b border-hairline pb-1.5 last:border-0"
+                  >
+                    <dt className="text-xs text-ink-muted">
+                      {store.label}
+                      {store.capacity !== null ? (
+                        <span className="ml-1.5 text-[11px] text-ink-faint">
+                          of {number(store.capacity, 0)} {store.unit}
+                        </span>
+                      ) : null}
+                    </dt>
+                    <dd className="flex items-baseline gap-2.5 text-right">
+                      <span className="text-[11px] text-ink-faint">
+                        {store.daysOfCover === null
+                          ? "—"
+                          : `${number(store.daysOfCover, 0)} days`}
+                      </span>
+                      <span className="text-sm font-medium tabular-nums text-ink">
+                        {number(store.quantity, 0)} {store.unit}
+                      </span>
+                      <span className="w-16 text-[11px] tabular-nums text-ink-faint">
+                        {money(store.value, currency)}
+                      </span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-2.5 text-xs leading-5 text-ink-faint">
+                {money(
+                  state.stores.reduce((total, store) => total + store.value, 0),
+                  currency,
+                )}{" "}
+                of goods bought and not yet used, which is part of what the farm is worth.
+              </p>
+            </section>
+
+            <section>
               <h4 className="text-sm font-semibold text-ink">Pigs on the farm</h4>
               <dl className="mt-3 grid grid-cols-3 gap-2.5">
                 {distribution.map(([label, count]) => (
@@ -1768,6 +1813,8 @@ export function Inputs({
         costPerPig: 0.5,
         kind: "vaccination" as const,
         appliesTo: "all" as const,
+        dosesPerPack: 1,
+        openPackKeepsDays: 0,
       },
     ]);
   }
@@ -1971,6 +2018,36 @@ export function Inputs({
             min={1}
             max={100000}
             step={1}
+          />
+          <Field
+            label="Bedding per head"
+            value={config.housing.beddingKgPerHeadDay}
+            onChange={(v) => update("housing", "beddingKgPerHeadDay", v)}
+            suffix="kg/head/day"
+            step={0.01}
+            hint="Straw or shavings under every animal housed. It used to be a flat monthly figure, which did not move with the herd at all."
+          />
+          <Field
+            label="Bedding price"
+            value={config.housing.beddingCostPerKg}
+            onChange={(v) => update("housing", "beddingCostPerKg", v)}
+            suffix={`${config.project.currency}/kg`}
+            step={0.01}
+          />
+          <Field
+            label="Bedding load"
+            value={config.housing.beddingLoadKg}
+            onChange={(v) => update("housing", "beddingLoadKg", v)}
+            suffix="kg a load brings"
+            min={10}
+            step={100}
+          />
+          <Field
+            label="Bedding delivery"
+            value={config.housing.beddingDeliveryCost}
+            onChange={(v) => update("housing", "beddingDeliveryCost", v)}
+            suffix={`${config.project.currency}/trip`}
+            step={5}
           />
           <Field
             label="Finisher places"
@@ -2524,11 +2601,38 @@ export function Inputs({
             hint="Charged to every sow in the herd each month."
           />
           <Field
-            label="Heating"
-            value={config.health.heatingCostPerPigDay}
-            onChange={(v) => update("health", "heatingCostPerPigDay", v)}
-            suffix={`${config.project.currency}/pig/day`}
+            label="Gas per heated piglet"
+            value={config.health.gasKgPerPigDay}
+            onChange={(v) => update("health", "gasKgPerPigDay", v)}
+            suffix="kg/pig/day"
             step={0.005}
+            hint="What a piglet under the lamp burns in a day. Gas is stored and delivered like feed, so this is a quantity rather than a cost."
+          />
+          <Field
+            label="Gas price"
+            value={config.health.gasCostPerKg}
+            onChange={(v) => update("health", "gasCostPerKg", v)}
+            suffix={`${config.project.currency}/kg`}
+            step={0.05}
+          />
+          <Field
+            label="Gas canister"
+            value={config.health.gasCanisterKg}
+            onChange={(v) => update("health", "gasCanisterKg", v)}
+            suffix="kg a bottle holds"
+            min={1}
+            max={500}
+            step={1}
+          />
+          <Field
+            label="Canisters on the farm"
+            value={config.health.gasCanisters}
+            onChange={(v) => update("health", "gasCanisters", Math.round(v))}
+            suffix="bottles"
+            min={1}
+            max={20}
+            step={1}
+            hint={`The farm never holds more than ${config.health.gasCanisterKg * config.health.gasCanisters} kg, so a bottle waits for an empty rather than arriving early. Gas rides on the feed lorry, so it costs no trip of its own when the feed is already coming.`}
           />
           <Field
             label="Heated until"
@@ -2538,7 +2642,7 @@ export function Inputs({
             min={0}
             max={120}
             step={1}
-            hint={`Costs ${money(config.health.heatingCostPerPigDay * config.health.heatedUntilAgeDays, config.project.currency)} per pig reared.`}
+            hint={`Costs ${money(config.health.gasKgPerPigDay * config.health.gasCostPerKg * config.health.heatedUntilAgeDays, config.project.currency)} of gas per pig reared.`}
           />
           <SelectField
             label="Mortality timing"
@@ -2571,6 +2675,8 @@ export function Inputs({
                 <th className="w-36 px-3 py-2 text-right font-medium">
                   Cost ({config.project.currency}/pig)
                 </th>
+                <th className="w-28 px-3 py-2 text-right font-medium">Doses/pack</th>
+                <th className="w-28 px-3 py-2 text-right font-medium">Keeps (days)</th>
                 <th className="w-12 px-3 py-2" />
               </tr>
             </thead>
@@ -2626,6 +2732,36 @@ export function Inputs({
                       aria-label={"Treatment " + (index + 1) + " cost per pig"}
                       onChange={(event) =>
                         updateVaccination(index, { costPerPig: Number(event.target.value) })
+                      }
+                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none transition hover:border-hairline focus:border-brand"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      step={1}
+                      value={dose.dosesPerPack}
+                      aria-label={"Treatment " + (index + 1) + " doses per pack"}
+                      onChange={(event) =>
+                        updateVaccination(index, { dosesPerPack: Number(event.target.value) })
+                      }
+                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none transition hover:border-hairline focus:border-brand"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      min={0}
+                      max={365}
+                      step={1}
+                      value={dose.openPackKeepsDays}
+                      aria-label={"Treatment " + (index + 1) + " days an open pack keeps"}
+                      onChange={(event) =>
+                        updateVaccination(index, {
+                          openPackKeepsDays: Number(event.target.value),
+                        })
                       }
                       className="w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-right text-sm tabular-nums outline-none transition hover:border-hairline focus:border-brand"
                     />
@@ -2733,12 +2869,7 @@ export function Inputs({
             onChange={(v) => update("finance", "utilitiesMonthly", v)}
             suffix={`${config.project.currency}/month`}
           />
-          <Field
-            label="Bedding & sanitation"
-            value={config.finance.beddingMonthly}
-            onChange={(v) => update("finance", "beddingMonthly", v)}
-            suffix={`${config.project.currency}/month`}
-          />
+
           <Field
             label="Biosecurity"
             value={config.finance.biosecurityMonthly}
@@ -2818,104 +2949,29 @@ export function CashflowPreview({
       planValue: config.project.openingCash,
     },
     { key: "receipts-section", label: "Cash receipts", kind: "section" },
-    {
-      key: "pig-sales",
-      label: "Pig sales",
-      monthValue: (month) => month.totals["pig-sales"],
-      planValue: total((month) => month.totals["pig-sales"]),
-    },
-    {
-      key: "gilt-sales",
-      label: "Breeding gilt sales",
-      monthValue: (month) => month.totals["gilt-sales"],
-      planValue: total((month) => month.totals["gilt-sales"]),
-    },
-    {
-      key: "cull-sales",
-      label: "Cull sow sales",
-      monthValue: (month) => month.totals["cull-sales"],
-      planValue: total((month) => month.totals["cull-sales"]),
-    },
-    {
-      key: "other-income",
-      label: "Other income",
-      monthValue: (month) => month.totals["other-income"],
-      planValue: total((month) => month.totals["other-income"]),
-    },
+    { key: "receipts-section", label: "Cash receipts", kind: "section" },
+    // Generated from the ledger rather than listed by hand: a line added to the
+    // ledger is a line on the cash statement, and the two cannot drift apart.
+    ...INCOME_CATEGORIES.map((category) => ({
+      key: category,
+      label: CATEGORY_LABELS[category],
+      monthValue: (month: MonthlyProjection) => month.totals[category],
+      planValue: total((month) => month.totals[category]),
+    })),
     {
       key: "total-receipts",
       label: "Total receipts",
-      kind: "total",
-      monthValue: (month) => month.revenue,
+      kind: "total" as const,
+      monthValue: (month: MonthlyProjection) => month.revenue,
       planValue: projection.summary.totalRevenue,
     },
     { key: "payments-section", label: "Cash payments", kind: "section" },
-    {
-      key: "feed",
-      label: "Feed",
-      monthValue: (month) => month.totals.feed,
-      planValue: total((month) => month.totals.feed),
-    },
-    {
-      key: "feed-haulage",
-      label: "Feed delivery",
-      monthValue: (month) => month.totals["feed-haulage"],
-      planValue: total((month) => month.totals["feed-haulage"]),
-    },
-    {
-      key: "vaccination",
-      label: "Vaccination & treatment",
-      monthValue: (month) => month.totals.vaccination,
-      planValue: total((month) => month.totals.vaccination),
-    },
-    {
-      key: "veterinary",
-      label: "Routine veterinary",
-      monthValue: (month) => month.totals.veterinary,
-      planValue: total((month) => month.totals.veterinary),
-    },
-    {
-      key: "heating",
-      label: "Heating",
-      monthValue: (month) => month.totals.heating,
-      planValue: total((month) => month.totals.heating),
-    },
-    {
-      key: "labour",
-      label: "Labour",
-      monthValue: (month) => month.totals.labour,
-      planValue: total((month) => month.totals.labour),
-    },
-    {
-      key: "overheads",
-      label: "Fixed overheads",
-      monthValue: (month) => month.totals.overheads,
-      planValue: total((month) => month.totals.overheads),
-    },
-    {
-      key: "transport",
-      label: "Haulage to abattoir",
-      monthValue: (month) => month.totals.transport,
-      planValue: total((month) => month.totals.transport),
-    },
-    {
-      key: "breeding-stock",
-      label: "Bought-in breeding stock",
-      monthValue: (month) => month.totals["breeding-stock"],
-      planValue: total((month) => month.totals["breeding-stock"]),
-    },
-    {
-      key: "contingency",
-      label: "Contingency",
-      monthValue: (month) => month.totals.contingency,
-      planValue: total((month) => month.totals.contingency),
-    },
-    {
-      key: "capital",
-      label: "Capital expenditure",
-      monthValue: (month) => month.totals.capital,
-      planValue: total((month) => month.totals.capital),
-    },
+    ...EXPENSE_CATEGORIES.map((category) => ({
+      key: category,
+      label: CATEGORY_LABELS[category],
+      monthValue: (month: MonthlyProjection) => month.totals[category],
+      planValue: total((month) => month.totals[category]),
+    })),
     {
       key: "total-payments",
       label: "Total payments",

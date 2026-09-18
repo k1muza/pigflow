@@ -82,15 +82,11 @@ describe("comparison bands", () => {
     expect(result.projectionYears).toBe(2);
     expect(result.a.years).toHaveLength(2);
     expect(result.a.seeds).toHaveLength(1);
-    // Read off a run of the same length as the one the comparison itself made,
-    // not off a twelve month plan. Feed deliveries are planned against the
-    // horizon, so a twelve month plan and the first twelve months of a thirty
-    // six month one do not take the same number of loads in their first month,
-    // and comparing across the two measures that rather than the continuation.
-    const continued = structuredClone(a);
-    continued.project.months = 12 + 2 * 12;
+    // The continuation picks up exactly where the original plan closed. That
+    // this can be read off a twelve month run at all is the point: the months a
+    // plan shares with a longer one are identical in it, feed lorries included.
     expect(result.a.startingCash.median).toBeCloseTo(
-      calculateProjection(continued).months[11].closingCash,
+      calculateProjection(a).summary.closingCash,
       6,
     );
     expect(result.a.years[1].closingCash.median).not.toBe(

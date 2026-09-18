@@ -4,6 +4,9 @@ import { ESTRUS_CYCLE_DAYS, plannerSchema, type PlannerConfig } from "./config";
 import { growoutFeedConversion } from "./growth-curve";
 import {
   addTotals,
+  CATEGORY_LABELS,
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
   emptyTotals,
   expensesOf,
   Farm,
@@ -348,7 +351,17 @@ export function calculateProjection(input: PlannerConfig): ProjectionResult {
     months.reduce((total, month) => total + pick(month), 0);
 
   const totalCost = sum((month) => month.totalCost);
-  const totalFeedCost = sum((month) => month.totals.feed + month.totals["feed-haulage"]);
+  // Every store's goods plus the trips that brought them: what the farm spends
+  // to keep something in front of the animals.
+  const totalFeedCost = sum(
+    (month) =>
+      month.totals["feed-sow"] +
+      month.totals["feed-creep"] +
+      month.totals["feed-weaner"] +
+      month.totals["feed-grower"] +
+      month.totals["feed-finisher"] +
+      month.totals.deliveries,
+  );
   const operatingCostExcludingCapital = totalCost - sum((month) => month.totals.capital);
   const lowestCash = Math.min(
     config.project.openingCash,
@@ -567,22 +580,11 @@ export function projectionToCsv(result: ProjectionResult) {
     "Growers",
     "Finishers",
     "Stockpeople",
-    "Pig sales",
-    "Gilt sales",
-    "Cull sales",
-    "Other income",
-    "Feed",
-    "Feed delivery",
+    // Every ledger line, in the ledger order the values below are built in, so
+    // a line added to the ledger is a column here rather than a silent shift.
+    ...INCOME_CATEGORIES.map((category) => CATEGORY_LABELS[category]),
+    ...EXPENSE_CATEGORIES.map((category) => CATEGORY_LABELS[category]),
     "Feed loads",
-    "Vaccination",
-    "Veterinary",
-    "Heating",
-    "Labour",
-    "Fixed overheads",
-    "Haulage to abattoir",
-    "Bought-in breeding stock",
-    "Contingency",
-    "Capital",
     "Total cost",
     "Net cash flow",
     "Closing cash",
@@ -606,22 +608,9 @@ export function projectionToCsv(result: ProjectionResult) {
     row.growers,
     row.finishers,
     row.workers,
-    row.totals["pig-sales"],
-    row.totals["gilt-sales"],
-    row.totals["cull-sales"],
-    row.totals["other-income"],
-    row.totals.feed,
-    row.totals["feed-haulage"],
+    ...INCOME_CATEGORIES.map((category) => row.totals[category]),
+    ...EXPENSE_CATEGORIES.map((category) => row.totals[category]),
     row.feedLoads,
-    row.totals.vaccination,
-    row.totals.veterinary,
-    row.totals.heating,
-    row.totals.labour,
-    row.totals.overheads,
-    row.totals.transport,
-    row.totals["breeding-stock"],
-    row.totals.contingency,
-    row.totals.capital,
     row.totalCost,
     row.netCashFlow,
     row.closingCash,

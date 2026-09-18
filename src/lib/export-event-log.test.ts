@@ -94,6 +94,7 @@ describe("The simulator shows how the sows were served", () => {
     input.stock.sows = 60;
     input.stock.boars = 3;
     input.housing = {
+      ...input.housing,
       farrowingPlaces: 60,
       weanerPlaces: 400,
       growerPlaces: 400,

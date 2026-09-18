@@ -20,6 +20,21 @@ export const vaccinationSchema = z.object({
    * plan that plays it across every pig overstates the bill.
    */
   appliesTo: z.enum(["all", "males", "females"]).default("all"),
+  /**
+   * Doses to a pack, for the jobs that come in one. A vial is opened for the
+   * litter in front of you and what is left in it is thrown away, so a unit
+   * buying fifty-dose vials for litters of twelve pays for fifty. 1 means the
+   * job is bought by the dose and nothing is wasted.
+   */
+  dosesPerPack: z.number().int().min(1).max(500).default(1),
+  /**
+   * Days an opened pack keeps. What limits a vaccine is not how much of it will
+   * fit anywhere — it is the clock that starts when the vial is broached. Doses
+   * still in it when that runs out are thrown away and the next litter opens a
+   * fresh one. 0 means it does not expire, which is what a job bought by the
+   * dose needs.
+   */
+  openPackKeepsDays: z.number().int().min(0).max(365).default(0),
 });
 
 export type Vaccination = z.infer<typeof vaccinationSchema>;
@@ -120,6 +135,17 @@ export const plannerSchema = z.object({
     weanerPlaces: z.number().int().min(1).max(100_000),
     growerPlaces: z.number().int().min(1).max(100_000),
     finisherPlaces: z.number().int().min(1).max(100_000),
+    /**
+     * Bedding used per head per day. It was a flat monthly figure, which meant a
+     * twenty sow herd and a two hundred sow herd bedded down for the same money.
+     * It is per head because that is what it is: straw or shavings under the
+     * animals actually housed.
+     */
+    beddingKgPerHeadDay: z.number().min(0).max(10),
+    beddingCostPerKg: nonNegative,
+    /** What one load of bedding brings, and what the trip costs. */
+    beddingLoadKg: z.number().min(10).max(50_000),
+    beddingDeliveryCost: nonNegative,
   }),
   reproduction: z.object({
     gestationDays: z.number().min(110).max(122),
@@ -240,7 +266,22 @@ export const plannerSchema = z.object({
   health: z.object({
     vaccinations: z.array(vaccinationSchema).max(16),
     vetCostPerSowMonth: nonNegative,
-    heatingCostPerPigDay: nonNegative,
+    /**
+     * Gas a heated piglet burns in a day, and what the gas costs. This used to
+     * be one figure in money, which could not be delivered, stored or run out
+     * of. Splitting it lets the tanker be a real trip and the tank a real store,
+     * and lets a plan correct a usage rate and a gas price separately.
+     */
+    gasKgPerPigDay: z.number().min(0).max(2),
+    gasCostPerKg: nonNegative,
+    /**
+     * One canister, and how many the farm can hold. Gas is not a tank that can
+     * be topped up: it is bottles, and a second one has nowhere to go until the
+     * first is empty enough to make room. A delivery therefore waits for space
+     * rather than arriving the buffer early like feed does.
+     */
+    gasCanisterKg: z.number().min(1).max(500),
+    gasCanisters: z.number().int().min(1).max(20),
     heatedUntilAgeDays: z.number().min(0).max(120),
     /**
      * How a stage's mortality percentage is spread across that stage. The
@@ -265,7 +306,6 @@ export const plannerSchema = z.object({
     pigsPerWorker: z.number().min(20).max(5000),
     minimumWorkers: z.number().int().min(0).max(100),
     utilitiesMonthly: nonNegative,
-    beddingMonthly: nonNegative,
     biosecurityMonthly: nonNegative,
     otherFixedMonthly: nonNegative,
     otherIncomeMonthly: nonNegative,
@@ -352,15 +392,96 @@ export const BOAR_WEIGHT_KG = 250;
  * to cost them. A unit that does not is a row deleted, not a setting.
  */
 export const DEFAULT_VACCINATIONS: Vaccination[] = [
-  { id: "navel", name: "Navel dressing", ageDays: 0, costPerPig: 0.05, kind: "processing", appliesTo: "all" },
-  { id: "teeth", name: "Teeth reduction", ageDays: 1, costPerPig: 0.05, kind: "processing", appliesTo: "all" },
-  { id: "ident", name: "Identification", ageDays: 1, costPerPig: 0.12, kind: "processing", appliesTo: "all" },
-  { id: "iron", name: "Iron injection", ageDays: 3, costPerPig: 0.35, kind: "processing", appliesTo: "all" },
-  { id: "tail", name: "Tail docking", ageDays: 3, costPerPig: 0.06, kind: "processing", appliesTo: "all" },
-  { id: "castration", name: "Castration", ageDays: 5, costPerPig: 0.3, kind: "processing", appliesTo: "males" },
-  { id: "mycoplasma", name: "Mycoplasma", ageDays: 21, costPerPig: 1.1, kind: "vaccination", appliesTo: "all" },
-  { id: "circovirus", name: "PCV2 / circovirus", ageDays: 42, costPerPig: 1.4, kind: "vaccination", appliesTo: "all" },
-  { id: "deworm", name: "Deworming", ageDays: 70, costPerPig: 0.45, kind: "vaccination", appliesTo: "all" },
+  {
+    id: "navel",
+    name: "Navel dressing",
+    ageDays: 0,
+    costPerPig: 0.05,
+    kind: "processing",
+    appliesTo: "all",
+    dosesPerPack: 1,
+    openPackKeepsDays: 0,
+  },
+  {
+    id: "teeth",
+    name: "Teeth reduction",
+    ageDays: 1,
+    costPerPig: 0.05,
+    kind: "processing",
+    appliesTo: "all",
+    dosesPerPack: 1,
+    openPackKeepsDays: 0,
+  },
+  {
+    id: "ident",
+    name: "Identification",
+    ageDays: 1,
+    costPerPig: 0.12,
+    kind: "processing",
+    appliesTo: "all",
+    dosesPerPack: 1,
+    openPackKeepsDays: 0,
+  },
+  {
+    id: "iron",
+    name: "Iron injection",
+    ageDays: 3,
+    costPerPig: 0.35,
+    kind: "processing",
+    appliesTo: "all",
+    dosesPerPack: 1,
+    openPackKeepsDays: 0,
+  },
+  {
+    id: "tail",
+    name: "Tail docking",
+    ageDays: 3,
+    costPerPig: 0.06,
+    kind: "processing",
+    appliesTo: "all",
+    dosesPerPack: 1,
+    openPackKeepsDays: 0,
+  },
+  {
+    id: "castration",
+    name: "Castration",
+    ageDays: 5,
+    costPerPig: 0.3,
+    kind: "processing",
+    appliesTo: "males",
+    dosesPerPack: 1,
+    openPackKeepsDays: 0,
+  },
+  {
+    id: "mycoplasma",
+    name: "Mycoplasma",
+    ageDays: 21,
+    costPerPig: 1.1,
+    kind: "vaccination",
+    appliesTo: "all",
+    dosesPerPack: 50,
+    openPackKeepsDays: 28,
+  },
+  {
+    id: "circovirus",
+    name: "PCV2 / circovirus",
+    ageDays: 42,
+    costPerPig: 1.4,
+    kind: "vaccination",
+    appliesTo: "all",
+    dosesPerPack: 50,
+    openPackKeepsDays: 28,
+  },
+  {
+    id: "deworm",
+    name: "Deworming",
+    ageDays: 70,
+    costPerPig: 0.45,
+    kind: "vaccination",
+    appliesTo: "all",
+    dosesPerPack: 1,
+    openPackKeepsDays: 0,
+  },
 ];
 
 export const DEFAULT_CONFIG: PlannerConfig = {
@@ -405,6 +526,13 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weanerPlaces: 56,
     growerPlaces: 44,
     finisherPlaces: 111,
+    // 0.07 kg a head a day at 0.10 a kilogram comes to about the 50 a month this
+    // replaced, at the herd size the default plan carries — but it now moves
+    // with the herd instead of standing still.
+    beddingKgPerHeadDay: 0.07,
+    beddingCostPerKg: 0.1,
+    beddingLoadKg: 1_000,
+    beddingDeliveryCost: 40,
   },
   reproduction: {
     gestationDays: 115,
@@ -458,7 +586,12 @@ export const DEFAULT_CONFIG: PlannerConfig = {
   health: {
     vaccinations: DEFAULT_VACCINATIONS,
     vetCostPerSowMonth: 2.5,
-    heatingCostPerPigDay: 0.04,
+    // 0.035 kg of gas at 1.15 a kilogram is 0.040 a piglet a day, which is what
+    // the single heating figure this replaced was set to.
+    gasKgPerPigDay: 0.035,
+    gasCostPerKg: 1.15,
+    gasCanisterKg: 48,
+    gasCanisters: 2,
     heatedUntilAgeDays: 56,
     mortalityTiming: "profiled",
   },
@@ -471,7 +604,6 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     pigsPerWorker: 250,
     minimumWorkers: 1,
     utilitiesMonthly: 80,
-    beddingMonthly: 50,
     biosecurityMonthly: 50,
     otherFixedMonthly: 100,
     otherIncomeMonthly: 0,
@@ -486,14 +618,23 @@ export const DEFAULT_CONFIG: PlannerConfig = {
  * Carcass weight, which is what an abattoir pays for. Sale price is quoted per
  * kilogram deadweight, so a pig's liveweight is dressed out before it is priced.
  */
-export function deadweightKg(liveweightKg: number, config: PlannerConfig): number {
+export function deadweightKg(
+  liveweightKg: number,
+  config: PlannerConfig,
+): number {
   return liveweightKg * (config.finance.dressingPct / 100);
 }
 
 /** Stockpeople needed to run a herd of this many head, never fewer than the floor. */
-export function workersNeeded(totalHead: number, config: PlannerConfig): number {
+export function workersNeeded(
+  totalHead: number,
+  config: PlannerConfig,
+): number {
   const perWorker = Math.max(config.finance.pigsPerWorker, 1);
-  return Math.max(config.finance.minimumWorkers, Math.ceil(totalHead / perWorker));
+  return Math.max(
+    config.finance.minimumWorkers,
+    Math.ceil(totalHead / perWorker),
+  );
 }
 
 export function cloneDefaultConfig(): PlannerConfig {
@@ -507,11 +648,17 @@ export function cloneDefaultConfig(): PlannerConfig {
 export function withConfigDefaults(value: unknown): PlannerConfig | null {
   if (!value || typeof value !== "object") return null;
   const stored = value as Record<string, unknown>;
-  const merged = cloneDefaultConfig() as unknown as Record<string, Record<string, unknown>>;
+  const merged = cloneDefaultConfig() as unknown as Record<
+    string,
+    Record<string, unknown>
+  >;
   for (const section of Object.keys(merged)) {
     const storedSection = stored[section];
     if (storedSection && typeof storedSection === "object") {
-      merged[section] = { ...merged[section], ...(storedSection as Record<string, unknown>) };
+      merged[section] = {
+        ...merged[section],
+        ...(storedSection as Record<string, unknown>),
+      };
     }
   }
   // Older plans predate explicit housing inputs. Preserve the capacity they
@@ -519,10 +666,12 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
   // then store those values as ordinary user-editable places from here on.
   if (!("housing" in stored)) {
     const storedHerd = stored.herd as Record<string, unknown> | undefined;
-    const maxSows = typeof storedHerd?.maxSows === "number"
-      ? storedHerd.maxSows
-      : DEFAULT_CONFIG.herd.maxSows;
+    const maxSows =
+      typeof storedHerd?.maxSows === "number"
+        ? storedHerd.maxSows
+        : DEFAULT_CONFIG.herd.maxSows;
     merged.housing = {
+      ...DEFAULT_CONFIG.housing,
       farrowingPlaces: Math.max(1, Math.ceil(maxSows * 0.3)),
       weanerPlaces: Math.max(1, Math.ceil(maxSows * 2.8)),
       growerPlaces: Math.max(1, Math.ceil(maxSows * 2.16)),

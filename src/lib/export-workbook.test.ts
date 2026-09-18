@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildCashflowWorkbook } from "./export-workbook";
 import { calculateProjection, cloneDefaultConfig } from "./model";
+import { CATEGORY_LABELS, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "./sim";
 
 describe("Funding cashflow workbook", () => {
   it("exports an auditable lender-facing workbook", async () => {
@@ -22,13 +23,39 @@ describe("Funding cashflow workbook", () => {
     const cashFlow = workbook.getWorksheet("Cash Flow")!;
     expect(cashFlow.getCell("B4").value).toBe(config.project.openingCash);
     expect(cashFlow.getCell("B7").value).toBe(projection.months[0].totals["pig-sales"]);
-    // Rows are counted off the line lists, so the totals move with them: four
-    // receipt lines and twelve payment lines put total receipts on 11, total
-    // payments on 26, net cash flow on 28 and the closing balance on 29.
-    expect(cashFlow.getCell("A15").value).toBe("  Feed delivery");
-    expect(cashFlow.getCell("B15").value).toBe(projection.months[0].totals["feed-haulage"]);
-    expect(cashFlow.getCell("B28").formula).toBe("B11-B26");
-    expect(cashFlow.getCell("B29").result).toBeCloseTo(projection.months[0].closingCash, 6);
+    // Rows are found by their label rather than counted, because the cash lines
+    // come from the ledger: adding one moves every row below it, and a test that
+    // counted would have to be re-counted every time rather than re-run.
+    const rowOf = (label: string) => {
+      for (let row = 1; row <= cashFlow.rowCount; row += 1) {
+        if (String(cashFlow.getCell(`A${row}`).value ?? "").trim() === label) return row;
+      }
+      throw new Error(`no row labelled ${label}`);
+    };
+    const receiptsTotalRow = rowOf("Total receipts");
+    const paymentsTotalRow = rowOf("Total payments");
+    const netRow = rowOf("Net cash flow");
+    const closingRow = rowOf("Closing cash balance");
+    const deliveriesRow = rowOf("Deliveries to the farm");
+
+    // Every ledger line has a row of its own, receipts above payments.
+    for (const category of INCOME_CATEGORIES) expect(rowOf(CATEGORY_LABELS[category])).toBeLessThan(receiptsTotalRow);
+    for (const category of EXPENSE_CATEGORIES) {
+      const row = rowOf(CATEGORY_LABELS[category]);
+      expect(row).toBeGreaterThan(receiptsTotalRow);
+      expect(row).toBeLessThan(paymentsTotalRow);
+    }
+    expect(cashFlow.getCell(`A${deliveriesRow}`).value).toBe("  Deliveries to the farm");
+    expect(cashFlow.getCell(`B${deliveriesRow}`).value).toBe(
+      projection.months[0].totals.deliveries,
+    );
+    expect(cashFlow.getCell(`B${netRow}`).formula).toBe(
+      `B${receiptsTotalRow}-B${paymentsTotalRow}`,
+    );
+    expect(cashFlow.getCell(`B${closingRow}`).result).toBeCloseTo(
+      projection.months[0].closingCash,
+      6,
+    );
 
     // The month headings are read back as the months the plan actually covers.
     // ExcelJS serialises a Date off its UTC epoch, so building these cells at

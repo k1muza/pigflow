@@ -7,7 +7,7 @@ import {
   withConfigDefaults,
   type PlannerConfig,
 } from "./model";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, runFarm } from "./sim";
+import { feedOf, EXPENSE_CATEGORIES, INCOME_CATEGORIES, runFarm } from "./sim";
 
 function config(): PlannerConfig {
   return cloneDefaultConfig();
@@ -181,7 +181,7 @@ describe("Zooming in and out", () => {
     const spend = EXPENSE_CATEGORIES.reduce((sum, key) => sum + month.totals[key], 0);
     expect(income).toBeGreaterThan(0);
     expect(spend).toBeGreaterThan(0);
-    expect(month.totals.feed).toBeGreaterThan(0);
+    expect(feedOf(month.totals)).toBeGreaterThan(0);
     expect(month.totals.overheads).toBeGreaterThan(0);
     expect(month.netCashFlow).toBeCloseTo(income - spend, 6);
   });
@@ -237,7 +237,10 @@ describe("Plans saved before a field existed still load", () => {
     expect(restored).not.toBeNull();
     expect(restored!.finance.workingCapitalTarget).toBe(0);
     expect(restored!.feed.truckCapacityKg).toBe(2_500);
+    // The places are scaled off the old planning ratios; everything else the
+    // section has gained since is filled in from the defaults.
     expect(restored!.housing).toEqual({
+      ...cloneDefaultConfig().housing,
       farrowingPlaces: 9,
       weanerPlaces: 84,
       growerPlaces: 65,

@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, getModelMetrics } from "./model";
-import { runFarm } from "./sim";
+import { feedOf, runFarm } from "./sim";
 
 /*
  * These are independent reality guardrails, not restatements of PigFlow's inputs.
@@ -47,7 +47,7 @@ type CohortResults = {
 
 let cohort: CohortResults;
 
-beforeAll(() => {
+beforeAll(async () => {
   let sowYears = 0;
   let litters = 0;
   let bornAlive = 0;
@@ -73,6 +73,13 @@ beforeAll(() => {
     growingDeaths += farm.lifetime.growingDeaths;
     sold += farm.lifetime.sold;
     soldLiveweightKg += farm.lifetime.soldLiveweightKg;
+
+    // Come up for air. Twenty-four five-year farms in one unbroken synchronous
+    // run hold this worker's event loop for half a minute, which starves the
+    // channel vitest reports on and fails the whole file with a timeout that
+    // has nothing to do with what is being measured. Yielding every few seeds
+    // costs nothing and changes no result.
+    if (seed % 4 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   cohort = {
@@ -83,7 +90,7 @@ beforeAll(() => {
     postWeanMortality: growingDeaths / weaned,
     averageSaleWeightKg: soldLiveweightKg / sold,
   };
-}, 30_000);
+}, 120_000);
 
 describe("Published commercial-production guardrails", () => {
   it("produces a credible annual reproductive rhythm across many random seeds", () => {
@@ -145,7 +152,10 @@ describe("Economic reality relationships", () => {
 
     expect(expensiveFarm.lifetime.bornAlive).toBe(baseFarm.lifetime.bornAlive);
     expect(expensiveFarm.lifetime.sold).toBe(baseFarm.lifetime.sold);
-    expect(expensiveFarm.ledger.totals.feed).toBeCloseTo(baseFarm.ledger.totals.feed * 1.2, 6);
+    expect(feedOf(expensiveFarm.ledger.totals)).toBeCloseTo(
+      feedOf(baseFarm.ledger.totals) * 1.2,
+      6,
+    );
     expect(expensiveFarm.state().finance.cash).toBeLessThan(baseFarm.state().finance.cash);
   });
 

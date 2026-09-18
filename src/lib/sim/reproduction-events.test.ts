@@ -176,7 +176,8 @@ describe("Piglets are processed, and the plan is charged for it", () => {
       }),
     );
 
-    const bill = (farm: typeof malesOnly) => farm.ledger.totals["vaccination"];
+    // Castration is processing, not a vaccination: they are separate lines now.
+    const bill = (farm: typeof malesOnly) => farm.ledger.totals["processing"];
     expect(bill(everyPig)).toBeGreaterThan(bill(malesOnly));
   });
 

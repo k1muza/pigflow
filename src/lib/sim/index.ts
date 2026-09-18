@@ -197,12 +197,9 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   // many times it came.
   if (days.length === 1) {
     for (const load of days[0].feedDeliveries) {
-      const order = load.lines
-        .map((line) => `${RATION_NAMES[line.ration]} ${grouped(line.kg)} kg`)
-        .join(" · ");
       push({
         type: "feed",
-        label: `Feed lorry in, ${grouped(load.loadKg)} kg — ${order}`,
+        label: `${RATION_NAMES[load.ration]} feed lorry in, ${grouped(load.loadKg)} kg`,
         count: 1,
       });
     }
