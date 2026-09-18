@@ -47,9 +47,14 @@ export type Claim = {
    */
   maxKg: number;
   /**
-   * Indivisible unit, 0 where the goods are tipped loose by the kilogram. A gas
-   * bottle is a bottle and a bale is a bale: a part-filled one takes the same
-   * corner of the deck and the same corner of the yard as a full one.
+   * What these goods come in. Nothing on a farm is bought by the kilogram: feed
+   * comes in bags, gas as whole canister fillings, bedding by the load. An order
+   * is a whole number of them, rounded up to cover what is needed and then held
+   * to what the deck and the store can actually take — so a bin with room for
+   * four fifths of a bag has room for none, and a yard whose only empty canister
+   * is already ordered cannot take a second filling.
+   *
+   * 0 is the exception: goods delivered loose, where a kilogram is the unit.
    */
   unitKg: number;
 };

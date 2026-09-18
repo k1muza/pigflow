@@ -85,7 +85,14 @@ describe("The cash book reaches the projection the product reads", () => {
     // different month from the one it was eaten in, so over a finite horizon the
     // two totals cannot match — and the gap is the stock and the debt behind it.
     expect(feedPaid).not.toBeCloseTo(feedConsumed, 2);
-    expect(projection.months.at(-1)!.payables).toBeGreaterThan(0);
+
+    // And the farm carries the supplier through the plan. Which months show a
+    // balance is a matter of when the lorries happened to fall — a month that
+    // took no delivery in its last thirty days owes nothing on the last day of
+    // it — so what is asserted is that the debt is there and real, not that it
+    // lands on any particular month end.
+    const owing = projection.months.filter((month) => month.payables > 0);
+    expect(owing.length).toBeGreaterThan(projection.months.length / 2);
 
     // The profit and loss is the thing a margin is read off, so it must keep
     // reading the accrual side.

@@ -120,6 +120,71 @@ describe("A lorry goes out for something, and comes back full", () => {
     expect(kgOf(cramped.lines, "gas")).toBe(0);
   });
 
+  it("buys feed by the bag, and fills what is left of the deck with whole ones", () => {
+    const BAG = 50;
+    const [load] = planLoads(
+      [
+        // 380 kg wanted is eight bags, not seven and a half.
+        claim("weaner", { coverDays: 2, due: true, needKg: 380, maxKg: 400, unitKg: BAG }),
+        claim("gas", { coverDays: 4, maxKg: BOTTLE, unitKg: BOTTLE }),
+        claim("sow", { coverDays: 11, maxKg: 6_000, unitKg: BAG }),
+      ],
+      DECK,
+    );
+    expect(kgOf(load.lines, "weaner")).toBe(400);
+    expect(kgOf(load.lines, "gas")).toBe(BOTTLE);
+
+    // Everything on the deck is a whole bag or a whole filling, so with a bottle
+    // aboard the last 2 kg of the lorry go empty: 2,352 kg is 47 bags and a bit,
+    // and the bit does not come in a bag.
+    expect(kgOf(load.lines, "sow")).toBe(2_350);
+    expect(load.payloadKg).toBe(400 + BOTTLE + 2_350);
+    expect(load.payloadKg).toBeLessThan(DECK);
+    for (const line of load.lines) {
+      expect(line.kg % (line.store === "gas" ? BOTTLE : BAG)).toBe(0);
+    }
+  });
+
+  it("leaves a bin alone when it has not room for a whole bag", () => {
+    const [load] = planLoads(
+      [
+        claim("sow", { coverDays: 1, due: true, needKg: 200, maxKg: 6_000, unitKg: 50 }),
+        // 40 kg of room is no room at all when feed comes in fifties.
+        claim("creep", { coverDays: 3, maxKg: 40, unitKg: 50 }),
+      ],
+      DECK,
+    );
+    expect(kgOf(load.lines, "creep")).toBe(0);
+  });
+
+  it("buys gas as whole canister fillings, as many as the yard has room for", () => {
+    // Four canisters, two of them empty, and a fortnight's gas wanted: the farm
+    // buys the two fillings it has somewhere to put and no more.
+    const [load] = planLoads(
+      [
+        claim("gas", {
+          coverDays: 1,
+          due: true,
+          needKg: 300,
+          maxKg: 2 * BOTTLE,
+          unitKg: BOTTLE,
+        }),
+      ],
+      DECK,
+    );
+    expect(kgOf(load.lines, "gas")).toBe(2 * BOTTLE);
+  });
+
+  it("tips feed in by the kilogram when it comes loose", () => {
+    // A unit of 0 is bulk feed blown into the bin, and then the deck really can
+    // be filled to the last kilogram.
+    const [load] = planLoads(
+      [claim("sow", { coverDays: 1, due: true, needKg: 900, maxKg: 6_000, unitKg: 0 })],
+      DECK,
+    );
+    expect(load.payloadKg).toBeCloseTo(DECK, 6);
+  });
+
   it("orders the queue by time of use and not by how much is wanted", () => {
     // Two stores, one deck, and not enough of it. The one that runs out on
     // Tuesday is loaded ahead of the one that wants ten times as much on Friday.

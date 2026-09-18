@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
-import { FEED_RATIONS } from "./animals";
+import { FEED_RATIONS, type FeedRation } from "./animals";
 import { feedOf, runFarm } from "./index";
 import type { Farm } from "./farm";
 
@@ -42,6 +42,29 @@ describe("Every consumable is its own store", () => {
         totals["feed-finisher"],
       6,
     );
+  });
+
+  it("buys feed by the bag, however many bags ride on one lorry", () => {
+    const bag = input.feed.feedBagKg;
+    expect(bag).toBe(50);
+
+    const lines = farm.haulage.trips.flatMap((trip) =>
+      trip.lines.filter((line) => FEED_RATIONS.includes(line.store as FeedRation)),
+    );
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      // No half bags, ever — not on the first load and not on the last.
+      expect(line.kg / bag).toBeCloseTo(Math.round(line.kg / bag), 9);
+      expect(line.kg).toBeGreaterThan(0);
+    }
+
+    // Bulk feed, blown into the bin, is the one case where a kilogram is the
+    // unit — and then the deck can be filled to the last of it.
+    const bulk = runFarm(plan((c) => (c.feed.feedBagKg = 0)));
+    const full = bulk.haulage.trips.filter(
+      (trip) => trip.kind === "supplies" && trip.payloadKg > input.feed.truckCapacityKg - 1,
+    );
+    expect(full.length).toBeGreaterThan(0);
   });
 
   it("keeps each ration's store to itself, and never lets one run dry", () => {

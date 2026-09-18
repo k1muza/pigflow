@@ -323,10 +323,19 @@ export const plannerSchema = z.object({
     growerFeedCostKg: nonNegative,
     finisherFeedCostKg: nonNegative,
     /**
+     * What a bag of feed holds. Feed is bought by the bag and not by the
+     * kilogram, so an order is a whole number of them and a bin with room for
+     * three quarters of a bag has room for none. 0 is feed delivered loose and
+     * blown into the bin, which is how a unit big enough to take bulk buys it.
+     */
+    feedBagKg: z.number().min(0).max(1_000).default(50),
+    /**
      * What the lorry will carry. There is no weight held back on it for the
      * sundries any more: gas queues for space against the feed on the same
      * terms, by how soon the farm runs out of it, so it cannot be crowded off a
-     * deck by an order that was merely larger.
+     * deck by an order that was merely larger. Nor is there any held back for
+     * the vet's box — vaccines and medicines weigh nothing worth hauling and
+     * are costed by the dose rather than carried as a store.
      */
     truckCapacityKg: z.number().min(100).max(30_000),
     deliveryCostPerTrip: nonNegative,
@@ -703,9 +712,10 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weanerFeedCostKg: 0.68,
     growerFeedCostKg: 0.56,
     finisherFeedCostKg: 0.52,
-    // The lorry carries 2.8 tonnes and all of it is loadable. Nothing is held
-    // back for the gas any more: it queues for space against the feed on how
-    // soon the farm runs out of it, which is the same rule the feed queues on.
+    feedBagKg: 50,
+    // The lorry carries 2.8 tonnes, and all of it is loadable: 56 bags of feed,
+    // or 55 and a gas bottle. Nothing is held back for sundries because there
+    // are none worth the weight — the vet's box does not need a corner of a deck.
     truckCapacityKg: 2_800,
     deliveryCostPerTrip: 60,
     feedBufferDays: 7,

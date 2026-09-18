@@ -92,9 +92,19 @@ function capacities(config: PlannerConfig): Record<StoreId, number> {
   return stores;
 }
 
-/** What each store's goods come in. Feed is tipped loose; the rest is not. */
+/**
+ * What each store's goods come in, because none of them come by the kilogram.
+ * Feed is bagged, gas is bought as whole canister fillings, bedding comes by the
+ * load. An order is a whole number of whichever it is, and a store with room for
+ * four fifths of one has room for none of it.
+ *
+ * A bag size of 0 is feed delivered loose and blown into the bin, which is the
+ * one case where a kilogram really is the unit.
+ */
 function units(config: PlannerConfig, deck: number): Record<StoreId, number> {
   const stores = zeroStores();
+  const bag = config.feed.feedBagKg > 0 ? Math.min(config.feed.feedBagKg, deck) : 0;
+  for (const ration of FEED_RATIONS) stores[ration] = bag;
   stores.gas = Math.min(Math.max(config.health.gasCanisterKg, 1), deck);
   stores.bedding = Math.min(Math.max(config.housing.beddingLoadKg, 1), deck);
   return stores;

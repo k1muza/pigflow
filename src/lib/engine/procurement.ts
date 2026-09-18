@@ -380,14 +380,16 @@ export class Supplies {
   }
 
   /**
-   * What a store's goods come in. A gas bottle is a bottle and a bedding load is
-   * a load, and a part-filled one takes the same corner of the deck and the same
-   * corner of the yard as a full one. Feed is tipped loose by the kilogram.
+   * What a store's goods come in. Feed comes in bags, gas as whole canister
+   * fillings, bedding by the load — and a part-used one of any of them takes the
+   * same corner of the deck and the same corner of the store as a full one. A
+   * bag size of 0 is feed blown into the bin loose, and only then is a kilogram
+   * really the unit.
    */
   private unitOf(store: StoreId): number {
     if (store === "gas") return Math.max(this.config.health.gasCanisterKg, 1);
     if (store === "bedding") return Math.max(this.config.housing.beddingLoadKg, 1);
-    return 0;
+    return Math.max(this.config.feed.feedBagKg, 0);
   }
 
   /**

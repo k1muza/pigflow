@@ -2628,6 +2628,16 @@ export function FarmInputs({
             hint="Everything the lorry can carry on one journey, feed and gas together. No weight is held back: the bottles queue for space against the feed on how soon the farm runs out of them."
           />
           <Field
+            label="Feed bag"
+            value={config.feed.feedBagKg}
+            onChange={(v) => update("feed", "feedBagKg", v)}
+            suffix="kg a bag"
+            min={0}
+            max={1000}
+            step={5}
+            hint={`Feed is bought by the bag, so an order is a whole number of them and a full deck is ${Math.floor(config.feed.truckCapacityKg / Math.max(config.feed.feedBagKg, 1))} bags. Set it to 0 for bulk feed blown into the bin loose.`}
+          />
+          <Field
             label="Bin capacity"
             value={config.feed.binCapacityKg}
             onChange={(v) => update("feed", "binCapacityKg", v)}
