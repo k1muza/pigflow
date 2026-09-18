@@ -70,11 +70,10 @@ import {
   planCashInjections,
   planCashWithdrawals,
 } from "@/lib/funding";
+import { planStateAt, planTimeline } from "@/lib/plan";
 import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
-  farmStateAt,
-  farmTimeline,
   INCOME_CATEGORIES,
   type CategoryTotals,
   type FarmCalendarDay,
@@ -1101,7 +1100,7 @@ export function Simulator({ config }: { config: PlannerConfig }) {
   const lastDay = subDays(end, 1);
   const currency = config.project.currency;
 
-  const timeline = useMemo(() => farmTimeline(config), [config]);
+  const timeline = useMemo(() => planTimeline(config), [config]);
   const [view, setView] = useState<TimelineView>("calendar");
   const [picked, setPicked] = useState(() => config.project.startDate);
   const [yearIndex, setYearIndex] = useState(0);
@@ -1142,7 +1141,7 @@ export function Simulator({ config }: { config: PlannerConfig }) {
     return picked;
   }, [picked, start, lastDay]);
 
-  const state = useMemo(() => farmStateAt(config, `${selected}T23:00`), [config, selected]);
+  const state = useMemo(() => planStateAt(config, `${selected}T23:00`), [config, selected]);
   const byDate = useMemo(
     () => new Map(timeline.days.map((day) => [day.date, day])),
     [timeline],
@@ -1956,6 +1955,20 @@ export function FarmInputs({
               config.project.variation === "settled"
                 ? "Nothing is drawn. A rate that does not come to a whole animal carries its remainder to the next one until it does, so a herd at 12.4 born alive farrows 12, 12, 13, 12, 13. The plan has one answer, and two plans can be read off side by side."
                 : "Litter size, conception, gestation and growth are drawn from the seed, so this is one plausible farm rather than the average of many. Two plans compared on one seed can differ by luck as much as by what you changed."
+            }
+          />
+          <SelectField
+            label="Simulation engine"
+            value={config.project.engine}
+            onChange={(v) => update("project", "engine", v)}
+            options={[
+              { value: "1.x", label: "1.x — the established model" },
+              { value: "2.0", label: "2.0 — housing, stores and heats simulated" },
+            ]}
+            hint={
+              config.project.engine === "2.0"
+                ? "Places are a constraint rather than a note: a pen with nowhere to go stays where it is, a store can run dry, a heat can be missed, and feed bought on terms is owed for. Every page reads the same run — the cashflow, the simulator, the timeline and the exported log."
+                : "One daily procedure, every input a rate, housing and stores reported rather than simulated. This is the model the product has always run on and what a 2.0 plan is read against."
             }
           />
           <Field

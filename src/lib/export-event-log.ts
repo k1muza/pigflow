@@ -1,5 +1,6 @@
 import type { PlannerConfig } from "./config";
-import { farmEventLog, type FarmEvent } from "./sim";
+import { planEventLog } from "./plan";
+import { type FarmEvent } from "./sim";
 
 /** A short word for each kind of line, so the log can be filtered on one column. */
 const EVENT_LABELS: Record<FarmEvent["type"], string> = {
@@ -42,7 +43,7 @@ function field(value: string | number): string {
 export function buildEventLogCsv(config: PlannerConfig): string {
   const rows = [
     ["Day", "Date", "Type", "Event"],
-    ...farmEventLog(config).map((event) => [
+    ...planEventLog(config).map((event) => [
       event.day,
       event.date,
       EVENT_LABELS[event.type],

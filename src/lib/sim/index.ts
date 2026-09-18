@@ -306,8 +306,26 @@ export type FarmTimeline = {
 export function farmTimeline(config: PlannerConfig): FarmTimeline {
   const farm = new Farm(config);
   farm.advanceTo(horizonDay(config));
+  return timelineOf(config, farm.history, (date) => farm.dayOf(date));
+}
 
-  const days: FarmCalendarDay[] = farm.history.map((record) => ({
+/**
+ * The same timeline, built off a daily record rather than off a farm.
+ *
+ * The 2.0 engine writes a superset of the 1.x day, so the calendar, the month
+ * roll-up and every sentence in a day's panel come out of this one function for
+ * either engine. Reading a plan is not something an engine should have an
+ * opinion about: two implementations of this would differ on the small things —
+ * which day a month ends on, whether a lorry is listed or counted — and a person
+ * comparing the two would be reading the difference between two read-outs rather
+ * than between two farms.
+ */
+export function timelineOf(
+  config: PlannerConfig,
+  history: readonly DayRecord[],
+  dayOf: (date: Date) => number,
+): FarmTimeline {
+  const days: FarmCalendarDay[] = history.map((record) => ({
     day: record.day,
     date: record.date,
     total: record.counts.total,
@@ -327,9 +345,9 @@ export function farmTimeline(config: PlannerConfig): FarmTimeline {
   const months: FarmCalendarMonth[] = [];
   for (let index = 0; index < config.project.months; index += 1) {
     const monthStart = addMonths(start, index);
-    const firstDay = farm.dayOf(monthStart);
-    const lastDay = farm.dayOf(addMonths(start, index + 1)) - 1;
-    const records = farm.history.filter((day) => day.day >= firstDay && day.day <= lastDay);
+    const firstDay = dayOf(monthStart);
+    const lastDay = dayOf(addMonths(start, index + 1)) - 1;
+    const records = history.filter((day) => day.day >= firstDay && day.day <= lastDay);
     if (records.length === 0) continue;
     const sum = (pick: (day: DayRecord) => number) =>
       records.reduce((total, day) => total + pick(day), 0);

@@ -43,6 +43,7 @@ import {
 } from "./haulage";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
 import { MortalityScheduler } from "./mortality";
+import { sowRosterOf, stockRosterOf } from "./roster";
 import { variationFor, type Variation } from "./variation";
 
 export type FarmEventType =
@@ -289,16 +290,6 @@ export type FarmState = {
   sows: SowRow[];
   recentEvents: FarmEvent[];
 };
-
-const STOCK_ORDER: StockKind[] = [
-  "sow",
-  "gilt",
-  "boar",
-  "piglet",
-  "weaner",
-  "grower",
-  "finisher",
-];
 
 const MAX_EVENTS = 400;
 const LITTER_SIZE_DEVIATION = 2.6;
@@ -2250,91 +2241,10 @@ export class Farm {
 
   /** Every live animal, sorted into a stable roster for point-in-time inspection. */
   stockRoster(): StockRow[] {
-    const day = Math.max(this.day, 0);
-    const rows: StockRow[] = [];
-
-    for (const sow of this.sows) {
-      if (!sow.alive) continue;
-      rows.push({
-        tag: sow.tag,
-        kind: "sow",
-        sex: sow.sex,
-        ageDays: sow.ageDays(day),
-        ageMonths: sow.ageMonths(day),
-        weightKg: sow.weightKg,
-        generation: sow.generation,
-        status:
-          sow.state === "gestating"
-            ? "In pig"
-            : sow.state === "lactating"
-              ? "Suckling"
-              : "Awaiting service",
-      });
-    }
-
-    for (const boar of this.boars) {
-      if (!boar.alive) continue;
-      rows.push({
-        tag: boar.tag,
-        kind: "boar",
-        sex: boar.sex,
-        ageDays: boar.ageDays(day),
-        ageMonths: boar.ageMonths(day),
-        weightKg: boar.weightKg,
-        generation: boar.generation,
-        status: "Working boar",
-      });
-    }
-
-    for (const pig of this.pigs) {
-      if (!pig.alive) continue;
-      rows.push({
-        tag: pig.tag,
-        kind: pig.stage,
-        sex: pig.sex,
-        ageDays: pig.ageDays(day),
-        ageMonths: pig.ageMonths(day),
-        weightKg: pig.weightKg,
-        generation: pig.generation,
-        status: pig.destination === "breeding" ? "Replacement" : "Market",
-      });
-    }
-
-    return rows.sort(
-      (a, b) =>
-        STOCK_ORDER.indexOf(a.kind) - STOCK_ORDER.indexOf(b.kind) ||
-        b.ageDays - a.ageDays ||
-        a.tag.localeCompare(b.tag),
-    );
+    return stockRosterOf(this.sows, this.boars, this.pigs, this.day);
   }
 
   private sowRoster(): SowRow[] {
-    const day = Math.max(this.day, 0);
-    return this.sows
-      .filter((sow) => sow.alive)
-      .map((sow) => {
-        const target =
-          sow.state === "gestating"
-            ? sow.dueDay
-            : sow.state === "lactating"
-              ? sow.weanDay
-              : sow.nextServiceDay;
-        return {
-          tag: sow.tag,
-          state: sow.state,
-          parity: sow.parity,
-          ageMonths: sow.ageMonths(day),
-          weightKg: sow.weightKg,
-          generation: sow.generation,
-          homeBred: sow.homeBred,
-          litterSize: sow.litter.filter((piglet) => piglet.alive).length,
-          totalWeaned: sow.totalWeaned,
-          lifetimeCost: sow.costs.total,
-          nextEvent:
-            sow.state === "gestating" ? "Farrows" : sow.state === "lactating" ? "Weans" : "Served",
-          daysToNextEvent: target === null ? null : Math.max(0, target - day),
-        };
-      })
-      .sort((a, b) => (a.daysToNextEvent ?? 0) - (b.daysToNextEvent ?? 0));
+    return sowRosterOf(this.sows, this.day);
   }
 }
