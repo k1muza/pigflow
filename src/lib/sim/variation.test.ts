@@ -75,23 +75,87 @@ describe("Settled: the rates come back exactly, carried to whole animals", () =>
 });
 
 describe("Chance: the plan still rolls for its year", () => {
+  /** Twenty sows farrowing on twenty days, which is what a draw is keyed to. */
+  const litters = (seed: number) => {
+    const chance = new ChanceVariation(seed, DEVIATIONS);
+    return Array.from({ length: 20 }, (_, i) => chance.litterSize(12.4, ["S" + i, 100 + i]));
+  };
+
   it("varies with the seed and repeats on the same one", () => {
-    const first = Array.from({ length: 20 }, () =>
-      new ChanceVariation(7, DEVIATIONS).litterSize(12.4),
-    );
-    const again = Array.from({ length: 20 }, () =>
-      new ChanceVariation(7, DEVIATIONS).litterSize(12.4),
-    );
-    expect(again).toEqual(first);
-    const other = Array.from({ length: 20 }, () =>
-      new ChanceVariation(8, DEVIATIONS).litterSize(12.4),
-    );
-    expect(other).not.toEqual(first);
+    expect(litters(7)).toEqual(litters(7));
+    expect(litters(8)).not.toEqual(litters(7));
+    // And it is a spread rather than one number handed out twenty times.
+    expect(new Set(litters(7)).size).toBeGreaterThan(3);
+  });
+
+  it("gives a sow the same figure whatever else the farm did that day", () => {
+    // The point of keying. Under a shared stream a draw's value depended on how
+    // many times everything else had called first, so adding a rule anywhere
+    // moved every outcome after it. Here the answer to "did S7 hold on day 90"
+    // is the same question asked in any order, or twice, or on its own.
+    const chance = new ChanceVariation(3, DEVIATIONS);
+    const alone = chance.conceives(0.85, ["S7", 90]);
+
+    const busy = new ChanceVariation(3, DEVIATIONS);
+    for (let i = 0; i < 500; i += 1) {
+      busy.heatSpotted(0.9, ["S" + i, 90]);
+      busy.sex(["P" + i]);
+      busy.gestationDays(115, ["S" + i, 90]);
+    }
+    expect(busy.conceives(0.85, ["S7", 90])).toBe(alone);
+    // Asking twice is asking the same thing, not taking the next value.
+    expect(busy.conceives(0.85, ["S7", 90])).toBe(alone);
+  });
+
+  it("keeps one sow's occasions apart, and two questions about one occasion", () => {
+    const chance = new ChanceVariation(11, DEVIATIONS);
+    // The same sow served on forty different days is forty different services,
+    // not one answer repeated.
+    const days = Array.from({ length: 40 }, (_, d) => chance.gestationDays(115, ["S1", d]));
+    expect(new Set(days.map((n) => n.toFixed(6))).size).toBeGreaterThan(30);
+
+    // And two different questions keyed the same way must not share an answer,
+    // which is what each method's own label is for.
+    const tags = Array.from({ length: 60 }, (_, i) => "S" + i);
+    const held = tags.map((tag) => chance.conceives(0.5, [tag, 10]));
+    const spotted = tags.map((tag) => chance.heatSpotted(0.5, [tag, 10]));
+    expect(spotted).not.toEqual(held);
   });
 
   it("is what variationFor builds for a plan that asks for it", () => {
     expect(variationFor("chance", 1, DEVIATIONS).settled).toBe(false);
     expect(variationFor("settled", 1, DEVIATIONS).settled).toBe(true);
+  });
+
+  it("keeps a cost change to the money, and off the herd", () => {
+    // A guard rather than the proof. The proof that keying fixed something is
+    // the generator test above, which a shared stream fails outright: 500
+    // intervening draws moved a sow's answer.
+    //
+    // This one would have passed before too, because changing a price takes no
+    // draw and so could not shift a stream either. It is here for what comes
+    // next: the moment a cost path starts drawing — a delivery that sometimes
+    // arrives late, a vet visit that sometimes finds something — this is the
+    // test that says so, instead of the herd quietly changing under a price.
+    //
+    // Bedding is a cost and nothing else: it is not fed to anything, it kills
+    // nothing, and no animal's life turns on what it costs.
+    const dear = plan("chance", 4, (c) => (c.housing.beddingCostPerKg = 2));
+    const cheap = plan("chance", 4, (c) => (c.housing.beddingCostPerKg = 1));
+
+    const dearer = runFarm(dear);
+    const cheaper = runFarm(cheap);
+
+    expect(dearer.ledger.totals.bedding).toBeGreaterThan(cheaper.ledger.totals.bedding);
+    // Same pigs, same sexes, same days, down to the animal.
+    expect(dearer.lifetime.sold).toBe(cheaper.lifetime.sold);
+    expect(dearer.lifetime.bornAlive).toBe(cheaper.lifetime.bornAlive);
+    expect(dearer.lifetime.litters).toBe(cheaper.lifetime.litters);
+    expect(dearer.lifetime.weaned).toBe(cheaper.lifetime.weaned);
+    expect(dearer.lifetime.bornAlive).toBeGreaterThan(0);
+    expect(dearer.history.map((day) => day.counts.total)).toEqual(
+      cheaper.history.map((day) => day.counts.total),
+    );
   });
 });
 

@@ -1,5 +1,6 @@
 import type { PlannerConfig } from "../config";
 import type { GrowingPig, PigStage } from "./animals";
+import { hashUnit } from "./rng";
 
 /**
  * Mortality, booked in advance rather than rolled every morning.
@@ -73,28 +74,12 @@ const SETTLED_KEY = 0;
 /** Rounding slack, so 0.9999999 deaths owed counts as the one it plainly is. */
 const FLOAT_SLACK = 1e-9;
 
-/** Separator for hash keys: no tag, stage name or day number contains it. */
-const KEY_SEPARATOR = "|";
-
 /**
- * A stable number in [0, 1) for a set of keys — the whole of what makes this
- * deterministic. It replaces a draw off a shared stream, whose value depends on
- * how many times everything else happened to have called it first. A pig's
- * number is its own, so it does not move when the herd around it does.
+ * The keyed draw these rules are built on now lives in {@link ./rng}, where the
+ * reproduction draws reach it too. Re-exported because the mortality tests and
+ * the frailty helpers below read as one module with it.
  */
-export function hashUnit(...keys: (string | number)[]): number {
-  const text = keys.join(KEY_SEPARATOR);
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  // A finishing round, so neighbouring tags do not land next to one another.
-  hash ^= hash >>> 13;
-  hash = Math.imul(hash, 0x5bd1e995);
-  hash ^= hash >>> 15;
-  return (hash >>> 0) / 4294967296;
-}
+export { hashUnit };
 
 /**
  * How well an animal stands up to a stage, as a fixed number of its own. Low is

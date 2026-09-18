@@ -37,11 +37,18 @@ export function studTag(index: number): string {
   return "AI-" + String(index + 1).padStart(2, "0");
 }
 
-/** Every pig is drawn its own thriftiness and its own first-heat timing. */
-export function growthDraw(world: World): { growthFactor: number; estrusOffsetDays: number } {
+/**
+ * Every pig is drawn its own thriftiness and its own first-heat timing, keyed to
+ * its tag. They are traits rather than events, so the tag alone is the key: this
+ * pig is this hardy in every plan that ever contains her.
+ */
+export function growthDraw(
+  world: World,
+  tag: string,
+): { growthFactor: number; estrusOffsetDays: number } {
   return {
-    growthFactor: world.variation.growthFactor(GROWTH_FACTOR_DEVIATION),
-    estrusOffsetDays: world.variation.estrusOffsetDays(GILT_HEAT_WINDOW_DAYS),
+    growthFactor: world.variation.growthFactor(GROWTH_FACTOR_DEVIATION, [tag]),
+    estrusOffsetDays: world.variation.estrusOffsetDays(GILT_HEAT_WINDOW_DAYS, [tag]),
   };
 }
 
@@ -65,14 +72,14 @@ export function createPiglet(
   const piglet = new GrowingPig({
     id: tag,
     tag,
-    sex: world.variation.sex(),
+    sex: world.variation.sex([tag]),
     birthDay,
     weightKg,
     stage: "piglet",
     generation: mother.generation + 1,
     damTag: mother.tag,
     sireLine: sireLineFor(mother),
-    ...growthDraw(world),
+    ...growthDraw(world, tag),
   });
   world.noteBirth(piglet.generation);
   return piglet;
@@ -107,7 +114,10 @@ export function seedHerd(world: World): void {
       sow.state = "lactating";
       sow.parity = Math.max(1, parity);
       sow.weanDay = Math.round(reproduction.gestationDays + reproduction.weaningAgeDays - phase);
-      const litterSize = world.variation.litterSize(reproduction.bornAlivePerLitter);
+      const litterSize = world.variation.litterSize(reproduction.bornAlivePerLitter, [
+        sow.tag,
+        "opening",
+      ]);
       const gain = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
       for (let p = 0; p < litterSize; p += 1) {
         const piglet = createPiglet(world, sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
@@ -151,7 +161,7 @@ export function seedHerd(world: World): void {
       birthDay: -ageOnDayZero,
       weightKg,
       stage: "gilt",
-      ...growthDraw(world),
+      ...growthDraw(world, tag),
     });
     gilt.destination = "breeding";
     gilt.weanedOnDay = -Math.round(serviceAge - 40);
@@ -208,11 +218,11 @@ function seedGrowingStock(
     const pig = new GrowingPig({
       id: tag,
       tag,
-      sex: world.variation.sex(),
+      sex: world.variation.sex([tag]),
       birthDay: -Math.round(ageDays),
       weightKg,
       stage,
-      ...growthDraw(world),
+      ...growthDraw(world, tag),
     });
     pig.weanedOnDay = -Math.round(daysInStage);
     catchUpVaccinations(world, pig, 0);

@@ -131,7 +131,10 @@ function farrow(world: World, sow: Sow): void {
   }
   world.housing.admit("farrowing");
 
-  const litterSize = world.variation.litterSize(config.reproduction.bornAlivePerLitter);
+  const litterSize = world.variation.litterSize(config.reproduction.bornAlivePerLitter, [
+    sow.tag,
+    day,
+  ]);
   const piglets: GrowingPig[] = [];
   for (let i = 0; i < litterSize; i += 1) {
     const piglet = createPiglet(world, sow, day, BIRTH_WEIGHT_KG);
@@ -170,7 +173,7 @@ function wean(world: World, sow: Sow, cause: string): number {
   const weaned = sow.wean(
     day,
     config,
-    world.variation.weanToServiceDays(config.reproduction.weanToServiceDays),
+    world.variation.weanToServiceDays(config.reproduction.weanToServiceDays, [sow.tag, day]),
   );
   // In 2.0 a weaner lands in the weaner house whatever it weighs, because the
   // house is a place and the housing decides where it goes from there.
@@ -268,7 +271,10 @@ function runService(world: World, windows: boolean): void {
     for (const sow of world.sows) {
       if (!sow.heatOpens(day)) continue;
       world.emit("EstrusExpected", sow.tag + " is due to stand", { entities: [sow.tag] });
-      sow.heatDetected = world.variation.heatSpotted(config.reproduction.heatDetectionPct / 100);
+      sow.heatDetected = world.variation.heatSpotted(
+        config.reproduction.heatDetectionPct / 100,
+        [sow.tag, day],
+      );
       if (sow.heatDetected) {
         world.emit("EstrusDetected", sow.tag + " was seen standing", { entities: [sow.tag] });
       } else {
@@ -323,7 +329,7 @@ function runService(world: World, windows: boolean): void {
   let missed = 0;
   let missedForGenetics = 0;
   for (const sow of waiting) {
-    const sire = pickSire(world, sow);
+    const sire = pickSire(world, sow, day);
     if (!sire) {
       if (everyMateIsHerAncestor(world, sow)) missedForGenetics += 1;
       else missed += 1;
@@ -343,12 +349,22 @@ function runService(world: World, windows: boolean): void {
     world.lifetime.servicesAttempted += 1;
     record.services += 1;
 
-    const held = world.variation.conceives(conceptionRate(world, sire.boar === null) / 100);
-    // Drawn whether or not it is needed, so that a plan's draws fall in the same
-    // order however many services happen to hold.
-    const irregular = world.variation.returnsIrregular(config.reproduction.irregularReturnSharePct);
-    sow.serve(day, held, world.variation.gestationDays(config.reproduction.gestationDays), sire.tag, {
-      returnDays: world.variation.returnDays(irregular),
+    // Every figure this service needs is keyed to the sow and the day she was
+    // served, so it is hers whatever else the farm did that morning.
+    const served = [sow.tag, day];
+    const held = world.variation.conceives(
+      conceptionRate(world, sire.boar === null) / 100,
+      served,
+    );
+    // Taken whether or not it is needed. A drawn plan no longer cares — a key is
+    // not a place in a queue — but a settled one does: its shares come out
+    // exactly only if every service asks.
+    const irregular = world.variation.returnsIrregular(
+      config.reproduction.irregularReturnSharePct,
+      served,
+    );
+    sow.serve(day, held, world.variation.gestationDays(config.reproduction.gestationDays, served), sire.tag, {
+      returnDays: world.variation.returnDays(irregular, served),
       irregular,
       scanDays: config.reproduction.pregnancyScanDays,
     });
@@ -387,13 +403,13 @@ function conceptionRate(world: World, byAi: boolean): number {
 }
 
 /** The mate this female is put to today, or null when the farm has none to give her. */
-function pickSire(world: World, sow: Sow): { tag: string; boar: Boar | null } | null {
+function pickSire(world: World, sow: Sow, day: number): { tag: string; boar: Boar | null } | null {
   const { service } = world.config;
   if (!service.useAi) {
     const boar = pickBoar(world, sow);
     return boar ? { tag: boar.tag, boar } : null;
   }
-  if (world.variation.usesAi(service.aiSharePct)) {
+  if (world.variation.usesAi(service.aiSharePct, [sow.tag, day])) {
     const stud = pickStud(world, sow);
     if (stud) return { tag: stud, boar: null };
   }

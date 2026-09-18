@@ -803,11 +803,15 @@ export class Farm {
     pig.vaccinationsGiven = given;
   }
 
-  /** Every pig is drawn its own thriftiness and its own first-heat timing. */
-  private growthDraw(): { growthFactor: number; estrusOffsetDays: number } {
+  /**
+   * Every pig is drawn its own thriftiness and its own first-heat timing, keyed
+   * to its tag. They are traits rather than events, so the tag alone is the key:
+   * this pig is this hardy in every plan that ever contains her.
+   */
+  private growthDraw(tag: string): { growthFactor: number; estrusOffsetDays: number } {
     return {
-      growthFactor: this.variation.growthFactor(GROWTH_FACTOR_DEVIATION),
-      estrusOffsetDays: this.variation.estrusOffsetDays(GILT_HEAT_WINDOW_DAYS),
+      growthFactor: this.variation.growthFactor(GROWTH_FACTOR_DEVIATION, [tag]),
+      estrusOffsetDays: this.variation.estrusOffsetDays(GILT_HEAT_WINDOW_DAYS, [tag]),
     };
   }
 
@@ -816,14 +820,14 @@ export class Farm {
     const piglet = new GrowingPig({
       id: tag,
       tag,
-      sex: this.variation.sex(),
+      sex: this.variation.sex([tag]),
       birthDay,
       weightKg,
       stage: "piglet",
       generation: mother.generation + 1,
       damTag: mother.tag,
       sireLine: sireLineFor(mother),
-      ...this.growthDraw(),
+      ...this.growthDraw(tag),
     });
     this.noteBirth(piglet.generation);
     return piglet;
@@ -860,7 +864,10 @@ export class Farm {
         sow.state = "lactating";
         sow.parity = Math.max(1, parity);
         sow.weanDay = Math.round(reproduction.gestationDays + reproduction.weaningAgeDays - phase);
-        const litterSize = this.variation.litterSize(reproduction.bornAlivePerLitter);
+        const litterSize = this.variation.litterSize(reproduction.bornAlivePerLitter, [
+          sow.tag,
+          "opening",
+        ]);
         const gain = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
         for (let p = 0; p < litterSize; p += 1) {
           const piglet = this.createPiglet(sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
@@ -910,7 +917,7 @@ export class Farm {
         birthDay: -ageOnDayZero,
         weightKg,
         stage: "gilt",
-        ...this.growthDraw(),
+        ...this.growthDraw(tag),
       });
       gilt.destination = "breeding";
       gilt.weanedOnDay = -Math.round(serviceAge - 40);
@@ -965,11 +972,11 @@ export class Farm {
       const pig = new GrowingPig({
         id: tag,
         tag,
-        sex: this.variation.sex(),
+        sex: this.variation.sex([tag]),
         birthDay: -Math.round(ageDays),
         weightKg,
         stage,
-        ...this.growthDraw(),
+        ...this.growthDraw(tag),
       });
       pig.weanedOnDay = -Math.round(daysInStage);
       this.catchUpVaccinations(pig, 0);
@@ -1171,7 +1178,10 @@ export class Farm {
       }
 
       if (sow.state === "gestating" && sow.dueDay !== null && day >= sow.dueDay) {
-        const litterSize = this.variation.litterSize(config.reproduction.bornAlivePerLitter);
+        const litterSize = this.variation.litterSize(config.reproduction.bornAlivePerLitter, [
+          sow.tag,
+          day,
+        ]);
         const piglets: GrowingPig[] = [];
         for (let i = 0; i < litterSize; i += 1) {
           const piglet = this.createPiglet(sow, day, BIRTH_WEIGHT_KG);
@@ -1203,7 +1213,10 @@ export class Farm {
         const weaned = sow.wean(
           day,
           config,
-          this.variation.weanToServiceDays(config.reproduction.weanToServiceDays),
+          this.variation.weanToServiceDays(config.reproduction.weanToServiceDays, [
+            sow.tag,
+            day,
+          ]),
         );
         // They are through the suckling stage, so anything it still had booked
         // against them goes back on its slate. A heavy piglet can wean straight
@@ -1231,7 +1244,7 @@ export class Farm {
     let missed = 0;
     let missedForGenetics = 0;
     for (const sow of waiting) {
-      const sire = this.pickSire(sow);
+      const sire = this.pickSire(sow, day);
       if (!sire) {
         if (this.everyMateIsHerAncestor(sow)) missedForGenetics += 1;
         else missed += 1;
@@ -1251,19 +1264,27 @@ export class Farm {
       this.lifetime.servicesAttempted += 1;
       record.services += 1;
 
-      const held = this.variation.conceives(this.conceptionRate(sire.boar === null) / 100);
-      // Drawn whether or not it is needed, so that a plan's draws fall in the
-      // same order however many services happen to hold.
+      // Every figure this service needs is keyed to the sow and the day she was
+      // served, so it is hers whatever else the farm did that morning.
+      const served = [sow.tag, day];
+      const held = this.variation.conceives(
+        this.conceptionRate(sire.boar === null) / 100,
+        served,
+      );
+      // Taken whether or not it is needed. A drawn plan no longer cares — a key
+      // is not a place in a queue — but a settled one does: its shares come out
+      // exactly only if every service asks.
       const irregular = this.variation.returnsIrregular(
         config.reproduction.irregularReturnSharePct,
+        served,
       );
       sow.serve(
         day,
         held,
-        this.variation.gestationDays(config.reproduction.gestationDays),
+        this.variation.gestationDays(config.reproduction.gestationDays, served),
         sire.tag,
         {
-          returnDays: this.variation.returnDays(irregular),
+          returnDays: this.variation.returnDays(irregular, served),
           irregular,
           scanDays: config.reproduction.pregnancyScanDays,
         },
@@ -1293,7 +1314,7 @@ export class Farm {
    * own sires. A closed herd that would otherwise have had to stand — and feed —
    * another boar can buy a dose instead.
    */
-  private pickSire(sow: Sow): { tag: string; boar: Boar | null } | null {
+  private pickSire(sow: Sow, day: number): { tag: string; boar: Boar | null } | null {
     const { service } = this.config;
     if (!service.useAi) {
       const boar = this.pickBoar(sow);
@@ -1302,7 +1323,7 @@ export class Farm {
     // The draw is taken on every service while a share is set, so that a settled
     // plan puts exactly that share of them to semen rather than drifting with
     // however often the boars happen to be free.
-    if (this.variation.usesAi(service.aiSharePct)) {
+    if (this.variation.usesAi(service.aiSharePct, [sow.tag, day])) {
       const stud = this.pickStud(sow);
       if (stud) return { tag: stud, boar: null };
     }

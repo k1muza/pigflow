@@ -135,13 +135,27 @@ describe("PigFlow monthly projection", () => {
   });
 
   it("lands close to the hand-checkable planning metrics", () => {
-    const input = config();
-    const metrics = getModelMetrics(input);
-    const result = calculateProjection(input);
-    expect(result.summary.littersPerSowYear).toBeGreaterThan(metrics.littersPerSowYear - 0.45);
-    expect(result.summary.littersPerSowYear).toBeLessThan(metrics.littersPerSowYear + 0.35);
-    expect(result.summary.pigsWeanedPerSowYear).toBeGreaterThan(metrics.pigsWeanedPerSowYear - 5);
-    expect(result.summary.pigsWeanedPerSowYear).toBeLessThan(metrics.pigsWeanedPerSowYear + 5);
+    // Read across seeds rather than on one. The benchmark is what the plan's
+    // rates say a sow should manage, which is a statement about the model and
+    // not about any one roll of its dice — and a single run swings about 1.4
+    // weaned pigs a sow year between seeds, most of a third of the tolerance.
+    // On one seed this was a coin toss: the default plan passed on seed 1 and
+    // would have failed on seed 3, which tested where the luck landed.
+    const metrics = getModelMetrics(config());
+    const runs = [1, 2, 3, 4, 5].map((seed) => {
+      const input = config();
+      input.project.seed = seed;
+      return calculateProjection(input).summary;
+    });
+    const mean = (pick: (s: (typeof runs)[number]) => number) =>
+      runs.reduce((sum, run) => sum + pick(run), 0) / runs.length;
+
+    const litters = mean((run) => run.littersPerSowYear);
+    const weaned = mean((run) => run.pigsWeanedPerSowYear);
+    expect(litters).toBeGreaterThan(metrics.littersPerSowYear - 0.45);
+    expect(litters).toBeLessThan(metrics.littersPerSowYear + 0.35);
+    expect(weaned).toBeGreaterThan(metrics.pigsWeanedPerSowYear - 5);
+    expect(weaned).toBeLessThan(metrics.pigsWeanedPerSowYear + 5);
   });
 });
 

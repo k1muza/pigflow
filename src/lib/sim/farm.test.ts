@@ -791,8 +791,17 @@ describe("Labour scales with the number of head", () => {
 
     expect(charged.every((amount) => amount > 0)).toBe(true);
     expect(charged.every((amount) => Number.isInteger(amount / wage))).toBe(true);
-    expect(charged.at(-1)!).toBeGreaterThan(charged[0]);
     expect(result.summary.totalCost).toBeGreaterThan(0);
+
+    // And the bill rises as the herd does. Read on a farm where the ratio forces
+    // a second stockperson, the way the hiring test above forces one: on the
+    // default ratio a two sow herd may or may not cross the threshold inside the
+    // horizon, which makes it a test of where this plan's luck landed rather
+    // than of whether wages follow head.
+    const growing = config();
+    growing.finance.pigsPerWorker = 120;
+    const scaled = calculateProjection(growing).months.map((month) => month.totals.labour);
+    expect(scaled.at(-1)!).toBeGreaterThan(scaled[0]);
   });
 
   it("keeps one stockperson on when the herd never outgrows the ratio", () => {

@@ -1,6 +1,6 @@
 import { IRREGULAR_RETURN_DAYS, REGULAR_RETURN_DAYS } from "../config";
 import type { Sex } from "./animals";
-import { Rng } from "./rng";
+import { keyedChance, keyedInt, keyedIntAround, keyedNormal } from "./rng";
 
 /**
  * The two ways a plan can be made to come out.
@@ -24,31 +24,47 @@ import { Rng } from "./rng";
  * Both are reproducible. The difference is that chance reproduces one roll of
  * the dice and settled has no dice to roll.
  */
+/**
+ * What a draw is about: the animal it concerns and the occasion it concerns her
+ * on — a tag and a day, usually. Every drawn figure takes one.
+ *
+ * It is the key to a hash rather than a position in a sequence, which is what
+ * makes a plan stable under its own development. A stream hands out values in
+ * call order, so adding a draw anywhere shifts every draw after it and a change
+ * to the mortality rules comes back as different litter sizes. Keyed, this sow's
+ * conception on this day is hers whatever else the farm did that morning.
+ *
+ * The key has to be unique per occasion or two questions share an answer: a tag
+ * alone is right for a lifetime trait and wrong for anything she does twice.
+ * Each method adds its own label, so keys never have to be told apart by hand.
+ */
+export type DrawKey = readonly (string | number)[];
+
 export interface Variation {
   /** Whether this plan is drawn or settled — for anything that must report it. */
   readonly settled: boolean;
-  /** The sex of one piglet. */
-  sex(): Sex;
-  /** How many are born alive to one sow. */
-  litterSize(mean: number): number;
-  /** Whether one service holds. */
-  conceives(rate: number): boolean;
-  /** Whether this standing heat was spotted at all. */
-  heatSpotted(rate: number): boolean;
+  /** The sex of one piglet. Keyed on the dam, the day and its place in the litter. */
+  sex(key: DrawKey): Sex;
+  /** How many are born alive to one sow. Keyed on the dam and the farrowing. */
+  litterSize(mean: number, key: DrawKey): number;
+  /** Whether one service holds. Keyed on the female and the day she was served. */
+  conceives(rate: number, key: DrawKey): boolean;
+  /** Whether this standing heat was spotted at all. Keyed on the female and day. */
+  heatSpotted(rate: number, key: DrawKey): boolean;
   /** Whether this service goes to AI rather than to the boar team. */
-  usesAi(sharePct: number): boolean;
+  usesAi(sharePct: number, key: DrawKey): boolean;
   /** Whether a service that did not hold comes back late rather than on cue. */
-  returnsIrregular(sharePct: number): boolean;
+  returnsIrregular(sharePct: number, key: DrawKey): boolean;
   /** How many days until she is back in heat, given which kind of return it is. */
-  returnDays(irregular: boolean): number;
+  returnDays(irregular: boolean, key: DrawKey): number;
   /** How long this sow carries. */
-  gestationDays(mean: number): number;
+  gestationDays(mean: number, key: DrawKey): number;
   /** How long this sow takes to come back into heat after weaning. */
-  weanToServiceDays(mean: number): number;
-  /** One pig's own thriftiness, around 1. */
-  growthFactor(deviation: number): number;
+  weanToServiceDays(mean: number, key: DrawKey): number;
+  /** One pig's own thriftiness, around 1. Keyed on the pig, and fixed for life. */
+  growthFactor(deviation: number, key: DrawKey): number;
   /** Days past the service minimum before a gilt shows a standing heat. */
-  estrusOffsetDays(window: number): number;
+  estrusOffsetDays(window: number, key: DrawKey): number;
 }
 
 /** Rounding slack, so 0.9999999 of an animal counts as the one it plainly is. */
@@ -62,10 +78,19 @@ const SLACK = 1e-9;
  */
 const OPENING = 0.5;
 
-/** Everything drawn, off one seeded generator. The behaviour plans have always had. */
+/**
+ * Everything drawn, each figure keyed to the animal and occasion it belongs to.
+ *
+ * There is no sequence here and nothing is consumed. Two plans that differ
+ * somewhere else entirely give the same sow the same conception on the same day,
+ * a figure can be read twice without moving, and a draw added to the model years
+ * from now will not disturb one of these. What a seed selects is not a position
+ * in a stream but which farm, out of all the farms this plan could be, you are
+ * looking at — and that is unchanged.
+ */
 export class ChanceVariation implements Variation {
   readonly settled = false;
-  private readonly rng: Rng;
+  private readonly seed: number;
   private readonly litterDeviation: number;
   private readonly gestationDeviation: number;
   private readonly weanToServiceDeviation: number;
@@ -74,55 +99,61 @@ export class ChanceVariation implements Variation {
     seed: number,
     deviations: { litter: number; gestation: number; weanToService: number },
   ) {
-    this.rng = new Rng(seed);
+    this.seed = seed;
     this.litterDeviation = deviations.litter;
     this.gestationDeviation = deviations.gestation;
     this.weanToServiceDeviation = deviations.weanToService;
   }
 
-  sex(): Sex {
-    return this.rng.chance(0.5) ? "female" : "male";
+  /** This plan's seed, then what the draw is, then who and when it is about. */
+  private keys(label: string, key: DrawKey): (string | number)[] {
+    return [this.seed, label, ...key];
   }
 
-  litterSize(mean: number): number {
-    return this.rng.intAround(mean, this.litterDeviation, 1, 25);
+  sex(key: DrawKey): Sex {
+    return keyedChance(0.5, this.keys("sex", key)) ? "female" : "male";
   }
 
-  conceives(rate: number): boolean {
-    return this.rng.chance(rate);
+  litterSize(mean: number, key: DrawKey): number {
+    return keyedIntAround(mean, this.litterDeviation, 1, 25, this.keys("litter-size", key));
   }
 
-  heatSpotted(rate: number): boolean {
-    return this.rng.chance(rate);
+  conceives(rate: number, key: DrawKey): boolean {
+    return keyedChance(rate, this.keys("conception", key));
   }
 
-  usesAi(sharePct: number): boolean {
-    return this.rng.chance(sharePct / 100);
+  heatSpotted(rate: number, key: DrawKey): boolean {
+    return keyedChance(rate, this.keys("heat-spotted", key));
   }
 
-  returnsIrregular(sharePct: number): boolean {
-    return this.rng.chance(sharePct / 100);
+  usesAi(sharePct: number, key: DrawKey): boolean {
+    return keyedChance(sharePct / 100, this.keys("uses-ai", key));
   }
 
-  returnDays(irregular: boolean): number {
+  returnsIrregular(sharePct: number, key: DrawKey): boolean {
+    return keyedChance(sharePct / 100, this.keys("irregular-return", key));
+  }
+
+  returnDays(irregular: boolean, key: DrawKey): number {
     const band = irregular ? IRREGULAR_RETURN_DAYS : REGULAR_RETURN_DAYS;
-    return band.min + Math.floor(this.rng.next() * (band.max - band.min + 1));
+    return keyedInt(band.min, band.max, this.keys("return-days", key));
   }
 
-  gestationDays(mean: number): number {
-    return this.rng.normal(mean, this.gestationDeviation);
+  gestationDays(mean: number, key: DrawKey): number {
+    return keyedNormal(mean, this.gestationDeviation, this.keys("gestation", key));
   }
 
-  weanToServiceDays(mean: number): number {
-    return this.rng.normal(mean, this.weanToServiceDeviation);
+  weanToServiceDays(mean: number, key: DrawKey): number {
+    return keyedNormal(mean, this.weanToServiceDeviation, this.keys("wean-to-service", key));
   }
 
-  growthFactor(deviation: number): number {
-    return Math.min(1.3, Math.max(0.7, this.rng.normal(1, deviation)));
+  growthFactor(deviation: number, key: DrawKey): number {
+    const drawn = keyedNormal(1, deviation, this.keys("growth-factor", key));
+    return Math.min(1.3, Math.max(0.7, drawn));
   }
 
-  estrusOffsetDays(window: number): number {
-    return Math.floor(this.rng.next() * window);
+  estrusOffsetDays(window: number, key: DrawKey): number {
+    return keyedInt(0, Math.max(0, window - 1), this.keys("estrus-offset", key));
   }
 }
 
@@ -148,6 +179,14 @@ const HEAT_STRIDE = 8;
 /**
  * Nothing drawn. Rates are taken exactly, and a rate that does not come to a
  * whole animal carries its remainder forward until it does.
+ *
+ * These methods take no key, which is deliberate rather than an oversight — a
+ * key says which draw this is, and there are no draws here. What there is is a
+ * running slate per figure, and the order calls arrive in is exactly what makes
+ * it come out at the stated rate: at 85% conception the seventh service is the
+ * one that fails because the six before it carried the shortfall to a whole
+ * miss. Keying these would not make a settled plan more stable, it would stop it
+ * being settled.
  */
 export class SettledVariation implements Variation {
   readonly settled = true;
