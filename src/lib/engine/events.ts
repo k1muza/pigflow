@@ -40,6 +40,7 @@ export type EventType =
   | "BatchSplit"
   | "SaleHeldForSpace"
   | "RoomOverCapacity"
+  | "CrowdingDeathsScheduled"
   | "WeanedEarlyForSpace"
   // nutrition and stores
   | "OrderPlaced"

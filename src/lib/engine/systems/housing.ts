@@ -87,9 +87,15 @@ export function runCrowdingStress(world: World): void {
   if (booked <= 0) return;
   world.record.crowdingDeaths += booked;
   world.lifetime.crowdingDeaths += booked;
+  // Booked, not carried out. The mortality system settles these later the same
+  // morning and announces them there, so this says only that the stocking put
+  // them on the slate and how many. A death is reported once, by whichever
+  // system actually took the animal out of the herd; emitting PigDied here as
+  // well read fine in the log and double-counted every crowding loss for
+  // anything folding over the events.
   world.emit(
-    "PigDied",
-    booked + (booked === 1 ? " pig lost" : " pigs lost") + " to overcrowding",
+    "CrowdingDeathsScheduled",
+    booked + (booked === 1 ? " loss" : " losses") + " booked against overcrowding",
     { cause: "stocking density", changes: { pigs: booked } },
   );
 }
