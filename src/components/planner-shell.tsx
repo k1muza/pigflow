@@ -85,6 +85,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FarmInputs } from "@/components/planner-sections";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
@@ -601,6 +602,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <SyncBadge sync={sync} savedAt={savedAt} />
+              <ThemeToggle />
               <button
                 type="button"
                 onClick={() => setInputsOpen(true)}

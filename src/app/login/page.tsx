@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendPasswordReset, signInProblem, signInWithEmail } from "@/lib/auth";
 import { useAuth } from "@/hooks/use-auth";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type Status = "idle" | "signing-in" | "sending-reset";
 
@@ -65,14 +66,17 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-plane px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-xl border border-hairline bg-surface text-ink">
-            <PiggyBank size={18} />
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2.5">
+            <span className="flex size-9 items-center justify-center rounded-xl border border-hairline bg-surface text-ink">
+              <PiggyBank size={18} />
+            </span>
+            <span>
+              <span className="block text-sm font-semibold tracking-tight text-ink">PigFlow</span>
+              <span className="block text-[11px] text-ink-faint">Piggery planning model</span>
+            </span>
           </span>
-          <span>
-            <span className="block text-sm font-semibold tracking-tight text-ink">PigFlow</span>
-            <span className="block text-[11px] text-ink-faint">Piggery planning model</span>
-          </span>
+          <ThemeToggle />
         </div>
 
         <div className="rounded-2xl border border-hairline bg-surface p-6">

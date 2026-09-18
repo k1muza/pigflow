@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { usePlans } from "@/components/plans-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   COMPARISON_SEEDS,
   buildFutureEnsemble,
@@ -605,6 +606,7 @@ export default function ProjectsDashboard() {
             <span className="hidden text-xs text-ink-faint sm:inline">
               {sync === "local" ? "Stored on this device" : "Shared plans"}
             </span>
+            <ThemeToggle />
             <button
               type="button"
               onClick={newPlan}

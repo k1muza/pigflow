@@ -7,6 +7,15 @@ import { AuthProvider } from "@/hooks/use-auth";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
+const themeScript = `
+try {
+  var savedTheme = localStorage.getItem("pigflow-theme");
+  var dark = savedTheme === "dark" ||
+    (savedTheme === null && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.classList.toggle("dark", dark);
+} catch (_) {}
+`;
+
 export const metadata: Metadata = {
   title: "PigFlow — Piggery cashflow planner",
   description:
@@ -15,7 +24,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" data-scroll-behavior="smooth" className={cn("font-sans", geist.variable)}>
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      className={cn("font-sans", geist.variable)}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>
         {/* One watch on who is signed in, shared by the planner and the login page. */}
         <AuthProvider>{children}</AuthProvider>

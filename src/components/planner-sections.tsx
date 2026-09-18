@@ -113,30 +113,30 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /** Chart palette: one blue for cash, one orange for flows, an ordinal blue ramp for stages. */
 const CHART = {
-  grid: "#e1e0d9",
-  axis: "#898781",
-  baseline: "#c3c2b7",
-  cash: "#2a78d6",
-  flow: "#eb6834",
-  warning: "#fab219",
+  grid: "var(--color-hairline)",
+  axis: "var(--color-ink-faint)",
+  baseline: "var(--color-rule)",
+  cash: "var(--color-brand)",
+  flow: "var(--color-flow)",
+  warning: "var(--color-warning)",
   stage: {
-    piglets: "#86b6ef",
-    weaners: "#5598e7",
-    growers: "#2a78d6",
-    finishers: "#1c5cab",
-    gilts: "#104281",
-    sows: "#2f855a",
-    boars: "#8a5a2b",
+    piglets: "var(--color-piglets)",
+    weaners: "var(--color-weaners)",
+    growers: "var(--color-growers)",
+    finishers: "var(--color-finishers)",
+    gilts: "var(--color-gilts)",
+    sows: "var(--color-sows)",
+    boars: "var(--color-boars)",
   },
 } as const;
 
 const TOOLTIP_STYLE = {
   borderRadius: 10,
-  border: "1px solid #e1e0d9",
-  background: "#ffffff",
-  boxShadow: "0 6px 20px rgba(11,11,11,0.08)",
+  border: "1px solid var(--color-hairline)",
+  background: "var(--color-surface)",
+  boxShadow: "0 6px 20px color-mix(in srgb, var(--color-ink) 10%, transparent)",
   fontSize: 12,
-  color: "#0b0b0b",
+  color: "var(--color-ink)",
 } as const;
 
 function HerdTooltip({ active, label, payload }: TooltipContentProps) {
@@ -711,7 +711,7 @@ export function Overview({
                 />
                 <Tooltip
                   formatter={(value) => money(Number(value), currency)}
-                  cursor={{ fill: "rgba(11,11,11,0.04)" }}
+                  cursor={{ fill: "color-mix(in srgb, var(--color-ink) 5%, transparent)" }}
                   contentStyle={TOOLTIP_STYLE}
                 />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
@@ -730,7 +730,7 @@ export function Overview({
                   stroke={CHART.cash}
                   strokeWidth={2}
                   dot={cashData.length <= 14 ? { r: 2.5, strokeWidth: 0, fill: CHART.cash } : false}
-                  activeDot={{ r: 4, strokeWidth: 2, stroke: "#ffffff" }}
+                  activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--color-surface)" }}
                   isAnimationActive={false}
                 />
               </ComposedChart>
@@ -820,7 +820,7 @@ export function Overview({
                   name={name}
                   fill={color}
                   fillOpacity={1}
-                  stroke="#ffffff"
+                  stroke="var(--color-surface)"
                   strokeWidth={2}
                   isAnimationActive={false}
                 />
