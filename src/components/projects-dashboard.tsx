@@ -571,13 +571,13 @@ export default function ProjectsDashboard() {
   function newPlan() {
     const next = addProject(workspace, `Plan ${workspace.projects.length + 1}`);
     setWorkspace(next);
-    router.push(planHref(next.activeId, "inputs"));
+    router.push(planHref(next.activeId));
   }
 
   function copyPlan(id: string) {
     const next = duplicateProject(workspace, id);
     setWorkspace(next);
-    router.push(planHref(next.activeId, "inputs"));
+    router.push(planHref(next.activeId));
   }
 
   if (!hydrated) {

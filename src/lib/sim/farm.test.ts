@@ -21,6 +21,7 @@ import {
   horizonDay,
   incomeOf,
   runFarm,
+  type Trip,
 } from "./index";
 
 function config(): PlannerConfig {
@@ -837,14 +838,31 @@ describe("What a market pig costs reconciles with the cash book", () => {
     // must read ahead of the cash, by no more than what the farm is holding.
     // Measuring it that way rather than as a multiple of the margin keeps the
     // bound honest: a thinner margin does not make the same gap a bigger failure.
+    //
+    // Whether the plan makes money at all is a question for its prices, not for
+    // the allocation, so it is not asserted here: the two have to agree with one
+    // another whichever side of zero they land on. On the figures this test runs
+    // they land below it, because heating a piglet to eight weeks on a gas
+    // brooder at 2 kg a night costs more than the plan's margin.
     const standing =
       farm.pigs.reduce((total, pig) => total + (pig.alive ? pig.costs.total : 0), 0) +
       farm.sows.reduce((total, sow) => total + (sow.alive ? sow.costs.total : 0), 0) +
       farm.boars.reduce((total, boar) => total + (boar.alive ? boar.costs.total : 0), 0) +
       farm.ledger.totals.capital;
-    expect(cashNetPerPig).toBeGreaterThan(0);
     expect(cop.marginPerPig).toBeGreaterThan(cashNetPerPig);
     expect(cop.marginPerPig - cashNetPerPig).toBeLessThan(standing / farm.lifetime.sold);
+
+    // And the same farm with the brooders off is the same allocation, still
+    // reading ahead of its cash book — this time with both sides in profit.
+    const warm = runFarm({
+      ...input,
+      health: { ...input.health, heatedUntilAgeDays: 21 },
+    });
+    const warmCop = warm.costOfProduction();
+    const warmCash =
+      (incomeOf(warm.ledger.totals) - expensesOf(warm.ledger.totals)) / warm.lifetime.sold;
+    expect(warmCash).toBeGreaterThan(0);
+    expect(warmCop.marginPerPig).toBeGreaterThan(warmCash);
   });
 
   it("charges a dead pig's feed to the pigs that did reach the abattoir", () => {
@@ -863,7 +881,7 @@ describe("What a market pig costs reconciles with the cash book", () => {
   });
 });
 
-describe("Feed comes by the truckload, planned forwards from what was eaten", () => {
+describe("Goods come by the lorryload, planned forwards from what was used", () => {
   function busyFarm(): PlannerConfig {
     const input = config();
     input.stock.sows = 20;
@@ -872,34 +890,67 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
     return input;
   }
 
-  it("cuts each ration's feeding into full loads, with its part load at the end", () => {
+  /** What a trip is carrying as feed, which is the part the allowance caps. */
+  function feedOnBoard(trip: Trip): number {
+    return trip.lines
+      .filter((line) => line.store !== "gas" && line.store !== "bedding")
+      .reduce((kg, line) => kg + line.kg, 0);
+  }
+
+  it("loads every ration due onto the same deck, up to what the farm allows", () => {
     const farm = runFarm(busyFarm());
-    const loads = farm.feedPlan.deliveries;
-    const capacity = farm.config.feed.truckCapacityKg;
-    expect(loads.length).toBeGreaterThan(20);
+    const trips = farm.haulage.trips;
+    const gross = farm.config.feed.truckCapacityKg;
+    const forFeed = gross - farm.config.feed.sundriesAllowanceKg;
+    expect(trips.length).toBeGreaterThan(20);
 
-    // Every ration is its own store, so every ration has its own part load at
-    // the end of its own run. Walking forwards is what puts it there rather
-    // than at the start — see the horizon test below for what that cost.
-    for (const ration of FEED_RATIONS) {
-      const forRation = loads.filter((load) => load.ration === ration);
-      if (forRation.length === 0) continue;
-      for (const load of forRation.slice(0, -1)) expect(load.loadKg).toBeCloseTo(capacity, 6);
-      expect(forRation.at(-1)!.loadKg).toBeLessThanOrEqual(capacity + 1e-6);
+    const supplies = trips.filter((trip) => trip.kind === "supplies");
+    for (const trip of supplies) {
+      // Nothing is loaded past the deck, and the feed on it never eats into the
+      // weight held back for the sundries.
+      expect(trip.payloadKg).toBeLessThanOrEqual(gross + 1e-6);
+      expect(feedOnBoard(trip)).toBeLessThanOrEqual(forFeed + 1e-6);
+      expect(trip.payloadKg).toBeCloseTo(
+        trip.lines.reduce((kg, line) => kg + line.kg, 0),
+        6,
+      );
     }
-    // A working herd runs several stores at once.
-    expect(new Set(loads.map((load) => load.ration)).size).toBeGreaterThan(1);
 
-    // Every trip carries one ration, and its order list adds up to the load.
-    for (const load of loads) {
-      expect(load.loadKg).toBeLessThanOrEqual(capacity + 1e-6);
-      expect(load.lines).toHaveLength(1);
-      expect(load.lines[0].ration).toBe(load.ration);
-      expect(load.lines[0].kg).toBeCloseTo(load.loadKg, 6);
+    // The point of the change: a run carries a mixed order. Cut one ration at a
+    // time, every load held one thing and the farm ran a lorry per bin.
+    const mixed = supplies.filter(
+      (trip) => new Set(trip.lines.map((line) => line.store)).size > 1,
+    );
+    expect(mixed.length).toBeGreaterThan(supplies.length / 2);
+
+    // Full but for the last, which carries what the stores had left to take.
+    const carryingFeed = supplies.filter((trip) => feedOnBoard(trip) > 0);
+    for (const trip of carryingFeed.slice(0, -1)) {
+      expect(feedOnBoard(trip)).toBeCloseTo(forFeed, 6);
     }
   });
 
-  it("delivers nothing the herd does not eat, and delivers it before it is needed", () => {
+  it("makes the trips the feed needs, not the trips the bins would have needed", () => {
+    const input = busyFarm();
+    const farm = runFarm(input);
+    const forFeed = input.feed.truckCapacityKg - input.feed.sundriesAllowanceKg;
+
+    const byRation = FEED_RATIONS.map((ration) =>
+      farm.history.reduce((kg, day) => kg + day.feedByRation[ration], 0),
+    );
+    const total = byRation.reduce((sum, kg) => sum + kg, 0);
+
+    // Pooled, the feed needs one lorry per full deck and one for the remainder.
+    const carryingFeed = farm.haulage.trips.filter((trip) => feedOnBoard(trip) > 0).length;
+    expect(carryingFeed).toBe(Math.ceil(total / forFeed));
+
+    // A bin at a time, each ration rounded up to its own lorry — five part
+    // loads instead of one, and that is trips the farm was paying for twice.
+    const oneBinAtATime = byRation.reduce((trips, kg) => trips + Math.ceil(kg / forFeed), 0);
+    expect(carryingFeed).toBeLessThan(oneBinAtATime);
+  });
+
+  it("delivers nothing the herd does not use, and delivers it before it is needed", () => {
     const input = busyFarm();
     const farm = runFarm(input);
     const eaten = farm.history.reduce((kg, day) => kg + day.sowFeedKg + day.growingFeedKg, 0);
@@ -907,13 +958,21 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
     // Planned off feeding that has already happened, so the two agree exactly.
     expect(farm.lifetime.feedDeliveredKg).toBeCloseTo(eaten, 3);
 
-    for (const load of farm.feedPlan.deliveries) {
-      expect(load.day).toBeLessThanOrEqual(load.neededFromDay);
-      expect(load.day).toBeGreaterThanOrEqual(0);
-      // Feed lands the buffer ahead of the day the herd starts on it, unless the
-      // plan has not been running long enough for the full buffer.
-      const early = load.neededFromDay - load.day;
-      expect(early).toBe(Math.min(input.feed.feedBufferDays, load.neededFromDay));
+    for (const trip of farm.haulage.trips) {
+      expect(trip.day).toBeLessThanOrEqual(trip.neededFromDay);
+      expect(trip.day).toBeGreaterThanOrEqual(0);
+      expect(trip.neededFromDay - trip.day).toBeLessThanOrEqual(input.feed.feedBufferDays);
+    }
+
+    // A feed run lands the buffer ahead of the day the herd starts on it, unless
+    // the plan has not been running long enough for the full buffer. Read on a
+    // farm with the heaters off, so no gas bottle is riding along to pull a
+    // trip's first day of need earlier than the feed's.
+    const dry = runFarm({ ...input, health: { ...input.health, gasKgPerHeaterDay: 0 } });
+    for (const trip of dry.haulage.trips.filter((one) => one.kind === "supplies")) {
+      expect(trip.neededFromDay - trip.day).toBe(
+        Math.min(input.feed.feedBufferDays, trip.neededFromDay),
+      );
     }
 
     // The bins never run dry: on any day, what has landed covers what was eaten.
@@ -928,27 +987,16 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
 
   it("reads the same on any date, because the trips are anchored to the horizon", () => {
     const input = busyFarm();
-    const wholePlan = runFarm(input).feedPlan.deliveries;
+    const wholePlan = runFarm(input).haulage.trips;
     const halfway = farmStateAt(input, "2028-06-15T23:00");
 
-    const landedByThen = wholePlan.filter((load) => load.day <= halfway.day).length;
-    expect(halfway.lifetime.feedLoads).toBe(landedByThen);
+    const landedByThen = wholePlan.filter((trip) => trip.day <= halfway.day);
+    expect(halfway.lifetime.lorries).toBe(landedByThen.length);
 
-    // The delivery line carries the gas tanker and the bedding lorry as well as
-    // the feed, so what is owed by that date is every store's trips together.
-    const farm = runFarm(input);
-    // The delivery line carries bedding as well as feed. Gas rides on the feed
-    // lorry, so it is counted only on the days no feed was already coming.
-    const feedDays = new Set(farm.feedPlan.deliveries.map((load) => load.day));
-    const gasOwn = farm.gasPlan.deliveries.filter(
-      (load) => load.day <= halfway.day && !feedDays.has(load.day),
-    ).length;
-    const beddingTrips = farm.beddingPlan.deliveries.filter(
-      (load) => load.day <= halfway.day,
-    ).length;
+    // A journey is charged once, whatever was on it, so the delivery line by
+    // that date is simply the trips made by then.
     expect(halfway.finance.totals["deliveries"]).toBeCloseTo(
-      (landedByThen + gasOwn) * input.feed.deliveryCostPerTrip +
-        beddingTrips * input.housing.beddingDeliveryCost,
+      landedByThen.reduce((paid, trip) => paid + trip.cost, 0),
       6,
     );
   });
@@ -959,7 +1007,7 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
     // nothing: bedding is not charged for, and the gas is turned off entirely
     // rather than left to make journeys of its own between feed days.
     paid.housing.beddingDeliveryCost = 0;
-    paid.health.gasKgPerPigDay = 0;
+    paid.health.gasKgPerHeaterDay = 0;
     const free = structuredClone(paid);
     free.feed.deliveryCostPerTrip = 0;
 
@@ -970,10 +1018,13 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
     expect(withTruck.lifetime.sold).toBe(without.lifetime.sold);
     expect(feedOf(withTruck.ledger.totals)).toBeCloseTo(feedOf(without.ledger.totals), 6);
 
-    // It only adds money, and the money it adds is the trips it made.
+    // It only adds money, and the money it adds is the trips it made. The
+    // bedding lorry still runs, but it has been told its journey is free, so
+    // every cent on the line came off a feed run.
     const haulage = withTruck.ledger.totals["deliveries"];
-    expect(haulage).toBeCloseTo(withTruck.lifetime.feedLoads * paid.feed.deliveryCostPerTrip, 6);
-    expect(withTruck.lifetime.feedLoads).toBeGreaterThan(0);
+    const feedRuns = withTruck.haulage.trips.filter((trip) => trip.kind === "supplies");
+    expect(haulage).toBeCloseTo(feedRuns.length * paid.feed.deliveryCostPerTrip, 6);
+    expect(feedRuns.length).toBeGreaterThan(0);
     expect(without.ledger.totals["deliveries"]).toBe(0);
 
     // Every last cent of it reaches an animal, because each kilogram eaten is
@@ -985,7 +1036,7 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
           (perDay, ration) =>
             perDay +
             day.feedByRation[ration] *
-              (withTruck.feedPlan.haulagePerKgByDay[ration]?.[day.day] ?? 0),
+              (withTruck.haulage.haulagePerKgByDay[ration]?.[day.day] ?? 0),
           0,
         ),
       0,
@@ -1007,7 +1058,7 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
     const smallTruck = runFarm(small);
     const bigTruck = runFarm(big);
 
-    expect(smallTruck.lifetime.feedLoads).toBeGreaterThan(bigTruck.lifetime.feedLoads * 2);
+    expect(smallTruck.lifetime.lorries).toBeGreaterThan(bigTruck.lifetime.lorries * 2);
     expect(smallTruck.ledger.totals["deliveries"]).toBeGreaterThan(
       bigTruck.ledger.totals["deliveries"],
     );
@@ -1028,28 +1079,19 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
     const long = busyFarm();
     long.project.months = 36;
 
-    const shortLoads = runFarm(short).feedPlan.deliveries;
-    const longLoads = runFarm(long).feedPlan.deliveries;
+    const shortLoads = runFarm(short).haulage.trips.filter((trip) => feedOnBoard(trip) > 0);
+    const longLoads = runFarm(long).haulage.trips.filter((trip) => feedOnBoard(trip) > 0);
     const horizon = horizonDay(short);
 
-    // Store by store, every trip the shorter plan makes — bar the part load it
-    // ends that store on — is a trip the longer plan makes on the same day
-    // carrying the same kilograms.
+    // Every feed run the shorter plan makes — bar the part load it ends on — is
+    // a run the longer plan makes on the same day carrying the same kilograms.
     expect(shortLoads.length).toBeGreaterThan(3);
-    let compared = 0;
-    for (const ration of FEED_RATIONS) {
-      const mine = shortLoads.filter((load) => load.ration === ration);
-      const theirs = longLoads.filter((load) => load.ration === ration);
-      for (const [index, load] of mine.slice(0, -1).entries()) {
-        expect(theirs[index].day).toBe(load.day);
-        expect(theirs[index].neededFromDay).toBe(load.neededFromDay);
-        expect(theirs[index].loadKg).toBeCloseTo(load.loadKg, 6);
-        compared += 1;
-      }
+    for (const [index, trip] of shortLoads.slice(0, -1).entries()) {
+      expect(longLoads[index].day).toBe(trip.day);
+      expect(feedOnBoard(longLoads[index])).toBeCloseTo(feedOnBoard(trip), 6);
     }
-    expect(compared).toBeGreaterThan(3);
     // And the longer plan carries on past the shorter one's horizon.
-    expect(longLoads.filter((load) => load.day > horizon).length).toBeGreaterThan(0);
+    expect(longLoads.filter((trip) => trip.day > horizon).length).toBeGreaterThan(0);
   });
 
   it("gives a two-sow herd a full lorry, because a load costs a trip and not a bin", () => {
@@ -1062,35 +1104,117 @@ describe("Feed comes by the truckload, planned forwards from what was eaten", ()
     const small = config();
     small.project.months = 12;
     const farm = runFarm(small);
-    const opening = farm.feedPlan.deliveries[0];
+    const forFeed = small.feed.truckCapacityKg - small.feed.sundriesAllowanceKg;
+    const opening = farm.haulage.trips.find((trip) => feedOnBoard(trip) > 0)!;
     const eatenInAYear = farm.history.reduce(
       (kg, day) => kg + day.sowFeedKg + day.growingFeedKg,
       0,
     );
 
-    expect(opening.loadKg).toBeCloseTo(farm.config.feed.truckCapacityKg, 6);
+    expect(feedOnBoard(opening)).toBeCloseTo(forFeed, 6);
     // It is still a plan's worth of feed, not a year's: nothing is delivered
     // that the herd does not go on to eat.
-    expect(opening.loadKg).toBeLessThan(eatenInAYear);
+    expect(feedOnBoard(opening)).toBeLessThan(eatenInAYear);
 
     const smaller = config();
     smaller.project.months = 12;
-    smaller.feed.truckCapacityKg = 500;
-    expect(runFarm(smaller).feedPlan.deliveries[0].loadKg).toBeCloseTo(500, 6);
+    smaller.feed.truckCapacityKg = 600;
+    smaller.feed.sundriesAllowanceKg = 100;
+    const cramped = runFarm(smaller).haulage.trips.find((trip) => feedOnBoard(trip) > 0)!;
+    expect(feedOnBoard(cramped)).toBeCloseTo(500, 6);
   });
 
-  it("shows the lorry in the day's activities, with what was on it", () => {
+  it("shows the lorry in the day's activities, with the order it carried", () => {
     const input = busyFarm();
     const { days, months } = farmTimeline(input);
-    const deliveryDay = days.find((day) => day.feedLoads > 0)!;
+    const deliveryDay = days.find(
+      (day) => day.events.filter((event) => event.type === "feed").length > 0,
+    )!;
 
-    const lorry = deliveryDay.events.find((event) => event.type === "feed")!;
-    // One ration to a load, so the lorry says which store it filled.
-    expect(lorry.label).toMatch(/^(sow|creep|weaner|grower|finisher) feed lorry in, [\d,]+ kg$/);
+    const notes = deliveryDay.events.filter((event) => event.type === "feed");
+    // A delivery note, not a single-line order: what came, and what was on it.
+    for (const note of notes) {
+      expect(note.label).toMatch(/^(Bedding lorry|Lorry) in, [\d,]+ kg: .+ \d[\d,]* kg/);
+    }
+
+    // And a supply run reads as the mixed order it is, several stores deep.
+    // Thousands are separated with a bare comma and the order with a comma and
+    // a space, so the line splits cleanly into what was on the lorry.
+    const mixed = days
+      .flatMap((day) => day.events)
+      .find(
+        (event) =>
+          event.type === "feed" &&
+          event.label.startsWith("Lorry in, ") &&
+          event.label.split(": ")[1].split(", ").length > 1,
+      )!;
+    expect(mixed).toBeDefined();
+    expect(mixed.label).toMatch(/^Lorry in, [\d,]+ kg: .+ kg, .+ kg/);
 
     // Zoomed out to a month, the same trips are counted rather than listed.
-    const busyMonth = months.find((month) => month.feedLoads > 1)!;
-    expect(busyMonth.events.some((event) => event.label.includes("feed loads"))).toBe(true);
+    const busyMonth = months.find((month) => month.lorriesIn > 1)!;
+    expect(busyMonth.events.some((event) => event.label.includes("lorries"))).toBe(true);
+  });
+
+  it("brings the gas in the weight held back for it, and never with the bedding", () => {
+    const input = busyFarm();
+    const farm = runFarm(input);
+    const gross = input.feed.truckCapacityKg;
+    const trips = farm.haulage.trips;
+
+    const carryingGas = trips.filter((trip) => trip.lines.some((line) => line.store === "gas"));
+    expect(carryingGas.length).toBeGreaterThan(0);
+    // Most bottles come in on a run that was happening anyway: they ride in the
+    // space held back for them, so they cost the farm no journey of their own.
+    const riding = carryingGas.filter((trip) => feedOnBoard(trip) > 0);
+    expect(riding.length).toBeGreaterThan(carryingGas.length / 2);
+    for (const trip of carryingGas) {
+      expect(trip.kind).toBe("supplies");
+      expect(trip.payloadKg).toBeLessThanOrEqual(gross + 1e-6);
+      expect(trip.lines.some((line) => line.store === "bedding")).toBe(false);
+    }
+
+    // Bedding travels alone, always. Nothing else is ever on the deck with it.
+    const beddingTrips = trips.filter((trip) =>
+      trip.lines.some((line) => line.store === "bedding"),
+    );
+    expect(beddingTrips.length).toBeGreaterThan(0);
+    for (const trip of beddingTrips) {
+      expect(trip.kind).toBe("bedding");
+      expect(trip.lines).toHaveLength(1);
+      expect(trip.cost).toBe(input.housing.beddingDeliveryCost);
+    }
+    // And no supply run ever carries any.
+    for (const trip of trips.filter((one) => one.kind === "supplies")) {
+      expect(trip.lines.some((line) => line.store === "bedding")).toBe(false);
+    }
+  });
+
+  it("spreads a journey over everything that was on it", () => {
+    const input = busyFarm();
+    const farm = runFarm(input);
+
+    // The delivery line is the journeys made, no more and no less.
+    expect(farm.ledger.totals["deliveries"]).toBeCloseTo(
+      farm.haulage.trips.reduce((paid, trip) => paid + trip.cost, 0),
+      6,
+    );
+
+    // And every cent of the supply runs reaches the goods they carried: feed
+    // through the pigs that ate it, gas through the piglets it warmed.
+    const suppliesCost = farm.haulage.trips
+      .filter((trip) => trip.kind === "supplies")
+      .reduce((paid, trip) => paid + trip.cost, 0);
+    const attributed = farm.history.reduce((total, day) => {
+      const feed = FEED_RATIONS.reduce(
+        (perDay, ration) =>
+          perDay +
+          day.feedByRation[ration] * (farm.haulage.haulagePerKgByDay[ration]?.[day.day] ?? 0),
+        0,
+      );
+      return total + feed + day.gasKg * (farm.haulage.haulagePerKgByDay.gas?.[day.day] ?? 0);
+    }, 0);
+    expect(attributed).toBeCloseTo(suppliesCost, 3);
   });
 });
 

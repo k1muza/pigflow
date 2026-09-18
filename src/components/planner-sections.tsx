@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import {
   addMonths,
   differenceInCalendarMonths,
@@ -111,6 +110,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /** Chart palette: one blue for cash, one orange for flows, an ordinal blue ramp for stages. */
 const CHART = {
@@ -389,14 +389,16 @@ function SectionCard({
   description,
   icon: Icon,
   children,
+  className,
 }: {
   title: string;
   description: string;
   icon: typeof PiggyBank;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <Card className="[--card-spacing:--spacing(5)]">
+    <Card className={`[--card-spacing:--spacing(5)] ${className ?? ""}`}>
       <CardHeader className="grid-cols-[auto_1fr] gap-x-3">
         <span className="row-span-2 flex size-8 items-center justify-center rounded-lg bg-raised text-ink-muted">
           <Icon size={16} strokeWidth={1.75} />
@@ -438,12 +440,11 @@ function StatTile({
 export function Overview({
   config,
   projection,
-  inputsHref,
+  onOpenInputs,
 }: {
   config: PlannerConfig;
   projection: ReturnType<typeof calculateProjection>;
-  /** Where "Review assumptions" leads: this plan's own inputs page. */
-  inputsHref: string;
+  onOpenInputs: () => void;
 }) {
   const [zoom, setZoom] = useState<Granularity>("month");
   const [span, setSpan] = useState<YearSpan>(null);
@@ -762,12 +763,13 @@ export function Overview({
               </div>
             ))}
           </div>
-          <Link
-            href={inputsHref}
+          <button
+            type="button"
+            onClick={onOpenInputs}
             className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-hairline px-4 py-2 text-sm font-medium text-ink-muted transition hover:bg-raised hover:text-ink"
           >
             Review assumptions <ChevronRight size={14} />
-          </Link>
+          </button>
         </Panel>
       </div>
 
@@ -832,7 +834,7 @@ export function Overview({
       <div className="order-5 grid gap-5 xl:grid-cols-2">
         <Panel
           title="Housing pressure"
-          description="Estimated places used against the capacities entered under Plan inputs. Above 100% signals a likely bottleneck; growing-space limits are not yet enforced."
+          description="Estimated places used against the capacities entered under Farm inputs. Above 100% signals a likely bottleneck; growing-space limits are not yet enforced."
         >
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -1335,7 +1337,7 @@ export function Simulator({ config }: { config: PlannerConfig }) {
                           </span>
                           <span className="mt-0.5 block text-xs text-ink-faint">
                             {number(month.total, 0)} head · {number(month.sold, 0)} sold ·{" "}
-                            {plural(month.feedLoads, "feed load")} ·{" "}
+                            {plural(month.lorriesIn, "lorry", "lorries")} ·{" "}
                             {money(month.netCashFlow, currency)} net
                           </span>
                         </span>
@@ -1773,9 +1775,9 @@ function DetailPanel({
   );
 }
 
-// --------------------------------------------------------------------- inputs
+// --------------------------------------------------------------- farm inputs
 
-export function Inputs({
+export function FarmInputs({
   config,
   update,
   metrics,
@@ -1788,6 +1790,10 @@ export function Inputs({
   ) => void;
   metrics: ReturnType<typeof getModelMetrics>;
 }) {
+  type InputTab = "plan" | "breeding" | "growth" | "costs";
+  const [activeTab, setActiveTab] = useState<InputTab>("plan");
+  const cardClass = (tab: InputTab) => (activeTab !== tab ? "hidden" : undefined);
+
   function updateVaccination(index: number, patch: Partial<Vaccination>) {
     const next = config.health.vaccinations.map((dose, position) =>
       position === index ? { ...dose, ...patch } : dose,
@@ -1820,23 +1826,70 @@ export function Inputs({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight text-ink">Build from your farm facts</h2>
-          <p className="mt-1.5 max-w-2xl text-sm leading-6 text-ink-muted">
-            Benchmark notes are starting points, not promises. Replace them with your records,
-            supplier quotes and local veterinary plan.
-          </p>
+    <div className="flex h-full min-h-0">
+      <aside className="flex w-14 shrink-0 flex-col border-r border-hairline bg-plane/60 p-2 sm:w-56 sm:p-3">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as InputTab)}
+          orientation="vertical"
+          className="w-full"
+        >
+          <TabsList variant="line" className="h-auto w-full items-stretch gap-1">
+            <TabsTrigger
+              value="plan"
+              aria-label="Plan and housing"
+              title="Plan and housing"
+              className="min-h-10 px-0 group-data-vertical/tabs:justify-center sm:px-3 sm:group-data-vertical/tabs:justify-start"
+            >
+              <WalletCards /> <span className="hidden sm:inline">Plan &amp; housing</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="breeding"
+              aria-label="Breeding"
+              title="Breeding"
+              className="min-h-10 px-0 group-data-vertical/tabs:justify-center sm:px-3 sm:group-data-vertical/tabs:justify-start"
+            >
+              <Landmark /> <span className="hidden sm:inline">Breeding</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="growth"
+              aria-label="Growth and feed"
+              title="Growth and feed"
+              className="min-h-10 px-0 group-data-vertical/tabs:justify-center sm:px-3 sm:group-data-vertical/tabs:justify-start"
+            >
+              <Wheat /> <span className="hidden sm:inline">Growth &amp; feed</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="costs"
+              aria-label="Health and costs"
+              title="Health and costs"
+              className="min-h-10 px-0 group-data-vertical/tabs:justify-center sm:px-3 sm:group-data-vertical/tabs:justify-start"
+            >
+              <Syringe /> <span className="hidden sm:inline">Health &amp; costs</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="mt-auto hidden rounded-lg border border-hairline bg-surface p-3 text-xs leading-5 text-ink-muted sm:block">
+          <span className="block font-medium text-ink">Expected performance</span>
+          <span className="mt-1 block">
+            {number(metrics.littersPerSowYear, 2)} litters/sow/year
+          </span>
+          <span className="block">
+            {number(metrics.pigsWeanedPerSowYear, 1)} pigs weaned/sow/year
+          </span>
         </div>
-        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-xs text-ink-muted">
+      </aside>
+
+      <div className="min-w-0 flex-1 space-y-5 overflow-y-auto p-4 sm:p-5">
+        <div className="rounded-lg border border-hairline bg-surface px-4 py-3 text-xs text-ink-muted sm:hidden">
           <span className="font-medium text-ink">Expected:</span>{" "}
           {number(metrics.littersPerSowYear, 2)} litters/sow/year ·{" "}
           {number(metrics.pigsWeanedPerSowYear, 1)} pigs weaned/sow/year
         </div>
-      </div>
 
       <SectionCard
+        className={cardClass("plan")}
         title="Planning frame"
         description="Time period, currency and opening funds. Calendar days are calculated automatically."
         icon={WalletCards}
@@ -1923,6 +1976,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("plan")}
         title="Animals on hand"
         description="Starting growing pigs are spread evenly through their stage rather than bunched on one date."
         icon={PiggyBank}
@@ -1976,6 +2030,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("plan")}
         title="Housing capacity"
         description="Enter usable animal places, not the number of pens. These values drive the dashboard capacity lines."
         icon={Rows3}
@@ -2062,6 +2117,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("breeding")}
         title="Gilt and breeding policy"
         description="How the herd starts, when breeding animals leave, and how replacements are found."
         icon={Landmark}
@@ -2210,6 +2266,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("breeding")}
         title="Service & artificial insemination"
         description="How sows are served. AI stands no boar and is related to nothing on the farm, so it covers the matings a closed herd would otherwise need another boar for."
         icon={TestTubes}
@@ -2266,6 +2323,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("breeding")}
         title="Breeding performance"
         description="These inputs drive the biological cycle, the farrowings and the pigs entering the growing herd."
         icon={HeartPulse}
@@ -2356,6 +2414,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("growth")}
         title="Weights, growth and feed conversion"
         description={
           "Feed conversion is worked out here rather than typed in. A pig eats for upkeep before it eats to grow, and both get dearer as it fills out, so the ratio moves with weight on its own: " +
@@ -2468,6 +2527,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("growth")}
         title="Feed consumption and prices"
         description="Sows eat by daily intake, scaled to their weight. Growing pigs eat their upkeep plus what the day's gain costs at the weight they are, with appetite scaled by sex. Stage decides which bin the feed comes out of and what it costs."
         icon={Wheat}
@@ -2551,8 +2611,9 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
-        title="Getting the feed here"
-        description="Feed is bought by the load, not by the mouthful. The plan's whole feeding is walked backwards and cut into lorry-loads, each trip placed on the day the herd starts eating into it — so nothing is delivered that is not eaten, and the haulage is charged to the pigs that eat that load."
+        className={cardClass("growth")}
+        title="Getting it here"
+        description="Goods are bought by the load, not by the mouthful. The plan's whole use is cut into lorry-loads — every ration due on the same deck, with the gas in the weight held back for it — and each trip is placed on the day the herd starts drawing on it. Nothing is delivered that is not used, a journey is charged once however much is on it, and its cost reaches each pig through what that pig eats. Bedding travels alone."
         icon={Truck}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -2560,11 +2621,21 @@ export function Inputs({
             label="Truck capacity"
             value={config.feed.truckCapacityKg}
             onChange={(v) => update("feed", "truckCapacityKg", v)}
-            suffix="kg per load"
+            suffix="kg on the deck"
             min={100}
             max={30000}
             step={100}
-            hint="A bigger lorry means fewer trips for the same feed."
+            hint="Everything the lorry can carry on one journey, feed and sundries together."
+          />
+          <Field
+            label="Held back for sundries"
+            value={config.feed.sundriesAllowanceKg}
+            onChange={(v) => update("feed", "sundriesAllowanceKg", v)}
+            suffix="kg"
+            min={0}
+            max={10000}
+            step={50}
+            hint={`Weight kept clear of the feed order for the gas bottles, the vaccines and the rest, so they never displace feed that was already due. Leaves ${Math.max(config.feed.truckCapacityKg - config.feed.sundriesAllowanceKg, 0)} kg of feed on a full load.`}
           />
           <Field
             label="Cost per delivery"
@@ -2588,6 +2659,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("costs")}
         title="Health costs by age"
         description="Every pig is charged for each treatment on the day it reaches that age, and for heat while it is still young enough to need it."
         icon={Syringe}
@@ -2601,12 +2673,24 @@ export function Inputs({
             hint="Charged to every sow in the herd each month."
           />
           <Field
-            label="Gas per heated piglet"
-            value={config.health.gasKgPerPigDay}
-            onChange={(v) => update("health", "gasKgPerPigDay", v)}
-            suffix="kg/pig/day"
-            step={0.005}
-            hint="What a piglet under the lamp burns in a day. Gas is stored and delivered like feed, so this is a quantity rather than a cost."
+            label="Gas per heater"
+            value={config.health.gasKgPerHeaterDay}
+            onChange={(v) => update("health", "gasKgPerHeaterDay", v)}
+            suffix="kg/night"
+            min={0}
+            max={50}
+            step={0.5}
+            hint="What one lamp burns on a night it is lit — the twelve dark hours it is wanted, counted as a day's use. A lamp is alight or it is not, so this is burnt whether the pen under it is full or holds one piglet."
+          />
+          <Field
+            label="Piglets a heater covers"
+            value={config.health.pigletsPerHeater}
+            onChange={(v) => update("health", "pigletsPerHeater", Math.round(v))}
+            suffix="head"
+            min={1}
+            max={100}
+            step={1}
+            hint="A suckling litter cannot share a lamp with the crate next door, so every litter lights at least one of its own. Weaned pigs still young enough to want heat are penned together and share what their number needs."
           />
           <Field
             label="Gas price"
@@ -2632,7 +2716,7 @@ export function Inputs({
             min={1}
             max={20}
             step={1}
-            hint={`The farm never holds more than ${config.health.gasCanisterKg * config.health.gasCanisters} kg, so a bottle waits for an empty rather than arriving early. Gas rides on the feed lorry, so it costs no trip of its own when the feed is already coming.`}
+            hint={`The farm never holds more than ${config.health.gasCanisterKg * config.health.gasCanisters} kg, so a bottle waits for an empty rather than arriving early. It rides in the weight held back on the feed lorry, and only makes a trip of its own when no run is due in time with room on it.`}
           />
           <Field
             label="Heated until"
@@ -2642,7 +2726,7 @@ export function Inputs({
             min={0}
             max={120}
             step={1}
-            hint={`Costs ${money(config.health.gasKgPerPigDay * config.health.gasCostPerKg * config.health.heatedUntilAgeDays, config.project.currency)} of gas per pig reared.`}
+            hint={`A lamp costs ${money(config.health.gasKgPerHeaterDay * config.health.gasCostPerKg, config.project.currency)} a night, which is ${money((config.health.gasKgPerHeaterDay * config.health.gasCostPerKg * config.health.heatedUntilAgeDays) / Math.max(config.health.pigletsPerHeater, 1), config.project.currency)} a piglet over the whole heated period when the pen is full — and more when it is not.`}
           />
           <SelectField
             label="Mortality timing"
@@ -2799,6 +2883,7 @@ export function Inputs({
       </SectionCard>
 
       <SectionCard
+        className={cardClass("costs")}
         title="Sales and operating costs"
         description="Use written quotations where possible. Health costs should reflect a locally agreed vaccination and biosecurity programme."
         icon={WalletCards}
@@ -2905,6 +2990,7 @@ export function Inputs({
           />
         </div>
       </SectionCard>
+      </div>
     </div>
   );
 }

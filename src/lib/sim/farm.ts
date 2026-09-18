@@ -31,15 +31,16 @@ import {
 } from "./animals";
 import {
   emptyRations,
-  EMPTY_FEED_PLAN,
-  EMPTY_STORE_PLAN,
-  planFeedDeliveries,
-  planStore,
-  type FeedDelivery,
-  type FeedPlan,
+  emptyStoreSeries,
+  EMPTY_HAULAGE,
+  planHaulage,
+  STORE_IDS,
+  type HaulagePlan,
   type RationTally,
-  type StorePlan,
-} from "./feed-plan";
+  type StoreId,
+  type StoreSeries,
+  type Trip,
+} from "./haulage";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
 import { MortalityScheduler } from "./mortality";
 import { variationFor, type Variation } from "./variation";
@@ -125,14 +126,14 @@ export type DayRecord = {
   growingFeedKg: number;
   /** Gas burnt and bedding used today, which are stores like the feed bins. */
   gasKg: number;
+  /** Heaters alight tonight, which is what the gas is actually burnt by. */
+  gasHeaters: number;
   beddingKg: number;
-  /** Loads of gas or bedding that came through the gate today. */
-  storeLoads: number;
   /** What the herd ate today, ration by ration. */
   feedByRation: RationTally;
-  /** Loads that came through the gate today, each with the order it carried. */
-  feedDeliveries: FeedDelivery[];
-  feedLoads: number;
+  /** Lorries through the gate today, each with the order it carried. */
+  deliveries: Trip[];
+  lorriesIn: number;
   feedDeliveredKg: number;
   /** Runs the lorry made to the abattoir today with the pigs sold. */
   marketTrips: number;
@@ -169,12 +170,10 @@ export type LifetimeTotals = {
   scans: number;
   pregnanciesConfirmed: number;
   scannedEmpty: number;
-  /** Feed loads hauled in since the plan started. */
-  feedLoads: number;
+  /** Lorries through the gate since the plan started, and what they cost. */
+  lorries: number;
   feedDeliveredKg: number;
-  feedHaulageCost: number;
-  /** Loads of gas and bedding taken in since the plan started. */
-  storeLoads: number;
+  haulageCost: number;
   /** Runs to the abattoir since the plan started, and what they cost. */
   marketTrips: number;
   marketHaulageCost: number;
@@ -356,19 +355,37 @@ function noteOf(note: string): string {
   return note.trim() ? `: ${note.trim()}` : "";
 }
 
-/** Plans kept against the config that produced them; a few is plenty. */
-const PLAN_CACHE_SIZE = 8;
-/** Every store a plan schedules: the five feed bins, the gas tank, the bedding. */
-export type FarmPlans = { feed: FeedPlan; gas: StorePlan; bedding: StorePlan };
-
-/** A farm that hauls nothing, used while the haulage itself is being worked out. */
-export const EMPTY_PLANS: FarmPlans = {
-  feed: EMPTY_FEED_PLAN,
-  gas: EMPTY_STORE_PLAN,
-  bedding: EMPTY_STORE_PLAN,
+/** What each store is called on a delivery note. */
+export const STORE_LABELS: Record<StoreId, string> = {
+  sow: "sow & gilt feed",
+  creep: "creep feed",
+  weaner: "weaner feed",
+  grower: "grower feed",
+  finisher: "finisher feed",
+  gas: "gas",
+  bedding: "bedding",
 };
 
-const planCache = new Map<string, FarmPlans>();
+/**
+ * A lorry's delivery note: what came, and what was on it. A mixed run reads as
+ * the order it was — so the event log shows one movement carrying four rations
+ * and a bottle of gas, rather than five lorries that each brought one thing.
+ */
+export function tripNote(trip: Trip): string {
+  const order = trip.lines
+    .filter((line) => line.kg >= 0.5)
+    .map((line) => STORE_LABELS[line.store] + " " + Math.round(line.kg) + " kg")
+    .join(", ");
+  const heading = trip.kind === "bedding" ? "Bedding lorry in" : "Lorry in";
+  return heading + ", " + Math.round(trip.payloadKg) + " kg: " + order;
+}
+
+/** Plans kept against the config that produced them; a few is plenty. */
+const PLAN_CACHE_SIZE = 8;
+/** A farm that hauls nothing, used while the haulage itself is being worked out. */
+export const EMPTY_PLANS: HaulagePlan = EMPTY_HAULAGE;
+
+const planCache = new Map<string, HaulagePlan>();
 
 /**
  * The lorry trips a plan needs. Working them out means knowing what the herd ate
@@ -379,7 +396,7 @@ const planCache = new Map<string, FarmPlans>();
  * Anchoring the schedule to the end of the horizon is what keeps it stable: read
  * the farm on any date and the trips behind that date are the same trips.
  */
-export function feedPlanFor(config: PlannerConfig): FarmPlans {
+export function feedPlanFor(config: PlannerConfig): HaulagePlan {
   const key = JSON.stringify(config);
   const cached = planCache.get(key);
   if (cached) return cached;
@@ -387,34 +404,17 @@ export function feedPlanFor(config: PlannerConfig): FarmPlans {
   const start = parseISO(config.project.startDate);
   const horizon = differenceInCalendarDays(addMonths(start, config.project.months), start) - 1;
   const probe = new Farm(config, EMPTY_PLANS).advanceTo(horizon);
-  const feed = planFeedDeliveries(
-    probe.history.map((day) => day.feedByRation),
-    config,
-  );
-  // The days a lorry is already coming to the farm, which is what the gas rides
-  // in on rather than sending a vehicle for a single bottle.
-  const feedDays = new Set(feed.deliveries.map((load) => load.day));
 
-  const plan: FarmPlans = {
-    feed,
-    // One canister at a time, and never more on the farm than there are
-    // canisters to put it in. It rides on the feed lorry, so it is charged at
-    // that lorry's rate rather than a tanker's.
-    gas: planStore(
-      probe.history.map((day) => day.gasKg),
-      config.health.gasCanisterKg,
-      config.feed.deliveryCostPerTrip,
-      config.feed.feedBufferDays,
-      config.health.gasCanisterKg * config.health.gasCanisters,
-      feedDays,
-    ),
-    bedding: planStore(
-      probe.history.map((day) => day.beddingKg),
-      config.housing.beddingLoadKg,
-      config.housing.beddingDeliveryCost,
-      config.feed.feedBufferDays,
-    ),
-  };
+  // Every store's draw, day by day, on the same calendar — which is what lets
+  // the lorry be loaded with all of them at once instead of one at a time.
+  const use: StoreSeries = emptyStoreSeries();
+  for (const store of STORE_IDS) use[store] = new Array<number>(probe.history.length).fill(0);
+  for (const [day, record] of probe.history.entries()) {
+    for (const ration of FEED_RATIONS) use[ration][day] = record.feedByRation[ration];
+    use.gas[day] = record.gasKg;
+    use.bedding[day] = record.beddingKg;
+  }
+  const plan = planHaulage(use, config);
 
   if (planCache.size >= PLAN_CACHE_SIZE) {
     const oldest = planCache.keys().next().value;
@@ -494,10 +494,9 @@ export class Farm {
     sowsCulled: 0,
     giltsPurchased: 0,
     boarsRotated: 0,
-    feedLoads: 0,
+    lorries: 0,
     feedDeliveredKg: 0,
-    feedHaulageCost: 0,
-    storeLoads: 0,
+    haulageCost: 0,
     marketTrips: 0,
     marketHaulageCost: 0,
     servicesAttempted: 0,
@@ -520,16 +519,13 @@ export class Farm {
   day = -1;
 
   /** The lorry trips this plan needs, worked out before the first day is run. */
-  readonly feedPlan: FeedPlan;
-  private readonly deliveriesByDay = new Map<number, FeedDelivery[]>();
+  readonly haulage: HaulagePlan;
+  private readonly deliveriesByDay = new Map<number, Trip[]>();
   /** Whether this plan rolls for its outcomes or takes its rates exactly. */
   private readonly variation: Variation;
   /** Books every loss in advance instead of rolling for one each morning. */
   private readonly mortality: MortalityScheduler;
   private readonly vaccinations: Vaccination[];
-  /** The gas tank and the bedding barn, scheduled like any other store. */
-  readonly gasPlan: StorePlan;
-  readonly beddingPlan: StorePlan;
   /**
    * What is left of each pack opened, by job, and the day it was broached. A
    * vial is opened for one piglet and the rest of it goes to the next one
@@ -566,7 +562,7 @@ export class Farm {
    * A feed plan may be handed in; without one the farm works its own out, which
    * takes a run of its own (see {@link feedPlanFor}).
    */
-  constructor(input: PlannerConfig, plans?: FarmPlans, options?: { keepEveryEvent?: boolean }) {
+  constructor(input: PlannerConfig, plans?: HaulagePlan, options?: { keepEveryEvent?: boolean }) {
     this.eventLimit = options?.keepEveryEvent === true ? Infinity : MAX_EVENTS;
     this.config = plannerSchema.parse(input);
     this.start = parseISO(this.config.project.startDate);
@@ -580,14 +576,11 @@ export class Farm {
       },
     );
     this.ledger = new Ledger(this.config.project.openingCash);
-    const scheduled = plans ?? feedPlanFor(this.config);
-    this.feedPlan = scheduled.feed;
-    this.gasPlan = scheduled.gas;
-    this.beddingPlan = scheduled.bedding;
-    for (const load of this.feedPlan.deliveries) {
-      const sameDay = this.deliveriesByDay.get(load.day);
-      if (sameDay) sameDay.push(load);
-      else this.deliveriesByDay.set(load.day, [load]);
+    this.haulage = plans ?? feedPlanFor(this.config);
+    for (const trip of this.haulage.trips) {
+      const sameDay = this.deliveriesByDay.get(trip.day);
+      if (sameDay) sameDay.push(trip);
+      else this.deliveriesByDay.set(trip.day, [trip]);
     }
     this.vaccinations = [...this.config.health.vaccinations].sort(
       (a, b) => a.ageDays - b.ageDays,
@@ -671,6 +664,41 @@ export class Farm {
   }
 
   /**
+   * How many heaters burn tonight, and how many piglets are under them.
+   *
+   * A suckler is in its dam's crate, so a litter cannot share a lamp with the
+   * litter next door: every litter lights at least one of its own, and a litter
+   * bigger than a lamp covers lights a second. Once weaned they are penned in
+   * groups, so the rest of the heated pigs share what their number needs.
+   */
+  private heatersAlight(day: number): { heaters: number; underHeat: number } {
+    const { health } = this.config;
+    if (health.heatedUntilAgeDays <= 0 || health.gasKgPerHeaterDay <= 0) {
+      return { heaters: 0, underHeat: 0 };
+    }
+    const perLamp = Math.max(health.pigletsPerHeater, 1);
+
+    /** Head in each farrowing crate that still has a litter in it. */
+    const crates = new Map<string, number>();
+    let inPens = 0;
+    let underHeat = 0;
+    for (const pig of this.pigs) {
+      if (pig.ageDays(day) >= health.heatedUntilAgeDays) continue;
+      underHeat += 1;
+      if (pig.weanedOnDay === null) {
+        const crate = (pig.damTag ?? "?") + "@" + pig.birthDay;
+        crates.set(crate, (crates.get(crate) ?? 0) + 1);
+      } else {
+        inPens += 1;
+      }
+    }
+
+    let heaters = Math.ceil(inPens / perLamp);
+    for (const head of crates.values()) heaters += Math.ceil(head / perLamp);
+    return { heaters, underHeat };
+  }
+
+  /**
    * Every store as it stands at the close of a day: what is in it, what that is
    * worth, and how long the herd can go on it. The cover is read off the last
    * week's use rather than the day's, because a day on which nothing was drawn
@@ -703,7 +731,7 @@ export class Farm {
     };
 
     const levels: StoreLevel[] = FEED_RATIONS.map((ration) => {
-      const quantity = this.feedPlan.stockByDay[ration]?.[day] ?? 0;
+      const quantity = this.haulage.stockByDay[ration]?.[day] ?? 0;
       return {
         id: "feed-" + ration,
         label: rationLabel[ration],
@@ -715,7 +743,7 @@ export class Farm {
       };
     });
 
-    const gasHeld = this.gasPlan.stockByDay[day] ?? 0;
+    const gasHeld = this.haulage.stockByDay.gas?.[day] ?? 0;
     levels.push({
       id: "gas",
       label: "Heating gas",
@@ -726,7 +754,7 @@ export class Farm {
       daysOfCover: cover(gasHeld, recentUse((record) => record.gasKg)),
     });
 
-    const beddingHeld = this.beddingPlan.stockByDay[day] ?? 0;
+    const beddingHeld = this.haulage.stockByDay.bedding?.[day] ?? 0;
     levels.push({
       id: "bedding",
       label: "Bedding",
@@ -757,10 +785,11 @@ export class Farm {
     };
     let value = 0;
     for (const ration of FEED_RATIONS) {
-      value += (this.feedPlan.stockByDay[ration]?.[day] ?? 0) * price[ration];
+      value += (this.haulage.stockByDay[ration]?.[day] ?? 0) * price[ration];
     }
-    value += (this.gasPlan.stockByDay[day] ?? 0) * config.health.gasCostPerKg;
-    value += (this.beddingPlan.stockByDay[day] ?? 0) * config.housing.beddingCostPerKg;
+    value += (this.haulage.stockByDay.gas?.[day] ?? 0) * config.health.gasCostPerKg;
+    value +=
+      (this.haulage.stockByDay.bedding?.[day] ?? 0) * config.housing.beddingCostPerKg;
     return value;
   }
 
@@ -990,11 +1019,11 @@ export class Farm {
       sowFeedKg: 0,
       growingFeedKg: 0,
       gasKg: 0,
+      gasHeaters: 0,
       beddingKg: 0,
-      storeLoads: 0,
       feedByRation: emptyRations(),
-      feedDeliveries: [],
-      feedLoads: 0,
+      deliveries: [],
+      lorriesIn: 0,
       feedDeliveredKg: 0,
       marketTrips: 0,
       counts: emptyCounts(),
@@ -1052,8 +1081,7 @@ export class Farm {
     }
 
     this.runReproduction(day, date, record);
-    this.runFeedDeliveries(day, record);
-    this.runStoreDeliveries(day, record);
+    this.runDeliveries(day, date, record);
     this.runDailyCare(day, date, record);
     this.runSelection(day, date, record);
     this.runGrowthAndSales(day, date, record);
@@ -1434,56 +1462,26 @@ export class Farm {
     );
   }
 
-  /** Takes in the loads the plan has standing for today and pays their haulage. */
-  private runFeedDeliveries(day: number, record: DayRecord): void {
+  /**
+   * Takes in the lorries the plan has standing for today and pays for the
+   * journeys. A trip is charged once, whatever it is carrying: a run that
+   * brought four rations and a gas bottle is one movement and one bill.
+   */
+  private runDeliveries(day: number, date: string, record: DayRecord): void {
     const arrivals = this.deliveriesByDay.get(day);
     if (!arrivals) return;
-    record.feedDeliveries = arrivals;
-    for (const load of arrivals) {
-      this.ledger.accrue("deliveries", load.haulageCost);
-      record.feedLoads += 1;
-      record.feedDeliveredKg += load.loadKg;
-      this.lifetime.feedLoads += 1;
-      this.lifetime.feedDeliveredKg += load.loadKg;
-      this.lifetime.feedHaulageCost += load.haulageCost;
-    }
-  }
-
-  /**
-   * The tanker and the bedding lorry. They keep their own stores and run on
-   * their own schedules, so they arrive on their own days and are charged for
-   * their own trips rather than riding in with the feed.
-   */
-  private runStoreDeliveries(day: number, record: DayRecord): void {
-    // Gas comes on the farm's own lorry, so a canister that arrives on a day
-    // the feed was already coming has cost nothing extra to bring: the trip was
-    // being made anyway. Bedding comes on its own lorry and is charged for.
-    const feedCameToday = record.feedLoads > 0;
-    let rodeAlong = feedCameToday;
-
-    for (const [store, plan] of [
-      ["gas", this.gasPlan] as const,
-      ["bedding", this.beddingPlan] as const,
-    ]) {
-      for (const load of plan.deliveries) {
-        if (load.day !== day) continue;
-        const free = store === "gas" && rodeAlong;
-        if (!free) this.ledger.accrue("deliveries", load.cost);
-        if (store === "gas") rodeAlong = true;
-        record.storeLoads += 1;
-        this.lifetime.storeLoads += 1;
-        this.log(
-          day,
-          record.date,
-          "purchase",
-          (store === "gas"
-            ? "Gas canister in, "
-            : "Bedding in, ") +
-            Math.round(load.quantity) +
-            " kg" +
-            (free ? ", on the feed lorry" : ""),
-        );
+    record.deliveries = arrivals;
+    for (const trip of arrivals) {
+      this.ledger.accrue("deliveries", trip.cost);
+      record.lorriesIn += 1;
+      this.lifetime.lorries += 1;
+      this.lifetime.haulageCost += trip.cost;
+      for (const line of trip.lines) {
+        if (line.store === "gas" || line.store === "bedding") continue;
+        record.feedDeliveredKg += line.kg;
+        this.lifetime.feedDeliveredKg += line.kg;
       }
+      this.log(day, date, "purchase", tripNote(trip));
     }
   }
 
@@ -1497,14 +1495,23 @@ export class Farm {
     let vaccinationCost = 0;
     let processingCost = 0;
 
-    // Haulage is paid when a load lands, and the plan knows which load every
-    // kilogram eaten today came off. Charging it out with the feed is what puts
-    // a share of the lorry on the animal that ate it.
-    // Each ration is stored and hauled on its own, so the share of a lorry a
-    // kilogram carries depends on which ration it is as well as which day.
+    // A lamp is alight or it is not, so the night's gas is settled before any
+    // piglet is charged for it, and then split between the piglets under it. A
+    // pen that is half empty warms at the same rate as a full one, which makes
+    // it dearer a head — as it is on the farm.
+    const { heaters, underHeat } = this.heatersAlight(day);
+    record.gasHeaters = heaters;
+    const gasPerPig =
+      underHeat > 0 ? (heaters * config.health.gasKgPerHeaterDay) / underHeat : 0;
+
+    // Haulage is paid when a lorry lands, and the plan knows which lorry every
+    // kilogram eaten today came in on. Charging it out with the feed is what
+    // puts a share of the journey on the animal that ate it. A trip's cost is
+    // spread over its whole payload, so what a kilogram carries depends on how
+    // full the lorry that brought it was as well as on the day.
     const haul = (ration: FeedRation, kg: number) => {
       record.feedByRation[ration] += kg;
-      return kg * (this.feedPlan.haulagePerKgByDay[ration]?.[day] ?? 0);
+      return kg * (this.haulage.haulagePerKgByDay[ration]?.[day] ?? 0);
     };
 
     for (const sow of this.sows) {
@@ -1560,13 +1567,13 @@ export class Farm {
       }
 
       const ageDays = pig.ageDays(day);
-      if (ageDays < config.health.heatedUntilAgeDays && config.health.gasKgPerPigDay > 0) {
-        const kg = config.health.gasKgPerPigDay;
+      if (ageDays < config.health.heatedUntilAgeDays && gasPerPig > 0) {
+        const kg = gasPerPig;
         const cost = kg * config.health.gasCostPerKg;
         gasKg += kg;
         gasCost += cost;
         charge("heating", cost);
-        charge("transport", kg * (this.gasPlan.haulagePerUnitByDay[day] ?? 0));
+        charge("transport", kg * (this.haulage.haulagePerKgByDay.gas?.[day] ?? 0));
       }
 
       while (
@@ -1605,8 +1612,8 @@ export class Farm {
     }
     this.ledger.accrue("gas", gasCost);
     this.ledger.accrue("bedding", beddingCost);
-    // The trips that brought the gas and the bedding are paid for as they land,
-    // in runStoreDeliveries, the same way the feed lorries are.
+    // The journeys that brought the gas and the bedding are paid for as they
+    // land, in runDeliveries, the same way the feed is.
     this.ledger.accrue("vaccination", vaccinationCost);
     this.ledger.accrue("processing", processingCost);
 

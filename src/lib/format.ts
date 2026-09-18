@@ -27,6 +27,6 @@ export function number(value: number, digits = 1) {
   return new Intl.NumberFormat("en", { maximumFractionDigits: digits }).format(value);
 }
 
-export function plural(count: number, noun: string) {
-  return `${number(count, 0)} ${noun}${count === 1 ? "" : "s"}`;
+export function plural(count: number, noun: string, many = noun + "s") {
+  return `${number(count, 0)} ${count === 1 ? noun : many}`;
 }

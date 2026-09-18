@@ -4,7 +4,7 @@ import { cloneDefaultConfig, withConfigDefaults, type PlannerConfig } from "./co
  * One saved plan. Everything the app shows — the herd, the cashflow, the
  * workbook — is derived from a plan's inputs, so a plan is its config and
  * nothing else needs to be kept beside it. The name lives inside the config
- * because it is an ordinary input the owner can edit on the inputs page.
+ * because it is an ordinary input the owner can edit in Farm inputs.
  */
 export type Project = {
   id: string;

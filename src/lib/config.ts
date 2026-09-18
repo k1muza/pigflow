@@ -260,6 +260,7 @@ export const plannerSchema = z.object({
     growerFeedCostKg: nonNegative,
     finisherFeedCostKg: nonNegative,
     truckCapacityKg: z.number().min(100).max(30_000),
+    sundriesAllowanceKg: z.number().min(0).max(10_000),
     deliveryCostPerTrip: nonNegative,
     feedBufferDays: z.number().int().min(1).max(120),
   }),
@@ -272,7 +273,8 @@ export const plannerSchema = z.object({
      * of. Splitting it lets the tanker be a real trip and the tank a real store,
      * and lets a plan correct a usage rate and a gas price separately.
      */
-    gasKgPerPigDay: z.number().min(0).max(2),
+    gasKgPerHeaterDay: z.number().min(0).max(50),
+    pigletsPerHeater: z.number().int().min(1).max(100),
     gasCostPerKg: nonNegative,
     /**
      * One canister, and how many the farm can hold. Gas is not a tank that can
@@ -579,17 +581,23 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weanerFeedCostKg: 0.68,
     growerFeedCostKg: 0.56,
     finisherFeedCostKg: 0.52,
-    truckCapacityKg: 2_500,
+    // The lorry carries three tonnes. Half a tonne of that is held back for
+    // the gas bottles, the vaccines and whatever else has to come out, so a
+    // feed order is loaded to two and a half and the rest of the deck is free.
+    truckCapacityKg: 3_000,
+    sundriesAllowanceKg: 500,
     deliveryCostPerTrip: 60,
     feedBufferDays: 7,
   },
   health: {
     vaccinations: DEFAULT_VACCINATIONS,
     vetCostPerSowMonth: 2.5,
-    // 0.035 kg of gas at 1.15 a kilogram is 0.040 a piglet a day, which is what
-    // the single heating figure this replaced was set to.
-    gasKgPerPigDay: 0.035,
-    gasCostPerKg: 1.15,
+    // A heater is either alight or it is not, so gas is burnt by the lamp
+    // rather than by the piglet. Two kilograms is a night's run — the twelve
+    // dark hours it is actually wanted — and one lamp covers a pen of fourteen.
+    gasKgPerHeaterDay: 2,
+    pigletsPerHeater: 14,
+    gasCostPerKg: 1.8,
     gasCanisterKg: 48,
     gasCanisters: 2,
     heatedUntilAgeDays: 56,

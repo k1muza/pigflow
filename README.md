@@ -18,7 +18,7 @@ The farm is simulated one day at a time. Every sow, boar and growing pig is an o
 
 **Costs follow a pig's age.** Each treatment in the vaccination schedule is charged on the day a pig reaches that age. Heating is charged per day while a pig is under the heated age. Every charge is recorded against the individual animal, split by kind of cost and by the stage it was incurred in — so the app can show what a market pig cost in the farrowing house, as a weaner, as a grower and as a finisher.
 
-**A plan either rolls for its year or takes its rates exactly, and you choose which.** *How the plan comes out*, on the inputs page, switches between two ways of running the same herd.
+**A plan either rolls for its year or takes its rates exactly, and you choose which.** *How the plan comes out*, in the Farm inputs modal, switches between two ways of running the same herd.
 
 *Chance* draws litter size, conception, gestation, the weaning interval, sex and thriftiness from the scenario seed. One run is a plausible farm rather than the average of many, which is what you want when you are asking how bad a year could get. The cost is that two plans compared on one seed can differ by luck as much as by the thing you changed: on the default herd, adding a single sow place came out better on half the seeds and worse on the other half.
 
@@ -30,7 +30,7 @@ Settled does not mean uniform. Litter mates still carry different thriftiness an
 
 Every slate opens part-written, from the seed. Starting each one at nothing would give every plan a stretch at the beginning with no losses in it at all — three breeders at 8% a year take four years to owe their first whole animal, so a three-year plan would report none, on any seed. An opening balance puts the first loss where it belongs on average and still leaves the run exactly reproducible.
 
-**Deaths land when a herd really loses stock.** Within a stage the losses follow its own risk curve rather than falling evenly: more than half of a litter's pre-weaning losses land before day three, where crushing, chilling and starvation actually happen, and weaner losses are weighted to the fortnight after the weaning check. This matters to the money, not just the realism — a pig that dies on day 1 carries almost no feed with it onto the survivors, while one that dies on day 26 has been eating for a month. Where on the curve a given loss falls is read off the pig rather than counted out cohort by cohort, which keeps it near the curve across the farm as a whole rather than exactly on it for any one litter. *Mortality timing* on the inputs page switches the curve off and spreads them flat; the percentages themselves are unchanged either way.
+**Deaths land when a herd really loses stock.** Within a stage the losses follow its own risk curve rather than falling evenly: more than half of a litter's pre-weaning losses land before day three, where crushing, chilling and starvation actually happen, and weaner losses are weighted to the fortnight after the weaning check. This matters to the money, not just the realism — a pig that dies on day 1 carries almost no feed with it onto the survivors, while one that dies on day 26 has been eating for a month. Where on the curve a given loss falls is read off the pig rather than counted out cohort by cohort, which keeps it near the curve across the farm as a whole rather than exactly on it for any one litter. *Mortality timing* in Farm inputs switches the curve off and spreads them flat; the percentages themselves are unchanged either way.
 
 **A market pig carries the herd behind it.** "What a market pig costs" is the pig's own bill by stage, plus the breeding herd's running cost net of what it earns on surplus gilts and cull sows, plus its share of overheads. Pigs that die are carried by the pigs that reach the abattoir. Sow feed alone is about $25 a market pig, so a readout that leaves the breeding herd out overstates the margin by more than half.
 
@@ -57,6 +57,7 @@ The cost of this is that the cashflow is lumpy, and honestly so: on the default 
 - **Financial planning** — switch between months and plan years, and open any period to see exactly what it is expected to receive and spend, line by line, with the production that drove it. On a month you can add your own rows under Income or Expenditure; the panel itemises them and shows the line they post to net of them, so the statement still adds up. Under the table, one button funds the whole plan and another takes the surplus back out.
 - **Farm simulator** — a full plan year as a calendar, or the same plan as a list of months. Open any date for that day's cash in and out, everything the farm did — farrowings, weanings, sales, treatments, the feed lorry and what was on it — and the herd split by stage and by what each sow is doing. The page behind it rebuilds the herd animal by animal to that date and reports cost of production and financial standing.
 - **Overview** — the cash curve at monthly or yearly zoom, growing stock by stage, and the checks that need attention. Both charts answer to one set of year chips: click a year to look at it on its own, click a second to take in every year between.
+- **Farm inputs** — open the modal from the top bar on any project page. Its sidebar groups the planning frame and housing, breeding, growth and feed, and health and costs without taking you away from the page you are reviewing.
 
 ## The address of a plan
 
@@ -66,7 +67,6 @@ A plan is what the app is about, so it is what the address names:
 | --- | --- |
 | `/projects/<plan-id>` | The plan, on its overview. |
 | `/projects/<plan-id>/simulator` | The farm simulator for that plan. |
-| `/projects/<plan-id>/inputs` | Its inputs. |
 | `/projects/<plan-id>/money` | Its financial planning. |
 | `/projects/<plan-id>/method` | The method and sources behind it. |
 | `/projects/<plan-id>/cashflow` | Its detailed cashflow. |
@@ -142,7 +142,7 @@ Use **Export Excel** to take the cashflow out of the app entirely.
 | `src/components/auth-gate.tsx` | Sends a signed-out visitor to `/login` instead of an empty planner. |
 | `src/components/plans-provider.tsx` | Holds what has to outlive a change of plan: the plans, and the sidebar. |
 | `src/components/planner-shell.tsx` | The sidebar, the header, and the one simulation every page of a plan reads. |
-| `src/components/planner-sections.tsx` | The pages themselves — overview, simulator, inputs, money, method, cashflow. |
+| `src/components/planner-sections.tsx` | The project views and the Farm inputs modal — overview, simulator, money, method and cashflow. |
 | `src/hooks/use-workspace.ts` | Holds the plans on screen and keeps them level with everyone else's. |
 | `src/lib/sim/animals.ts` | `Animal`, `Sow`, `Boar`, `GrowingPig` and the per-animal `CostRecord`. |
 | `src/lib/sim/farm.ts` | The day-by-day `Farm` simulation and its point-in-time read-out. |

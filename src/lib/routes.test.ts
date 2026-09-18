@@ -20,7 +20,7 @@ describe("the address of a plan", () => {
 
   it("escapes an id that would otherwise change the path", () => {
     // Plans made now are UUIDs, but plans saved before they were still open.
-    expect(planHref("a/b", "inputs")).toBe("/projects/a%2Fb/inputs");
+    expect(planHref("a/b", "cashflow")).toBe("/projects/a%2Fb/cashflow");
   });
 });
 
@@ -36,6 +36,7 @@ describe("reading a page back out of an address", () => {
     // never actively wrong.
     expect(tabFromPath("/projects/a-plan")).toBe("overview");
     expect(tabFromPath("/projects/a-plan/invented")).toBe("overview");
+    expect(tabFromPath("/projects/a-plan/inputs")).toBe("overview");
     expect(tabFromPath("/projects")).toBe("overview");
     expect(tabFromPath("/login")).toBe("overview");
     expect(tabFromPath("/")).toBe("overview");

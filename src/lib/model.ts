@@ -71,8 +71,8 @@ export type MonthlyProjection = {
   workers: number;
   sowFeedKg: number;
   growingFeedKg: number;
-  /** Loads of feed hauled in this month, and what they carried. */
-  feedLoads: number;
+  /** Lorries through the gate this month, and the feed they brought. */
+  lorriesIn: number;
   feedDeliveredKg: number;
   /** Every income and cost line for the month, by ledger category. */
   totals: CategoryTotals;
@@ -242,7 +242,7 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     workers: 0,
     sowFeedKg: 0,
     growingFeedKg: 0,
-    feedLoads: 0,
+    lorriesIn: 0,
     feedDeliveredKg: 0,
     totals,
     revenue: 0,
@@ -264,7 +264,7 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     month.deaths += day.pigletDeaths + day.growingDeaths + day.breedingDeaths;
     month.sowFeedKg += day.sowFeedKg;
     month.growingFeedKg += day.growingFeedKg;
-    month.feedLoads += day.feedLoads;
+    month.lorriesIn += day.lorriesIn;
     month.feedDeliveredKg += day.feedDeliveredKg;
     month.peakHead = Math.max(month.peakHead, day.counts.total);
     addTotals(totals, day.totals);
@@ -584,7 +584,7 @@ export function projectionToCsv(result: ProjectionResult) {
     // a line added to the ledger is a column here rather than a silent shift.
     ...INCOME_CATEGORIES.map((category) => CATEGORY_LABELS[category]),
     ...EXPENSE_CATEGORIES.map((category) => CATEGORY_LABELS[category]),
-    "Feed loads",
+    "Lorries in",
     "Total cost",
     "Net cash flow",
     "Closing cash",
@@ -610,7 +610,7 @@ export function projectionToCsv(result: ProjectionResult) {
     row.workers,
     ...INCOME_CATEGORIES.map((category) => row.totals[category]),
     ...EXPENSE_CATEGORIES.map((category) => row.totals[category]),
-    row.feedLoads,
+    row.lorriesIn,
     row.totalCost,
     row.netCashFlow,
     row.closingCash,

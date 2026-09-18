@@ -1,14 +1,14 @@
 import { addMonths, differenceInCalendarDays, format, parseISO } from "date-fns";
 
 import type { PlannerConfig } from "../config";
-import { Farm } from "./farm";
+import { Farm, STORE_LABELS } from "./farm";
 import type { DayRecord, FarmEvent, StageCounts } from "./farm";
 import { addTotals, emptyTotals, expensesOf, incomeOf, type CategoryTotals } from "./ledger";
-import type { FeedRation, PigStage } from "./animals";
+import type { PigStage } from "./animals";
 
 export * from "./animals";
 export * from "./farm";
-export * from "./feed-plan";
+export * from "./haulage";
 export * from "./ledger";
 export { dailyHazard, Rng } from "./rng";
 
@@ -79,14 +79,6 @@ function grouped(value: number): string {
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
-
-const RATION_NAMES: Record<FeedRation, string> = {
-  sow: "sow",
-  creep: "creep",
-  weaner: "weaner",
-  grower: "grower",
-  finisher: "finisher",
-};
 
 const STAGE_NAMES: Record<PigStage, string> = {
   piglet: "piglets",
@@ -196,19 +188,23 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   // One day shows the lorry itself, order list and all; a whole month shows how
   // many times it came.
   if (days.length === 1) {
-    for (const load of days[0].feedDeliveries) {
+    for (const trip of days[0].deliveries) {
+      const order = trip.lines
+        .filter((line) => line.kg >= 0.5)
+        .map((line) => `${STORE_LABELS[line.store]} ${grouped(line.kg)} kg`)
+        .join(", ");
       push({
         type: "feed",
-        label: `${RATION_NAMES[load.ration]} feed lorry in, ${grouped(load.loadKg)} kg`,
+        label: `${trip.kind === "bedding" ? "Bedding lorry" : "Lorry"} in, ${grouped(trip.payloadKg)} kg: ${order}`,
         count: 1,
       });
     }
   } else {
-    const loads = sum((day) => day.feedLoads);
+    const loads = sum((day) => day.lorriesIn);
     const loadKg = sum((day) => day.feedDeliveredKg);
     push({
       type: "feed",
-      label: `Take in ${loads} ${loads === 1 ? "feed load" : "feed loads"} · ${grouped(loadKg)} kg`,
+      label: `Take in ${loads} ${loads === 1 ? "lorry" : "lorries"} · ${grouped(loadKg)} kg of feed`,
       count: loads,
     });
   }
@@ -249,7 +245,8 @@ export type FarmCalendarDay = {
   sold: number;
   bornAlive: number;
   deaths: number;
-  feedLoads: number;
+  /** Lorries through the gate, whatever they were carrying. */
+  lorriesIn: number;
   cashIn: number;
   cashOut: number;
   netCashFlow: number;
@@ -271,7 +268,8 @@ export type FarmCalendarMonth = {
   bornAlive: number;
   weaned: number;
   deaths: number;
-  feedLoads: number;
+  /** Lorries through the gate, whatever they were carrying. */
+  lorriesIn: number;
   /** The month's income and expenditure, line by line. */
   totals: CategoryTotals;
   cashIn: number;
@@ -302,7 +300,7 @@ export function farmTimeline(config: PlannerConfig): FarmTimeline {
     sold: record.sold,
     bornAlive: record.bornAlive,
     deaths: record.pigletDeaths + record.growingDeaths + record.breedingDeaths,
-    feedLoads: record.feedLoads,
+    lorriesIn: record.lorriesIn,
     cashIn: incomeOf(record.totals),
     cashOut: expensesOf(record.totals),
     netCashFlow: record.netCashFlow,
@@ -334,7 +332,7 @@ export function farmTimeline(config: PlannerConfig): FarmTimeline {
       bornAlive: sum((day) => day.bornAlive),
       weaned: sum((day) => day.weaned),
       deaths: sum((day) => day.pigletDeaths + day.growingDeaths + day.breedingDeaths),
-      feedLoads: sum((day) => day.feedLoads),
+      lorriesIn: sum((day) => day.lorriesIn),
       totals,
       cashIn: incomeOf(totals),
       cashOut: expensesOf(totals),

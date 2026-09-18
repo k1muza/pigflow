@@ -583,7 +583,8 @@ function growthUnit(key: string): string {
 }
 
 function feedUnit(key: string, currency: string): string {
-  if (key === "truckCapacityKg") return "kg per load";
+  if (key === "truckCapacityKg") return "kg on the deck";
+  if (key === "sundriesAllowanceKg") return "kg";
   if (key === "deliveryCostPerTrip") return `${currency}/load`;
   if (key.endsWith("Days")) return "days";
   if (key.toLowerCase().includes("cost")) return `${currency}/kg`;
@@ -704,8 +705,14 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
         [
           "Truck capacity",
           config.feed.truckCapacityKg,
-          "kg per load",
-          "Trips are placed by walking the plan's feeding backwards and cutting it into loads of this size.",
+          "kg on the deck",
+          "Everything one journey can carry. The plan's whole use is cut into loads of this size, every ration on the same deck.",
+        ],
+        [
+          "Held back for sundries",
+          config.feed.sundriesAllowanceKg,
+          "kg",
+          "Weight kept clear of the feed order for the gas and the vaccines, so they ride along instead of sending a vehicle.",
         ],
         [
           "Cost per delivery",
@@ -760,7 +767,8 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
       "HEALTH",
       [
         ["Veterinary cost per sow", config.health.vetCostPerSowMonth, `${config.project.currency}/month`],
-        ["Gas per heated piglet", config.health.gasKgPerPigDay, "kg/day"],
+        ["Gas per heater", config.health.gasKgPerHeaterDay, "kg/night"],
+        ["Piglets a heater covers", config.health.pigletsPerHeater, "head"],
         ["Gas price", config.health.gasCostPerKg, `${config.project.currency}/kg`],
         ["Gas canister", config.health.gasCanisterKg, "kg"],
         ["Canisters on the farm", config.health.gasCanisters, "bottles"],

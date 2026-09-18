@@ -76,11 +76,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { FarmInputs } from "@/components/planner-sections";
 
 const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "simulator", label: "Farm simulator", icon: CalendarClock },
-  { id: "inputs", label: "Plan inputs", icon: Settings2 },
   { id: "money", label: "Financial planning", icon: WalletCards },
   { id: "method", label: "Method & sources", icon: BookOpen },
   { id: "cashflow", label: "Cashflow", icon: TableProperties },
@@ -112,6 +120,7 @@ export type PlannerPage = {
   ) => void;
   exporting: boolean;
   exportExcel: () => void;
+  openInputs: () => void;
   /** The address of another page of this same plan. */
   href: (tab: Tab) => string;
 };
@@ -349,6 +358,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
   const { workspace, setWorkspace, hydrated, savedAt, sync, sidebarOpen, toggleSidebar } =
     usePlans();
   const [exporting, setExporting] = useState(false);
+  const [inputsOpen, setInputsOpen] = useState(false);
 
   // The plan the address names. Until the shared plans arrive there is nothing
   // to find, and the starting defaults stand in so the work below still has a
@@ -415,8 +425,9 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     const next = addProject(workspace, "Plan " + (workspace.projects.length + 1));
     if (next === workspace) return;
     setWorkspace(next);
+    router.push(planHref(next.activeId));
     // A plan you have just started is a plan you are about to describe.
-    router.push(planHref(next.activeId, "inputs"));
+    setInputsOpen(true);
   }
 
   function duplicatePlan() {
@@ -477,6 +488,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     update,
     exporting,
     exportExcel,
+    openInputs: () => setInputsOpen(true),
     href: (to) => planHref(projectId, to),
   };
 
@@ -590,12 +602,13 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
             <div className="flex shrink-0 items-center gap-2">
               <SyncBadge sync={sync} savedAt={savedAt} />
               <button
-                onClick={resetPlan}
+                type="button"
+                onClick={() => setInputsOpen(true)}
                 disabled={!open}
-                aria-label="Reset this plan"
+                aria-label="Open farm inputs"
                 className="inline-flex items-center gap-2 rounded-lg border border-hairline px-2.5 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40 sm:px-3"
               >
-                <RefreshCcw size={13} /> <span className="hidden sm:inline">Reset</span>
+                <Settings2 size={13} /> <span className="hidden lg:inline">Farm inputs</span>
               </button>
               <button
                 onClick={exportExcel}
@@ -613,6 +626,31 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
+
+        <Dialog open={inputsOpen} onOpenChange={setInputsOpen}>
+          <DialogContent className="flex h-[calc(100dvh-2rem)] max-h-[920px] max-w-[min(1280px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0">
+            <DialogHeader className="shrink-0 border-b border-hairline px-5 py-4 pr-14">
+              <DialogTitle>Farm inputs</DialogTitle>
+              <DialogDescription>
+                Edit the assumptions behind {config.project.name}. Changes save automatically and
+                update every project view.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <FarmInputs config={config} update={update} metrics={modelMetrics} />
+            </div>
+            <DialogFooter className="shrink-0 border-t border-hairline px-5 py-3 sm:justify-start">
+              <button
+                type="button"
+                onClick={resetPlan}
+                disabled={!open}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
+              >
+                <RefreshCcw size={13} /> Reset farm inputs
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="mx-auto max-w-[1500px] p-4 sm:p-6">
           {/*

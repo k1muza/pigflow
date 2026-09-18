@@ -3,6 +3,14 @@ import { describe, expect, it } from "vitest";
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
 import { FEED_RATIONS } from "./animals";
 import { feedOf, runFarm } from "./index";
+import type { Farm } from "./farm";
+
+/** Every canister the plan brought in, in the order it arrived. */
+function gasLines(farm: Farm): number[] {
+  return farm.haulage.trips.flatMap((trip) =>
+    trip.lines.filter((line) => line.store === "gas").map((line) => line.kg),
+  );
+}
 
 function plan(tweak: (input: PlannerConfig) => void = () => {}) {
   const input = cloneDefaultConfig();
@@ -38,24 +46,99 @@ describe("Every consumable is its own store", () => {
 
   it("keeps each ration's store to itself, and never lets one run dry", () => {
     for (const ration of FEED_RATIONS) {
-      const stock = farm.feedPlan.stockByDay[ration];
+      const stock = farm.haulage.stockByDay[ration];
       expect(stock.length).toBeGreaterThan(0);
       // Nothing is eaten that has not landed: a store never goes negative.
       for (const held of stock) expect(held).toBeGreaterThanOrEqual(-1e-6);
     }
   });
 
-  it("burns gas as a quantity and buys it a canister at a time", () => {
+  it("burns gas by the heater, not by the piglet", () => {
+    const perNight = input.health.gasKgPerHeaterDay;
+    expect(perNight).toBe(2);
+    expect(input.health.pigletsPerHeater).toBe(14);
+
+    // Every night's gas is a whole number of lamps, because a lamp is alight or
+    // it is not. Nothing in between is ever burnt.
+    for (const day of farm.history) {
+      expect(day.gasKg).toBeCloseTo(day.gasHeaters * perNight, 6);
+      expect(Number.isInteger(day.gasHeaters)).toBe(true);
+      if (day.gasHeaters > 0) expect(day.counts.piglets + day.counts.weaners).toBeGreaterThan(0);
+    }
+    const burnt = farm.history.reduce((sum, day) => sum + day.gasKg, 0);
+    expect(farm.ledger.totals.gas).toBeCloseTo(burnt * input.health.gasCostPerKg, 6);
+
+    // A lamp covers a pen, so a herd that doubles does not double the lamps in
+    // step: it fills the pens it was already heating first.
+    const lampNights = farm.history.reduce((sum, day) => sum + day.gasHeaters, 0);
+    const headNights = farm.history.reduce(
+      (sum, day) => sum + day.gasKg / (perNight / Math.max(input.health.pigletsPerHeater, 1)),
+      0,
+    );
+    expect(lampNights).toBeGreaterThan(0);
+    expect(headNights).toBeGreaterThan(0);
+  });
+
+  it("gives every suckling litter its own lamp, and pens the weaned together", () => {
+    // One crate cannot borrow the lamp from the crate next door, so the number
+    // of lamps follows the number of litters however small they are. Widening
+    // what a lamp covers cannot save a suckler any gas — only a weaner pen.
+    const wide = runFarm(plan((c) => (c.health.pigletsPerHeater = 100)));
+    const narrow = runFarm(plan((c) => (c.health.pigletsPerHeater = 4)));
+
+    const lamps = (f: typeof farm) => f.history.reduce((sum, day) => sum + day.gasHeaters, 0);
+    expect(lamps(narrow)).toBeGreaterThan(lamps(wide));
+    expect(lamps(wide)).toBeGreaterThan(0);
+    // The biology is untouched: a lamp is a cost, not a growth rate.
+    expect(narrow.lifetime.sold).toBe(wide.lifetime.sold);
+
+    // And with a lamp wide enough for any litter, the suckling crates still
+    // each light one, so the farm is never down to a single lamp a night.
+    const busiest = Math.max(...wide.history.map((day) => day.gasHeaters));
+    expect(busiest).toBeGreaterThan(1);
+  });
+
+  it("splits a lamp's gas between the piglets under it", () => {
+    // A half-empty pen burns what a full one burns, so it costs more a head.
+    // That only shows up because the gas is settled per lamp and then divided.
+    const perPig = farm.history
+      .filter((day) => day.gasHeaters > 0)
+      .map((day) => day.gasKg / (day.counts.piglets + day.counts.weaners));
+    expect(perPig.length).toBeGreaterThan(0);
+    expect(Math.max(...perPig)).toBeGreaterThan(Math.min(...perPig));
+
+    // Nothing is lost between the lamps and the animals: what the ledger paid
+    // for heat is what the pigs were charged for it.
+    const charged = farm.costOfProduction();
+    expect(charged.directByType.heating).toBeGreaterThan(0);
+  });
+
+  it("burns nothing at all when the heaters are turned off", () => {
+    const cold = runFarm(plan((c) => (c.health.gasKgPerHeaterDay = 0)));
+    expect(cold.history.every((day) => day.gasKg === 0)).toBe(true);
+    expect(cold.ledger.totals.gas).toBe(0);
+    expect(cold.haulage.trips.some((trip) => trip.lines.some((l) => l.store === "gas"))).toBe(
+      false,
+    );
+  });
+
+  it("buys gas by the canister, however many of them ride on one lorry", () => {
     const burnt = farm.history.reduce((sum, day) => sum + day.gasKg, 0);
     expect(burnt).toBeGreaterThan(0);
     expect(farm.ledger.totals.gas).toBeCloseTo(burnt * input.health.gasCostPerKg, 6);
 
-    const bottles = farm.gasPlan.deliveries;
-    expect(bottles.length).toBeGreaterThan(0);
-    for (const load of bottles.slice(0, -1)) {
-      expect(load.quantity).toBeCloseTo(input.health.gasCanisterKg, 6);
+    const bottle = input.health.gasCanisterKg;
+    const mostHeld = bottle * input.health.gasCanisters;
+    const lines = gasLines(farm);
+    expect(lines.length).toBeGreaterThan(0);
+    for (const kg of lines.slice(0, -1)) {
+      // Whole bottles: a lorry may bring two, and they read as one line on the
+      // note, but the farm never buys a part-filled canister.
+      expect(kg / bottle).toBeCloseTo(Math.round(kg / bottle), 6);
+      expect(kg).toBeGreaterThan(0);
+      expect(kg).toBeLessThanOrEqual(mostHeld + 1e-6);
     }
-    expect(bottles.reduce((sum, load) => sum + load.quantity, 0)).toBeCloseTo(burnt, 3);
+    expect(lines.reduce((sum, kg) => sum + kg, 0)).toBeCloseTo(burnt, 3);
   });
 
   it("never holds more gas than there are canisters to put it in", () => {
@@ -64,37 +147,53 @@ describe("Every consumable is its own store", () => {
 
     // A bottle cannot be delivered early into a full store the way feed can be
     // tipped into a part-empty bin, so the cap is never breached.
-    for (const standing of farm.gasPlan.stockByDay) {
+    for (const standing of farm.haulage.stockByDay.gas) {
       expect(standing).toBeLessThanOrEqual(held + 1e-6);
     }
     // And a smaller store is still never overfilled, only visited more often.
     const cramped = runFarm(plan((c) => (c.health.gasCanisters = 1)));
-    for (const standing of cramped.gasPlan.stockByDay) {
+    for (const standing of cramped.haulage.stockByDay.gas) {
       expect(standing).toBeLessThanOrEqual(input.health.gasCanisterKg + 1e-6);
     }
-    expect(cramped.gasPlan.deliveries.length).toBeGreaterThanOrEqual(
-      farm.gasPlan.deliveries.length,
-    );
+    expect(gasLines(cramped).length).toBeGreaterThanOrEqual(gasLines(farm).length);
   });
 
-  it("carries the gas on the feed lorry rather than sending its own", () => {
-    const feedDays = new Set(farm.feedPlan.deliveries.map((load) => load.day));
-    const sharedTrips = farm.gasPlan.deliveries.filter((load) => feedDays.has(load.day));
-    const ownTrips = farm.gasPlan.deliveries.filter((load) => !feedDays.has(load.day));
+  it("carries the gas on the feed lorry when the yard has room to wait for one", () => {
+    const rides = (f: typeof farm) => {
+      const carrying = f.haulage.trips.filter((trip) =>
+        trip.lines.some((line) => line.store === "gas"),
+      );
+      return {
+        deliveries: carrying.length,
+        shared: carrying.filter((trip) => trip.lines.length > 1).length,
+      };
+    };
 
-    // Most canisters come with the feed, because a bottle waits for the lorry
-    // rather than sending one: the store has room for it long before it is
-    // needed, so there is a wide choice of days it could ride in on.
-    expect(sharedTrips.length + ownTrips.length).toBe(farm.gasPlan.deliveries.length);
-    expect(sharedTrips.length).toBeGreaterThan(ownTrips.length);
+    // What decides whether a bottle can wait for a feed run is room on the yard,
+    // not the lorry: it has to have somewhere to stand until it is wanted. Two
+    // canisters at two kilograms a lamp a night is about a fortnight's cover,
+    // and a feed run is a monthly event, so on the default farm most bottles
+    // have to be fetched. Give the yard more canisters and the rides come back,
+    // which is the whole mechanism in one comparison.
+    const cramped = rides(farm);
+    const roomy = rides(runFarm(plan((c) => (c.health.gasCanisters = 8))));
 
-    const feedTrips = farm.feedPlan.deliveries.length * input.feed.deliveryCostPerTrip;
-    const beddingTrips =
-      farm.beddingPlan.deliveries.length * input.housing.beddingDeliveryCost;
-    expect(farm.ledger.totals.deliveries).toBeCloseTo(
-      feedTrips + ownTrips.length * input.feed.deliveryCostPerTrip + beddingTrips,
-      6,
+    expect(cramped.shared).toBeGreaterThan(0);
+    expect(cramped.shared).toBeLessThan(cramped.deliveries);
+    expect(roomy.deliveries).toBeLessThan(cramped.deliveries);
+    expect(roomy.shared / roomy.deliveries).toBeGreaterThan(
+      cramped.shared / cramped.deliveries,
     );
+
+    // A journey is charged once however much is on it, so a bottle that rode in
+    // on a feed run added nothing at all to the delivery line — and a yard with
+    // room for more bottles is a yard that pays for fewer journeys.
+    for (const f of [farm, runFarm(plan((c) => (c.health.gasCanisters = 8)))]) {
+      expect(f.ledger.totals.deliveries).toBeCloseTo(
+        f.haulage.trips.reduce((paid, trip) => paid + trip.cost, 0),
+        6,
+      );
+    }
   });
 
   it("beds down the animals actually housed, not the calendar", () => {
@@ -124,11 +223,29 @@ describe("Every consumable is its own store", () => {
     expect(bigger.ledger.totals.bedding).toBeGreaterThan(farm.ledger.totals.bedding * 2);
   });
 
-  it("counts every store's loads through the gate", () => {
-    expect(farm.lifetime.storeLoads).toBe(
-      farm.gasPlan.deliveries.length + farm.beddingPlan.deliveries.length,
+  it("schedules the same gas however far out the plan was drawn", () => {
+    // Only the last load of a plan is a part load, so if the room a bottle needs
+    // were sized by what is in it, that one load would be placed by where the
+    // plan happened to stop — and it could then squeeze onto a lorry a full
+    // bottle would have missed. The months two plans share must be the same
+    // months, down to the journeys.
+    const short = runFarm(plan((c) => (c.project.months = 12)));
+    const cut = short.history.length - 1;
+    const long = runFarm(plan((c) => (c.project.months = 36)), cut);
+
+    const inWindow = (f: typeof short) =>
+      f.haulage.trips.filter((trip) => trip.day <= cut).map((trip) => trip.day + " " + trip.kind);
+    expect(inWindow(short)).toEqual(inWindow(long));
+    expect(short.ledger.cash).toBeCloseTo(long.ledger.cash, 6);
+    expect(short.ledger.totals.deliveries).toBeCloseTo(long.ledger.totals.deliveries, 6);
+  });
+
+  it("counts every lorry through the gate", () => {
+    expect(farm.lifetime.lorries).toBe(farm.haulage.trips.length);
+    expect(farm.lifetime.haulageCost).toBeCloseTo(farm.ledger.totals.deliveries, 6);
+    expect(farm.history.reduce((sum, day) => sum + day.lorriesIn, 0)).toBe(
+      farm.lifetime.lorries,
     );
-    expect(farm.lifetime.feedLoads).toBe(farm.feedPlan.deliveries.length);
   });
 
   it("reports what each store holds on the day being read", () => {
