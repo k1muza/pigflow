@@ -30,6 +30,7 @@ export function runMortality(world: World): void {
     if (!world.mortality.isDue(pig, day)) continue;
     world.mortality.settle(pig);
     world.housing.release(roomForStage(pig.stage));
+    world.batches.remove(pig);
     pig.leave(day, "died");
     absorbLoss(world, pig);
     world.noteExit(pig.generation, false);
@@ -90,6 +91,7 @@ export function runMortality(world: World): void {
       );
     } else {
       for (const piglet of orphans) {
+        world.batches.remove(piglet);
         piglet.leave(day, "died");
         absorbLoss(world, piglet);
         world.noteExit(piglet.generation, false);

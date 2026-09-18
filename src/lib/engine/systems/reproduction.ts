@@ -191,6 +191,12 @@ function wean(world: World, sow: Sow, cause: string): number {
   world.housing.release("farrowing");
   world.housing.admit("weaner", weaned.length);
 
+  // A weaned litter is a pen of pigs, and the pen is what the farm moves from
+  // here on. Everything downstream — which house they are in, whether there is
+  // room in the next one, and whether they may be sold — is asked of the batch.
+  const penned = weaned.filter((piglet) => piglet.alive);
+  if (penned.length > 0) world.batches.open(penned, penned[0].stage, "weaner", day);
+
   record.weaned += weaned.length;
   world.lifetime.weaned += weaned.length;
   world.emit("WeaningCompleted", sow.tag + " weaned " + weaned.length + " piglets", {

@@ -193,6 +193,30 @@ export class Housing {
   }
 
   /**
+   * Asks a room for places for a whole batch, and grants as many as it has.
+   *
+   * The answer is a number rather than yes or no because that is the decision a
+   * stockman actually faces: a pen of thirty with room for eleven sends eleven,
+   * and the batch is split rather than either all of it going or none of it. All
+   * or nothing deadlocks — a batch bigger than the room it is headed for would
+   * wait for a place that can never exist — and one pig at a time is not a
+   * movement anybody made.
+   */
+  requestMany(room: RoomId | null, wanted: number, day: number): number {
+    if (room === null || wanted <= 0) return Math.max(0, wanted);
+    if (!this.enforced) {
+      this.occupants[room] += wanted;
+      return wanted;
+    }
+    const granted = Math.min(wanted, Math.max(0, this.places[room] - this.occupants[room]));
+    this.occupants[room] += granted;
+    if (granted < wanted && this.firstLimitingDay[room] === null) {
+      this.firstLimitingDay[room] = day;
+    }
+    return granted;
+  }
+
+  /**
    * Puts head into a room whether or not there is a place for it. Some
    * movements cannot be refused: a sow weans when her litter's days are up and
    * the weaners have to go somewhere, and a sow farrowing into a full house

@@ -6,6 +6,7 @@ import {
   expectedGiltServiceAgeDays,
 } from "../config";
 import { Boar, GrowingPig, Sow, type PigStage } from "../sim/animals";
+import { roomForStage } from "./housing";
 import type { World } from "./world";
 
 /**
@@ -230,4 +231,8 @@ function seedGrowingStock(
     placed.push(pig);
   }
   world.mortality.enterStage(placed, stage, 0);
+  // Opening stock arrives already penned. A plan that starts with sixty growers
+  // starts with a pen of sixty, not sixty animals that happen to share a house:
+  // they move on together and they are sold together, like anything weaned here.
+  world.batches.open(placed, stage, roomForStage(stage), 0);
 }

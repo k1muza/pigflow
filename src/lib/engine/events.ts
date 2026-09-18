@@ -37,6 +37,8 @@ export type EventType =
   | "MovementRequested"
   | "MovementCompleted"
   | "MovementBlocked"
+  | "BatchSplit"
+  | "SaleHeldForSpace"
   | "RoomOverCapacity"
   | "WeanedEarlyForSpace"
   // nutrition and stores

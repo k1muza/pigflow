@@ -15,6 +15,7 @@ import { MortalityScheduler } from "../sim/mortality";
 import type { Variation } from "../sim/variation";
 import { EventLog, type DomainEvent, type EventType, type Posting } from "./events";
 import { Housing, ROOM_IDS, type RoomId, type RoomLevel } from "./housing";
+import { Batches } from "./batches";
 import { Supplies } from "./procurement";
 
 /**
@@ -115,6 +116,10 @@ export type EngineDayRecord = {
   /** Batches refused a place today for the first time, and pigs still waiting. */
   movementsBlocked: number;
   pigsHeld: number;
+  /** Pens broken in two because the next house had room for only part of one. */
+  batchesSplit: number;
+  /** At sale weight, and standing somewhere that is not the finishing house. */
+  heldAtSaleWeight: number;
   /** Litters weaned early to free a crate for a sow with nowhere to farrow. */
   weanedEarlyForSpace: number;
   /** Pigs lost to crowding over and above the plan's own stage rates. */
@@ -189,6 +194,9 @@ export type EngineLifetime = {
   heatsUndetected: number;
   movementsBlocked: number;
   blockedAnimalDays: number;
+  batchesSplit: number;
+  /** Pig-days spent at sale weight waiting for a finishing place. */
+  heldAtSaleWeightDays: number;
   animalDaysOverCapacity: number;
   weanedEarlyForSpace: number;
   crowdingDeaths: number;
@@ -259,6 +267,8 @@ export function emptyLifetime(): EngineLifetime {
     heatsUndetected: 0,
     movementsBlocked: 0,
     blockedAnimalDays: 0,
+    batchesSplit: 0,
+    heldAtSaleWeightDays: 0,
     animalDaysOverCapacity: 0,
     weanedEarlyForSpace: 0,
     crowdingDeaths: 0,
@@ -312,6 +322,8 @@ export function emptyDayRecord(day: number, date: string): EngineDayRecord {
     animalDaysOverCapacity: 0,
     movementsBlocked: 0,
     pigsHeld: 0,
+    batchesSplit: 0,
+    heldAtSaleWeight: 0,
     weanedEarlyForSpace: 0,
     crowdingDeaths: 0,
     heatsMissed: 0,
@@ -341,6 +353,8 @@ export class World {
   // ---- the resources ------------------------------------------------------
   readonly ledger: Ledger;
   readonly housing: Housing;
+  /** The pens the farm moves and sells by, and what they were split from. */
+  readonly batches = new Batches();
   readonly supplies: Supplies;
   readonly mortality: MortalityScheduler;
   readonly variation: Variation;
