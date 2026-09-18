@@ -590,7 +590,8 @@ function growthUnit(key: string): string {
 
 function feedUnit(key: string, currency: string): string {
   if (key === "truckCapacityKg") return "kg on the deck";
-  if (key === "sundriesAllowanceKg") return "kg";
+  if (key === "binCapacityKg") return "kg a ration";
+  if (key === "minimumOrderKg") return "kg";
   if (key === "deliveryCostPerTrip") return `${currency}/load`;
   if (key.endsWith("Days")) return "days";
   if (key.toLowerCase().includes("cost")) return `${currency}/kg`;
@@ -712,13 +713,13 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
           "Truck capacity",
           config.feed.truckCapacityKg,
           "kg on the deck",
-          "Everything one journey can carry. The plan's whole use is cut into loads of this size, every ration on the same deck.",
+          "Everything one journey can carry, feed and gas together. Nothing is held back: the bottles queue for space on how soon the farm runs out of them.",
         ],
         [
-          "Held back for sundries",
-          config.feed.sundriesAllowanceKg,
-          "kg",
-          "Weight kept clear of the feed order for the gas and the vaccines, so they ride along instead of sending a vehicle.",
+          "Bin capacity",
+          config.feed.binCapacityKg,
+          "kg a ration",
+          "What one ration bin holds, which is what caps the top-up that fills the rest of a deck.",
         ],
         [
           "Cost per delivery",
@@ -730,7 +731,13 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
           "Feed buffer held",
           config.feed.feedBufferDays,
           "days",
-          "Each load lands this many days before the herd starts eating into it.",
+          "Days of cover at which a store is due. One store falling this low is what sends the lorry, and everything close behind it is loaded onto the same one.",
+        ],
+        [
+          "Order up to",
+          config.feed.targetCoverDays,
+          "days",
+          "Days of cover an order is sized to reach. What is left of the deck is then filled from the same queue of stores, soonest empty first.",
         ],
       ],
     ],

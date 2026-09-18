@@ -322,9 +322,18 @@ export const plannerSchema = z.object({
     weanerFeedCostKg: nonNegative,
     growerFeedCostKg: nonNegative,
     finisherFeedCostKg: nonNegative,
+    /**
+     * What the lorry will carry. There is no weight held back on it for the
+     * sundries any more: gas queues for space against the feed on the same
+     * terms, by how soon the farm runs out of it, so it cannot be crowded off a
+     * deck by an order that was merely larger.
+     */
     truckCapacityKg: z.number().min(100).max(30_000),
-    sundriesAllowanceKg: z.number().min(0).max(10_000),
     deliveryCostPerTrip: nonNegative,
+    /**
+     * Days of cover at which a store is due, which is what sends a lorry. Every
+     * other store close to running out is loaded onto the same one.
+     */
     feedBufferDays: z.number().int().min(1).max(120),
     /**
      * How the farm buys its feed.
@@ -694,11 +703,10 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weanerFeedCostKg: 0.68,
     growerFeedCostKg: 0.56,
     finisherFeedCostKg: 0.52,
-    // The lorry carries three tonnes. Half a tonne of that is held back for
-    // the gas bottles, the vaccines and whatever else has to come out, so a
-    // feed order is loaded to two and a half and the rest of the deck is free.
-    truckCapacityKg: 3_000,
-    sundriesAllowanceKg: 500,
+    // The lorry carries 2.8 tonnes and all of it is loadable. Nothing is held
+    // back for the gas any more: it queues for space against the feed on how
+    // soon the farm runs out of it, which is the same rule the feed queues on.
+    truckCapacityKg: 2_800,
     deliveryCostPerTrip: 60,
     feedBufferDays: 7,
     procurementMode: "operational",

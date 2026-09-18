@@ -738,7 +738,9 @@ export class Farm {
         unit: "kg",
         quantity,
         value: quantity * price[ration],
-        capacity: null,
+        // A bin has a size, and it is what decides how much of a lorry with room
+        // to spare can be tipped into it on the way past.
+        capacity: config.feed.binCapacityKg,
         daysOfCover: cover(quantity, recentUse((record) => record.feedByRation[ration])),
       };
     });
@@ -761,7 +763,7 @@ export class Farm {
       unit: "kg",
       quantity: beddingHeld,
       value: beddingHeld * config.housing.beddingCostPerKg,
-      capacity: null,
+      capacity: config.housing.beddingStoreKg,
       daysOfCover: cover(beddingHeld, recentUse((record) => record.beddingKg)),
     });
 

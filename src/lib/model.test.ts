@@ -236,7 +236,7 @@ describe("Plans saved before a field existed still load", () => {
     const restored = withConfigDefaults(stored);
     expect(restored).not.toBeNull();
     expect(restored!.finance.workingCapitalTarget).toBe(0);
-    expect(restored!.feed.truckCapacityKg).toBe(3_000);
+    expect(restored!.feed.truckCapacityKg).toBe(2_800);
     // The places are scaled off the old planning ratios; everything else the
     // section has gained since is filled in from the defaults.
     expect(restored!.housing).toEqual({

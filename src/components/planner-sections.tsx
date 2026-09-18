@@ -2613,7 +2613,7 @@ export function FarmInputs({
       <SectionCard
         className={cardClass("growth")}
         title="Getting it here"
-        description="Goods are bought by the load, not by the mouthful. The plan's whole use is cut into lorry-loads — every ration due on the same deck, with the gas in the weight held back for it — and each trip is placed on the day the herd starts drawing on it. Nothing is delivered that is not used, a journey is charged once however much is on it, and its cost reaches each pig through what that pig eats. Bedding travels alone."
+        description="A journey costs what it costs whatever is on the deck, so the lorry only goes out when something on the farm is actually running low — and when it does, it leaves full. Every store queues for the space by how soon it runs out, so the gas bottle that sent for the vehicle travels with the feed the bins had room for, and that is a trip not made next week. Nothing is delivered that is not used, and a journey's cost reaches each pig through what that pig eats. Bedding travels alone, but by the deckload rather than the bale."
         icon={Truck}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -2625,17 +2625,17 @@ export function FarmInputs({
             min={100}
             max={30000}
             step={100}
-            hint="Everything the lorry can carry on one journey, feed and sundries together."
+            hint="Everything the lorry can carry on one journey, feed and gas together. No weight is held back: the bottles queue for space against the feed on how soon the farm runs out of them."
           />
           <Field
-            label="Held back for sundries"
-            value={config.feed.sundriesAllowanceKg}
-            onChange={(v) => update("feed", "sundriesAllowanceKg", v)}
-            suffix="kg"
-            min={0}
-            max={10000}
-            step={50}
-            hint={`Weight kept clear of the feed order for the gas bottles, the vaccines and the rest, so they never displace feed that was already due. Leaves ${Math.max(config.feed.truckCapacityKg - config.feed.sundriesAllowanceKg, 0)} kg of feed on a full load.`}
+            label="Bin capacity"
+            value={config.feed.binCapacityKg}
+            onChange={(v) => update("feed", "binCapacityKg", v)}
+            suffix="kg a ration"
+            min={50}
+            max={500000}
+            step={100}
+            hint="What one ration's bin holds. It is what stops a lorry with space to spare tipping in more than the farm can put away, so it is also what decides how much of the deck the top-up can fill."
           />
           <Field
             label="Cost per delivery"
@@ -2653,7 +2653,17 @@ export function FarmInputs({
             min={1}
             max={120}
             step={1}
-            hint="Each load lands this many days before the herd starts eating into it."
+            hint="Days of cover at which a store is due. One store falling this low is what sends the lorry; everything else close behind it is loaded onto the same one."
+          />
+          <Field
+            label="Order up to"
+            value={config.feed.targetCoverDays}
+            onChange={(v) => update("feed", "targetCoverDays", Math.round(v))}
+            suffix="days"
+            min={2}
+            max={240}
+            step={1}
+            hint="Days of cover an order is sized to bring a store back up to. Whatever deck is left over after that is filled from the same queue, so the figure sets the order and the truck sets the load."
           />
         </div>
       </SectionCard>
@@ -2716,7 +2726,7 @@ export function FarmInputs({
             min={1}
             max={20}
             step={1}
-            hint={`The farm never holds more than ${config.health.gasCanisterKg * config.health.gasCanisters} kg, so a bottle waits for an empty rather than arriving early. It rides in the weight held back on the feed lorry, and only makes a trip of its own when no run is due in time with room on it.`}
+            hint={`The farm never holds more than ${config.health.gasCanisterKg * config.health.gasCanisters} kg, so a bottle waits for an empty rather than arriving early — and a yard with room for more bottles is a yard that sends for fewer lorries. Gas is ordered on the same rule as the feed: when it is the first thing due it sends the lorry, and the feed fills the rest of the deck.`}
           />
           <Field
             label="Heated until"

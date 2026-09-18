@@ -131,14 +131,23 @@ describe("Every consumable is its own store", () => {
     const mostHeld = bottle * input.health.gasCanisters;
     const lines = gasLines(farm);
     expect(lines.length).toBeGreaterThan(0);
-    for (const kg of lines.slice(0, -1)) {
+    for (const kg of lines) {
       // Whole bottles: a lorry may bring two, and they read as one line on the
       // note, but the farm never buys a part-filled canister.
       expect(kg / bottle).toBeCloseTo(Math.round(kg / bottle), 6);
       expect(kg).toBeGreaterThan(0);
       expect(kg).toBeLessThanOrEqual(mostHeld + 1e-6);
     }
-    expect(lines.reduce((sum, kg) => sum + kg, 0)).toBeCloseTo(burnt, 3);
+
+    // Everything bought is burnt but for what is still standing in the yard when
+    // the plan stops — and because a bottle is a bottle, that is less than one.
+    // The planner no longer trims the last delivery to the kilogram the herd
+    // will use: it fills the yard whenever a lorry is there, which is what keeps
+    // a plan's schedule the same however far out it was drawn.
+    const bought = lines.reduce((sum, kg) => sum + kg, 0);
+    const standing = farm.haulage.stockByDay.gas.at(-1)!;
+    expect(bought).toBeCloseTo(burnt + standing, 3);
+    expect(standing).toBeLessThan(mostHeld);
   });
 
   it("never holds more gas than there are canisters to put it in", () => {
@@ -150,44 +159,49 @@ describe("Every consumable is its own store", () => {
     for (const standing of farm.haulage.stockByDay.gas) {
       expect(standing).toBeLessThanOrEqual(held + 1e-6);
     }
-    // And a smaller store is still never overfilled, only visited more often.
+    // And a smaller store is still never overfilled, only refilled in smaller
+    // amounts: one bottle at a time where the default yard takes two.
     const cramped = runFarm(plan((c) => (c.health.gasCanisters = 1)));
     for (const standing of cramped.haulage.stockByDay.gas) {
       expect(standing).toBeLessThanOrEqual(input.health.gasCanisterKg + 1e-6);
     }
-    expect(gasLines(cramped).length).toBeGreaterThanOrEqual(gasLines(farm).length);
+    const biggest = (f: Farm) => Math.max(...gasLines(f));
+    expect(biggest(cramped)).toBe(input.health.gasCanisterKg);
+    expect(biggest(farm)).toBeGreaterThan(biggest(cramped));
   });
 
-  it("carries the gas on the feed lorry when the yard has room to wait for one", () => {
-    const rides = (f: typeof farm) => {
+  it("never sends a lorry out for gas alone", () => {
+    // The point of the whole rework. A bottle is 48 kg and the lorry carries
+    // 2,800, and the gas yard empties faster than the feed bins do — so under
+    // the old scheme, where feed was cut into maximal loads and a bottle rode
+    // along only if one happened to fall in the fortnight the yard had room to
+    // wait, most bottles were fetched on a vehicle of their own. Now the bottle
+    // is what *sends* the lorry and the feed fills the rest of the deck.
+    const rides = (f: Farm) => {
       const carrying = f.haulage.trips.filter((trip) =>
         trip.lines.some((line) => line.store === "gas"),
       );
       return {
         deliveries: carrying.length,
         shared: carrying.filter((trip) => trip.lines.length > 1).length,
+        alone: carrying.filter((trip) => trip.lines.length === 1),
       };
     };
 
-    // What decides whether a bottle can wait for a feed run is room on the yard,
-    // not the lorry: it has to have somewhere to stand until it is wanted. Two
-    // canisters at two kilograms a lamp a night is about a fortnight's cover,
-    // and a feed run is a monthly event, so on the default farm most bottles
-    // have to be fetched. Give the yard more canisters and the rides come back,
-    // which is the whole mechanism in one comparison.
     const cramped = rides(farm);
-    const roomy = rides(runFarm(plan((c) => (c.health.gasCanisters = 8))));
+    expect(cramped.deliveries).toBeGreaterThan(0);
+    expect(cramped.alone).toEqual([]);
+    expect(cramped.shared).toBe(cramped.deliveries);
 
-    expect(cramped.shared).toBeGreaterThan(0);
-    expect(cramped.shared).toBeLessThan(cramped.deliveries);
+    // A yard with room for more bottles still pays for fewer journeys, because
+    // it can take a fortnight's gas at a time instead of a week's — but it is
+    // now the number of trips that moves, not whether the gas gets a ride.
+    const roomy = rides(runFarm(plan((c) => (c.health.gasCanisters = 8))));
     expect(roomy.deliveries).toBeLessThan(cramped.deliveries);
-    expect(roomy.shared / roomy.deliveries).toBeGreaterThan(
-      cramped.shared / cramped.deliveries,
-    );
+    expect(roomy.alone).toEqual([]);
 
     // A journey is charged once however much is on it, so a bottle that rode in
-    // on a feed run added nothing at all to the delivery line — and a yard with
-    // room for more bottles is a yard that pays for fewer journeys.
+    // on the feed order added nothing at all to the delivery line.
     for (const f of [farm, runFarm(plan((c) => (c.health.gasCanisters = 8)))]) {
       expect(f.ledger.totals.deliveries).toBeCloseTo(
         f.haulage.trips.reduce((paid, trip) => paid + trip.cost, 0),
@@ -266,9 +280,15 @@ describe("Every consumable is its own store", () => {
       opening.finance.storeValue,
       6,
     );
-    // Only the gas is limited by something other than money.
+    // Every store has a size now, and it is a real constraint rather than a
+    // note: it is what a lorry with room to spare is allowed to tip into it.
     expect(stores.find((store) => store.id === "gas")!.capacity).toBe(96);
-    expect(stores.find((store) => store.id === "feed-sow")!.capacity).toBeNull();
+    expect(stores.find((store) => store.id === "feed-sow")!.capacity).toBe(
+      input.feed.binCapacityKg,
+    );
+    expect(stores.find((store) => store.id === "bedding")!.capacity).toBe(
+      input.housing.beddingStoreKg,
+    );
     for (const store of stores) {
       expect(store.quantity).toBeGreaterThanOrEqual(0);
       if (store.daysOfCover !== null) expect(store.daysOfCover).toBeGreaterThan(0);
