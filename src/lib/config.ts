@@ -86,6 +86,20 @@ export const plannerSchema = z.object({
      * nothing, and two plans can be read off side by side.
      */
     variation: z.enum(["chance", "settled"]).default("chance"),
+    /**
+     * Which simulation engine runs the plan.
+     *
+     * "1.x" is the farm this product has always run on: one daily procedure,
+     * every input a rate, housing and inventory reported rather than simulated.
+     * It is the baseline, it is not going anywhere, and it is what a 2.0 result
+     * is read against.
+     *
+     * "2.0" is the engine being built alongside it — explicit world state,
+     * independent systems, domain events, and resources that can actually run
+     * out. Its new subsystems are switched on one at a time, so that what each
+     * one changes can be seen on its own rather than all at once.
+     */
+    engine: z.enum(["1.x", "2.0"]).default("1.x"),
   }),
   stock: z.object({
     sows: nonNegative,
@@ -136,6 +150,29 @@ export const plannerSchema = z.object({
     growerPlaces: z.number().int().min(1).max(100_000),
     finisherPlaces: z.number().int().min(1).max(100_000),
     /**
+     * Whether those places are a wall or a note on a dashboard. On, a batch
+     * that has outgrown its room has to be given somewhere to go before it can
+     * leave: if the next room is full the batch stays where it is, that room
+     * carries it over its own places, and the pressure works its way back up
+     * the farm. Off restores the old behaviour, where capacity was reported and
+     * nothing on the farm was constrained by it.
+     */
+    enforceCapacity: z.boolean().default(true),
+    /**
+     * Daily gain lost when a room holds twice the stock it has places for.
+     * Crowded pigs eat less, lie worse and fight more. The loss is read off the
+     * stocking ratio in proportion, so a room a fifth over its places loses a
+     * fifth of this. Gilts and the breeding herd are housed apart and are not
+     * affected.
+     */
+    crowdingGainPenaltyPct: percentage.default(35),
+    /**
+     * Extra mortality at twice the places, as a percentage of the stage's own
+     * rate. 100 means a room at double stocking loses twice as many pigs as the
+     * plan's figure; 0 turns the health consequence off and leaves the gain one.
+     */
+    crowdingMortalityPenaltyPct: z.number().finite().min(0).max(500).default(100),
+    /**
      * Bedding used per head per day. It was a flat monthly figure, which meant a
      * twenty sow herd and a two hundred sow herd bedded down for the same money.
      * It is per head because that is what it is: straw or shavings under the
@@ -146,12 +183,38 @@ export const plannerSchema = z.object({
     /** What one load of bedding brings, and what the trip costs. */
     beddingLoadKg: z.number().min(10).max(50_000),
     beddingDeliveryCost: nonNegative,
+    /** What the bedding store holds, which is what caps a delivery into it. */
+    beddingStoreKg: z.number().min(10).max(500_000).default(2_000),
   }),
   reproduction: z.object({
     gestationDays: z.number().min(110).max(122),
     weaningAgeDays: z.number().min(18).max(56),
     weanToServiceDays: z.number().min(3).max(35),
     farrowingSuccessPct: percentage,
+    /**
+     * Days a standing heat can be served in. A sow is not due for service for
+     * ever after her date: she stands for two or three days and then she is
+     * gone for three weeks. Anything the farm cannot manage inside the window —
+     * spotting her, finding her a mate, getting a technician to her — costs a
+     * whole cycle rather than a day.
+     */
+    serviceWindowDays: z.number().int().min(1).max(5).default(2),
+    /**
+     * Whether that window is a wall. Off — and off is what the 1.x engine
+     * does — a sow due for service stays due for service on every day after her
+     * date, so a held-up service costs a day. On, the window closes and the next
+     * one is a cycle away, which is what a missed heat really costs.
+     *
+     * 2.0 only. The 1.x engine does not read it.
+     */
+    enforceEstrusWindows: z.boolean().default(true),
+    /**
+     * Share of standing heats the unit actually spots. Detection is not
+     * conception: a heat that is missed is a cycle lost with no service to show
+     * for it, which is why a herd with poor heat detection carries a long
+     * farrowing interval and a perfectly ordinary conception rate.
+     */
+    heatDetectionPct: percentage.default(92),
     /**
      * Of the services that do not hold, the share that come back late rather
      * than on the next cycle. A regular return is a service that simply did not
@@ -263,6 +326,36 @@ export const plannerSchema = z.object({
     sundriesAllowanceKg: z.number().min(0).max(10_000),
     deliveryCostPerTrip: nonNegative,
     feedBufferDays: z.number().int().min(1).max(120),
+    /**
+     * How the farm buys its feed.
+     *
+     * "operational" is the farm: orders are placed from what is in the bin
+     * today and what has been eaten lately, they take the supplier's lead time
+     * to arrive, the bin holds only so much, and a store that runs dry
+     * restricts what the herd eats until an emergency load lands.
+     *
+     * "foresight" is the benchmark: the plan is run once to see what the herd
+     * will eat, and the lorries are then cut to fit it exactly. Nothing ever
+     * runs out and nothing is delivered that is not used — the best case
+     * logistics can reach, rather than a simulation of them.
+     */
+    procurementMode: z.enum(["foresight", "operational"]).default("operational"),
+    /** Days of cover at which an order is placed. */
+    reorderCoverDays: z.number().int().min(1).max(120).default(7),
+    /** Days of cover an order is sized to bring the store back up to. */
+    targetCoverDays: z.number().int().min(2).max(240).default(21),
+    /** Days between placing an order and the lorry coming through the gate. */
+    deliveryLeadDays: z.number().int().min(0).max(60).default(3),
+    /** Below this a supplier will not send a lorry, so a small order rounds up. */
+    minimumOrderKg: z.number().min(0).max(30_000).default(500),
+    /** What one ration's bin holds, which is what caps a delivery into it. */
+    binCapacityKg: z.number().min(50).max(500_000).default(6_000),
+    /** Days after delivery that the supplier's invoice is paid. */
+    supplierPaymentDays: z.number().int().min(0).max(180).default(30),
+    /** Lead time on an emergency load, ordered the day a store runs dry. */
+    emergencyLeadDays: z.number().int().min(0).max(14).default(1),
+    /** What an emergency load costs over the list price, on goods and journey. */
+    emergencyPremiumPct: z.number().finite().min(0).max(300).default(35),
   }),
   health: z.object({
     vaccinations: z.array(vaccinationSchema).max(16),
@@ -315,6 +408,18 @@ export const plannerSchema = z.object({
     contingencyPct: percentage,
     /** Cash the business is meant to keep in hand once surplus is taken out. */
     workingCapitalTarget: nonNegative,
+    /**
+     * Whether buying, holding, consuming and paying are four events or one.
+     *
+     * Off — the 1.x behaviour — feed hits the bank on the day it is eaten, which
+     * is neither when it was bought nor when it was paid for. On, a delivery
+     * becomes stock and a payable, the supplier is paid on his terms, and the
+     * feed is charged to the animals as they eat it, so the cashflow and the
+     * profit and loss stop having to be the same statement.
+     *
+     * 2.0 only. The 1.x engine does not read it.
+     */
+    accrualAccounting: z.boolean().default(true),
     cashMovements: z.array(cashMovementSchema).max(240),
   }),
 });
@@ -495,6 +600,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     openingCash: 0,
     seed: 1,
     variation: "chance",
+    engine: "1.x",
   },
   stock: {
     sows: 2,
@@ -535,12 +641,19 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     beddingCostPerKg: 0.1,
     beddingLoadKg: 1_000,
     beddingDeliveryCost: 40,
+    beddingStoreKg: 2_000,
+    enforceCapacity: true,
+    crowdingGainPenaltyPct: 35,
+    crowdingMortalityPenaltyPct: 100,
   },
   reproduction: {
     gestationDays: 115,
     weaningAgeDays: 28,
     weanToServiceDays: 7,
     farrowingSuccessPct: 85,
+    serviceWindowDays: 2,
+    enforceEstrusWindows: true,
+    heatDetectionPct: 92,
     irregularReturnSharePct: 25,
     pregnancyScanDays: 28,
     pregnancyScanCost: 1.5,
@@ -588,6 +701,15 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     sundriesAllowanceKg: 500,
     deliveryCostPerTrip: 60,
     feedBufferDays: 7,
+    procurementMode: "operational",
+    reorderCoverDays: 7,
+    targetCoverDays: 21,
+    deliveryLeadDays: 3,
+    minimumOrderKg: 500,
+    binCapacityKg: 6_000,
+    supplierPaymentDays: 30,
+    emergencyLeadDays: 1,
+    emergencyPremiumPct: 35,
   },
   health: {
     vaccinations: DEFAULT_VACCINATIONS,
@@ -618,6 +740,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     initialCapitalCosts: 8_000,
     contingencyPct: 5,
     workingCapitalTarget: 0,
+    accrualAccounting: true,
     cashMovements: [],
   },
 };

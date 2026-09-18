@@ -61,6 +61,34 @@ export function feedConversionAt(
   return dailyFeedKg(weightKg, dailyGainKg, growth) / dailyGainKg;
 }
 
+/**
+ * The gain a pig actually makes on the feed it actually got.
+ *
+ * A day's ration is upkeep first and gain second: a pig that is given four
+ * fifths of what it wanted does not grow four fifths as fast, because the upkeep
+ * comes out of the four fifths whole and only what is left over goes on its
+ * back. Below upkeep it loses weight, which is what a store running dry really
+ * costs a farm — not the emergency premium, the fortnight of growth.
+ */
+export function achievedGainKg(
+  weightKg: number,
+  potentialGainKg: number,
+  intakeFactor: number,
+  growth: GrowthConfig,
+): number {
+  if (intakeFactor >= 1 || potentialGainKg <= 0) return potentialGainKg;
+  const upkeep = upkeepFeedKgDay(weightKg, growth);
+  const perKg = gainFeedKgPerKg(weightKg, growth);
+  if (perKg <= 0) return 0;
+  const served = Math.max(0, intakeFactor) * (upkeep + potentialGainKg * perKg);
+  const gain = (served - upkeep) / perKg;
+  // A pig can lose condition, but not at a rate no animal loses it at.
+  return Math.max(-MAX_DAILY_LOSS_KG, Math.min(potentialGainKg, gain));
+}
+
+/** Most weight a pig is allowed to shed in one day, however short the feed is. */
+export const MAX_DAILY_LOSS_KG = 0.4;
+
 export type GrowoutFeed = {
   feedKg: number;
   days: number;

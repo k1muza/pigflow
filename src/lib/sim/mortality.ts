@@ -437,6 +437,46 @@ export class MortalityScheduler {
     };
   }
 
+  /**
+   * Risk a stage's occupants are carrying today over and above the plan's own
+   * rate — an overcrowded room, in the only stress this model has so far.
+   *
+   * It is the same carried-fraction arithmetic the rest of the scheduler runs
+   * on: the extra risk goes onto the stage's slate, and whenever that comes to a
+   * whole animal the loss is booked for today on whichever of the pigs standing
+   * there is furthest through its own tolerance. So a room a tenth over its
+   * places does not kill a tenth of a pig, and a room at double stocking loses
+   * measurably more than one inside its walls.
+   */
+  chargeStress(
+    stage: PigStage,
+    members: readonly GrowingPig[],
+    extraDailyRisk: number,
+    day: number,
+  ): number {
+    if (extraDailyRisk <= 0) return 0;
+    const exposed = members.filter((pig) => pig.alive && pig.deathStage === null);
+    if (exposed.length === 0) return 0;
+
+    this.owed[stage] += exposed.length * extraDailyRisk;
+    let due = Math.floor(this.owed[stage] + FLOAT_SLACK);
+    if (due <= 0) return 0;
+    if (due > exposed.length) due = exposed.length;
+    this.owed[stage] -= due;
+
+    const ranked = exposed
+      .map((pig) => ({
+        pig,
+        score: frailty(this.seed, "crowding", pig.cohort, pig.tag),
+      }))
+      .sort((a, b) => a.score - b.score);
+    for (let i = 0; i < due; i += 1) {
+      ranked[i].pig.deathStage = stage;
+      ranked[i].pig.deathDay = day;
+    }
+    return due;
+  }
+
   /** Whether this pig's booked day has come. */
   isDue(pig: GrowingPig, day: number): boolean {
     return pig.deathStage !== null && pig.deathDay !== null && day >= pig.deathDay;

@@ -11,11 +11,20 @@ import {
   SOW_WEIGHT_GAIN_PER_PARITY_KG,
   type PlannerConfig,
 } from "../config";
-import { dailyFeedKg } from "../growth-curve";
+import { achievedGainKg, dailyFeedKg } from "../growth-curve";
 
 export type Sex = "female" | "male";
 /** Where a pig sits on its way to the abattoir or the farrowing house. */
 export type PigStage = "piglet" | "weaner" | "grower" | "finisher" | "gilt";
+
+/** The order a pig passes through the stages, so a move is never backwards. */
+const STAGE_ORDER: Record<PigStage, number> = {
+  piglet: 0,
+  weaner: 1,
+  grower: 2,
+  finisher: 3,
+  gilt: 4,
+};
 export type Destination = "market" | "breeding";
 export type SowState = "gestating" | "lactating" | "open";
 export type ExitReason = "sold" | "sold-as-gilt" | "died" | "culled";
@@ -179,6 +188,23 @@ export class GrowingPig extends Animal {
   /** Set once this pig has been looked over for breeding, kept or not. */
   assessedForBreeding = false;
   /**
+   * The day this pig first qualified to move up a stage and was refused a place
+   * in the room it was moving into, or null when it is not waiting on one. A
+   * batch that is held does not stop growing — it goes on filling the room it is
+   * already in, which is exactly how housing pressure travels back up a farm.
+   */
+  heldSinceDay: number | null = null;
+  /**
+   * Share of the feed this pig asked for that it was actually given today. 1 on
+   * any day the stores covered the herd, and below it when one did not.
+   */
+  intakeFactor = 1;
+  /**
+   * What the room this pig stood in last night did to its day's gain: 1 inside
+   * its places, less when it is carrying an overflow.
+   */
+  crowdingFactor = 1;
+  /**
    * The day this pig is booked to die, and the stage that booked it. Mortality
    * is scheduled when a cohort enters a stage rather than rolled every morning,
    * so a pig carries its own appointment. Both are cleared when the day comes,
@@ -286,7 +312,37 @@ export class GrowingPig extends Animal {
     };
   }
 
-  /** Adds one day of liveweight and moves the pig up a stage once it qualifies. */
+  /**
+   * The gain this pig makes today: what it could have made, less what the room
+   * it is standing in and the feed it was given took off. Crowding comes off the
+   * potential — a pig with nowhere to lie eats less and fights more — and the
+   * ration is then worked out against what is left, upkeep first.
+   */
+  achievedGainKg(config: PlannerConfig): number {
+    const potential = this.dailyGainKg(config) * this.crowdingFactor;
+    if (this.intakeFactor >= 1) return potential;
+    if (this.stage === "piglet") {
+      // A suckler lives on milk, and milk follows what the sow was given.
+      return potential * Math.max(0, this.intakeFactor);
+    }
+    if (this.stage === "gilt") {
+      // She is on a restricted ration a feeder decides, and the upkeep share of
+      // it is the part that has to be covered before she puts anything on.
+      const spare = (this.intakeFactor - MAINTENANCE_SHARE) / (1 - MAINTENANCE_SHARE);
+      return potential * Math.max(0, spare);
+    }
+    return achievedGainKg(this.weightKg, potential, this.intakeFactor, config.growth);
+  }
+
+  /**
+   * Adds one day of liveweight and moves the pig up a stage once it qualifies.
+   *
+   * This is the 1.x rule, and the 1.x engine still runs on it: growing on and
+   * moving on are the same event, because nothing in that engine can refuse the
+   * move. The 2.0 engine splits the two — see {@link advanceWeight} and
+   * {@link nextStage} — because there a stage is a room with a finite number of
+   * places in it.
+   */
   grow(config: PlannerConfig): void {
     this.weightKg += this.dailyGainKg(config);
     if (this.stage === "piglet" || this.stage === "gilt") return;
@@ -298,12 +354,52 @@ export class GrowingPig extends Animal {
     else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
   }
 
+  /**
+   * Adds the day's liveweight and nothing else. What the weight has earned the
+   * pig is {@link nextStage}; whether it gets it is the farm's business rather
+   * than the pig's, and in the 2.0 engine it is settled by the housing.
+   */
+  advanceWeight(config: PlannerConfig): void {
+    this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config));
+  }
+
+  /**
+   * The stage this pig's weight now qualifies it for, or null when it is in the
+   * right one. A pig picked out to breed leaves the growing houses at sale
+   * weight, whatever the market pigs beside it are doing.
+   */
+  nextStage(config: PlannerConfig): PigStage | null {
+    if (this.stage === "piglet" || this.stage === "gilt") return null;
+    if (this.destination === "breeding" && this.weightKg >= config.growth.saleWeightKg) {
+      return "gilt";
+    }
+    const earned: PigStage =
+      this.weightKg >= config.growth.finisherStartWeightKg
+        ? "finisher"
+        : this.weightKg >= config.growth.growerStartWeightKg
+          ? "grower"
+          : "weaner";
+    if (earned === this.stage) return null;
+    return STAGE_ORDER[earned] > STAGE_ORDER[this.stage] ? earned : null;
+  }
+
+  /**
+   * Takes the pig off the sow. The 1.x rule puts a heavy weaner straight into
+   * whichever house its weight belongs in; the 2.0 engine lands every weaner in
+   * the weaner house and lets the housing decide what happens next, so it asks
+   * for {@link weanIntoNursery} instead.
+   */
   wean(day: number, config: PlannerConfig): void {
+    this.weanIntoNursery(day, config);
+    if (this.weightKg >= config.growth.finisherStartWeightKg) this.stage = "finisher";
+    else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
+  }
+
+  /** Off the sow and into the weaner house, wherever its weight might allow. */
+  weanIntoNursery(day: number, config: PlannerConfig): void {
     this.weanedOnDay = day;
     this.weightKg = Math.max(this.weightKg, config.growth.weaningWeightKg);
     this.stage = "weaner";
-    if (this.weightKg >= config.growth.finisherStartWeightKg) this.stage = "finisher";
-    else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
   }
 
   /**
@@ -382,6 +478,14 @@ export class Sow extends Animal {
   lastReturnIrregular = false;
   /** The day she is due back in heat when this service did not hold. */
   returnDay: number | null = null;
+  /**
+   * Whether this standing heat was spotted, drawn once on the day it opens and
+   * cleared when it closes. Detection is not conception: a heat nobody saw is a
+   * cycle gone with no service to charge for and nothing on the service card.
+   */
+  heatDetected: boolean | null = null;
+  /** Standing heats that opened and closed without a service. */
+  heatsMissed = 0;
   totalBornAlive = 0;
   totalWeaned = 0;
   lastSireTag: string | null = null;
@@ -436,6 +540,46 @@ export class Sow extends Animal {
     return { kg: ration * scale, costPerKg: config.feed.sowFeedCostKg, ration: "sow" };
   }
 
+  /**
+   * Whether she is standing today.
+   *
+   * She is due on her date and for the two or three days after it, and then she
+   * is not due again for three weeks. This used to read `day >= nextServiceDay`,
+   * which made a sow permanently in season from her date onwards: anything that
+   * held a service up — a worked-out boar team, no unrelated mate, a technician
+   * who did not come — cost her a day rather than a cycle, and the farm's boar
+   * capacity was not a constraint so much as a queue.
+   */
+  inHeat(day: number, windowDays: number): boolean {
+    if (!this.alive || this.state !== "open") return false;
+    return day >= this.nextServiceDay && day < this.nextServiceDay + Math.max(1, windowDays);
+  }
+
+  /** The first day of a standing heat, which is the day it is spotted or not. */
+  heatOpens(day: number): boolean {
+    return this.alive && this.state === "open" && day === this.nextServiceDay;
+  }
+
+  /** The last day of the window: after this she is gone for a cycle. */
+  heatCloses(day: number, windowDays: number): boolean {
+    return (
+      this.alive &&
+      this.state === "open" &&
+      day === this.nextServiceDay + Math.max(1, windowDays) - 1
+    );
+  }
+
+  /**
+   * Closes a heat that went by without a service, for whatever reason. She comes
+   * round again on the next cycle, three weeks of feed later, and the plan has
+   * that as a missed opportunity rather than a service deferred to tomorrow.
+   */
+  missHeat(): void {
+    this.nextServiceDay += ESTRUS_CYCLE_DAYS;
+    this.heatDetected = null;
+    this.heatsMissed += 1;
+  }
+
   dueForService(day: number): boolean {
     return this.alive && this.state === "open" && day >= this.nextServiceDay;
   }
@@ -459,6 +603,7 @@ export class Sow extends Animal {
   ): void {
     this.servicesUsed += 1;
     this.lastSireTag = sireTag;
+    this.heatDetected = null;
     this.scanDay = day + outcome.scanDays;
     this.lastReturnIrregular = !conceived && outcome.irregular;
     if (conceived) {

@@ -3,7 +3,14 @@ import { addMonths, differenceInCalendarDays, format, parseISO } from "date-fns"
 import type { PlannerConfig } from "../config";
 import { Farm, STORE_LABELS } from "./farm";
 import type { DayRecord, FarmEvent, StageCounts } from "./farm";
-import { addTotals, emptyTotals, expensesOf, incomeOf, type CategoryTotals } from "./ledger";
+import {
+  addTotals,
+  cashTotalsOf,
+  emptyTotals,
+  expensesOf,
+  incomeOf,
+  type CategoryTotals,
+} from "./ledger";
 import type { PigStage } from "./animals";
 
 export * from "./animals";
@@ -256,6 +263,13 @@ export type FarmCalendarDay = {
   events: FarmPeriodEvent[];
 };
 
+/**
+ * A timeline period's money, read off the cash book. On the 1.x farm the cash
+ * book and the profit and loss are the same numbers; reading through
+ * {@link cashTotalsOf} is what keeps a panel headed "money in and out" honest
+ * when the same timeline is fed by an engine for which they are not.
+ */
+
 /** A month of the plan, for reading the same timeline zoomed out. */
 export type FarmCalendarMonth = {
   index: number;
@@ -270,7 +284,7 @@ export type FarmCalendarMonth = {
   deaths: number;
   /** Lorries through the gate, whatever they were carrying. */
   lorriesIn: number;
-  /** The month's income and expenditure, line by line. */
+  /** The month's receipts and payments, line by line. */
   totals: CategoryTotals;
   cashIn: number;
   cashOut: number;
@@ -301,8 +315,8 @@ export function farmTimeline(config: PlannerConfig): FarmTimeline {
     bornAlive: record.bornAlive,
     deaths: record.pigletDeaths + record.growingDeaths + record.breedingDeaths,
     lorriesIn: record.lorriesIn,
-    cashIn: incomeOf(record.totals),
-    cashOut: expensesOf(record.totals),
+    cashIn: incomeOf(cashTotalsOf(record)),
+    cashOut: expensesOf(cashTotalsOf(record)),
     netCashFlow: record.netCashFlow,
     closingCash: record.closingCash,
     counts: record.counts,
@@ -321,7 +335,7 @@ export function farmTimeline(config: PlannerConfig): FarmTimeline {
       records.reduce((total, day) => total + pick(day), 0);
     const last = records[records.length - 1];
     const totals = emptyTotals();
-    for (const record of records) addTotals(totals, record.totals);
+    for (const record of records) addTotals(totals, cashTotalsOf(record));
     months.push({
       index,
       date: format(monthStart, "yyyy-MM-dd"),

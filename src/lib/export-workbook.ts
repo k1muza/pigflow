@@ -58,16 +58,22 @@ const CASHFLOW_ROWS = (() => {
   };
 })();
 
-/** Each cashflow line's row and this month's amount for it. */
+/**
+ * Each cashflow line's row and this month's amount for it.
+ *
+ * Off the cash book, not the profit and loss. A lender reading this sheet is
+ * asking when the money leaves the account, and on a plan that buys its feed on
+ * thirty-day terms that is a different month from the one the feed was eaten in.
+ */
 function cashflowValues(month: MonthlyProjection): [number, number][] {
   return [
     ...RECEIPT_LINES.map(
       (line, index) =>
-        [CASHFLOW_ROWS.firstReceipt + index, month.totals[line.category]] as [number, number],
+        [CASHFLOW_ROWS.firstReceipt + index, month.cashTotals[line.category]] as [number, number],
     ),
     ...PAYMENT_LINES.map(
       (line, index) =>
-        [CASHFLOW_ROWS.firstPayment + index, month.totals[line.category]] as [number, number],
+        [CASHFLOW_ROWS.firstPayment + index, month.cashTotals[line.category]] as [number, number],
     ),
   ];
 }

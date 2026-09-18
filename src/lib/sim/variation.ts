@@ -33,6 +33,8 @@ export interface Variation {
   litterSize(mean: number): number;
   /** Whether one service holds. */
   conceives(rate: number): boolean;
+  /** Whether this standing heat was spotted at all. */
+  heatSpotted(rate: number): boolean;
   /** Whether this service goes to AI rather than to the boar team. */
   usesAi(sharePct: number): boolean;
   /** Whether a service that did not hold comes back late rather than on cue. */
@@ -87,6 +89,10 @@ export class ChanceVariation implements Variation {
   }
 
   conceives(rate: number): boolean {
+    return this.rng.chance(rate);
+  }
+
+  heatSpotted(rate: number): boolean {
     return this.rng.chance(rate);
   }
 
@@ -148,6 +154,7 @@ export class SettledVariation implements Variation {
   private sexOwed = OPENING;
   private litterOwed = OPENING;
   private conceptionOwed = OPENING;
+  private detectionOwed = OPENING;
   private aiOwed = OPENING;
   private irregularOwed = OPENING;
   private returnCursor = 0;
@@ -186,6 +193,21 @@ export class SettledVariation implements Variation {
     this.conceptionOwed += rate;
     if (this.conceptionOwed >= 1 - SLACK) {
       this.conceptionOwed -= 1;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Heats are spotted at exactly the rate the plan states. At 92% detection the
+   * thirteenth heat is where the carried shortfall has come to a whole miss.
+   */
+  heatSpotted(rate: number): boolean {
+    if (rate <= 0) return false;
+    if (rate >= 1) return true;
+    this.detectionOwed += rate;
+    if (this.detectionOwed >= 1 - SLACK) {
+      this.detectionOwed -= 1;
       return true;
     }
     return false;

@@ -3035,35 +3035,39 @@ export function CashflowPreview({
       planValue: config.project.openingCash,
     },
     { key: "receipts-section", label: "Cash receipts", kind: "section" },
-    { key: "receipts-section", label: "Cash receipts", kind: "section" },
     // Generated from the ledger rather than listed by hand: a line added to the
     // ledger is a line on the cash statement, and the two cannot drift apart.
+    //
+    // Every figure below comes off the cash book. This statement answers "when
+    // does the money move", which on a plan that buys feed on terms is not the
+    // same month as "when was the feed eaten" — that is the profit and loss, and
+    // it is reported separately.
     ...INCOME_CATEGORIES.map((category) => ({
       key: category,
       label: CATEGORY_LABELS[category],
-      monthValue: (month: MonthlyProjection) => month.totals[category],
-      planValue: total((month) => month.totals[category]),
+      monthValue: (month: MonthlyProjection) => month.cashTotals[category],
+      planValue: total((month) => month.cashTotals[category]),
     })),
     {
       key: "total-receipts",
       label: "Total receipts",
       kind: "total" as const,
-      monthValue: (month: MonthlyProjection) => month.revenue,
-      planValue: projection.summary.totalRevenue,
+      monthValue: (month: MonthlyProjection) => month.cashIn,
+      planValue: total((month) => month.cashIn),
     },
     { key: "payments-section", label: "Cash payments", kind: "section" },
     ...EXPENSE_CATEGORIES.map((category) => ({
       key: category,
       label: CATEGORY_LABELS[category],
-      monthValue: (month: MonthlyProjection) => month.totals[category],
-      planValue: total((month) => month.totals[category]),
+      monthValue: (month: MonthlyProjection) => month.cashTotals[category],
+      planValue: total((month) => month.cashTotals[category]),
     })),
     {
       key: "total-payments",
       label: "Total payments",
       kind: "total",
-      monthValue: (month) => month.totalCost,
-      planValue: projection.summary.totalCost,
+      monthValue: (month) => month.cashOut,
+      planValue: total((month) => month.cashOut),
     },
     {
       key: "net-cashflow",
@@ -3239,11 +3243,18 @@ type PeriodView = {
   sublabel: string;
   /** The month this view is of, or null for a rolled-up plan year. */
   monthIndex: number | null;
+  /** Earned and consumed over the period. */
   totals: CategoryTotals;
+  /** Received and paid over it, which on a plan buying on terms is not the same. */
+  cashTotals: CategoryTotals;
   revenue: number;
   totalCost: number;
+  cashIn: number;
+  cashOut: number;
   netCashFlow: number;
   closingCash: number;
+  /** Owed to suppliers at the close, which is what the two statements differ by. */
+  payables: number;
   bornAlive: number;
   weaned: number;
   pigsSold: number;
@@ -3260,10 +3271,14 @@ function monthView(month: MonthlyProjection): PeriodView {
     sublabel: format(parseISO(month.date), "MMMM yyyy"),
     monthIndex: month.index,
     totals: month.totals,
+    cashTotals: month.cashTotals,
     revenue: month.revenue,
     totalCost: month.totalCost,
+    cashIn: month.cashIn,
+    cashOut: month.cashOut,
     netCashFlow: month.netCashFlow,
     closingCash: month.closingCash,
+    payables: month.payables,
     bornAlive: month.bornAlive,
     weaned: month.weaned,
     pigsSold: month.pigsSold,
@@ -3285,10 +3300,14 @@ function yearView(year: PeriodSummary, months: MonthlyProjection[]): PeriodView 
       format(parseISO(covered.at(-1)!.date), "MMM yyyy"),
     monthIndex: null,
     totals: year.totals,
+    cashTotals: year.cashTotals,
     revenue: year.revenue,
     totalCost: year.totalCost,
+    cashIn: year.cashIn,
+    cashOut: year.cashOut,
     netCashFlow: year.netCashFlow,
     closingCash: year.closingCash,
+    payables: year.payables,
     bornAlive: year.bornAlive,
     weaned: year.weaned,
     pigsSold: year.pigsSold,
@@ -3659,9 +3678,14 @@ function PeriodPanel({
   const netOff: Partial<Record<LedgerCategory, number>> = editable
     ? { "other-income": ownTotal(mine, "in"), overheads: ownTotal(mine, "out") }
     : {};
+  // This panel is headed "expected to receive and spend", so it reads the cash
+  // book: what the month's bank account does, not what it earned and consumed.
   const lines = (categories: readonly LedgerCategory[]) =>
     categories
-      .map((category) => ({ category, amount: period.totals[category] - (netOff[category] ?? 0) }))
+      .map((category) => ({
+        category,
+        amount: period.cashTotals[category] - (netOff[category] ?? 0),
+      }))
       .filter((line) => line.amount !== 0)
       .sort((a, b) => b.amount - a.amount);
 

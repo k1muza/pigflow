@@ -2,8 +2,11 @@ import { addMonths, format, parseISO } from "date-fns";
 
 import { ESTRUS_CYCLE_DAYS, plannerSchema, type PlannerConfig } from "./config";
 import { growoutFeedConversion } from "./growth-curve";
+import { engineProjection } from "./engine/projection";
 import {
   addTotals,
+  cashTotalsOf,
+  payablesOf,
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
@@ -74,12 +77,31 @@ export type MonthlyProjection = {
   /** Lorries through the gate this month, and the feed they brought. */
   lorriesIn: number;
   feedDeliveredKg: number;
-  /** Every income and cost line for the month, by ledger category. */
+  /**
+   * What the month earned and consumed, by ledger category: the profit and loss.
+   * Feed appears here on the days it was eaten.
+   */
   totals: CategoryTotals;
+  /**
+   * What actually moved through the bank, by the same categories: the cash book.
+   * Feed appears here on the day the supplier's invoice was paid, which is
+   * neither the day it arrived nor the days it was eaten.
+   *
+   * On the 1.x engine the two are the same numbers, because that engine posts
+   * every cost as a payment. On 2.0 with accrual accounting they are not, and a
+   * statement headed "cash" has to read this one.
+   */
+  cashTotals: CategoryTotals;
+  /** Earned and consumed — the profit and loss totals. */
   revenue: number;
   totalCost: number;
+  /** Received and paid — the cash book totals. */
+  cashIn: number;
+  cashOut: number;
   netCashFlow: number;
   closingCash: number;
+  /** Owed to suppliers at the end of the month, which is what the two differ by. */
+  payables: number;
 };
 
 export type PeriodSummary = {
@@ -88,11 +110,17 @@ export type PeriodSummary = {
   startDate: string;
   endDate: string;
   months: number[];
+  /** Earned and consumed over the period. */
   totals: CategoryTotals;
+  /** Received and paid over the period, which is not the same statement. */
+  cashTotals: CategoryTotals;
   revenue: number;
   totalCost: number;
+  cashIn: number;
+  cashOut: number;
   netCashFlow: number;
   closingCash: number;
+  payables: number;
   pigsSold: number;
   bornAlive: number;
   weaned: number;
@@ -212,8 +240,23 @@ export function getModelMetrics(config: PlannerConfig) {
   };
 }
 
-function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyProjection {
+/**
+ * A day, as either engine hands it over. The 1.x record carries one book; the
+ * 2.0 record carries two and says what is owed. Both roll up through the same
+ * code, which is what lets the rest of the product stay engine-agnostic.
+ */
+export type BookedDayRecord = DayRecord & {
+  cashTotals?: CategoryTotals;
+  payables?: number;
+};
+
+export function summariseMonth(
+  index: number,
+  date: Date,
+  days: readonly BookedDayRecord[],
+): MonthlyProjection {
   const totals = emptyTotals();
+  const cashTotals = emptyTotals();
   const month: MonthlyProjection = {
     index,
     date: format(date, "yyyy-MM-dd"),
@@ -245,10 +288,14 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     lorriesIn: 0,
     feedDeliveredKg: 0,
     totals,
+    cashTotals,
     revenue: 0,
     totalCost: 0,
+    cashIn: 0,
+    cashOut: 0,
     netCashFlow: 0,
     closingCash: 0,
+    payables: 0,
   };
 
   for (const day of days) {
@@ -268,6 +315,7 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     month.feedDeliveredKg += day.feedDeliveredKg;
     month.peakHead = Math.max(month.peakHead, day.counts.total);
     addTotals(totals, day.totals);
+    addTotals(cashTotals, cashTotalsOf(day));
   }
 
   const last = days.at(-1);
@@ -282,22 +330,32 @@ function summariseMonth(index: number, date: Date, days: DayRecord[]): MonthlyPr
     month.breedingStock = last.counts.sows + last.counts.boars;
     month.workers = last.workers;
     month.closingCash = last.closingCash;
+    month.payables = payablesOf(last);
   }
 
+  // The two statements, each totalled from its own book. On the 1.x engine they
+  // come out the same, because every cost there is paid the day it is incurred;
+  // on 2.0 with accrual accounting they do not, and neither is wrong.
   month.revenue = incomeOf(totals);
   month.totalCost = expensesOf(totals);
-  month.netCashFlow = month.revenue - month.totalCost;
+  month.cashIn = incomeOf(cashTotals);
+  month.cashOut = expensesOf(cashTotals);
+  month.netCashFlow = month.cashIn - month.cashOut;
   return month;
 }
 
 /** Rolls consecutive months up into plan years, for the zoomed-out view. */
-function summariseYears(months: MonthlyProjection[], start: Date): PeriodSummary[] {
+export function summariseYears(months: MonthlyProjection[], start: Date): PeriodSummary[] {
   const years: PeriodSummary[] = [];
   for (let first = 0; first < months.length; first += 12) {
     const slice = months.slice(first, first + 12);
     if (slice.length === 0) break;
     const totals = emptyTotals();
-    for (const month of slice) addTotals(totals, month.totals);
+    const cashTotals = emptyTotals();
+    for (const month of slice) {
+      addTotals(totals, month.totals);
+      addTotals(cashTotals, month.cashTotals);
+    }
     const last = slice.at(-1)!;
     const yearIndex = first / 12;
     years.push({
@@ -307,10 +365,14 @@ function summariseYears(months: MonthlyProjection[], start: Date): PeriodSummary
       endDate: format(addMonths(start, first + slice.length), "yyyy-MM-dd"),
       months: slice.map((month) => month.index),
       totals,
+      cashTotals,
       revenue: incomeOf(totals),
       totalCost: expensesOf(totals),
-      netCashFlow: incomeOf(totals) - expensesOf(totals),
+      cashIn: incomeOf(cashTotals),
+      cashOut: expensesOf(cashTotals),
+      netCashFlow: incomeOf(cashTotals) - expensesOf(cashTotals),
       closingCash: last.closingCash,
+      payables: last.payables,
       pigsSold: slice.reduce((sum, month) => sum + month.pigsSold, 0),
       bornAlive: slice.reduce((sum, month) => sum + month.bornAlive, 0),
       weaned: slice.reduce((sum, month) => sum + month.weaned, 0),
@@ -324,9 +386,14 @@ function summariseYears(months: MonthlyProjection[], start: Date): PeriodSummary
 /**
  * Runs the herd simulation over the planning horizon and rolls the daily record
  * up into the monthly cashflow the plan is read from.
+ *
+ * Which engine runs it is the plan's own choice. 1.x is the default and the
+ * established answer; 2.0 is the engine being built alongside it, and is read
+ * against 1.x rather than instead of it — see `lib/engine/parity`.
  */
 export function calculateProjection(input: PlannerConfig): ProjectionResult {
   const config = plannerSchema.parse(input);
+  if (config.project.engine === "2.0") return engineProjection(config);
   const farm = new Farm(config);
   farm.advanceTo(horizonDay(config));
 
@@ -404,14 +471,30 @@ export function calculateProjection(input: PlannerConfig): ProjectionResult {
     summary,
     generations: state.generations,
     costOfProduction: state.costOfProduction,
-    warnings: buildWarnings(config, summary, farm),
+    warnings: buildWarnings(config, summary, farm.lifetime),
   };
 }
 
-function buildWarnings(
+/** The handful of lifetime figures the warnings actually read. */
+export type WarnableRun = {
+  servicesMissedForBoarCapacity: number;
+  servicesMissedForGenetics: number;
+  servicesAttempted: number;
+  aiServices: number;
+  aiCost: number;
+  /** 2.0 only; a 1.x run reports zero for all of them. */
+  movementsBlocked?: number;
+  animalDaysOverCapacity?: number;
+  heatsMissed?: number;
+  heatsUndetected?: number;
+  feedShortfallKg?: number;
+  emergencyOrders?: number;
+};
+
+export function buildWarnings(
   config: PlannerConfig,
   summary: ProjectionSummary,
-  farm: Farm,
+  run: WarnableRun,
 ): ModelWarning[] {
   const warnings: ModelWarning[] = [];
 
@@ -431,12 +514,12 @@ function buildWarnings(
       detail:
         "Sows cannot be served, so the simulation produces no litters. Add a boar, or turn on artificial insemination.",
     });
-  } else if (farm.lifetime.servicesMissedForBoarCapacity > 0) {
+  } else if (run.servicesMissedForBoarCapacity > 0) {
     warnings.push({
       level: "attention",
       title: "Boar capacity is holding sows back",
       detail:
-        farm.lifetime.servicesMissedForBoarCapacity +
+        run.servicesMissedForBoarCapacity +
         " services were deferred because every boar was already working. Add boars or use artificial insemination.",
     });
   }
@@ -448,16 +531,16 @@ function buildWarnings(
         "Every service is by AI, which the plan costs correctly, but it assumes heats are spotted. A unit running AI with no boar for detection usually loses services rather than money, which this plan will not show you.",
     });
   }
-  if (farm.lifetime.aiServices > 0) {
+  if (run.aiServices > 0) {
     warnings.push({
       level: "info",
       title: "Part of the herd is served by AI",
       detail:
-        farm.lifetime.aiServices +
+        run.aiServices +
         " of " +
-        farm.lifetime.servicesAttempted +
+        run.servicesAttempted +
         " services were by bought-in semen, at " +
-        Math.round(farm.lifetime.aiCost) +
+        Math.round(run.aiCost) +
         " " +
         config.project.currency +
         ". Set against that, the farm stands fewer boars to buy, feed and rotate.",
@@ -497,12 +580,12 @@ function buildWarnings(
         "Culled and dead sows are never replaced, so the breeding herd shrinks to nothing. Retain home-bred gilts, buy them in, or both.",
     });
   }
-  if (farm.lifetime.servicesMissedForGenetics > 0) {
+  if (run.servicesMissedForGenetics > 0) {
     warnings.push({
       level: "info",
       title: "Females were held over to avoid mating them to their own line",
       detail:
-        farm.lifetime.servicesMissedForGenetics +
+        run.servicesMissedForGenetics +
         " services waited a day or so for an unrelated mate. No female is served by her own sire or her maternal grandsire, so this is the herd turning over its genetics rather than a shortage.",
     });
   }
@@ -541,6 +624,40 @@ function buildWarnings(
         "Enter a locally agreed vaccination schedule and a routine veterinary allowance before relying on the cash result.",
     });
   }
+  if ((run.movementsBlocked ?? 0) > 0) {
+    warnings.push({
+      level: "attention",
+      title: "Housing is holding the farm back",
+      detail:
+        run.movementsBlocked +
+        " batch movements were refused for want of a place, and the growing houses spent " +
+        Math.round(run.animalDaysOverCapacity ?? 0) +
+        " animal-days over their places. Crowded pigs grow more slowly and die more often, so this shows up in sale dates and in cost per kilogram before it shows up anywhere else.",
+    });
+  }
+  if ((run.heatsMissed ?? 0) > 0) {
+    warnings.push({
+      level: "attention",
+      title: "Standing heats are being missed",
+      detail:
+        run.heatsMissed +
+        " heats closed without a service, " +
+        (run.heatsUndetected ?? 0) +
+        " of them unnoticed. Each one costs a whole cycle rather than a day, so it is felt in the farrowing interval and in litters per sow per year.",
+    });
+  }
+  if ((run.feedShortfallKg ?? 0) > 0) {
+    warnings.push({
+      level: "attention",
+      title: "The stores ran short",
+      detail:
+        Math.round(run.feedShortfallKg ?? 0) +
+        " kg of feed was asked for and not available, and " +
+        (run.emergencyOrders ?? 0) +
+        " emergency loads were sent for at a premium. Restricted intake costs gain, which costs days, which is usually dearer than the premium was. Review the reorder point, the lead time and the bin size.",
+    });
+  }
+
   warnings.push(
     config.project.variation === "settled"
       ? {
@@ -582,12 +699,19 @@ export function projectionToCsv(result: ProjectionResult) {
     "Stockpeople",
     // Every ledger line, in the ledger order the values below are built in, so
     // a line added to the ledger is a column here rather than a silent shift.
+    // Each appears twice — once earned or consumed, once received or paid —
+    // because on the 2.0 engine those are two different months' worth of money.
     ...INCOME_CATEGORIES.map((category) => CATEGORY_LABELS[category]),
     ...EXPENSE_CATEGORIES.map((category) => CATEGORY_LABELS[category]),
+    ...INCOME_CATEGORIES.map((category) => CATEGORY_LABELS[category] + " (cash)"),
+    ...EXPENSE_CATEGORIES.map((category) => CATEGORY_LABELS[category] + " (cash)"),
     "Lorries in",
     "Total cost",
+    "Cash in",
+    "Cash out",
     "Net cash flow",
     "Closing cash",
+    "Owed to suppliers",
   ];
   const rows = result.months.map((row) => [
     row.date,
@@ -610,10 +734,15 @@ export function projectionToCsv(result: ProjectionResult) {
     row.workers,
     ...INCOME_CATEGORIES.map((category) => row.totals[category]),
     ...EXPENSE_CATEGORIES.map((category) => row.totals[category]),
+    ...INCOME_CATEGORIES.map((category) => row.cashTotals[category]),
+    ...EXPENSE_CATEGORIES.map((category) => row.cashTotals[category]),
     row.lorriesIn,
     row.totalCost,
+    row.cashIn,
+    row.cashOut,
     row.netCashFlow,
     row.closingCash,
+    row.payables,
   ]);
   return [header, ...rows]
     .map((row) => row.map((cell) => (typeof cell === "string" ? '"' + cell + '"' : cell)).join(","))
