@@ -489,20 +489,31 @@ export class Supplies {
 
     for (const order of landing) {
       const payload = order.lines.reduce((kg, line) => kg + line.kg, 0);
+      const premium = order.emergency ? 1 + this.config.feed.emergencyPremiumPct / 100 : 1;
       for (const line of order.lines) {
         this.onOrder[line.store] = Math.max(0, this.onOrder[line.store] - line.kg);
+        // Goods go in at what that store's goods cost. Spreading the order's
+        // total over the payload by weight instead priced every line on the
+        // lorry the same, so a load of cheap sow feed and dear weaner feed put
+        // both bins in at the average of the two — and every figure read off a
+        // bin afterwards was wrong with it: what the stock is worth, what a pig
+        // ate, and which stage carried the cost of it.
+        //
+        // The journey is the one thing that genuinely is shared, and it is
+        // still split by weight: a kilogram takes a kilogram's share of the
+        // trip whatever the kilogram happens to be.
         const share = payload > 0 ? line.kg / payload : 0;
         this.receive(
           line.store,
           line.kg,
-          line.kg * (order.goodsCost / Math.max(payload, CRUMB_KG)),
+          line.kg * this.listPrice[line.store] * premium,
           order.deliveryCost * share,
         );
       }
       if (!this.invoicing) continue;
       const byStore = zeroStores();
       for (const line of order.lines) {
-        byStore[line.store] += payload > 0 ? (line.kg / payload) * order.goodsCost : 0;
+        byStore[line.store] += line.kg * this.listPrice[line.store] * premium;
       }
       const invoiced = order.goodsCost + order.deliveryCost;
       this.payables += invoiced;
