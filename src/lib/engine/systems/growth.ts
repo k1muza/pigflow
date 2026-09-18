@@ -44,11 +44,22 @@ export function pipelineBuffer(world: World): number {
 /** How far along the growing houses a stage is, so a batch only ever goes on. */
 const HOUSE_ORDER: Record<string, number> = { weaner: 1, grower: 2, finisher: 3 };
 
+/** The one house that comes after this one. There is no other way through. */
+const NEXT_HOUSE: Record<string, PigStage> = { weaner: "grower", grower: "finisher" };
+
 /**
- * The house a batch has grown into, read off the average weight of the pigs in
- * it — the same figure the kill is settled on, and for the same reason: a pen
- * moves as a pen, and it moves when the pen is ready rather than when its
+ * The house a batch is ready to move into, read off the average weight of the
+ * pigs in it — the same figure the kill is settled on, and for the same reason:
+ * a pen moves as a pen, and it moves when the pen is ready rather than when its
  * heaviest animal is.
+ *
+ * Weight says whether the batch has earned its next move. It never says which
+ * move, because there is only one: weaner to grower, grower to finisher. A pen
+ * held out of the grower house goes on growing where it stands, and if weight
+ * alone chose the destination it would in time qualify for the finisher house
+ * and be sent there straight from the weaner pens — which would make the grower
+ * house something a plan could grow its way around, and the queue it is supposed
+ * to cause would land one room further down instead of where the shortage is.
  *
  * Sucklers and selected gilts are not part of it. A suckler is in its dam's
  * crate and moves when she weans; a gilt has left the market herd and is on her
@@ -70,7 +81,9 @@ function earnedStage(
         : "weaner";
   const from = HOUSE_ORDER[current];
   if (from === undefined) return null;
-  return HOUSE_ORDER[earned] > from ? earned : null;
+  if (HOUSE_ORDER[earned] <= from) return null;
+  // Ready to move on, so it moves on by one room — never two.
+  return NEXT_HOUSE[current] ?? null;
 }
 
 /**

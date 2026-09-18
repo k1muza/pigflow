@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
-import { runEngine } from "./engine";
+import { Engine, runEngine } from "./engine";
 
 /**
  * Housing as a throughput ceiling.
@@ -110,6 +110,49 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
     expect(single.lifetime.batchesSplit).toBeGreaterThan(0);
   });
 
+  it("walks a pen through the grower house rather than round it", () => {
+    // Weight says whether a pen is ready to move. It must not say where to,
+    // because there is only one room after each room.
+    //
+    // Shut a pen out of the grower house and it goes on growing in the weaner
+    // pens; in a few weeks it is heavy enough for the finisher house. When the
+    // destination was read off weight alone it was then sent there directly, out
+    // of the weaner pens, and the grower house was never entered at all — on this
+    // plan 32 pigs went that way and more pigs reached the finishing house than
+    // ever reached the grower house, which is not a thing that can happen on a
+    // farm. Grower places became something a plan could grow its way around, and
+    // the queue a shortage causes landed one room downstream of the shortage.
+    const input = plan((config) => {
+      config.housing.growerPlaces = 1;
+      config.housing.finisherPlaces = 400;
+    });
+    const engine = new Engine(input);
+    const standing = new Map<string, string>();
+    let skipped = 0;
+    let toGrower = 0;
+    let toFinisher = 0;
+    for (let day = 0; day <= 800; day += 1) {
+      engine.step(day);
+      for (const pig of engine.world.pigs) {
+        if (!pig.alive) continue;
+        const before = standing.get(pig.tag);
+        standing.set(pig.tag, pig.stage);
+        if (before === undefined || before === pig.stage) continue;
+        if (before === "weaner" && pig.stage === "finisher") skipped += 1;
+        if (pig.stage === "grower") toGrower += 1;
+        if (pig.stage === "finisher") toFinisher += 1;
+      }
+    }
+
+    expect(skipped).toBe(0);
+    // Nothing reaches the finishing house except through the grower house, so a
+    // grower house this small is a ceiling on everything behind it.
+    expect(toFinisher).toBeGreaterThan(0);
+    expect(toFinisher).toBeLessThanOrEqual(toGrower);
+    expect(engine.world.housing.report().find((room) => room.id === "grower")!.movementsBlocked)
+      .toBeGreaterThan(0);
+  });
+
   it("drafts a selected gilt out of the pen instead of carrying her in it", () => {
     // She is not going to the next house, so the batch rules do not apply to
     // her. Left in the pen she earned no room and was never promoted either —
@@ -142,7 +185,14 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
     // factor can fall away as a pig approaches its mature weight. Until then
     // this test says plainly that the behaviour is known, so that nobody reads
     // a 600 kg grower as a finding about housing.
-    const { input, run } = withFinisherPlaces(1);
+    // Room upstream, so the queue is not slowed by crowding and the pigs in it
+    // grow at very nearly their full rate for as long as they stand there.
+    const input = plan((config) => {
+      config.housing.weanerPlaces = 2_000;
+      config.housing.growerPlaces = 2_000;
+      config.housing.finisherPlaces = 1;
+    });
+    const run = runEngine(input, DAYS);
     const overgrown = run.world.pigs.filter(
       (pig) => pig.alive && pig.weightKg > input.growth.saleWeightKg * 4,
     );
