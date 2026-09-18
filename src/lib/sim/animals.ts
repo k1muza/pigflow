@@ -205,6 +205,17 @@ export class GrowingPig extends Animal {
    */
   crowdingFactor = 1;
   /**
+   * What is left of this pig's growth, given how near it is to the size it will
+   * finish at: 1 anywhere inside the growout, falling away above sale weight and
+   * reaching 0 at its mature weight.
+   *
+   * It is set each morning by the engine rather than worked out here, for the
+   * same reason the crowding factor is: the 1.x farm shares these animals and
+   * has no mature weight in it, so leaving this at 1 leaves that farm exactly as
+   * it was.
+   */
+  maturityFactor = 1;
+  /**
    * The day this pig is booked to die, and the stage that booked it. Mortality
    * is scheduled when a cohort enters a stage rather than rolled every morning,
    * so a pig carries its own appointment. Both are cleared when the day comes,
@@ -246,14 +257,14 @@ export class GrowingPig extends Animal {
         (config.growth.weaningWeightKg - BIRTH_WEIGHT_KG) / config.reproduction.weaningAgeDays
       );
     }
-    if (this.stage === "gilt") return GILT_DAILY_GAIN_KG * this.growthFactor;
+    if (this.stage === "gilt") return GILT_DAILY_GAIN_KG * this.growthFactor * this.maturityFactor;
     const base =
       this.stage === "weaner"
         ? config.growth.weanerDailyGainKg
         : this.stage === "grower"
           ? config.growth.growerDailyGainKg
           : config.growth.finisherDailyGainKg;
-    return base * sexFactor(this.sex) * this.growthFactor;
+    return base * sexFactor(this.sex) * this.growthFactor * this.maturityFactor;
   }
 
   /**

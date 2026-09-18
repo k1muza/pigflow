@@ -89,6 +89,42 @@ export function achievedGainKg(
 /** Most weight a pig is allowed to shed in one day, however short the feed is. */
 export const MAX_DAILY_LOSS_KG = 0.4;
 
+/**
+ * How sharply gain falls away as a pig fills out. Near 1 the pig decelerates
+ * from the day it is weaned; large, and it grows flat out and then stops dead.
+ * 3 puts the deceleration where it belongs, in the last third of the approach.
+ */
+const MATURITY_EXPONENT = 3;
+
+/**
+ * What is left of a pig's potential gain at this weight, given the size it is
+ * growing towards.
+ *
+ * Gain in this model is a rate per stage, read off tables measured on pigs
+ * inside the growout. Beyond sale weight those tables say nothing, and taking
+ * them at their word meant a pig held for want of a finishing place went on
+ * gaining 0.85 kg a day for two years and passed 500 kg. It was not only the
+ * weight that was wrong: that pig's upkeep, its feed orders, its insured value
+ * and its cost per kilogram were all computed off it.
+ *
+ * So the curve is normalised to leave the growout exactly as it was — the factor
+ * is 1 at sale weight and below, which is the whole of a plan that sells its
+ * pigs on time — and takes over above it, falling to nothing as the pig reaches
+ * its mature size. A pig that waits does not keep growing; it finishes growing
+ * and stands there, which is what a pig does.
+ */
+export function maturityFactor(weightKg: number, growth: GrowthConfig): number {
+  const mature = growth.matureWeightKg;
+  // A mature weight at or under sale weight describes no growout at all, so
+  // there is nothing to normalise against and nothing is applied.
+  if (mature <= 0 || mature <= growth.saleWeightKg) return 1;
+  const left = (kg: number) =>
+    1 - Math.pow(Math.min(Math.max(kg, 0), mature) / mature, MATURITY_EXPONENT);
+  const atSale = left(growth.saleWeightKg);
+  if (atSale <= 0) return 1;
+  return Math.max(0, Math.min(1, left(weightKg) / atSale));
+}
+
 export type GrowoutFeed = {
   feedKg: number;
   days: number;

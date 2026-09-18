@@ -288,6 +288,18 @@ export const plannerSchema = z.object({
     growerStartWeightKg: z.number().min(15).max(60),
     finisherStartWeightKg: z.number().min(35).max(100),
     saleWeightKg: z.number().min(50).max(180),
+    /**
+     * The weight this genotype stops growing at. A pig is not a line on a
+     * graph: it slows as it fills out and settles at its mature size, and a
+     * market pig is sold less than a third of the way there, which is why the
+     * tabled daily gains say nothing about what happens past sale weight.
+     *
+     * It matters when a pig does not leave on time. Without it a pig held back
+     * for want of a finishing place gained 0.85 kg a day for as long as it stood
+     * there and passed 500 kg, which is not an animal — and it ate, was insured,
+     * was valued and was costed as one. 0 turns it off, which is the 1.x rule.
+     */
+    matureWeightKg: z.number().min(0).max(600).default(320),
     weanerDailyGainKg: z.number().min(0.1).max(1.2),
     growerDailyGainKg: z.number().min(0.2).max(1.5),
     finisherDailyGainKg: z.number().min(0.2).max(1.5),
@@ -691,6 +703,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     growerStartWeightKg: 30,
     finisherStartWeightKg: 60,
     saleWeightKg: 100,
+    matureWeightKg: 320,
     weanerDailyGainKg: 0.45,
     growerDailyGainKg: 0.7,
     finisherDailyGainKg: 0.85,

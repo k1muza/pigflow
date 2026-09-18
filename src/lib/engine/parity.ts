@@ -187,13 +187,15 @@ export function migrationReport(
     { subsystem: "estrus windows", policies: { enforceEstrusWindows: true } },
     { subsystem: "operational procurement", policies: { operationalProcurement: true } },
     { subsystem: "accrual accounting", policies: { accrualAccounting: true } },
+    { subsystem: "mature growth curve", policies: { matureGrowthCurve: true } },
     {
-      subsystem: "all four",
+      subsystem: "all of them",
       policies: {
         enforceHousing: true,
         enforceEstrusWindows: true,
         operationalProcurement: true,
         accrualAccounting: true,
+        matureGrowthCurve: true,
       },
     },
   ];

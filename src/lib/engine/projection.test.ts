@@ -26,6 +26,9 @@ function asPortOnly(input: PlannerConfig): PlannerConfig {
   config.reproduction.enforceEstrusWindows = false;
   config.feed.procurementMode = "foresight";
   config.finance.accrualAccounting = false;
+  // No mature weight is the 1.x growth rule: a rate per stage, held for as long
+  // as the pig stands there.
+  config.growth.matureWeightKg = 0;
   return config;
 }
 

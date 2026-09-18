@@ -2456,6 +2456,13 @@ export function FarmInputs({
             hint="Litter mates go as one cohort, on the day the batch averages this — so some go a little under it and some over."
           />
           <Field
+            label="Mature weight"
+            value={config.growth.matureWeightKg}
+            onChange={(v) => update("growth", "matureWeightKg", v)}
+            suffix="kg liveweight"
+            hint="The size this genotype finishes at. It does nothing to a pig sold on time — it decides what happens to one that is not, which stops growing as it reaches this rather than gaining at its finisher rate for ever. 0 removes the ceiling. 2.0 engine only."
+          />
+          <Field
             label="Weaner daily gain"
             value={config.growth.weanerDailyGainKg}
             onChange={(v) => update("growth", "weanerDailyGainKg", v)}

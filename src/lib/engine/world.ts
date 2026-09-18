@@ -33,7 +33,7 @@ import { Supplies } from "./procurement";
  * method that six other subsystems also live in.
  */
 
-/** The four kinds of policy a planner actually sets, kept apart from the rules. */
+/** The kinds of policy a planner actually sets, kept apart from the rules. */
 export type Policies = {
   /** Places are a constraint rather than a note on a dashboard. */
   enforceHousing: boolean;
@@ -43,10 +43,12 @@ export type Policies = {
   operationalProcurement: boolean;
   /** Purchasing, inventory, cost and cash are four events rather than one. */
   accrualAccounting: boolean;
+  /** A pig grows towards a size it finishes at rather than in a straight line. */
+  matureGrowthCurve: boolean;
 };
 
 /**
- * Which of the 2.0 subsystems this run has switched on. With all four off the
+ * Which of the 2.0 subsystems this run has switched on. With all of them off the
  * engine is meant to reproduce the 1.x farm exactly, which is what makes the
  * parity harness worth running: every difference a switch makes is then that
  * switch's difference and not a porting accident.
@@ -57,6 +59,7 @@ export function policiesFor(config: PlannerConfig): Policies {
     enforceEstrusWindows: config.reproduction.enforceEstrusWindows,
     operationalProcurement: config.feed.procurementMode === "operational",
     accrualAccounting: config.finance.accrualAccounting,
+    matureGrowthCurve: config.growth.matureWeightKg > 0,
   };
 }
 
@@ -66,6 +69,7 @@ export const LEGACY_POLICIES: Policies = {
   enforceEstrusWindows: false,
   operationalProcurement: false,
   accrualAccounting: false,
+  matureGrowthCurve: false,
 };
 
 export type EngineDayRecord = {

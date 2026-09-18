@@ -1,3 +1,4 @@
+import { maturityFactor } from "../../growth-curve";
 import { partialRisk, stageDurationDays, stageMortalityRate } from "../../sim/mortality";
 import type { PigStage } from "../../sim/animals";
 import { ROOM_IDS, roomForStage } from "../housing";
@@ -49,12 +50,18 @@ export function runHousingCensus(world: World): void {
     );
   }
 
-  // Every pig carries the room it is standing in into its day's growth. Both of
-  // these are reset every morning: a factor left over from yesterday would be a
-  // penalty applied twice.
+  // Every pig carries what today will do to its growth: the room it is standing
+  // in, and how near it is to the size it finishes at. All three are set every
+  // morning — a factor left over from yesterday would be a penalty applied
+  // twice — and this is the one place a day's growth factors are fixed, which is
+  // why the maturity curve is settled here and not down in the growth system:
+  // the herd is fed before it grows, and feed is priced off the gain a pig is
+  // going to make.
+  const plateau = world.policies.matureGrowthCurve;
   for (const pig of world.pigs) {
     if (!pig.alive) continue;
     pig.crowdingFactor = world.housing.gainFactor(roomForStage(pig.stage));
+    pig.maturityFactor = plateau ? maturityFactor(pig.weightKg, world.config.growth) : 1;
     pig.intakeFactor = 1;
   }
 }

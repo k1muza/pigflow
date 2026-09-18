@@ -173,32 +173,59 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
     expect(run.world.sows.filter((sow) => sow.alive).length).toBeGreaterThan(0);
   });
 
-  it("leaves held market pigs growing without a mature weight to stop them", () => {
-    // Not an assertion that this is right — it is a marker on something the
-    // ceiling has exposed. Growth here is stage and thriftiness and nothing
-    // else: there is no mature weight and no plateau, so a pig that queues long
-    // enough simply keeps gaining. Starve a farm of finishing places and market
-    // pigs sit in the grower house for two years and pass 600 kg, which is not a
-    // pig. The queue is real modelling; the animal at the end of it is not.
+  it("grows a held pig to its mature size and no further", () => {
+    // What a queue does to a pig. Growth here is a rate per stage, read off
+    // tables measured inside the growout, and taking those at their word past
+    // sale weight meant a pig held for want of a finishing place gained 0.85 kg
+    // a day for two years and reached 519 kg. That is not an animal, and the
+    // damage was not confined to the weight: its upkeep, the feed ordered for
+    // it, its valuation and its cost per kilogram were all worked off it.
     //
-    // Fixing it belongs with condition-dependent performance, where a gain
-    // factor can fall away as a pig approaches its mature weight. Until then
-    // this test says plainly that the behaviour is known, so that nobody reads
-    // a 600 kg grower as a finding about housing.
-    // Room upstream, so the queue is not slowed by crowding and the pigs in it
-    // grow at very nearly their full rate for as long as they stand there.
+    // Now the rate falls away above sale weight and reaches nothing at the
+    // mature weight of the genotype. The queue is still there, still expensive,
+    // still late — it is a queue of pigs rather than of elephants.
     const input = plan((config) => {
+      // Room upstream, so nothing is slowed by crowding: whatever stops these
+      // pigs growing is the growth curve and not a full pen.
       config.housing.weanerPlaces = 2_000;
       config.housing.growerPlaces = 2_000;
       config.housing.finisherPlaces = 1;
     });
     const run = runEngine(input, DAYS);
-    const overgrown = run.world.pigs.filter(
-      (pig) => pig.alive && pig.weightKg > input.growth.saleWeightKg * 4,
-    );
-    expect(overgrown.length).toBeGreaterThan(0);
-    expect(overgrown.every((pig) => pig.destination === "market")).toBe(true);
-    // They are queuing, not lost: every one of them is held somewhere upstream.
-    expect(overgrown.every((pig) => pig.heldSinceDay !== null)).toBe(true);
+    const live = run.world.pigs.filter((pig) => pig.alive);
+
+    // The queue is real and long — this is a farm with one finishing place.
+    const waiting = live.filter((pig) => pig.heldSinceDay !== null);
+    expect(waiting.length).toBeGreaterThan(0);
+    expect(run.lifetime.heldAtSaleWeightDays).toBeGreaterThan(0);
+
+    // And every animal in it is a pig.
+    const heaviest = Math.max(...live.map((pig) => pig.weightKg));
+    expect(heaviest).toBeLessThanOrEqual(input.growth.matureWeightKg);
+    expect(heaviest).toBeGreaterThan(input.growth.saleWeightKg);
+  });
+
+  it("leaves a plan that sells on time exactly where it was", () => {
+    // The curve is normalised to 1 at sale weight, so it describes what happens
+    // past the growout and says nothing inside it. A farm with places for its
+    // herd must therefore be untouched by it — otherwise this is not a mature
+    // weight, it is a quiet cut to every daily gain in the model.
+    const roomy = plan((config) => {
+      config.housing.weanerPlaces = 800;
+      config.housing.growerPlaces = 800;
+      config.housing.finisherPlaces = 800;
+    });
+    const withCurve = runEngine(roomy, DAYS);
+    const without = runEngine(roomy, DAYS, { policies: { matureGrowthCurve: false } });
+
+    expect(withCurve.lifetime.sold).toBe(without.lifetime.sold);
+    // Feed moves by 350 kg in 377 tonnes — a tenth of a percent. A pen goes when
+    // its average reaches sale weight, so its forwardest pigs are a little over
+    // it by then and those few days are genuinely on the curve. Every pig inside
+    // the growout is untouched.
+    const drift =
+      Math.abs(withCurve.lifetime.feedDeliveredKg - without.lifetime.feedDeliveredKg) /
+      without.lifetime.feedDeliveredKg;
+    expect(drift).toBeLessThan(0.002);
   });
 });
