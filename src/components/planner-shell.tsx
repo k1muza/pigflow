@@ -630,11 +630,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
         <Dialog open={inputsOpen} onOpenChange={setInputsOpen}>
           <DialogContent className="flex h-[calc(100dvh-2rem)] max-h-[920px] max-w-[min(1280px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0">
             <DialogHeader className="shrink-0 border-b border-hairline px-5 py-4 pr-14">
-              <DialogTitle>Farm inputs</DialogTitle>
-              <DialogDescription>
-                Edit the assumptions behind {config.project.name}. Changes save automatically and
-                update every project view.
-              </DialogDescription>
+              <DialogTitle>Farm inputs - {config.project.name}</DialogTitle>
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-hidden">
               <FarmInputs config={config} update={update} metrics={modelMetrics} />
