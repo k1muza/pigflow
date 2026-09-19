@@ -352,7 +352,12 @@ export class Supplies {
    */
   openStores(day: number, ratePerDay: Partial<StoreQuantities>): SupplyOrder[] {
     if (!this.operational) return [];
-    const cover = Math.max(this.config.feed.targetCoverDays, 1);
+    const cover = Math.max(
+      this.config.feed.operationalPolicy === "rolling-cover"
+        ? this.config.feed.rollingTargetCoverDays
+        : this.config.feed.targetCoverDays,
+      1,
+    );
     const claims: Claim[] = [];
     for (const store of STORE_IDS) {
       const rate = ratePerDay[store] ?? 0;

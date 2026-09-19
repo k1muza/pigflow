@@ -145,6 +145,8 @@ export type EngineDayRecord = {
   feedShortfallKg: number;
   /** Loads sent for at a premium because a store had already run dry. */
   emergencyOrders: number;
+  /** Premium paid on emergency goods and journeys received today. */
+  emergencyPremium: number;
 
   counts: StageCounts;
   /** What the day earned and consumed. */
@@ -344,6 +346,7 @@ export function emptyDayRecord(day: number, date: string): EngineDayRecord {
     heatsUndetected: 0,
     feedShortfallKg: 0,
     emergencyOrders: 0,
+    emergencyPremium: 0,
     counts: emptyCounts(),
     totals: emptyTotals(),
     cashTotals: emptyTotals(),

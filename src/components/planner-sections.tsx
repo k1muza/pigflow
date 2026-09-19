@@ -1932,7 +1932,7 @@ export function FarmInputs({
             onChange={(v) => update("project", "months", v)}
             suffix="months"
             min={12}
-            max={60}
+            max={240}
             step={1}
           />
           <Field

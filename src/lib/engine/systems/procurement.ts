@@ -35,6 +35,7 @@ export function runProcurement(world: World): void {
   const { supplies, ledger, policies } = world;
   const day = world.day;
   const record = world.record;
+  const premiumBefore = world.lifetime.emergencyPremium;
 
   if (policies.operationalProcurement) {
     // The morning's decision, taken before anything is fed and taken from a
@@ -84,6 +85,7 @@ export function runProcurement(world: World): void {
     });
   }
   world.lifetime.emergencyPremium = supplies.emergencyPremiumPaid;
+  record.emergencyPremium = world.lifetime.emergencyPremium - premiumBefore;
 
   // And the supplier is paid when his terms fall due, which — with the books
   // kept properly — is the only day any of this touches the bank.
