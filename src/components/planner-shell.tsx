@@ -48,6 +48,7 @@ import {
   type PlannerSection,
 } from "@/lib/model";
 import { plural } from "@/lib/format";
+import { buildInputsJson, inputsJsonFilename } from "@/lib/export-inputs";
 import { planHref, tabFromPath, type Tab } from "@/lib/routes";
 import {
   activeProject,
@@ -79,7 +80,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -422,6 +422,17 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     }
   }
 
+  function exportInputsJson() {
+    if (!open) return;
+    const blob = new Blob([buildInputsJson(config)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = inputsJsonFilename(config);
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   function newPlan() {
     const next = addProject(workspace, "Plan " + (workspace.projects.length + 1));
     if (next === workspace) return;
@@ -638,6 +649,14 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
               <FarmInputs config={config} update={update} metrics={modelMetrics} />
             </div>
             <DialogFooter className="shrink-0 border-t border-hairline px-5 py-3 sm:justify-start">
+              <button
+                type="button"
+                onClick={exportInputsJson}
+                disabled={!open}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-3 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:opacity-40"
+              >
+                <Download size={13} /> Export inputs as JSON
+              </button>
               <button
                 type="button"
                 onClick={resetPlan}

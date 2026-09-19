@@ -66,6 +66,7 @@ export function heatersAlight(world: World, day: number): { heaters: number; und
   let inPens = 0;
   let underHeat = 0;
   for (const pig of world.pigs) {
+    if (!pig.alive) continue;
     if (pig.ageDays(day) >= health.heatedUntilAgeDays) continue;
     underHeat += 1;
     if (pig.weanedOnDay === null) {
@@ -106,6 +107,7 @@ export function runNutrition(world: World): void {
     demand[ration] += kg;
   }
   for (const pig of world.pigs) {
+    if (!pig.alive) continue;
     const ration = pig.dailyFeed(config);
     demand[ration.ration] += ration.kg;
     const creep = pig.creepFeed(day, config);
@@ -183,6 +185,7 @@ export function runNutrition(world: World): void {
   }
 
   for (const pig of world.pigs) {
+    if (!pig.alive) continue;
     const stage = pig.costStage;
     // A pig picked out to breed is no longer a market pig: what she eats from
     // here on is the cost of replacing a sow, not of producing pork.

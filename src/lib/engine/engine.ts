@@ -15,7 +15,7 @@ import { variationFor } from "../sim/variation";
 import type { DomainEvent } from "./events";
 import type { RoomLevel } from "./housing";
 import { runCalendar, runFinancing } from "./systems/calendar";
-import { runGrowthAndSales, runSelection } from "./systems/growth";
+import { runGrowthAndSales, runMarketSales, runSelection } from "./systems/growth";
 import { runHerd } from "./systems/herd";
 import { runHealth } from "./systems/health";
 import { runCrowdingStress, runHousingCensus } from "./systems/housing";
@@ -41,8 +41,13 @@ import {
  *
  * A day is an explicit, ordered list of systems rather than one procedure. The
  * order is part of the model and is tested as such: the rooms are counted before
- * anything moves between them, the lorries land before the herd is fed, the herd
- * is fed before it grows, and the money is closed last.
+ * anything moves between them. In operational 2.0, the market draw uses opening
+ * liveweight before procurement or feeding: a cohort already at target leaves
+ * before another finishing ration is bought or issued, while one that only
+ * reaches target after today's gain leaves tomorrow. Replacement selection stays
+ * in its historical post-nutrition position, so a cohort already committed to
+ * slaughter does not get one extra morning to be drafted into the breeding
+ * pipeline. The legacy/perfect-foresight sale timing remains unchanged for parity.
  *
  * Every 2.0 subsystem is behind a switch. With all of them down this is meant to
  * reproduce the 1.x farm exactly, and {@link ../engine-parity} proves it does —
@@ -50,10 +55,14 @@ import {
  * turn one on is then that subsystem's doing, and not a porting mistake.
  */
 
-/** The phases of a day, named, in the order they run. */
+/**
+ * The operational 2.0 phases, in order. The legacy parity path deliberately
+ * keeps selection and sale in their historical later positions.
+ */
 export const PHASES = [
   "calendar",
   "housing-census",
+  "market-sales",
   "procurement",
   "reproduction",
   "nutrition",
@@ -148,6 +157,12 @@ export class Engine {
 
     runCalendar(world);
     runHousingCensus(world);
+    if (world.policies.operationalProcurement) {
+      // A cohort already at target is committed to today's market draw. Remove
+      // it before procurement sees feed demand and before selection can reopen
+      // the decision by drafting one of its females into the breeding pipeline.
+      runMarketSales(world);
+    }
     runProcurement(world);
     runReproduction(world);
     runNutrition(world);

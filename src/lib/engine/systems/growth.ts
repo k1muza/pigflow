@@ -128,6 +128,101 @@ export function runSelection(world: World): void {
   );
 }
 
+/**
+ * Operational market draw, settled from opening liveweights before feed is
+ * offered for the day.
+ *
+ * A cohort that opens below target is not a slaughter cohort yet: it eats and
+ * grows today and can leave tomorrow morning if its opening average then meets
+ * the target. Conversely, a cohort already at target does not receive another
+ * finishing ration whose main immediate effect would be gut fill before sale.
+ *
+ * The legacy/perfect-foresight path deliberately does not use this function;
+ * its old after-growth sale timing remains inside runGrowthAndSales for parity.
+ */
+export function runMarketSales(world: World): void {
+  if (!world.policies.operationalProcurement) return;
+
+  const { config } = world;
+  const day = world.day;
+  const record = world.record;
+  let soldWeight = 0;
+  let heldAtWeight = 0;
+
+  const pens: { stage: PigStage; members: GrowingPig[] }[] = [];
+  if (world.policies.enforceHousing) {
+    for (const batch of world.batches.all()) {
+      pens.push({ stage: batch.stage, members: world.batches.membersOf(batch, world.pigs) });
+    }
+  } else {
+    const cohorts = new Map<number, GrowingPig[]>();
+    for (const pig of world.pigs) {
+      if (!pig.alive) continue;
+      const members = cohorts.get(pig.cohort);
+      if (members) members.push(pig);
+      else cohorts.set(pig.cohort, [pig]);
+    }
+    for (const members of cohorts.values()) pens.push({ stage: "finisher", members });
+  }
+
+  for (const pen of pens) {
+    const members = pen.members.filter((pig) => pig.readyForMarket());
+    if (members.length === 0) continue;
+    const average = members.reduce((total, pig) => total + pig.weightKg, 0) / members.length;
+    if (average < config.growth.saleWeightKg) continue;
+    if (pen.stage !== "finisher") {
+      heldAtWeight += members.length;
+      continue;
+    }
+    for (const pig of members) {
+      world.mortality.release(pig);
+      world.housing.release(roomForStage(pig.stage));
+      world.batches.remove(pig);
+      pig.leave(day, "sold");
+      world.noteExit(pig.generation, true);
+      world.soldPigCosts.absorb(pig.costs);
+      record.sold += 1;
+      soldWeight += pig.weightKg;
+    }
+  }
+
+  record.heldAtSaleWeight = heldAtWeight;
+  if (heldAtWeight > 0) {
+    world.lifetime.heldAtSaleWeightDays += heldAtWeight;
+    world.emit(
+      "SaleHeldForSpace",
+      heldAtWeight +
+        (heldAtWeight === 1 ? " sale-weight pig is" : " sale-weight pigs are") +
+        " held outside finishing accommodation",
+      {
+        room: "finisher",
+        cause: "at weight, but not in the finishing house",
+        changes: { pigs: heldAtWeight, places: world.housing.places.finisher },
+      },
+    );
+  }
+
+  if (record.sold === 0) return;
+
+  const soldDeadweight = deadweightKg(soldWeight, config);
+  record.soldLiveweightKg = soldWeight;
+  record.soldDeadweightKg = soldDeadweight;
+  world.lifetime.sold += record.sold;
+  world.lifetime.soldLiveweightKg += soldWeight;
+  world.lifetime.soldDeadweightKg += soldDeadweight;
+  const revenue = soldDeadweight * config.finance.salePriceKg;
+  world.ledger.accrue("pig-sales", revenue);
+  runMarketHaulage(world);
+  world.emit(
+    "PigsSold",
+    record.sold + " pigs sold at " + (soldWeight / record.sold).toFixed(1) + " kg average",
+    {
+      changes: { pigs: record.sold, liveweightKg: soldWeight, deadweightKg: soldDeadweight },
+      postings: [{ category: "pig-sales", accrued: revenue, cash: revenue }],
+    },
+  );
+}
+
 export function runGrowthAndSales(world: World): void {
   const { config } = world;
   const day = world.day;
@@ -320,6 +415,7 @@ export function runGrowthAndSales(world: World): void {
   // Anything else — selling out of a grower house, a forced disposal, a sale at
   // a discount — is a decision the farm makes and would be a policy and an event
   // of its own. None of them is the normal route, so none of them is here.
+  if (!world.policies.operationalProcurement) {
   let heldAtWeight = 0;
   // With housing not enforced the pen is not a thing the farm has, so the kill
   // falls back to the 1.x rule: litter mates born on one day go on one day.
@@ -377,6 +473,7 @@ export function runGrowthAndSales(world: World): void {
       },
     );
   }
+  }
 
   // ---- gilts coming to the herd --------------------------------------------
   for (const pig of world.pigs) {
@@ -427,6 +524,11 @@ export function runGrowthAndSales(world: World): void {
       },
     );
   }
+
+  // Operational sales were already settled from opening liveweight, before
+  // procurement and nutrition. Do not sell a cohort that only crossed target
+  // after today's gain, and do not book the same sale twice.
+  if (world.policies.operationalProcurement) return;
 
   if (record.sold === 0) return;
 

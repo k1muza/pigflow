@@ -158,9 +158,10 @@ function measuresThrough(
 
 /**
  * Runs V1's full-horizon haulage plan as an oracle and the rolling-cover policy
- * against the same settled herd. Biology is held to legacy rules in both runs,
- * so every difference in the result is a procurement decision rather than a
- * different litter, growth curve, housing queue or mortality draw.
+ * against the same settled inputs. The operational run also uses its opening-
+ * weight market draw, so its sale and feed totals can differ slightly from the
+ * legacy oracle; the benchmark treats those as context for procurement regret,
+ * not as quantities that must be exactly equal.
  */
 async function runInYearChunks(config: PlannerConfig, policies: Policies): Promise<Engine> {
   const engine = new Engine(config, { policies });

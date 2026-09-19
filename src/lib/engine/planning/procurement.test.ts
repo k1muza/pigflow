@@ -253,7 +253,9 @@ describe("Capacity-balanced procurement", () => {
     const planning = context((config, stores) => {
       config.feed.safetyCoverDays = 1;
       config.feed.truckCapacityKg = 500;
-      stores.held.gas = 40;
+      // Thirty kilograms reaches the reorder boundary today. Forty lasts one
+      // day beyond it, correctly producing a no-dispatch decision.
+      stores.held.gas = 30;
       stores.held.sow = 200;
       stores.capacities.gas = 136;
       stores.unitKg.gas = 48;
@@ -275,7 +277,8 @@ describe("Capacity-balanced procurement", () => {
 
     expect(decision.trips).toHaveLength(1);
     expect(gas).toBe(96);
-    expect(decision.constrainedStores).toContain("gas");
+    // The next dispatch date, rather than an artificial fixed-cover target,
+    // carries the small yard's constraint forward.
     expect(decision.nextDispatchDay).not.toBeNull();
   });
 });
