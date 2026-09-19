@@ -158,18 +158,17 @@ function noteOrder(world: World, order: SupplyOrder, decision: ProcurementDecisi
 /**
  * The planner's own record: what it worked out this morning, and what changed.
  *
- * Only the rolling policy writes these. The reorder rule has nothing to say
- * beyond the order itself — it has no plan, no target date and no forecast to
- * revise — and giving it a plan event would be dressing one policy up as the
- * other in the log.
+ * Forecast-based policies write these. The reorder rule has nothing to say
+ * beyond the order itself — it has no forward plan to revise — and giving it a
+ * plan event would be dressing one policy up as another in the log.
  *
- * Three things are worth an entry and nothing else is. The plan changed
- * materially; the lorry was brought forward; or a store could not be bought up
- * to the common date and the farm should know which and why. An identical "no
- * order today" every morning for three years is noise, so it is not written.
+ * Three things are worth an entry and nothing else is: the plan changed
+ * materially; the lorry was brought forward; or physical storage/package
+ * constraints materially shaped the load. An identical "no order today" every
+ * morning for three years is noise, so it is not written.
  */
 function noteDecision(world: World, decision: ProcurementDecision): void {
-  if (decision.policy !== "rolling-cover") return;
+  if (decision.policy === "reorder-point") return;
   const previous = world.lastProcurementDecision;
   const expected = world.expectedNextDispatchDay;
 
@@ -210,14 +209,17 @@ function noteDecision(world: World, decision: ProcurementDecision): void {
   }
 
   if (decision.constrainedStores.length > 0) {
+    const labels = decision.constrainedStores.map((store) => STORE_LABELS[store]).join(", ");
     world.emit(
       "ProcurementPlanConstrained",
-      decision.constrainedStores.map((store) => STORE_LABELS[store]).join(", ") +
-        (decision.constrainedStores.length === 1
-          ? " could not be bought up to the target date"
-          : " could not be bought up to the target date"),
+      decision.policy === "balanced-load"
+        ? labels + " reached a storage, package or protection constraint"
+        : labels + " could not be bought up to the target date",
       {
-        cause: "storage, packaging or the day's lorries would not carry it",
+        cause:
+          decision.policy === "balanced-load"
+            ? "the available store or vehicle capacity limited the balanced load"
+            : "storage, packaging or the day's lorries would not carry it",
         changes: { stores: decision.constrainedStores.length },
       },
     );
@@ -225,7 +227,11 @@ function noteDecision(world: World, decision: ProcurementDecision): void {
 
   world.lastProcurementDecision = decision;
   world.expectedNextDispatchDay =
-    decision.dispatch === "none" ? decision.nextDispatchDay : null;
+    decision.policy === "balanced-load"
+      ? decision.nextDispatchDay
+      : decision.dispatch === "none"
+        ? decision.nextDispatchDay
+        : null;
 }
 
 /** The plan in a sentence, which is what a person reads the log for. */
@@ -248,6 +254,28 @@ function planSentence(decision: ProcurementDecision): string {
     })
     .join(", ");
   const trips = decision.trips.length;
+
+  if (decision.policy === "balanced-load") {
+    const payload = decision.trips.reduce((sum, trip) => sum + trip.payloadKg, 0);
+    const next =
+      decision.nextDispatchDay === null
+        ? "no further trip is visible in the forecast"
+        : "next supply risk around day " + decision.nextDispatchDay;
+    return (
+      (decision.dispatch === "emergency" ? "Emergency balanced load" : "Balanced load") +
+      " arriving day " +
+      (decision.arrivesDay ?? 0) +
+      ": " +
+      goods +
+      ", " +
+      Math.round(payload) +
+      " kg in " +
+      trips +
+      (trips === 1 ? " trip; " : " trips; ") +
+      next
+    );
+  }
+
   return (
     (decision.dispatch === "emergency" ? "Emergency replan" : "Replanned") +
     " to day " +

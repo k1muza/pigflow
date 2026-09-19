@@ -381,29 +381,33 @@ export const plannerSchema = z.object({
      * behind it rides along. It reads the herd's appetite off the last week of
      * consumption and nothing else, so it cannot see a farrowing coming.
      *
-     * "rolling-cover" forecasts what the farm standing here today will eat and
-     * buys every compatible store up to one common date, replanned every
-     * morning from what actually happened.
+     * "rolling-cover" is the earlier fixed-cover experiment. It forecasts the
+     * herd and buys every compatible store up to one configured common date.
+     *
+     * "balanced-load" is the capacity-balanced operating rule: a due store
+     * justifies the trip, then the available vehicle payload is shared so the
+     * compatible stores approach their next safety-stock dates together. The
+     * resulting cover period is an output, not a setting.
      */
-    operationalPolicy: z.enum(["reorder-point", "rolling-cover"]).default("reorder-point"),
+    operationalPolicy: z
+      .enum(["reorder-point", "rolling-cover", "balanced-load"])
+      .default("reorder-point"),
     /**
-     * Days of cover the rolling policy buys every store up to, counted from the
-     * day the load lands. It is deliberately not {@link targetCoverDays}: that
-     * figure belongs to the reorder-point rule, and a plan already drawn on it
-     * has to keep the results it has.
+     * Legacy fixed-cover target used only by the "rolling-cover" policy. The
+     * capacity-balanced policy deliberately ignores this value.
      */
     rollingTargetCoverDays: z.number().int().min(14).max(180).default(90),
     /**
-     * The floor a store is bought down to rather than to nothing. On the common
-     * target date each store should still be standing on this many days of
-     * feed, so the ordinary difference between a forecast and a farm does not
-     * become a shortage.
+     * Demand buffer kept ahead of physical zero. Forecast policies use this to
+     * decide when a store becomes operationally at risk; it is not itself a
+     * replenishment target.
      */
     safetyCoverDays: z.number().int().min(0).max(30).default(3),
     /**
      * Loads the farm can take in on one day — the supplier's throughput and the
-     * yard's, which is not the same thing as what one lorry carries. An order
-     * needing more journeys than this spills onto the following days.
+     * yard's, which is not the same thing as what one lorry carries. Legacy
+     * fixed-cover planning may spill an order across days; balanced-load books
+     * only the trip justified by today's risk and replans tomorrow.
      */
     maxSupplyTripsPerDay: z.number().int().min(1).max(100).default(3),
     /** Days of cover at which an order is placed. */

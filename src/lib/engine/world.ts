@@ -16,6 +16,7 @@ import type { Variation } from "../sim/variation";
 import { EventLog, type DomainEvent, type EventType, type Posting } from "./events";
 import { Housing, ROOM_IDS, type RoomId, type RoomLevel } from "./housing";
 import { Batches } from "./batches";
+import type { ExpectedFarmState, ExpectedGrowingGroup } from "./planning/forecast";
 import { observeFarm } from "./planning/observe";
 import {
   policyFor,
@@ -24,6 +25,54 @@ import {
   type ProcurementPolicy,
 } from "./planning/procurement";
 import { Supplies } from "./procurement";
+
+/**
+ * Cohort key made only from facts already present in the planner snapshot.
+ *
+ * `growthFactor` itself is an animal's fixed realised thriftiness. The forecaster
+ * must not draw a future value, but once pigs are standing on the farm their
+ * recent performance is no longer hypothetical. We aggregate it onto the same
+ * coarse cohort dimensions the forecast already sees, rather than cloning every
+ * animal into the planning model.
+ */
+function growthCohortKey(
+  group: Pick<ExpectedGrowingGroup, "stage" | "destination" | "sex" | "ageDays">,
+): string {
+  return [group.stage, group.destination, group.sex, group.ageDays].join("|");
+}
+
+function withObservedGrowthFactors(
+  day: number,
+  farm: ExpectedFarmState,
+  pigs: readonly GrowingPig[],
+): ExpectedFarmState {
+  const observed = new Map<string, { sum: number; head: number }>();
+
+  for (const pig of pigs) {
+    if (!pig.alive) continue;
+    const key = growthCohortKey({
+      stage: pig.stage,
+      destination: pig.destination,
+      sex: pig.sex,
+      ageDays: pig.ageDays(day),
+    });
+    const row = observed.get(key) ?? { sum: 0, head: 0 };
+    row.sum += pig.growthFactor;
+    row.head += 1;
+    observed.set(key, row);
+  }
+
+  return {
+    ...farm,
+    growing: farm.growing.map((group) => {
+      const row = observed.get(growthCohortKey(group));
+      return {
+        ...group,
+        growthFactor: row && row.head > 0 ? row.sum / row.head : 1,
+      };
+    }),
+  };
+}
 
 /**
  * The mutable state of one simulated farm, and nothing else.
@@ -488,7 +537,11 @@ export class World {
         housing: { ...this.config.housing, enforceCapacity: this.policies.enforceHousing },
       },
       stores: this.supplies.snapshot(day, this.ledger.cash),
-      farm: observeFarm(day, { sows: this.sows, boars: this.boars, pigs: this.pigs }),
+      farm: withObservedGrowthFactors(
+        day,
+        observeFarm(day, { sows: this.sows, boars: this.boars, pigs: this.pigs }),
+        this.pigs,
+      ),
     };
   }
 

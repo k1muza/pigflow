@@ -381,6 +381,9 @@ function openingDemand(world: World): Partial<Record<string, number>> {
         ? config.feed.rollingTargetCoverDays
         : config.feed.targetCoverDays,
     );
+    // balanced-load deliberately uses the ordinary startup cover here. This is
+    // only the opening-bin bootstrap before day 0; ongoing replenishment is
+    // determined by vehicle capacity and projected risk, not by this number.
     const forecast = forecastDemand(
       world.procurementContext(0).farm,
       config,

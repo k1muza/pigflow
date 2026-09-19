@@ -20,21 +20,23 @@ import { forecastDemand, type DemandForecastResult, type ExpectedFarmState } fro
  * of object and are interchangeable, and a decision can be asserted on in a test
  * without a `World`, a ledger or a day being run.
  *
- * Two policies live here.
+ * Three operational policies live here.
  *
  * {@link ReorderPointProcurementPolicy} is the farm's existing behaviour, lifted
  * out of the stores without a figure moving and held to that by a parity test.
  * Cover is read off the last week's consumption; a store that has fallen to the
  * reorder point sends a lorry; everything close behind rides along.
  *
- * {@link RollingCoverProcurementPolicy} forecasts what the herd standing here
- * today will actually eat, and buys every compatible store up to one common date
- * ninety days past the delivery. It is replanned from scratch every morning, so
- * a farrowing that arrives early or a bin emptying faster than expected moves
- * the next lorry forward rather than being found out when the bin is bare.
+ * {@link RollingCoverProcurementPolicy} is the earlier fixed-cover experiment:
+ * it forecasts what the herd standing here today will eat and buys compatible
+ * stores up to one configured common date.
+ *
+ * {@link BalancedLoadProcurementPolicy} is the capacity-balanced rule: a due
+ * store justifies one trip, then the truck itself is the budget and the next
+ * package goes to whichever compatible store would otherwise become risky first.
  */
 
-export type OperationalProcurementPolicy = "reorder-point" | "rolling-cover";
+export type OperationalProcurementPolicy = "reorder-point" | "rolling-cover" | "balanced-load";
 
 /** Kilograms below which a remainder is not worth ordering. */
 const CRUMB_KG = 1e-6;
@@ -56,6 +58,18 @@ const MAX_TRIPS_PER_DECISION = 64;
 
 /** Days of forecast held in hand for loads that spill onto later delivery days. */
 const SPILL_SLACK_DAYS = 14;
+
+/**
+ * The balanced policy deliberately uses two horizons. The daily risk check only
+ * only needs enough future to prove whether a store will cross its safety floor
+ * before a normal delivery can land. `forecast()` already adds lead time and the
+ * configured safety window, so one extra day is sufficient for the boundary.
+ * The longer horizon is evaluated only on mornings when a trip is actually
+ * required, so the allocator can rank stores after the deck is filled. Neither
+ * horizon is a stock target.
+ */
+const BALANCED_RISK_LOOKAHEAD_DAYS = 1;
+const BALANCED_ALLOCATION_LOOKAHEAD_DAYS = 180;
 
 export type StoreQuantities = Record<StoreId, number>;
 
@@ -133,7 +147,10 @@ export type ProcurementDecision = {
   dispatch: "none" | "normal" | "emergency";
   /** The day the first load lands, or null when nothing is sent for. */
   arrivesDay: number | null;
-  /** The common date every compatible store is bought up to. */
+  /**
+   * Fixed target for rolling-cover; achieved limiting coverage date for
+   * balanced-load; null where the policy has no forward target/read-out.
+   */
   targetDay: number | null;
   lines: readonly PlannedOrderLine[];
   trips: readonly Trip[];
@@ -145,7 +162,7 @@ export type ProcurementDecision = {
   projectedMinimumCash: number;
   /** Cash needed on top of that to hold the working capital the plan wants kept. */
   additionalFundingRequired: number;
-  /** Stores that could not be bought up to the target, reported rather than hidden. */
+  /** Stores limited by the active policy's storage/package/protection constraints. */
   constrainedStores: readonly StoreId[];
   /** The day the planner currently expects to send the next load. */
   nextDispatchDay: number | null;
@@ -486,8 +503,8 @@ export class ReorderPointProcurementPolicy implements ProcurementPolicy {
  * Positive means it has gone under; negative is the cushion it still has.
  * Everything the planner asks — when does this run out, how much brings it to
  * the target, is it still safe when a later lorry arrives — is a question about
- * that one array, which is what keeps a ninety-day plan cheap enough to redo
- * every morning.
+ * that one array, which keeps both fixed-cover and capacity-balanced planning
+ * cheap enough to redo every morning.
  *
  * `peak[i]` is the running maximum of `need` from the arrival day onwards. It is
  * non-decreasing, so "the first day this store goes under, given x kilograms
@@ -505,7 +522,11 @@ type StorePosition = {
   emptyIndex: number | null;
   /** Kilograms there is room to put away, now and for the rest of the horizon. */
   roomKg: number;
-  /** Kilograms that would land this store on its floor on the common date. */
+  /**
+   * Kilograms required through the caller's allocation horizon. For rolling-cover
+   * that is the fixed target date; for balanced-load it is only a far look-ahead
+   * cap so the deck is never filled with goods having no visible future demand.
+   */
   targetKg: number;
   /** Kilograms it must have to be safe from the lorry landing until then. */
   protectKg: number;
@@ -573,11 +594,10 @@ function firstAbove(series: readonly number[], from: number, value: number): num
  *                        = cum[i + safety] - arrivals[i] - held
  * ```
  *
- * The demand terms collapse, which is why a ninety-day coverage calculation
- * comes to one subtraction a day rather than a simulation. The order quantity
- * falls straight out of it: `need` at the common target date is exactly the
- * specification's requirement, with existing stock and pending deliveries
- * deducted once and only once.
+ * The demand terms collapse, so coverage calculations come to one subtraction a
+ * day rather than a second simulation. Existing stock and pending deliveries are
+ * deducted once and only once; the caller decides how far into `peak` it wants
+ * to allocate.
  */
 function positionOf(
   store: StoreId,
@@ -1009,7 +1029,7 @@ function fillDeck(positions: readonly StorePosition[], deck: number): Map<StoreI
     }
   }
 
-  // ---- and then the ninety days --------------------------------------------
+  // ---- then extend the least-covered store towards the caller's horizon ----
   for (;;) {
     let best: StorePosition | null = null;
     let bestCover = Number.POSITIVE_INFINITY;
@@ -1033,11 +1053,308 @@ function fillDeck(positions: readonly StorePosition[], deck: number): Map<StoreI
   return load;
 }
 
+
+/**
+ * Capacity-balanced operational procurement ("zvipererane").
+ *
+ * A store reaching its safety floor is what justifies the journey. Once the
+ * journey exists, the vehicle capacity is the budget: the next bag/canister goes
+ * to whichever compatible store would otherwise hit its safety floor first.
+ * There is no configured cover target and one decision does not create a train
+ * of lorries merely to chase one.
+ */
+export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
+  readonly id = "balanced-load" as const;
+
+  constructor(private readonly forecaster: Forecaster = forecastDemand) {}
+
+  decide(context: ProcurementPlanningContext): ProcurementDecision {
+    const { config, stores } = context;
+    // Most mornings need only the cheap near-term risk check. The longer demand
+    // walk is deferred until a truck is genuinely due.
+    const riskForecast = this.forecast(
+      context,
+      config.feed.deliveryLeadDays,
+      BALANCED_RISK_LOOKAHEAD_DAYS,
+    );
+    const risk = this.riskCheck(context, riskForecast, config.feed.deliveryLeadDays);
+
+    if (risk.emergency.length > 0) {
+      return this.plan(
+        context,
+        this.forecast(
+          context,
+          config.feed.emergencyLeadDays,
+          BALANCED_ALLOCATION_LOOKAHEAD_DAYS,
+        ),
+        risk.emergency,
+        config.feed.emergencyLeadDays,
+        true,
+        "a store cannot be held until a normal delivery could land",
+      );
+    }
+    if (risk.normal.length > 0) {
+      return this.plan(
+        context,
+        this.forecast(
+          context,
+          config.feed.deliveryLeadDays,
+          BALANCED_ALLOCATION_LOOKAHEAD_DAYS,
+        ),
+        risk.normal,
+        config.feed.deliveryLeadDays,
+        false,
+        risk.reason,
+      );
+    }
+    return emptyDecision(
+      stores.day,
+      this.id,
+      "every store is covered past the day a load ordered today would land",
+      risk.nextDispatchDay,
+    );
+  }
+
+  decideEmergency(
+    context: ProcurementPlanningContext,
+    shortfall: Partial<StoreQuantities>,
+  ): ProcurementDecision {
+    const kinds = new Set<TripKind>();
+    for (const store of STORE_IDS) {
+      if ((shortfall[store] ?? 0) > CRUMB_KG) kinds.add(tripKindOf(store));
+    }
+    if (kinds.size === 0) {
+      return emptyDecision(context.stores.day, this.id, "no store ran short");
+    }
+    return this.plan(
+      context,
+      this.forecast(
+        context,
+        context.config.feed.emergencyLeadDays,
+        BALANCED_ALLOCATION_LOOKAHEAD_DAYS,
+      ),
+      [...kinds],
+      context.config.feed.emergencyLeadDays,
+      true,
+      "a store ran dry before its load landed",
+    );
+  }
+
+  /**
+   * A look-ahead is required to know which store would run out next after the
+   * deck is filled. It is deliberately not a cover target: the allocator may
+   * stop anywhere inside this window as soon as the vehicle is full.
+   */
+  private forecast(
+    context: ProcurementPlanningContext,
+    leadDays: number,
+    lookAheadDays: number,
+  ): DemandForecastResult {
+    const { config, stores, farm } = context;
+    const horizon = leadDays + config.feed.safetyCoverDays + Math.max(1, lookAheadDays);
+    return this.forecaster(farm, config, stores.day + horizon);
+  }
+
+  private riskCheck(
+    context: ProcurementPlanningContext,
+    forecast: DemandForecastResult,
+    leadDays: number,
+  ): { normal: TripKind[]; emergency: TripKind[]; nextDispatchDay: number | null; reason: string } {
+    const { config, stores } = context;
+    const normal = new Set<TripKind>();
+    const emergency = new Set<TripKind>();
+    let soonestRisk: number | null = null;
+    let firstStore: StoreId | null = null;
+    const horizonTarget = forecast.demandKg[STORE_IDS[0]].length;
+
+    for (const store of STORE_IDS) {
+      const position = positionOf(
+        store,
+        stores,
+        forecast,
+        [],
+        leadDays,
+        config.feed.safetyCoverDays,
+        horizonTarget,
+      );
+      if (position.riskIndex === null) continue;
+      if (soonestRisk === null || position.riskIndex < soonestRisk) {
+        soonestRisk = position.riskIndex;
+        firstStore = store;
+      }
+      if (position.emptyIndex !== null && position.emptyIndex < leadDays) {
+        emergency.add(tripKindOf(store));
+      } else if (position.riskIndex <= leadDays) {
+        normal.add(tripKindOf(store));
+      }
+    }
+
+    for (const kind of emergency) normal.delete(kind);
+    return {
+      normal: [...normal],
+      emergency: [...emergency],
+      nextDispatchDay:
+        soonestRisk === null ? null : stores.day + Math.max(0, soonestRisk - leadDays),
+      reason:
+        firstStore === null
+          ? "a store is due"
+          : firstStore + " is projected to reach its safety stock",
+    };
+  }
+
+  private plan(
+    context: ProcurementPlanningContext,
+    forecast: DemandForecastResult,
+    kinds: readonly TripKind[],
+    leadDays: number,
+    emergency: boolean,
+    reason: string,
+  ): ProcurementDecision {
+    const { config, stores } = context;
+    const { feed } = config;
+    const day = stores.day;
+    const arrivesDay = day + leadDays;
+    const deck = Math.max(feed.truckCapacityKg, 1);
+    const premium = emergency ? 1 + feed.emergencyPremiumPct / 100 : 1;
+    const horizonTarget = forecast.demandKg[STORE_IDS[0]].length;
+
+    const committed: { arrivesDay: number; kg: number; store: StoreId }[] = [];
+    const trips: Trip[] = [];
+    const constrained = new Set<StoreId>();
+    const before = new Map<StoreId, number | null>();
+    const ordered = zeroStores();
+
+    for (const kind of kinds) {
+      const members = STORE_IDS.filter((store) => tripKindOf(store) === kind);
+      const positions = members.map((store) =>
+        positionOf(
+          store,
+          stores,
+          forecast,
+          committed,
+          leadDays,
+          feed.safetyCoverDays,
+          horizonTarget,
+        ),
+      );
+
+      for (const position of positions) {
+        before.set(position.store, position.riskIndex === null ? null : day + position.riskIndex);
+      }
+
+      const eligible = positions.filter(
+        (position) => position.roomKg > CRUMB_KG && position.targetKg > CRUMB_KG,
+      );
+      if (eligible.length === 0) continue;
+
+      // Exactly one ordinary deck is allocated per kind in this morning's
+      // decision. If one truck is not enough, tomorrow's rolling check sees the
+      // committed load and can justify the next truck on its own merits.
+      const load = fillDeck(eligible, deck);
+      const payloadKg = [...load.values()].reduce((kg, line) => kg + line, 0);
+      if (payloadKg <= CRUMB_KG) continue;
+
+      const lines: TripLine[] = [];
+      for (const store of STORE_IDS) {
+        const kg = load.get(store) ?? 0;
+        if (kg <= CRUMB_KG) continue;
+        lines.push({ store, kg });
+        committed.push({ arrivesDay, kg, store });
+        ordered[store] += kg;
+      }
+      lines.sort((a, b) => b.kg - a.kg || a.store.localeCompare(b.store));
+      trips.push({
+        day: arrivesDay,
+        neededFromDay: arrivesDay,
+        kind,
+        payloadKg,
+        cost:
+          (kind === "bedding" ? config.housing.beddingDeliveryCost : feed.deliveryCostPerTrip) *
+          premium,
+        lines,
+      });
+
+      for (const position of eligible) {
+        const kg = load.get(position.store) ?? 0;
+        // Not reaching the protection requirement is a real service constraint.
+        if (kg + CRUMB_KG < position.protectKg) constrained.add(position.store);
+        // Reaching physical room before the forecast could use more is also a
+        // useful constraint to expose (gas-canister capacity is the common case).
+        if (
+          kg + CRUMB_KG >= position.roomKg &&
+          position.roomKg + CRUMB_KG < position.targetKg
+        ) {
+          constrained.add(position.store);
+        }
+      }
+    }
+
+    if (trips.length === 0) {
+      return emptyDecision(day, this.id, "nothing useful could be loaded into the available stores");
+    }
+
+    const lines: PlannedOrderLine[] = [];
+    let soonestAfter: number | null = null;
+    for (const kind of kinds) {
+      for (const store of STORE_IDS.filter((id) => tripKindOf(id) === kind)) {
+        const position = positionOf(
+          store,
+          stores,
+          forecast,
+          committed,
+          leadDays,
+          feed.safetyCoverDays,
+          horizonTarget,
+        );
+        if (position.riskIndex !== null && (soonestAfter === null || position.riskIndex < soonestAfter)) {
+          soonestAfter = position.riskIndex;
+        }
+        if (ordered[store] <= CRUMB_KG) continue;
+        lines.push({
+          store,
+          kg: ordered[store],
+          units:
+            stores.unitKg[store] > 0
+              ? Math.round(ordered[store] / stores.unitKg[store])
+              : ordered[store],
+          projectedExhaustionDayBefore: before.get(store) ?? null,
+          projectedExhaustionDayAfter:
+            position.riskIndex === null ? null : day + position.riskIndex,
+        });
+      }
+    }
+
+    const achievedCoverageDay = soonestAfter === null ? null : day + soonestAfter;
+    const nextDispatchDay =
+      soonestAfter === null ? null : day + Math.max(0, soonestAfter - feed.deliveryLeadDays);
+    const cashThrough = Math.max(
+      ...trips.map((trip) => trip.day + feed.supplierPaymentDays),
+      arrivesDay,
+    );
+
+    return {
+      day,
+      policy: this.id,
+      dispatch: emergency ? "emergency" : "normal",
+      arrivesDay,
+      // Kept for shared read-model compatibility. Under balanced-load this is
+      // the limiting coverage date achieved by the full deck, not a requested target.
+      targetDay: achievedCoverageDay,
+      lines,
+      trips,
+      constrainedStores: STORE_IDS.filter((store) => constrained.has(store)),
+      nextDispatchDay,
+      reason,
+      ...costOf(context, trips, emergency, cashThrough),
+    };
+  }
+}
+
 /** The policy a configuration asks for. */
 export function policyFor(config: PlannerConfig): ProcurementPolicy {
-  return config.feed.operationalPolicy === "rolling-cover"
-    ? new RollingCoverProcurementPolicy()
-    : new ReorderPointProcurementPolicy();
+  if (config.feed.operationalPolicy === "balanced-load") return new BalancedLoadProcurementPolicy();
+  if (config.feed.operationalPolicy === "rolling-cover") return new RollingCoverProcurementPolicy();
+  return new ReorderPointProcurementPolicy();
 }
 
 /**

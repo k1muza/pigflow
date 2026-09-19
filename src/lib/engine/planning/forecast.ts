@@ -96,6 +96,14 @@ export type ExpectedGrowingGroup = {
   weightKg: number;
   ageDays: number;
   /**
+   * Mean observed thriftiness of the live pigs represented by this group.
+   *
+   * It is optional because expected future cohorts have no realised performance
+   * yet, and tests/older callers may only describe visible stage and weight. A
+   * missing value therefore means the population mean of 1, never a new draw.
+   */
+  growthFactor?: number;
+  /**
    * Crates this group is standing in while it is still suckling. A heat lamp is
    * lit per crate and not per pig, so the count of them matters and the head
    * alone does not.
@@ -205,6 +213,7 @@ type Walker = {
   stage: PigStage;
   destination: Destination;
   sexFactor: number;
+  growthFactor: number;
   weightKg: number;
   ageDays: number;
   litters: number;
@@ -219,14 +228,14 @@ function expectedGainKg(walker: Walker, config: PlannerConfig): number {
     return (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / Math.max(reproduction.weaningAgeDays, 1);
   }
   const maturity = maturityFactor(walker.weightKg, growth);
-  if (walker.stage === "gilt") return GILT_DAILY_GAIN_KG * maturity;
+  if (walker.stage === "gilt") return GILT_DAILY_GAIN_KG * walker.growthFactor * maturity;
   const base =
     walker.stage === "weaner"
       ? growth.weanerDailyGainKg
       : walker.stage === "grower"
         ? growth.growerDailyGainKg
         : growth.finisherDailyGainKg;
-  return base * walker.sexFactor * maturity;
+  return base * walker.sexFactor * walker.growthFactor * maturity;
 }
 
 /** The legacy, unconstrained stage walk retained for 1.x projections. */
@@ -435,6 +444,9 @@ export function forecastDemand(
     stage: group.stage,
     destination: group.destination,
     sexFactor: sexFactor(group.sex),
+    // Existing pigs carry the performance the farm has already observed. This
+    // is present-state information, not a peek at a future random draw.
+    growthFactor: group.growthFactor ?? 1,
     weightKg: group.weightKg,
     ageDays: group.ageDays,
     litters: group.litters,
@@ -454,6 +466,8 @@ export function forecastDemand(
       // A litter is half of each sex, so the mean of the two factors is right
       // for the cohort even though it is right for none of the pigs in it.
       sexFactor: (sexFactor("male") + sexFactor("female")) / 2,
+      // A litter that has not been born has no realised thriftiness to observe.
+      growthFactor: 1,
       weightKg: BIRTH_WEIGHT_KG,
       ageDays: 0,
       litters,

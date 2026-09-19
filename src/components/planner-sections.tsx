@@ -2677,6 +2677,7 @@ export function FarmInputs({
             options={[
               { value: "rolling-cover", label: "Forecast future demand" },
               { value: "reorder-point", label: "React to recent use" },
+              { value: "balanced-load", label: "Balanced load"}
             ]}
             hint="Forecasting includes animals expected to enter a new ration before a normal delivery can arrive."
           />
