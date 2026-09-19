@@ -2416,12 +2416,37 @@ export function FarmInputs({
             hint="Charged on every scan, whatever it finds. Set it to 0 for a herd that does not scan."
           />
           <Field
+            label="Post-scan pregnancy loss"
+            value={config.reproduction.pregnancyLossPct}
+            onChange={(v) => update("reproduction", "pregnancyLossPct", v)}
+            suffix="% of confirmed pregnancies"
+            max={100}
+            step={0.5}
+            hint="Abortions and other late failures after a positive scan. Affected sows recover, return to service and produce no litter."
+          />
+          <Field
             label="Born alive per litter"
             value={config.reproduction.bornAlivePerLitter}
             onChange={(v) => update("reproduction", "bornAlivePerLitter", v)}
             suffix="piglets"
             max={25}
             hint="AHDB average reference: 12.4. Litters vary around this mean."
+          />
+          <Field
+            label="Stillborn"
+            value={config.reproduction.stillbornPct}
+            onChange={(v) => update("reproduction", "stillbornPct", v)}
+            suffix="% of total born"
+            max={100}
+            step={0.5}
+          />
+          <Field
+            label="Mummified"
+            value={config.reproduction.mummifiedPct}
+            onChange={(v) => update("reproduction", "mummifiedPct", v)}
+            suffix="% of total born"
+            max={100}
+            step={0.5}
           />
           <Field
             label="Pre-weaning mortality"
@@ -2645,6 +2670,43 @@ export function FarmInputs({
         icon={Truck}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SelectField
+            label="Ordering policy"
+            value={config.feed.operationalPolicy}
+            onChange={(v) => update("feed", "operationalPolicy", v)}
+            options={[
+              { value: "rolling-cover", label: "Forecast future demand" },
+              { value: "reorder-point", label: "React to recent use" },
+            ]}
+            hint="Forecasting includes animals expected to enter a new ration before a normal delivery can arrive."
+          />
+          <Field
+            label="Forecast target"
+            value={config.feed.rollingTargetCoverDays}
+            onChange={(v) => update("feed", "rollingTargetCoverDays", Math.round(v))}
+            suffix="days after delivery"
+            min={14}
+            max={180}
+            step={1}
+          />
+          <Field
+            label="Safety stock"
+            value={config.feed.safetyCoverDays}
+            onChange={(v) => update("feed", "safetyCoverDays", Math.round(v))}
+            suffix="days of forecast demand"
+            min={0}
+            max={30}
+            step={1}
+          />
+          <Field
+            label="Supplier lead time"
+            value={config.feed.deliveryLeadDays}
+            onChange={(v) => update("feed", "deliveryLeadDays", Math.round(v))}
+            suffix="days"
+            min={0}
+            max={60}
+            step={1}
+          />
           <Field
             label="Truck capacity"
             value={config.feed.truckCapacityKg}
@@ -2719,6 +2781,39 @@ export function FarmInputs({
             onChange={(v) => update("health", "vetCostPerSowMonth", v)}
             suffix={`${config.project.currency}/sow/month`}
             hint="Charged to every sow in the herd each month."
+          />
+          <Field
+            label="Clinical cases"
+            value={config.health.treatmentAnnualPct}
+            onChange={(v) => update("health", "treatmentAnnualPct", v)}
+            suffix="% of growing pigs/year"
+            max={100}
+            step={1}
+            hint="Non-fatal respiratory, digestive and injury cases requiring treatment."
+          />
+          <Field
+            label="Treatment cost"
+            value={config.health.treatmentCostPerPig}
+            onChange={(v) => update("health", "treatmentCostPerPig", v)}
+            suffix={`${config.project.currency}/case`}
+            step={0.5}
+          />
+          <Field
+            label="Reduced growth"
+            value={config.health.treatmentGrowthPenaltyDays}
+            onChange={(v) => update("health", "treatmentGrowthPenaltyDays", Math.round(v))}
+            suffix="days/case"
+            min={0}
+            max={60}
+            step={1}
+          />
+          <Field
+            label="Growth loss while ill"
+            value={config.health.treatmentGrowthPenaltyPct}
+            onChange={(v) => update("health", "treatmentGrowthPenaltyPct", v)}
+            suffix="% of daily gain"
+            max={100}
+            step={5}
           />
           <Field
             label="Gas per heater"

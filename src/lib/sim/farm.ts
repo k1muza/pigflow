@@ -60,6 +60,9 @@ export type FarmEventType =
   | "service"
   | "return"
   | "scan"
+  | "pregnancy-loss"
+  | "inventory"
+  | "health"
   | "processing"
   | "capacity";
 

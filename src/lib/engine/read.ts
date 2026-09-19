@@ -40,6 +40,7 @@ const EVENT_KINDS: Record<EventType, FarmEventType> = {
   ServiceOpportunityMissed: "service",
   ReturnToEstrus: "return",
   PregnancyScanned: "scan",
+  PregnancyLost: "pregnancy-loss",
   FarrowingCompleted: "farrowing",
   WeaningCompleted: "weaning",
 
@@ -62,7 +63,7 @@ const EVENT_KINDS: Record<EventType, FarmEventType> = {
   StoreRanShort: "purchase",
   IntakeRestricted: "purchase",
 
-  PigletsBorn: "farrowing",
+  BirthCohortCreated: "inventory",
   GiltSelected: "selection",
   GiltPromoted: "promotion",
   GiltSold: "sale",
@@ -72,6 +73,7 @@ const EVENT_KINDS: Record<EventType, FarmEventType> = {
   BoarRotated: "purchase",
   StockPurchased: "purchase",
   ProcessingDone: "processing",
+  TreatmentGiven: "health",
 };
 
 /** One domain event as a line in the log a person reads. */

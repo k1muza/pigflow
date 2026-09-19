@@ -229,7 +229,12 @@ export const plannerSchema = z.object({
     pregnancyScanDays: z.number().int().min(21).max(45),
     /** What one scan costs, charged whatever it finds. 0 turns scanning off. */
     pregnancyScanCost: nonNegative,
+    /** Confirmed pregnancies subsequently lost before term. */
+    pregnancyLossPct: percentage.default(3),
     bornAlivePerLitter: z.number().min(1).max(25),
+    /** Percentages of total-born piglets recorded as non-viable at farrowing. */
+    stillbornPct: percentage.default(6),
+    mummifiedPct: percentage.default(1.5),
     preWeanMortalityPct: percentage,
   }),
   /**
@@ -447,6 +452,11 @@ export const plannerSchema = z.object({
      * "even" spreads them flat across the stage.
      */
     mortalityTiming: z.enum(["profiled", "even"]).default("profiled"),
+    /** Growing pigs treated in a typical year, independent of fatal losses. */
+    treatmentAnnualPct: percentage.default(12),
+    treatmentCostPerPig: nonNegative.default(8.5),
+    treatmentGrowthPenaltyDays: z.number().int().min(0).max(60).default(7),
+    treatmentGrowthPenaltyPct: percentage.default(35),
   }),
   finance: z.object({
     salePriceKg: nonNegative,
@@ -718,7 +728,10 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     irregularReturnSharePct: 25,
     pregnancyScanDays: 28,
     pregnancyScanCost: 1.5,
+    pregnancyLossPct: 3,
     bornAlivePerLitter: 12.4,
+    stillbornPct: 6,
+    mummifiedPct: 1.5,
     preWeanMortalityPct: 12.5,
   },
   service: {
@@ -787,9 +800,13 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     pigletsPerHeater: 14,
     gasCostPerKg: 1.8,
     gasCanisterKg: 48,
-    gasCanisters: 2,
+    gasCanisters: 8,
     heatedUntilAgeDays: 56,
     mortalityTiming: "profiled",
+    treatmentAnnualPct: 12,
+    treatmentCostPerPig: 8.5,
+    treatmentGrowthPenaltyDays: 7,
+    treatmentGrowthPenaltyPct: 35,
   },
   finance: {
     salePriceKg: 3.5,

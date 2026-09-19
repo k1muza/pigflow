@@ -529,7 +529,7 @@ export function forecastDemand(
 
         if (entry.state === "gestating" && day >= entry.keyDay) {
           state = "lactating";
-          expectLitter(day, alive);
+          expectLitter(day, alive * (1 - reproduction.pregnancyLossPct / 100));
           carry({
             state: "lactating",
             keyDay: day + weaningAgeDays,

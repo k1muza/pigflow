@@ -52,6 +52,8 @@ export type Policies = {
   accrualAccounting: boolean;
   /** A pig grows towards a size it finishes at rather than in a straight line. */
   matureGrowthCurve: boolean;
+  /** Post-scan losses, complete litter outcomes and non-fatal treatment episodes. */
+  realisticHealthAndReproduction: boolean;
 };
 
 /**
@@ -70,6 +72,9 @@ export function policiesFor(config: PlannerConfig): Policies {
     operationalProcurement: config.feed.procurementMode === "operational",
     accrualAccounting: config.finance.accrualAccounting,
     matureGrowthCurve: config.growth.matureWeightKg > 0,
+    // Perfect-foresight mode is the legacy parity/oracle run. Operational 2.0
+    // is the actual farm model and carries the richer biological outcomes.
+    realisticHealthAndReproduction: config.feed.procurementMode === "operational",
   };
 }
 
@@ -80,6 +85,7 @@ export const LEGACY_POLICIES: Policies = {
   operationalProcurement: false,
   accrualAccounting: false,
   matureGrowthCurve: false,
+  realisticHealthAndReproduction: false,
 };
 
 export type EngineDayRecord = {
@@ -87,6 +93,10 @@ export type EngineDayRecord = {
   date: string;
   farrowings: number;
   bornAlive: number;
+  stillborn: number;
+  mummified: number;
+  pregnancyLosses: number;
+  treatments: number;
   weaned: number;
   sold: number;
   soldLiveweightKg: number;
@@ -178,6 +188,10 @@ export type StageCounts = {
 export type EngineLifetime = {
   litters: number;
   bornAlive: number;
+  stillborn: number;
+  mummified: number;
+  pregnancyLosses: number;
+  treatments: number;
   weaned: number;
   sold: number;
   soldLiveweightKg: number;
@@ -251,6 +265,10 @@ export function emptyLifetime(): EngineLifetime {
   return {
     litters: 0,
     bornAlive: 0,
+    stillborn: 0,
+    mummified: 0,
+    pregnancyLosses: 0,
+    treatments: 0,
     weaned: 0,
     sold: 0,
     soldLiveweightKg: 0,
@@ -300,6 +318,10 @@ export function emptyDayRecord(day: number, date: string): EngineDayRecord {
     date,
     farrowings: 0,
     bornAlive: 0,
+    stillborn: 0,
+    mummified: 0,
+    pregnancyLosses: 0,
+    treatments: 0,
     weaned: 0,
     sold: 0,
     soldLiveweightKg: 0,

@@ -16,6 +16,18 @@ function plan(mode: "chance" | "settled", seed: number, tweak?: (c: PlannerConfi
 }
 
 describe("Settled: the rates come back exactly, carried to whole animals", () => {
+  it("uses a deterministic wide litter distribution and records total-born outcomes", () => {
+    const settled = new SettledVariation();
+    const outcomes = Array.from({ length: 80 }, () =>
+      settled.farrowingOutcome(12.4, 3, 6, 1.5),
+    );
+    expect(new Set(outcomes.map((outcome) => outcome.bornAlive)).size).toBeGreaterThan(5);
+    expect(Math.min(...outcomes.map((outcome) => outcome.bornAlive))).toBeLessThanOrEqual(9);
+    expect(Math.max(...outcomes.map((outcome) => outcome.bornAlive))).toBeGreaterThanOrEqual(15);
+    expect(outcomes.reduce((sum, outcome) => sum + outcome.stillborn, 0)).toBeGreaterThan(0);
+    expect(outcomes.reduce((sum, outcome) => sum + outcome.mummified, 0)).toBeGreaterThan(0);
+  });
+
   it("averages the born-alive figure a plan states, without fractions of a pig", () => {
     const settled = new SettledVariation();
     const sizes = Array.from({ length: 500 }, () => settled.litterSize(12.4));

@@ -215,6 +215,10 @@ export class GrowingPig extends Animal {
    * it was.
    */
   maturityFactor = 1;
+  /** Days of reduced gain remaining after a non-fatal illness or injury. */
+  treatmentPenaltyDays = 0;
+  /** Multiplier applied to gain while treatmentPenaltyDays is positive. */
+  treatmentGrowthFactor = 1;
   /**
    * The day this pig is booked to die, and the stage that booked it. Mortality
    * is scheduled when a cohort enters a stage rather than rolled every morning,
@@ -330,7 +334,8 @@ export class GrowingPig extends Animal {
    * ration is then worked out against what is left, upkeep first.
    */
   achievedGainKg(config: PlannerConfig): number {
-    const potential = this.dailyGainKg(config) * this.crowdingFactor;
+    const treatmentFactor = this.treatmentPenaltyDays > 0 ? this.treatmentGrowthFactor : 1;
+    const potential = this.dailyGainKg(config) * this.crowdingFactor * treatmentFactor;
     if (this.intakeFactor >= 1) return potential;
     if (this.stage === "piglet") {
       // A suckler lives on milk, and milk follows what the sow was given.
@@ -372,6 +377,7 @@ export class GrowingPig extends Animal {
    */
   advanceWeight(config: PlannerConfig): void {
     this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config));
+    if (this.treatmentPenaltyDays > 0) this.treatmentPenaltyDays -= 1;
   }
 
   /**
@@ -485,6 +491,8 @@ export class Sow extends Animal {
    * is empty, before she has spent another three weeks looking otherwise.
    */
   scanDay: number | null = null;
+  /** A confirmed pregnancy loss scheduled after scanning, if this gestation loses. */
+  pregnancyLossDay: number | null = null;
   /** Whether the service she is carrying came back — or would come back — late. */
   lastReturnIrregular = false;
   /** The day she is due back in heat when this service did not hold. */
@@ -621,6 +629,7 @@ export class Sow extends Animal {
       this.state = "gestating";
       this.dueDay = day + Math.round(gestationDays);
       this.returnDay = null;
+      this.pregnancyLossDay = null;
     } else {
       this.returnDay = day + outcome.returnDays;
       this.nextServiceDay = this.returnDay;
@@ -633,7 +642,18 @@ export class Sow extends Animal {
     this.litter = piglets;
     this.totalBornAlive += piglets.length;
     this.dueDay = null;
+    this.pregnancyLossDay = null;
     this.weanDay = day + Math.round(config.reproduction.weaningAgeDays);
+  }
+
+  /** Ends a confirmed gestation without a litter and books a recovery interval. */
+  losePregnancy(day: number, returnDelayDays: number): void {
+    this.state = "open";
+    this.dueDay = null;
+    this.scanDay = null;
+    this.pregnancyLossDay = null;
+    this.returnDay = null;
+    this.nextServiceDay = day + Math.max(1, Math.round(returnDelayDays));
   }
 
   /**

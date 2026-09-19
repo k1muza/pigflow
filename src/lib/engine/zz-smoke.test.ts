@@ -20,10 +20,15 @@ function farmOf(sows: number, rolling: boolean): PlannerConfig {
   return config;
 }
 
-function run(sows: number, rolling: boolean) {
+async function run(sows: number, rolling: boolean) {
   const config = farmOf(sows, rolling);
   const t = Date.now();
-  const engine = new Engine(config).advanceTo(18 * 30);
+  const engine = new Engine(config);
+  for (let day = 30; day <= 18 * 30; day += 30) {
+    engine.advanceTo(day);
+    // Keep the worker responsive while this deliberately large benchmark runs.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
   const l = engine.lifetime;
   return {
     ms: Date.now() - t,
@@ -39,12 +44,12 @@ function run(sows: number, rolling: boolean) {
 }
 
 describe("smoke", () => {
-  it("compares policies on a real herd", () => {
+  it("compares policies on a real herd", async () => {
     for (const sows of [60, 500]) {
-      console.log(sows, "reorder", run(sows, false));
-      console.log(sows, "rolling", run(sows, true));
+      console.log(sows, "reorder", await run(sows, false));
+      console.log(sows, "rolling", await run(sows, true));
     }
-  }, 300000);
+  }, 420000);
 
   it("benchmarks the forecaster on 500 sows", () => {
     const config = farmOf(500, true);

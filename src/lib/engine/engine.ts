@@ -17,11 +17,13 @@ import type { RoomLevel } from "./housing";
 import { runCalendar, runFinancing } from "./systems/calendar";
 import { runGrowthAndSales, runSelection } from "./systems/growth";
 import { runHerd } from "./systems/herd";
+import { runHealth } from "./systems/health";
 import { runCrowdingStress, runHousingCensus } from "./systems/housing";
 import { runMortality } from "./systems/mortality";
 import { runNutrition } from "./systems/nutrition";
 import { runProcurement } from "./systems/procurement";
 import { runReproduction } from "./systems/reproduction";
+import { forecastDemand } from "./planning/forecast";
 import { seedHerd } from "./seed";
 import {
   LEGACY_POLICIES,
@@ -152,6 +154,7 @@ export class Engine {
     runSelection(world);
     runGrowthAndSales(world);
     runCrowdingStress(world);
+    runHealth(world);
     runMortality(world);
     runHerd(world);
     this.closeBooks(day, date);
@@ -371,6 +374,29 @@ export class Engine {
  */
 function openingDemand(world: World): Partial<Record<string, number>> {
   const { config } = world;
+  if (world.policies.operationalProcurement) {
+    const cover = Math.max(
+      1,
+      config.feed.operationalPolicy === "rolling-cover"
+        ? config.feed.rollingTargetCoverDays
+        : config.feed.targetCoverDays,
+    );
+    const forecast = forecastDemand(
+      world.procurementContext(0).farm,
+      config,
+      cover - 1,
+    );
+    // openStores sizes stock as rate × cover. Supplying the average forecast
+    // rate therefore opens every bin with exactly the kilograms forecast over
+    // the opening cover window, including a ration whose first draw is a stage
+    // transition tomorrow rather than an animal eating it today.
+    return Object.fromEntries(
+      Object.entries(forecast.demandKg).map(([store, series]) => [
+        store,
+        series.reduce((total, kg) => total + kg, 0) / cover,
+      ]),
+    );
+  }
   const demand: Record<string, number> = {};
   const add = (store: string, kg: number) => {
     demand[store] = (demand[store] ?? 0) + kg;

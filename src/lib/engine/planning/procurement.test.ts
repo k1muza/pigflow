@@ -4,6 +4,7 @@ import { cloneDefaultConfig, type PlannerConfig } from "../../config";
 import { STORE_IDS, type StoreId } from "../../sim/haulage";
 import type { DemandForecastResult, ExpectedFarmState } from "./forecast";
 import {
+  ReorderPointProcurementPolicy,
   RollingCoverProcurementPolicy,
   type Forecaster,
   type ProcurementPlanningContext,
@@ -22,6 +23,34 @@ function constantDemand(store: StoreId, kgPerDay: number): Forecaster {
     return { fromDay: farm.day, throughDay, demandKg, explanation: [] };
   };
 }
+
+describe("Forward-looking reorder point", () => {
+  it("orders for a new ration before recent consumption exists", () => {
+    const planning = context((config, stores) => {
+      config.feed.targetCoverDays = 14;
+      config.feed.minimumOrderKg = 0;
+      stores.held.weaner = 0;
+      stores.recentDailyKg.weaner = 0;
+    });
+    const demand: Forecaster = (farm, _config, throughDay) => {
+      const days = throughDay - farm.day + 1;
+      const demandKg = Object.fromEntries(
+        STORE_IDS.map((store) => [
+          store,
+          Array.from({ length: days }, (_, day) =>
+            store === "weaner" && day >= 1 ? 100 : 0,
+          ),
+        ]),
+      ) as unknown as DemandForecastResult["demandKg"];
+      return { fromDay: farm.day, throughDay, demandKg, explanation: [] };
+    };
+
+    const decision = new ReorderPointProcurementPolicy(demand).decide(planning);
+    expect(decision.dispatch).toBe("normal");
+    expect(decision.arrivesDay).toBe(planning.config.feed.deliveryLeadDays);
+    expect(decision.lines.find((line) => line.store === "weaner")?.kg).toBeGreaterThan(0);
+  });
+});
 
 function context(
   tweak: (config: PlannerConfig, stores: ProcurementSnapshot) => void,

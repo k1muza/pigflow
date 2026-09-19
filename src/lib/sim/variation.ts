@@ -40,6 +40,21 @@ import { keyedChance, keyedInt, keyedIntAround, keyedNormal } from "./rng";
  */
 export type DrawKey = readonly (string | number)[];
 
+export type FarrowingOutcome = {
+  totalBorn: number;
+  bornAlive: number;
+  stillborn: number;
+  mummified: number;
+};
+
+/** Expected born-alive performance rises after the first parity and tails off in older sows. */
+export function parityAdjustedBornAlive(mean: number, parity: number): number {
+  if (parity <= 1) return Math.max(1, mean - 0.8);
+  if (parity <= 4) return mean + 0.4;
+  if (parity === 5) return mean;
+  return Math.max(1, mean - 0.4 * (parity - 5));
+}
+
 export interface Variation {
   /** Whether this plan is drawn or settled — for anything that must report it. */
   readonly settled: boolean;
@@ -47,6 +62,18 @@ export interface Variation {
   sex(key: DrawKey): Sex;
   /** How many are born alive to one sow. Keyed on the dam and the farrowing. */
   litterSize(mean: number, key: DrawKey): number;
+  /** A complete farrowing record, including non-viable total-born piglets. */
+  farrowingOutcome(
+    liveMean: number,
+    parity: number,
+    stillbornPct: number,
+    mummifiedPct: number,
+    key: DrawKey,
+  ): FarrowingOutcome;
+  /** Loss of a pregnancy after it has been confirmed by scanning. */
+  losesPregnancy(rate: number, key: DrawKey): boolean;
+  /** A non-fatal clinical case requiring treatment. */
+  needsTreatment(rate: number, key: DrawKey): boolean;
   /** Whether one service holds. Keyed on the female and the day she was served. */
   conceives(rate: number, key: DrawKey): boolean;
   /** Whether this standing heat was spotted at all. Keyed on the female and day. */
@@ -116,6 +143,47 @@ export class ChanceVariation implements Variation {
 
   litterSize(mean: number, key: DrawKey): number {
     return keyedIntAround(mean, this.litterDeviation, 1, 25, this.keys("litter-size", key));
+  }
+
+  farrowingOutcome(
+    liveMean: number,
+    parity: number,
+    stillbornPct: number,
+    mummifiedPct: number,
+    key: DrawKey,
+  ): FarrowingOutcome {
+    const bornAlive = this.litterSize(parityAdjustedBornAlive(liveMean, parity), key);
+    const nonViableShare = Math.min(0.5, (stillbornPct + mummifiedPct) / 100);
+    const expectedNonViable = bornAlive * nonViableShare / Math.max(0.5, 1 - nonViableShare);
+    const nonViable = keyedIntAround(
+      expectedNonViable,
+      Math.max(0.8, Math.sqrt(expectedNonViable)),
+      0,
+      10,
+      this.keys("non-viable-born", key),
+    );
+    const mummifiedShare =
+      stillbornPct + mummifiedPct > 0
+        ? mummifiedPct / (stillbornPct + mummifiedPct)
+        : 0;
+    let mummified = 0;
+    for (let index = 0; index < nonViable; index += 1) {
+      if (keyedChance(mummifiedShare, this.keys("mummified", [...key, index]))) mummified += 1;
+    }
+    return {
+      totalBorn: bornAlive + nonViable,
+      bornAlive,
+      stillborn: nonViable - mummified,
+      mummified,
+    };
+  }
+
+  losesPregnancy(rate: number, key: DrawKey): boolean {
+    return keyedChance(rate, this.keys("pregnancy-loss", key));
+  }
+
+  needsTreatment(rate: number, key: DrawKey): boolean {
+    return keyedChance(rate, this.keys("treatment", key));
   }
 
   conceives(rate: number, key: DrawKey): boolean {
@@ -192,6 +260,11 @@ export class SettledVariation implements Variation {
   readonly settled = true;
   private sexOwed = OPENING;
   private litterOwed = OPENING;
+  private litterCursor = 0;
+  private stillbornOwed = OPENING;
+  private mummifiedOwed = OPENING;
+  private pregnancyLossOwed = OPENING;
+  private treatmentOwed = OPENING;
   private conceptionOwed = OPENING;
   private detectionOwed = OPENING;
   private aiOwed = OPENING;
@@ -220,6 +293,49 @@ export class SettledVariation implements Variation {
     const born = Math.floor(this.litterOwed + SLACK);
     this.litterOwed -= born;
     return Math.min(25, Math.max(1, born));
+  }
+
+  farrowingOutcome(
+    liveMean: number,
+    parity: number,
+    stillbornPct: number,
+    mummifiedPct: number,
+  ): FarrowingOutcome {
+    // A fixed, mean-zero ladder keeps settled plans reproducible without making
+    // every litter a 12 or 13. It covers poor, ordinary and exceptional litters.
+    const spread = [-4, -2, -1, 0, 1, 2, 3, 1];
+    const mean = parityAdjustedBornAlive(liveMean, parity);
+    this.litterOwed += mean;
+    const centre = Math.floor(this.litterOwed + SLACK);
+    this.litterOwed -= centre;
+    const bornAlive = Math.min(25, Math.max(1, centre + spread[this.litterCursor % spread.length]));
+    this.litterCursor += 1;
+
+    const totalRate = Math.min(0.5, (stillbornPct + mummifiedPct) / 100);
+    const expectedNonViable = bornAlive * totalRate / Math.max(0.5, 1 - totalRate);
+    this.stillbornOwed +=
+      expectedNonViable * (stillbornPct / Math.max(1e-9, stillbornPct + mummifiedPct));
+    this.mummifiedOwed +=
+      expectedNonViable * (mummifiedPct / Math.max(1e-9, stillbornPct + mummifiedPct));
+    const stillborn = Math.floor(this.stillbornOwed + SLACK);
+    const mummified = Math.floor(this.mummifiedOwed + SLACK);
+    this.stillbornOwed -= stillborn;
+    this.mummifiedOwed -= mummified;
+    return { totalBorn: bornAlive + stillborn + mummified, bornAlive, stillborn, mummified };
+  }
+
+  losesPregnancy(rate: number): boolean {
+    this.pregnancyLossOwed += Math.min(1, Math.max(0, rate));
+    if (this.pregnancyLossOwed < 1 - SLACK) return false;
+    this.pregnancyLossOwed -= 1;
+    return true;
+  }
+
+  needsTreatment(rate: number): boolean {
+    this.treatmentOwed += Math.min(1, Math.max(0, rate));
+    if (this.treatmentOwed < 1 - SLACK) return false;
+    this.treatmentOwed -= 1;
+    return true;
   }
 
   /**

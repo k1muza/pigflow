@@ -17,6 +17,9 @@ const EVENT_LABELS: Record<FarmEvent["type"], string> = {
   service: "Service",
   return: "Return to heat",
   scan: "Pregnancy scan",
+  "pregnancy-loss": "Pregnancy loss",
+  inventory: "Inventory",
+  health: "Health",
   processing: "Processing",
   capacity: "Capacity",
 };

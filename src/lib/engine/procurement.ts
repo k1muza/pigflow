@@ -345,10 +345,10 @@ export class Supplies {
    * where the simulation happened to begin. It is bought and invoiced like any
    * other load — the farm owns feed on day one, and owes for it.
    *
-   * The rate it is sized on is today's requirement from the stock actually
-   * standing there, which is a thing the farm can see, not a forecast. Both
-   * policies open the same way: on day one there is no consumption history to
-   * read and no forecast worth more than the animals in front of you.
+   * The reorder-point policy sizes this from today's requirement. The rolling
+   * policy is handed the average of its opening forecast window, so a litter
+   * due to wean tomorrow opens with weaner feed already in the bin rather than
+   * requiring an artificial day-one emergency order.
    */
   openStores(day: number, ratePerDay: Partial<StoreQuantities>): SupplyOrder[] {
     if (!this.operational) return [];

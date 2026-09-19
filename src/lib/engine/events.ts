@@ -31,6 +31,7 @@ export type EventType =
   | "ServiceOpportunityMissed"
   | "ReturnToEstrus"
   | "PregnancyScanned"
+  | "PregnancyLost"
   | "FarrowingCompleted"
   | "WeaningCompleted"
   // housing
@@ -53,7 +54,7 @@ export type EventType =
   | "StoreRanShort"
   | "IntakeRestricted"
   // stock
-  | "PigletsBorn"
+  | "BirthCohortCreated"
   | "GiltSelected"
   | "GiltPromoted"
   | "GiltSold"
@@ -62,7 +63,8 @@ export type EventType =
   | "SowCulled"
   | "BoarRotated"
   | "StockPurchased"
-  | "ProcessingDone";
+  | "ProcessingDone"
+  | "TreatmentGiven";
 
 /** What a domain event posted to the books, if it posted anything. */
 export type Posting = {

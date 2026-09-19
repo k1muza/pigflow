@@ -74,6 +74,19 @@ export function runReproduction(world: World): void {
       if (inPig) {
         record.conceptions += 1;
         world.lifetime.pregnanciesConfirmed += 1;
+        if (
+          world.policies.realisticHealthAndReproduction &&
+          sow.dueDay !== null &&
+          world.variation.losesPregnancy(config.reproduction.pregnancyLossPct / 100, [
+            sow.tag,
+            day,
+          ])
+        ) {
+          // Losses are spread through the known remainder of gestation. The
+          // farm cannot know the exact day at scanning, only that this is one of
+          // the pregnancies that will fail before term.
+          sow.pregnancyLossDay = day + Math.max(1, Math.round((sow.dueDay - day) * 0.55));
+        }
       } else {
         world.lifetime.scannedEmpty += 1;
       }
@@ -90,6 +103,30 @@ export function runReproduction(world: World): void {
             : " scanned not in pig, back to service"),
         { entities: [sow.tag], changes: { inPig: inPig ? 1 : 0 } },
       );
+    }
+
+    if (
+      sow.state === "gestating" &&
+      sow.pregnancyLossDay !== null &&
+      day >= sow.pregnancyLossDay
+    ) {
+      const gestationDay = Math.max(
+        1,
+        config.reproduction.gestationDays - Math.max(0, (sow.dueDay ?? day) - day),
+      );
+      sow.losePregnancy(day, config.reproduction.weanToServiceDays);
+      record.pregnancyLosses += 1;
+      world.lifetime.pregnancyLosses += 1;
+      world.emit(
+        "PregnancyLost",
+        sow.tag + " lost a confirmed pregnancy at gestation day " + Math.round(gestationDay),
+        {
+          entities: [sow.tag],
+          cause: "post-scan pregnancy loss",
+          changes: { gestationDay: Math.round(gestationDay) },
+        },
+      );
+      continue;
     }
 
     if (sow.state === "gestating" && sow.dueDay !== null && day >= sow.dueDay) {
@@ -131,10 +168,22 @@ function farrow(world: World, sow: Sow): void {
   }
   world.housing.admit("farrowing");
 
-  const litterSize = world.variation.litterSize(config.reproduction.bornAlivePerLitter, [
-    sow.tag,
-    day,
-  ]);
+  const outcome = world.policies.realisticHealthAndReproduction
+    ? world.variation.farrowingOutcome(
+        config.reproduction.bornAlivePerLitter,
+        sow.parity + 1,
+        config.reproduction.stillbornPct,
+        config.reproduction.mummifiedPct,
+        [sow.tag, day],
+      )
+    : (() => {
+        const bornAlive = world.variation.litterSize(config.reproduction.bornAlivePerLitter, [
+          sow.tag,
+          day,
+        ]);
+        return { totalBorn: bornAlive, bornAlive, stillborn: 0, mummified: 0 };
+      })();
+  const litterSize = outcome.bornAlive;
   const piglets: GrowingPig[] = [];
   for (let i = 0; i < litterSize; i += 1) {
     const piglet = createPiglet(world, sow, day, BIRTH_WEIGHT_KG);
@@ -145,20 +194,39 @@ function farrow(world: World, sow: Sow): void {
   world.mortality.enterStage(piglets, "piglet", day);
   record.farrowings += 1;
   record.bornAlive += litterSize;
+  record.stillborn += outcome.stillborn;
+  record.mummified += outcome.mummified;
   world.lifetime.litters += 1;
   world.lifetime.bornAlive += litterSize;
+  world.lifetime.stillborn += outcome.stillborn;
+  world.lifetime.mummified += outcome.mummified;
   world.emit(
     "FarrowingCompleted",
     sow.tag +
       " (gen " +
       sow.generation +
       ") farrowed " +
+      outcome.totalBorn +
+      " total born, " +
       litterSize +
-      " live piglets, parity " +
+      " live, " +
+      outcome.stillborn +
+      " stillborn, " +
+      outcome.mummified +
+      " mummified, parity " +
       sow.parity,
-    { entities: [sow.tag], room: "farrowing", changes: { bornAlive: litterSize } },
+    {
+      entities: [sow.tag],
+      room: "farrowing",
+      changes: {
+        totalBorn: outcome.totalBorn,
+        bornAlive: litterSize,
+        stillborn: outcome.stillborn,
+        mummified: outcome.mummified,
+      },
+    },
   );
-  world.emit("PigletsBorn", litterSize + " piglets born", {
+  world.emit("BirthCohortCreated", litterSize + " live piglets entered the herd", {
     entities: piglets.map((piglet) => piglet.tag),
     changes: { bornAlive: litterSize },
   });

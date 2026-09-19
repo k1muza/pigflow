@@ -337,11 +337,19 @@ function roomIn(stores: ProcurementSnapshot, store: StoreId): number {
 export class ReorderPointProcurementPolicy implements ProcurementPolicy {
   readonly id = "reorder-point" as const;
 
+  constructor(private readonly forecaster: Forecaster = forecastDemand) {}
+
   decide(context: ProcurementPlanningContext): ProcurementDecision {
     const { config, stores } = context;
     const { feed } = config;
     const reorderAt = Math.max(feed.reorderCoverDays, 1);
     const target = Math.max(feed.targetCoverDays, reorderAt + 1);
+    const forecastDays = feed.deliveryLeadDays + target + feed.safetyCoverDays;
+    const forecast = this.forecaster(
+      context.farm,
+      config,
+      stores.day + Math.max(0, forecastDays - 1),
+    );
 
     const claims: Claim[] = [];
     for (const store of STORE_IDS) {
@@ -349,12 +357,23 @@ export class ReorderPointProcurementPolicy implements ProcurementPolicy {
       if (room <= CRUMB_KG) continue;
       const rate = stores.recentDailyKg[store];
       const position = stores.held[store] + stores.onOrder[store];
+      const curve = forecast.demandKg[store];
+      const protectedDemand = curve
+        .slice(0, feed.deliveryLeadDays + feed.safetyCoverDays)
+        .reduce((sum, kg) => sum + kg, 0);
+      const targetDemand = curve
+        .slice(0, feed.deliveryLeadDays + target)
+        .reduce((sum, kg) => sum + kg, 0);
       // A store the herd is not drawing on never runs out, so it is never due —
       // but it can still be topped up when a lorry is going anyway.
       const cover = rate > CRUMB_KG ? position / rate : Number.POSITIVE_INFINITY;
       // A supplier will not send a lorry for a handful, so a small order rounds
       // up — but never past what there is room to put away.
-      const need = Math.max(rate * target - position, Math.min(feed.minimumOrderKg, room));
+      const need = Math.max(
+        targetDemand - position,
+        rate * target - position,
+        Math.min(feed.minimumOrderKg, room),
+      );
       // A store cannot hold a buffer bigger than itself. One that tries to — a
       // gas yard holding less than a week of gas against a week's reorder point
       // — is inside its own reorder point every morning of its life and sends
@@ -367,7 +386,9 @@ export class ReorderPointProcurementPolicy implements ProcurementPolicy {
         store,
         coverDays: cover,
         // Cover has to carry the herd until a load ordered today could land.
-        due: cover <= sendAt + feed.deliveryLeadDays,
+        due:
+          position <= protectedDemand + CRUMB_KG ||
+          cover <= sendAt + feed.deliveryLeadDays,
         needKg: Math.max(0, need),
         maxKg: room,
         unitKg: stores.unitKg[store],

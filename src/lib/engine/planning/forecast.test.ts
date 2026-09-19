@@ -27,6 +27,7 @@ function plan(tweak: (config: PlannerConfig) => void = () => {}): PlannerConfig 
   config.reproduction.bornAlivePerLitter = 10;
   config.reproduction.preWeanMortalityPct = 0;
   config.reproduction.farrowingSuccessPct = 80;
+  config.reproduction.pregnancyLossPct = 0;
   config.reproduction.heatDetectionPct = 100;
   config.reproduction.enforceEstrusWindows = true;
   config.feed.creepStartAgeDays = 14;

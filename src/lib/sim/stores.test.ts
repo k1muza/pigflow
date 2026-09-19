@@ -175,7 +175,7 @@ describe("Every consumable is its own store", () => {
 
   it("never holds more gas than there are canisters to put it in", () => {
     const held = input.health.gasCanisterKg * input.health.gasCanisters;
-    expect(held).toBe(96);
+    expect(held).toBe(384);
 
     // A bottle cannot be delivered early into a full store the way feed can be
     // tipped into a part-empty bin, so the cap is never breached.
@@ -183,7 +183,7 @@ describe("Every consumable is its own store", () => {
       expect(standing).toBeLessThanOrEqual(held + 1e-6);
     }
     // And a smaller store is still never overfilled, only refilled in smaller
-    // amounts: one bottle at a time where the default yard takes two.
+    // amounts: one bottle at a time where the default yard takes a working stack.
     const cramped = runFarm(plan((c) => (c.health.gasCanisters = 1)));
     for (const standing of cramped.haulage.stockByDay.gas) {
       expect(standing).toBeLessThanOrEqual(input.health.gasCanisterKg + 1e-6);
@@ -219,13 +219,13 @@ describe("Every consumable is its own store", () => {
     // A yard with room for more bottles still pays for fewer journeys, because
     // it can take a fortnight's gas at a time instead of a week's — but it is
     // now the number of trips that moves, not whether the gas gets a ride.
-    const roomy = rides(runFarm(plan((c) => (c.health.gasCanisters = 8))));
+    const roomy = rides(runFarm(plan((c) => (c.health.gasCanisters = 12))));
     expect(roomy.deliveries).toBeLessThan(cramped.deliveries);
     expect(roomy.alone).toEqual([]);
 
     // A journey is charged once however much is on it, so a bottle that rode in
     // on the feed order added nothing at all to the delivery line.
-    for (const f of [farm, runFarm(plan((c) => (c.health.gasCanisters = 8)))]) {
+    for (const f of [farm, runFarm(plan((c) => (c.health.gasCanisters = 12)))]) {
       expect(f.ledger.totals.deliveries).toBeCloseTo(
         f.haulage.trips.reduce((paid, trip) => paid + trip.cost, 0),
         6,
@@ -305,7 +305,7 @@ describe("Every consumable is its own store", () => {
     );
     // Every store has a size now, and it is a real constraint rather than a
     // note: it is what a lorry with room to spare is allowed to tip into it.
-    expect(stores.find((store) => store.id === "gas")!.capacity).toBe(96);
+    expect(stores.find((store) => store.id === "gas")!.capacity).toBe(384);
     expect(stores.find((store) => store.id === "feed-sow")!.capacity).toBe(
       input.feed.binCapacityKg,
     );
