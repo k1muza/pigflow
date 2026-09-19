@@ -52,6 +52,9 @@ const EVENT_KINDS: Record<EventType, FarmEventType> = {
   CrowdingDeathsScheduled: "capacity",
   WeanedEarlyForSpace: "capacity",
 
+  ProcurementPlanRecalculated: "purchase",
+  ProcurementDispatchAdvanced: "purchase",
+  ProcurementPlanConstrained: "purchase",
   OrderPlaced: "purchase",
   DeliveryReceived: "purchase",
   InvoiceRaised: "purchase",

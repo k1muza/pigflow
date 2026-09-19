@@ -15,6 +15,7 @@ import { runEngine } from "./engine";
 
 function crowdedPlan(): PlannerConfig {
   const input = cloneDefaultConfig();
+  input.housing.enforceCapacity = true;
   input.project.months = 24;
   input.project.variation = "settled";
   input.stock.sows = 20;
@@ -26,7 +27,10 @@ function crowdedPlan(): PlannerConfig {
   return input;
 }
 
-const run = runEngine(crowdedPlan(), 1_000, { keepEveryEvent: true });
+const run = runEngine(crowdedPlan(), 1_000, {
+  keepEveryEvent: true,
+  policies: { enforceHousing: true },
+});
 
 const announced = (type: string) =>
   run.events

@@ -2,7 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
 import { FEED_RATIONS } from "../sim/animals";
+import {
+  ReorderPointProcurementPolicy,
+  type ProcurementPlanningContext,
+} from "./planning/procurement";
 import { Supplies } from "./procurement";
+
+/** A farm with nothing standing on it, for the questions that are only about goods. */
+function contextFor(config: PlannerConfig, supplies: Supplies, day: number): ProcurementPlanningContext {
+  return {
+    config,
+    stores: supplies.snapshot(day, 0),
+    farm: { day, growing: [], sows: [], boars: [] },
+  };
+}
 
 /**
  * A farm whose two rations are priced a long way apart, so that pricing a mixed
@@ -83,7 +96,11 @@ describe("A mixed load is priced line by line, not by the lorry", () => {
     const listed = supplies.priceOf("sow");
     expect(listed).toBeCloseTo(config.feed.sowFeedCostKg, 6);
 
-    supplies.emergency(1, { weaner: 500 });
+    const policy = new ReorderPointProcurementPolicy();
+    supplies.place(
+      1,
+      policy.decideEmergency(contextFor(config, supplies, 1), { weaner: 500 }),
+    );
     supplies.arrive(1 + config.feed.emergencyLeadDays);
     const premium = 1 + config.feed.emergencyPremiumPct / 100;
 

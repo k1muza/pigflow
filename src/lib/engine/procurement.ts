@@ -1,6 +1,18 @@
 import type { PlannerConfig } from "../config";
-import { STORE_IDS, type StoreId, type Trip, type TripKind, type TripLine } from "../sim/haulage";
-import { planLoads, type Claim, type Load } from "../sim/loadout";
+import { STORE_IDS, type StoreId, type Trip, type TripLine } from "../sim/haulage";
+import type { Claim } from "../sim/loadout";
+import {
+  planTrips,
+  zeroStores,
+  type PendingOrderView,
+  type PendingPaymentView,
+  type ProcurementDecision,
+  type ProcurementSnapshot,
+  type StoreQuantities,
+} from "./planning/procurement";
+
+export { zeroStores };
+export type { StoreQuantities };
 
 /**
  * Buying, holding and paying for the things the farm keeps a store of.
@@ -30,12 +42,6 @@ const USE_WINDOW_DAYS = 7;
 
 /** Kilograms below which a remainder is not worth ordering. */
 const CRUMB_KG = 1e-6;
-
-export type StoreQuantities = Record<StoreId, number>;
-
-export function zeroStores(): StoreQuantities {
-  return Object.fromEntries(STORE_IDS.map((store) => [store, 0])) as StoreQuantities;
-}
 
 /** One load, once it has been placed and before it has landed. */
 export type SupplyOrder = {
@@ -255,6 +261,84 @@ export class Supplies {
   // ------------------------------------------------------------------ ordering
 
   /**
+   * The stores as a policy sees them: what is in them, what is coming, what
+   * they hold, what the goods come in and cost, and what the farm owes.
+   *
+   * This is the whole of the interface between the farm's state and the farm's
+   * ordering. A policy is given this and an expected picture of the herd, and
+   * it hands back a decision; it never reaches into the stores, and it cannot,
+   * because none of the mutable state is in here.
+   */
+  snapshot(day: number, cash: number): ProcurementSnapshot {
+    const capacities = zeroStores();
+    const unitKg = zeroStores();
+    const listPrices = zeroStores();
+    const held = zeroStores();
+    const onOrder = zeroStores();
+    const recentDailyKg = zeroStores();
+    for (const store of STORE_IDS) {
+      capacities[store] = this.capacity(store);
+      unitKg[store] = this.unitOf(store);
+      listPrices[store] = this.listPrice[store];
+      held[store] = this.held[store];
+      onOrder[store] = this.onOrder[store];
+      recentDailyKg[store] = this.dailyRate(store);
+    }
+    const pendingOrders: PendingOrderView[] = this.pending.map((order) => ({
+      id: order.id,
+      placedDay: order.placedDay,
+      arrivesDay: order.arrivesDay,
+      emergency: order.emergency,
+      lines: order.lines.map((line) => ({ store: line.store, kg: line.kg })),
+    }));
+    const duePayments: PendingPaymentView[] = this.invoices.map((invoice) => ({
+      dueDay: invoice.dueDay,
+      amount:
+        STORE_IDS.reduce((total, store) => total + invoice.byStore[store], 0) + invoice.delivery,
+    }));
+    return {
+      day,
+      held,
+      onOrder,
+      capacities,
+      unitKg,
+      listPrices,
+      recentDailyKg,
+      pendingOrders,
+      duePayments,
+      cash,
+      workingCapitalTarget: this.config.finance.workingCapitalTarget,
+    };
+  }
+
+  /**
+   * Books a decision.
+   *
+   * The lorries are grouped by the day they land and the kind of run they are,
+   * and each group becomes one order with its own invoice on the supplier's
+   * terms. A plan whose order will not fit on the lorries that may arrive in one
+   * day therefore books two orders on two days rather than pretending the goods
+   * all came at once, and the second one is costed and invoiced when it lands.
+   */
+  place(day: number, decision: ProcurementDecision): SupplyOrder[] {
+    if (!this.operational || decision.trips.length === 0) return [];
+    const emergency = decision.dispatch === "emergency";
+    const premium = emergency ? 1 + this.config.feed.emergencyPremiumPct / 100 : 1;
+    const groups = new Map<string, Trip[]>();
+    for (const trip of decision.trips) {
+      const key = trip.day + "/" + trip.kind;
+      const already = groups.get(key);
+      if (already) already.push(trip);
+      else groups.set(key, [trip]);
+    }
+    const orders: SupplyOrder[] = [];
+    for (const trips of groups.values()) {
+      orders.push(this.book(day, trips[0].day, trips, emergency, premium));
+    }
+    return orders;
+  }
+
+  /**
    * Opening inventory: the feed, gas and bedding a farm has in front of it on
    * the morning the plan starts. Without it the first week of every operational
    * plan is a famine, which says nothing about the plan and everything about
@@ -262,7 +346,9 @@ export class Supplies {
    * other load — the farm owns feed on day one, and owes for it.
    *
    * The rate it is sized on is today's requirement from the stock actually
-   * standing there, which is a thing the farm can see, not a forecast.
+   * standing there, which is a thing the farm can see, not a forecast. Both
+   * policies open the same way: on day one there is no consumption history to
+   * read and no forecast worth more than the animals in front of you.
    */
   openStores(day: number, ratePerDay: Partial<StoreQuantities>): SupplyOrder[] {
     if (!this.operational) return [];
@@ -283,95 +369,14 @@ export class Supplies {
         unitKg: this.unitOf(store),
       });
     }
-    return this.dispatch(day, day, claims, false);
-  }
-
-  /**
-   * The day's ordering.
-   *
-   * Each store says how long what is in it and already coming will last at the
-   * rate the herd has been going through it. That figure — days of cover — is
-   * the whole policy. A store that has fallen far enough to run out before a
-   * load ordered today could land is **due**, and one due store is what sends a
-   * lorry. Everything else then queues for the space that order left on the
-   * deck, in the same order of cover, and rides along for nothing.
-   *
-   * What this replaced looked at each store alone and sent for each one alone,
-   * which is how a farm came to run a 2.8 tonne vehicle out for a single bottle
-   * of gas on the Tuesday and again for the weaner feed on the Friday. Nothing
-   * here looks past today; it only stops looking at one bin at a time.
-   */
-  review(day: number): SupplyOrder[] {
-    if (!this.operational) return [];
-    const { feed } = this.config;
-    const reorderAt = Math.max(feed.reorderCoverDays, 1);
-    const target = Math.max(feed.targetCoverDays, reorderAt + 1);
-
-    const claims: Claim[] = [];
-    for (const store of STORE_IDS) {
-      const room = this.roomIn(store);
-      if (room <= CRUMB_KG) continue;
-      const rate = this.dailyRate(store);
-      const position = this.held[store] + this.onOrder[store];
-      // A store the herd is not drawing on never runs out, so it is never due —
-      // but it can still be topped up when a lorry is going anyway.
-      const cover = rate > CRUMB_KG ? position / rate : Number.POSITIVE_INFINITY;
-      // A supplier will not send a lorry for a handful, so a small order rounds
-      // up — but never past what there is room to put away.
-      const need = Math.max(rate * target - position, Math.min(feed.minimumOrderKg, room));
-      // A store cannot hold a buffer bigger than itself. One that tries to — a
-      // gas yard holding less than a week of gas against a week's reorder point
-      // — is inside its own reorder point every morning of its life, and sends
-      // for a lorry the moment there is room for one bottle. So the point is
-      // also held to what leaves a decent run between deliveries.
-      const fullCover = rate > CRUMB_KG ? this.capacity(store) / rate : Number.POSITIVE_INFINITY;
-      const sendAt = Math.min(reorderAt, Math.max(0, fullCover - reorderAt));
-      claims.push({
-        store,
-        coverDays: cover,
-        // Cover has to carry the herd until a load ordered today could land.
-        due: cover <= sendAt + feed.deliveryLeadDays,
-        needKg: Math.max(0, need),
-        maxKg: room,
-        unitKg: this.unitOf(store),
-      });
+    const trips = planTrips(this.config, claims, day, false);
+    const groups = new Map<string, Trip[]>();
+    for (const trip of trips) {
+      const already = groups.get(trip.kind);
+      if (already) already.push(trip);
+      else groups.set(trip.kind, [trip]);
     }
-    return this.dispatch(day, day + feed.deliveryLeadDays, claims, false);
-  }
-
-  /**
-   * The load a farm sends for when the bin is empty. It comes at a premium on
-   * both the goods and the journey, and it still takes a day, which is the day
-   * the herd goes short on. That day is the point of modelling procurement at
-   * all: the cost of a bad ordering policy is not the premium, it is the gain.
-   *
-   * The lorry is coming at a premium either way, so it goes out loaded: the
-   * store that ran dry is what sends it, and everything else on the farm takes
-   * the rest of the deck in the order it will be wanted. Paying the premium on
-   * a full vehicle is dear; paying it on an empty one is worse.
-   */
-  emergency(day: number, shortfall: Partial<StoreQuantities>): SupplyOrder[] {
-    if (!this.operational) return [];
-    const { feed } = this.config;
-    const cover = Math.max(feed.reorderCoverDays, 1);
-    const claims: Claim[] = [];
-    for (const store of STORE_IDS) {
-      const room = this.roomIn(store);
-      if (room <= CRUMB_KG) continue;
-      const short = shortfall[store] ?? 0;
-      const rate = this.dailyRate(store);
-      const position = this.held[store] + this.onOrder[store];
-      claims.push({
-        store,
-        coverDays: rate > CRUMB_KG ? position / rate : Number.POSITIVE_INFINITY,
-        // Only a store that actually ran short is a reason to pay the premium.
-        due: short > CRUMB_KG,
-        needKg: Math.max(short, rate * cover),
-        maxKg: room,
-        unitKg: this.unitOf(store),
-      });
-    }
-    return this.dispatch(day, day + feed.emergencyLeadDays, claims, true);
+    return [...groups.values()].map((group) => this.book(day, day, group, false, 1));
   }
 
   /** Room there will be in a store once everything already ordered has landed. */
@@ -390,53 +395,6 @@ export class Supplies {
     if (store === "gas") return Math.max(this.config.health.gasCanisterKg, 1);
     if (store === "bedding") return Math.max(this.config.housing.beddingLoadKg, 1);
     return Math.max(this.config.feed.feedBagKg, 0);
-  }
-
-  /**
-   * Turns a day's claims into lorries and books them.
-   *
-   * Feed and gas share a deck and are cut through the same queue the foresight
-   * planner uses, so the two modes load a vehicle by one rule rather than two.
-   * Bedding is sent for on its own — it is bulky and dirty and does not belong
-   * on a feed order — but it still fills the lorry that fetches it rather than
-   * riding out for a single bale.
-   */
-  private dispatch(
-    placedDay: number,
-    arrivesDay: number,
-    claims: readonly Claim[],
-    emergency: boolean,
-  ): SupplyOrder[] {
-    const { config } = this;
-    const premium = emergency ? 1 + config.feed.emergencyPremiumPct / 100 : 1;
-    const deck = Math.max(config.feed.truckCapacityKg, 1);
-    const orders: SupplyOrder[] = [];
-
-    const shared = claims.filter((claim) => claim.store !== "bedding");
-    const supplyTrips = tripsFor(
-      planLoads(shared, deck),
-      arrivesDay,
-      "supplies",
-      config.feed.deliveryCostPerTrip * premium,
-    );
-    if (supplyTrips.length > 0) {
-      orders.push(this.book(placedDay, arrivesDay, supplyTrips, emergency, premium));
-    }
-
-    const beddingTrips = tripsFor(
-      planLoads(
-        claims.filter((claim) => claim.store === "bedding"),
-        deck,
-      ),
-      arrivesDay,
-      "bedding",
-      config.housing.beddingDeliveryCost * premium,
-    );
-    if (beddingTrips.length > 0) {
-      orders.push(this.book(placedDay, arrivesDay, beddingTrips, emergency, premium));
-    }
-
-    return orders;
   }
 
   /** Writes an order into the books and holds it until the day it lands. */
@@ -588,19 +546,4 @@ export class Supplies {
     this.ordersPlaced += 1;
     return order;
   }
-}
-/**
- * Dresses the loads the shared planner cut as trips: the day they land, what
- * they are, and the journey they cost. The cost is per lorry and not per
- * kilogram, which is the whole reason the planner works to fill one.
- */
-function tripsFor(loads: readonly Load[], day: number, kind: TripKind, tripCost: number): Trip[] {
-  return loads.map((load) => ({
-    day,
-    neededFromDay: day,
-    kind,
-    payloadKg: load.payloadKg,
-    cost: tripCost,
-    lines: load.lines,
-  }));
 }

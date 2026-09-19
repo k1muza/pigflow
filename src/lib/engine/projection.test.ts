@@ -58,7 +58,7 @@ describe("Either engine produces the plan the product reads", () => {
     );
   }, 60_000);
 
-  it("warns about the things only 2.0 can see", () => {
+  it("records housing pressure without enforcing it", () => {
     const cramped = plan((c) => {
       c.project.engine = "2.0";
       c.stock.sows = 12;
@@ -69,7 +69,9 @@ describe("Either engine produces the plan the product reads", () => {
       c.housing.growerPlaces = 16;
       c.housing.finisherPlaces = 20;
     });
-    const titles = calculateProjection(cramped).warnings.map((warning) => warning.title);
-    expect(titles).toContain("Housing is holding the farm back");
+    const projection = calculateProjection(cramped);
+    const titles = projection.warnings.map((warning) => warning.title);
+    expect(titles).not.toContain("Housing is holding the farm back");
+    expect(projection.months.some((month) => month.housingPeak !== undefined)).toBe(true);
   }, 60_000);
 });

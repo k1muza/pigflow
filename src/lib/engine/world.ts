@@ -16,6 +16,13 @@ import type { Variation } from "../sim/variation";
 import { EventLog, type DomainEvent, type EventType, type Posting } from "./events";
 import { Housing, ROOM_IDS, type RoomId, type RoomLevel } from "./housing";
 import { Batches } from "./batches";
+import { observeFarm } from "./planning/observe";
+import {
+  policyFor,
+  type ProcurementDecision,
+  type ProcurementPlanningContext,
+  type ProcurementPolicy,
+} from "./planning/procurement";
 import { Supplies } from "./procurement";
 
 /**
@@ -55,7 +62,10 @@ export type Policies = {
  */
 export function policiesFor(config: PlannerConfig): Policies {
   return {
-    enforceHousing: config.housing.enforceCapacity,
+    // Capacity enforcement is paused in production. The subsystem remains
+    // available through EngineOptions policy overrides for development and
+    // modelling tests, but ordinary V2 runs only report occupancy.
+    enforceHousing: false,
     enforceEstrusWindows: config.reproduction.enforceEstrusWindows,
     operationalProcurement: config.feed.procurementMode === "operational",
     accrualAccounting: config.finance.accrualAccounting,
@@ -360,6 +370,8 @@ export class World {
   /** The pens the farm moves and sells by, and what they were split from. */
   readonly batches = new Batches();
   readonly supplies: Supplies;
+  /** The rule that decides what the farm buys, and when. */
+  readonly procurement: ProcurementPolicy;
   readonly mortality: MortalityScheduler;
   readonly variation: Variation;
   readonly haulage: HaulagePlan;
@@ -394,6 +406,13 @@ export class World {
   pigSequence = 0;
   /** Set for the day by the nutrition system, read by the growth system. */
   vaccinationSchedule: PlannerConfig["health"]["vaccinations"];
+  /**
+   * The last procurement decision the log reported, so an identical "no order"
+   * is not written out every morning of a three-year plan.
+   */
+  lastProcurementDecision: ProcurementDecision | null = null;
+  /** The day the planner last said it expected to send the next load. */
+  expectedNextDispatchDay: number | null = null;
 
   constructor(init: {
     config: PlannerConfig;
@@ -414,6 +433,7 @@ export class World {
       init.policies.operationalProcurement,
       init.policies.accrualAccounting,
     );
+    this.procurement = policyFor(init.config);
     this.mortality = new MortalityScheduler(init.config);
     this.log = new EventLog(init.eventLimit);
     this.vaccinationSchedule = [...init.config.health.vaccinations].sort(
@@ -424,6 +444,27 @@ export class World {
       if (sameDay) sameDay.push(trip);
       else this.deliveriesByDay.set(trip.day, [trip]);
     }
+  }
+
+  /**
+   * The farm as the procurement planner is allowed to see it: the stores as
+   * they stand, and an expected picture of the herd built by walking it.
+   *
+   * Nothing here is a reference into the world. That is the point — a policy
+   * given this context cannot reach a scheduled death, a pending random draw or
+   * any other fact today's farm has no way of knowing.
+   */
+  procurementContext(day: number): ProcurementPlanningContext {
+    return {
+      // The demand forecaster must use the policy the world is actually
+      // running, not a stale experimental flag retained in an in-memory plan.
+      config: {
+        ...this.config,
+        housing: { ...this.config.housing, enforceCapacity: this.policies.enforceHousing },
+      },
+      stores: this.supplies.snapshot(day, this.ledger.cash),
+      farm: observeFarm(day, { sows: this.sows, boars: this.boars, pigs: this.pigs }),
+    };
   }
 
   dateOf(day: number): Date {

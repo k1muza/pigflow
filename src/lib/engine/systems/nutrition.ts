@@ -5,7 +5,7 @@ import { STORE_LABELS } from "../../sim/farm";
 import { emptyRations } from "../../sim/haulage";
 import { zeroStores, type StoreQuantities } from "../procurement";
 import type { World } from "../world";
-import { RATION_CATEGORY } from "./procurement";
+import { RATION_CATEGORY, runEmergencyProcurement } from "./procurement";
 
 /**
  * The nutrition system: what the herd asks for, what the stores can actually
@@ -273,13 +273,7 @@ export function runNutrition(world: World): void {
 
   // A store that ran dry today is sent for now, at a premium, and still takes a
   // day to come. That day is what a thin ordering policy really costs.
-  for (const order of supplies.emergency(day, shortfall)) {
-    world.emit(
-      "OrderPlaced",
-      "Emergency order placed for delivery day " + order.arrivesDay,
-      { cause: "store empty", changes: { arrivesDay: order.arrivesDay } },
-    );
-  }
+  runEmergencyProcurement(world, shortfall);
 
   const restricted = world.pigs.filter((pig) => pig.alive && pig.intakeFactor < 1).length;
   if (restricted > 0) {

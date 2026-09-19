@@ -43,6 +43,9 @@ export type EventType =
   | "CrowdingDeathsScheduled"
   | "WeanedEarlyForSpace"
   // nutrition and stores
+  | "ProcurementPlanRecalculated"
+  | "ProcurementDispatchAdvanced"
+  | "ProcurementPlanConstrained"
   | "OrderPlaced"
   | "DeliveryReceived"
   | "InvoiceRaised"

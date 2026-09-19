@@ -150,14 +150,11 @@ export const plannerSchema = z.object({
     growerPlaces: z.number().int().min(1).max(100_000),
     finisherPlaces: z.number().int().min(1).max(100_000),
     /**
-     * Whether those places are a wall or a note on a dashboard. On, a batch
-     * that has outgrown its room has to be given somewhere to go before it can
-     * leave: if the next room is full the batch stays where it is, that room
-     * carries it over its own places, and the pressure works its way back up
-     * the farm. Off restores the old behaviour, where capacity was reported and
-     * nothing on the farm was constrained by it.
+     * Reserved switch for the experimental constrained-housing subsystem.
+     * Production plans currently force this off: places are reported against
+     * occupancy but do not block movement between stages.
      */
-    enforceCapacity: z.boolean().default(true),
+    enforceCapacity: z.boolean().default(false),
     /**
      * Daily gain lost when a room holds twice the stock it has places for.
      * Crowded pigs eat less, lie worse and fight more. The loss is read off the
@@ -370,6 +367,40 @@ export const plannerSchema = z.object({
      * logistics can reach, rather than a simulation of them.
      */
     procurementMode: z.enum(["foresight", "operational"]).default("operational"),
+    /**
+     * Which operating policy places the orders, once the farm is buying
+     * operationally at all.
+     *
+     * "reorder-point" is the rule the farm has always run on: a store whose
+     * cover has fallen to the reorder point sends a lorry, and everything close
+     * behind it rides along. It reads the herd's appetite off the last week of
+     * consumption and nothing else, so it cannot see a farrowing coming.
+     *
+     * "rolling-cover" forecasts what the farm standing here today will eat and
+     * buys every compatible store up to one common date, replanned every
+     * morning from what actually happened.
+     */
+    operationalPolicy: z.enum(["reorder-point", "rolling-cover"]).default("reorder-point"),
+    /**
+     * Days of cover the rolling policy buys every store up to, counted from the
+     * day the load lands. It is deliberately not {@link targetCoverDays}: that
+     * figure belongs to the reorder-point rule, and a plan already drawn on it
+     * has to keep the results it has.
+     */
+    rollingTargetCoverDays: z.number().int().min(14).max(180).default(90),
+    /**
+     * The floor a store is bought down to rather than to nothing. On the common
+     * target date each store should still be standing on this many days of
+     * feed, so the ordinary difference between a forecast and a farm does not
+     * become a shortage.
+     */
+    safetyCoverDays: z.number().int().min(0).max(30).default(3),
+    /**
+     * Loads the farm can take in on one day — the supplier's throughput and the
+     * yard's, which is not the same thing as what one lorry carries. An order
+     * needing more journeys than this spills onto the following days.
+     */
+    maxSupplyTripsPerDay: z.number().int().min(1).max(100).default(3),
     /** Days of cover at which an order is placed. */
     reorderCoverDays: z.number().int().min(1).max(120).default(7),
     /** Days of cover an order is sized to bring the store back up to. */
@@ -672,7 +703,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     beddingLoadKg: 1_000,
     beddingDeliveryCost: 40,
     beddingStoreKg: 2_000,
-    enforceCapacity: true,
+    enforceCapacity: false,
     crowdingGainPenaltyPct: 35,
     crowdingMortalityPenaltyPct: 100,
   },
@@ -733,6 +764,10 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     deliveryCostPerTrip: 60,
     feedBufferDays: 7,
     procurementMode: "operational",
+    operationalPolicy: "reorder-point",
+    rollingTargetCoverDays: 90,
+    safetyCoverDays: 3,
+    maxSupplyTripsPerDay: 3,
     reorderCoverDays: 7,
     targetCoverDays: 21,
     deliveryLeadDays: 3,
@@ -840,6 +875,10 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
       finisherPlaces: Math.max(1, Math.ceil(maxSows * 5.52)),
     };
   }
+  // Housing remains a planning read-out for now. Stored V2 plans may contain
+  // the former experimental switch set to true; do not silently reactivate the
+  // upstream queue when those plans are opened under the observation-only model.
+  merged.housing.enforceCapacity = false;
   const parsed = plannerSchema.safeParse(merged);
   return parsed.success ? parsed.data : null;
 }

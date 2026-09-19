@@ -44,16 +44,19 @@ describe("Every page reads the engine the plan is set to", () => {
   }, 60_000);
 
   it("shows the 2.0 farm rather than the 1.x one behind it", () => {
-    // The two engines genuinely disagree on this plan, which is the point: the
-    // 2.0 one holds pigs it has nowhere to finish. Before, the timeline showed
-    // the 1.x answer whatever the plan said, so the disagreement was invisible
-    // and the cashflow page was the only thing telling the truth.
+    // Housing is observation-only for now, so sales need not differ. Stores and
+    // accrual accounting still make this a genuinely different run: before,
+    // the timeline showed 1.x cash whatever engine the plan selected.
     const config = tightPlan("2.0");
-    const sold = (timeline: ReturnType<typeof planTimeline>) =>
-      timeline.months.reduce((total, month) => total + month.sold, 0);
+    const timeline = planTimeline(config);
+    const legacy = farmTimeline(config);
 
-    expect(sold(planTimeline(config))).not.toBe(sold(farmTimeline(config)));
-    expect(sold(planTimeline(config))).toBe(
+    expect(
+      timeline.months.some(
+        (month, index) => Math.abs(month.closingCash - legacy.months[index].closingCash) > 0.01,
+      ),
+    ).toBe(true);
+    expect(timeline.months.reduce((total, month) => total + month.sold, 0)).toBe(
       calculateProjection(config).summary.totalPigsSold,
     );
   }, 60_000);
@@ -90,12 +93,12 @@ describe("Every page reads the engine the plan is set to", () => {
     const events = planEventLog(tightPlan("2.0"));
     expect(events.length).toBeGreaterThan(0);
 
-    // Housing lines exist at all, which they cannot in a 1.x log of this plan.
-    const capacity = events.filter((event) => event.type === "capacity");
-    expect(capacity.length).toBeGreaterThan(0);
+    // Procurement decisions exist in 2.0 and carry their cause into the log.
+    const purchases = events.filter((event) => event.type === "purchase");
+    expect(purchases.length).toBeGreaterThan(0);
     // And a 2.0 event carries its cause into the sentence, which is the half the
     // 1.x log never had: what happened, and why the plan did it.
-    expect(capacity.some((event) => event.message.includes(" — "))).toBe(true);
+    expect(purchases.some((event) => event.message.includes(" — "))).toBe(true);
 
     const kinds = new Set(events.map((event) => event.type));
     expect(kinds.has("farrowing")).toBe(true);

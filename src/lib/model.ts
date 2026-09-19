@@ -70,6 +70,13 @@ export type MonthlyProjection = {
    * arrived and went inside the month, and it is the peak that has to be housed.
    */
   peakHead: number;
+  /** V2's highest recorded room census in the month; absent on 1.x records. */
+  housingPeak?: {
+    farrowing: number;
+    weaner: number;
+    grower: number;
+    finisher: number;
+  };
   /** Stockpeople the herd needs at the end of the month. */
   workers: number;
   sowFeedKg: number;
@@ -248,6 +255,12 @@ export function getModelMetrics(config: PlannerConfig) {
 export type BookedDayRecord = DayRecord & {
   cashTotals?: CategoryTotals;
   payables?: number;
+  occupancy?: {
+    farrowing: number;
+    weaner: number;
+    grower: number;
+    finisher: number;
+  };
 };
 
 export function summariseMonth(
@@ -314,6 +327,19 @@ export function summariseMonth(
     month.lorriesIn += day.lorriesIn;
     month.feedDeliveredKg += day.feedDeliveredKg;
     month.peakHead = Math.max(month.peakHead, day.counts.total);
+    if (day.occupancy) {
+      const peak = month.housingPeak ?? {
+        farrowing: 0,
+        weaner: 0,
+        grower: 0,
+        finisher: 0,
+      };
+      peak.farrowing = Math.max(peak.farrowing, day.occupancy.farrowing);
+      peak.weaner = Math.max(peak.weaner, day.occupancy.weaner);
+      peak.grower = Math.max(peak.grower, day.occupancy.grower);
+      peak.finisher = Math.max(peak.finisher, day.occupancy.finisher);
+      month.housingPeak = peak;
+    }
     addTotals(totals, day.totals);
     addTotals(cashTotals, cashTotalsOf(day));
   }

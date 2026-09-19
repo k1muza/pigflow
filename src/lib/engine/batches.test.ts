@@ -18,6 +18,9 @@ const DAYS = 1_000;
 
 function plan(tweak: (input: PlannerConfig) => void = () => {}): PlannerConfig {
   const input = cloneDefaultConfig();
+  // The housing subsystem is intentionally opt-in while production runs report
+  // capacity without enforcing it. These tests exercise that subsystem itself.
+  input.housing.enforceCapacity = true;
   input.project.months = 36;
   input.project.variation = "settled";
   input.stock.sows = 20;
@@ -29,7 +32,10 @@ function plan(tweak: (input: PlannerConfig) => void = () => {}): PlannerConfig {
 
 function withFinisherPlaces(places: number) {
   const input = plan((config) => (config.housing.finisherPlaces = places));
-  return { input, run: runEngine(input, DAYS) };
+  return {
+    input,
+    run: runEngine(input, DAYS, { policies: { enforceHousing: true } }),
+  };
 }
 
 describe("Finishing places are a ceiling on what the farm can sell", () => {
@@ -126,7 +132,7 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
       config.housing.growerPlaces = 1;
       config.housing.finisherPlaces = 400;
     });
-    const engine = new Engine(input);
+    const engine = new Engine(input, { policies: { enforceHousing: true } });
     const standing = new Map<string, string>();
     let skipped = 0;
     let toGrower = 0;
@@ -191,7 +197,7 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
       config.housing.growerPlaces = 2_000;
       config.housing.finisherPlaces = 1;
     });
-    const run = runEngine(input, DAYS);
+    const run = runEngine(input, DAYS, { policies: { enforceHousing: true } });
     const live = run.world.pigs.filter((pig) => pig.alive);
 
     // The queue is real and long — this is a farm with one finishing place.
@@ -215,8 +221,10 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
       config.housing.growerPlaces = 800;
       config.housing.finisherPlaces = 800;
     });
-    const withCurve = runEngine(roomy, DAYS);
-    const without = runEngine(roomy, DAYS, { policies: { matureGrowthCurve: false } });
+    const withCurve = runEngine(roomy, DAYS, { policies: { enforceHousing: true } });
+    const without = runEngine(roomy, DAYS, {
+      policies: { enforceHousing: true, matureGrowthCurve: false },
+    });
 
     expect(withCurve.lifetime.sold).toBe(without.lifetime.sold);
     // Feed moves by 350 kg in 377 tonnes — a tenth of a percent. A pen goes when

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
-import { horizonDay } from "../sim";
+import { Farm, horizonDay } from "../sim";
 import { compareEngines, migrationReport } from "./parity";
 import { LEGACY_POLICIES } from "./world";
 import { runEngine } from "./engine";
@@ -68,6 +68,45 @@ describe("The 2.0 engine reproduces the 1.x farm when nothing new is switched on
     );
     expect(report.divergences).toEqual([]);
   });
+
+  it("matches every daily stage count, including weaners", () => {
+    const input = plan((c) => {
+      c.project.variation = "settled";
+      c.stock.sows = 12;
+      c.herd.startMode = "staggered";
+      c.project.months = 36;
+    });
+    const through = horizonDay(input);
+    const baseline = new Farm(input).advanceTo(through);
+    const candidate = runEngine(input, through, { policies: LEGACY_POLICIES });
+
+    expect(candidate.history).toHaveLength(baseline.history.length);
+    for (const [index, day] of baseline.history.entries()) {
+      const counts = candidate.history[index].counts;
+      expect(counts.weaners, "weaners on day " + day.day).toBe(day.counts.weaners);
+      expect(counts.growers, "growers on day " + day.day).toBe(day.counts.growers);
+      expect(counts.finishers, "finishers on day " + day.day).toBe(day.counts.finishers);
+    }
+  }, 60_000);
+});
+
+describe("Housing capacity is observation-only in production", () => {
+  it("ignores the former stored switch and never blocks a movement", () => {
+    const input = plan((c) => {
+      c.project.variation = "settled";
+      c.stock.sows = 12;
+      c.herd.startMode = "staggered";
+      c.housing.enforceCapacity = true;
+      c.housing.weanerPlaces = 5;
+      c.housing.growerPlaces = 5;
+      c.housing.finisherPlaces = 5;
+    });
+    const run = runEngine(input, horizonDay(input));
+
+    expect(run.policies.enforceHousing).toBe(false);
+    expect(run.lifetime.movementsBlocked).toBe(0);
+    expect(run.lifetime.heldAtSaleWeightDays).toBe(0);
+  }, 60_000);
 });
 
 describe("Each 2.0 subsystem is migrated on its own", () => {

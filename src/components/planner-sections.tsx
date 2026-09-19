@@ -505,17 +505,21 @@ export function Overview({
     finishers: config.housing.finisherPlaces,
     sows: config.herd.maxSows,
   };
+  const housingPct = (occupants: number, places: number) =>
+    places > 0 ? Math.round((occupants / places) * 100) : 0;
+  const usesRecordedHousing = config.project.engine === "2.0";
   const housingData = months.map((row) => {
     const farrowingPlaces = row.days > 0
       ? (row.farrowings * (config.reproduction.weaningAgeDays + 7)) / row.days
       : 0;
+    const recorded = row.housingPeak;
     return {
       label: row.month,
-      farrowing: Math.round((farrowingPlaces / housingCapacity.farrowing) * 100),
-      weaners: Math.round((row.weaners / housingCapacity.weaners) * 100),
-      growers: Math.round((row.growers / housingCapacity.growers) * 100),
-      finishers: Math.round((row.finishers / housingCapacity.finishers) * 100),
-      sows: Math.round((row.sows / housingCapacity.sows) * 100),
+      farrowing: housingPct(recorded?.farrowing ?? farrowingPlaces, housingCapacity.farrowing),
+      weaners: housingPct(recorded?.weaner ?? row.weaners, housingCapacity.weaners),
+      growers: housingPct(recorded?.grower ?? row.growers, housingCapacity.growers),
+      finishers: housingPct(recorded?.finisher ?? row.finishers, housingCapacity.finishers),
+      sows: housingPct(row.sows, housingCapacity.sows),
     };
   });
 
@@ -833,7 +837,11 @@ export function Overview({
       <div className="order-5 grid gap-5 xl:grid-cols-2">
         <Panel
           title="Housing pressure"
-          description="Estimated places used against the capacities entered under Farm inputs. Above 100% signals a likely bottleneck; growing-space limits are not yet enforced."
+          description={
+            usesRecordedHousing
+              ? "Peak daily room occupancy against entered capacity. Capacity is shown for planning and is not currently enforced."
+              : "Estimated places used against entered capacity. Switch to the 2.0 engine for recorded daily room occupancy."
+          }
         >
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -1963,11 +1971,11 @@ export function FarmInputs({
             onChange={(v) => update("project", "engine", v)}
             options={[
               { value: "1.x", label: "1.x — the established model" },
-              { value: "2.0", label: "2.0 — housing, stores and heats simulated" },
+              { value: "2.0", label: "2.0 — stores, heats and events simulated" },
             ]}
             hint={
               config.project.engine === "2.0"
-                ? "Places are a constraint rather than a note: a pen with nowhere to go stays where it is, a store can run dry, a heat can be missed, and feed bought on terms is owed for. Every page reads the same run — the cashflow, the simulator, the timeline and the exported log."
+                ? "Housing occupancy is recorded but does not currently block animal movement. Stores can run dry, heats can be missed, and feed bought on terms is owed for. Every page reads the same run — the cashflow, the simulator, the timeline and the exported log."
                 : "One daily procedure, every input a rate, housing and stores reported rather than simulated. This is the model the product has always run on and what a 2.0 plan is read against."
             }
           />

@@ -39,7 +39,7 @@ export function runHousingCensus(world: World): void {
     world.record.animalDaysOverCapacity += over;
     world.lifetime.animalDaysOverCapacity += over;
   }
-  if (world.record.animalDaysOverCapacity > 0) {
+  if (world.housing.enforced && world.record.animalDaysOverCapacity > 0) {
     world.emit(
       "RoomOverCapacity",
       world.record.animalDaysOverCapacity + " animal-days over the places today",

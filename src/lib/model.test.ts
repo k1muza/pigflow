@@ -269,4 +269,11 @@ describe("Plans saved before a field existed still load", () => {
     expect(withConfigDefaults(null)).toBeNull();
     expect(withConfigDefaults({ project: { months: -4 } })).toBeNull();
   });
+
+  it("opens plans saved with experimental housing enforcement in observation-only mode", () => {
+    const stored = cloneDefaultConfig();
+    stored.housing.enforceCapacity = true;
+
+    expect(withConfigDefaults(stored)?.housing.enforceCapacity).toBe(false);
+  });
 });
