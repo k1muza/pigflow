@@ -16,16 +16,11 @@ import { forecastDemand, type DemandForecastResult, type ExpectedFarmState } fro
  * So the decision is now a value. A policy is handed an immutable picture of the
  * farm — the stores as they stand, the herd as it stands, the configuration —
  * and returns what it would do. Booking it is somebody else's job. Two things
- * follow: the existing reorder rule and the rolling planner become the same kind
- * of object and are interchangeable, and a decision can be asserted on in a test
- * without a `World`, a ledger or a day being run.
+ * follow: two quite different ordering rules become the same kind of object and
+ * are interchangeable, and a decision can be asserted on in a test without a
+ * `World`, a ledger or a day being run.
  *
- * Three operational policies live here.
- *
- * {@link ReorderPointProcurementPolicy} is the farm's existing behaviour, lifted
- * out of the stores without a figure moving and held to that by a parity test.
- * Cover is read off the last week's consumption; a store that has fallen to the
- * reorder point sends a lorry; everything close behind rides along.
+ * Two operational policies live here.
  *
  * {@link RollingCoverProcurementPolicy} is the earlier fixed-cover experiment:
  * it forecasts what the herd standing here today will eat and buys compatible
@@ -36,7 +31,7 @@ import { forecastDemand, type DemandForecastResult, type ExpectedFarmState } fro
  * package goes to whichever compatible store would otherwise become risky first.
  */
 
-export type OperationalProcurementPolicy = "reorder-point" | "rolling-cover" | "balanced-load";
+export type OperationalProcurementPolicy = "rolling-cover" | "balanced-load";
 
 /** Kilograms below which a remainder is not worth ordering. */
 const CRUMB_KG = 1e-6;
@@ -71,6 +66,31 @@ const SPILL_SLACK_DAYS = 14;
 const BALANCED_RISK_LOOKAHEAD_DAYS = 1;
 const BALANCED_ALLOCATION_LOOKAHEAD_DAYS = 180;
 
+/**
+ * The balanced policy's numbers, as values rather than as constants baked into
+ * it.
+ *
+ * These are not settings a farm should be asked about — they describe how far
+ * ahead the allocator looks and how finely it shares a deck out, which is the
+ * policy's own business. They are named here so the tuning bench can vary them
+ * against V1 foresight and so the figure that wins can be committed as the
+ * default, rather than the whole thing being a magic number nobody may question.
+ */
+export type BalancedLoadTuning = {
+  /** Days past the lead time and safety window the daily risk check looks. */
+  riskLookAheadDays: number;
+  /** How far the allocator may rank stores once a deck is being filled. */
+  allocationLookAheadDays: number;
+  /** Notional sack size loose feed is shared out in. */
+  looseStepKg: number;
+};
+
+export const BALANCED_LOAD_TUNING: BalancedLoadTuning = {
+  riskLookAheadDays: BALANCED_RISK_LOOKAHEAD_DAYS,
+  allocationLookAheadDays: BALANCED_ALLOCATION_LOOKAHEAD_DAYS,
+  looseStepKg: LOOSE_STEP_KG,
+};
+
 export type StoreQuantities = Record<StoreId, number>;
 
 export function zeroStores(): StoreQuantities {
@@ -104,12 +124,6 @@ export type ProcurementSnapshot = {
   /** What each store's goods come in — bags, canisters, loads, or 0 for loose. */
   unitKg: StoreQuantities;
   listPrices: StoreQuantities;
-  /**
-   * What the herd has drawn on each store lately, per day. It is the whole of
-   * the reorder rule's knowledge of appetite, and the rolling planner does not
-   * read it at all — which is the difference between the two policies.
-   */
-  recentDailyKg: StoreQuantities;
   pendingOrders: readonly PendingOrderView[];
   duePayments: readonly PendingPaymentView[];
   cash: number;
@@ -329,167 +343,6 @@ function costOf(
     projectedMinimumCash: lowest,
     additionalFundingRequired: Math.max(0, stores.workingCapitalTarget - lowest),
   };
-}
-
-function roomIn(stores: ProcurementSnapshot, store: StoreId): number {
-  return Math.max(0, stores.capacities[store] - stores.held[store] - stores.onOrder[store]);
-}
-
-// ------------------------------------------------------ the reorder-point rule
-
-/**
- * The rule the farm has always run on, lifted out of the stores and put behind
- * the policy interface without a figure moving.
- *
- * Each store says how long what is in it and already coming will last at the
- * rate the herd has been going through it. A store that has fallen far enough to
- * run out before a load ordered today could land is due, and one due store is
- * what sends a lorry. Everything else then queues for the space that order left
- * on the deck, in the same order of cover, and rides along for nothing.
- *
- * It has one blind spot, and it is the reason the rolling policy exists: the
- * only thing it knows about appetite is the last week of it. A farrowing due on
- * Friday is invisible to it until the sows have eaten through Saturday.
- */
-export class ReorderPointProcurementPolicy implements ProcurementPolicy {
-  readonly id = "reorder-point" as const;
-
-  constructor(private readonly forecaster: Forecaster = forecastDemand) {}
-
-  decide(context: ProcurementPlanningContext): ProcurementDecision {
-    const { config, stores } = context;
-    const { feed } = config;
-    const reorderAt = Math.max(feed.reorderCoverDays, 1);
-    const target = Math.max(feed.targetCoverDays, reorderAt + 1);
-    const forecastDays = feed.deliveryLeadDays + target + feed.safetyCoverDays;
-    const forecast = this.forecaster(
-      context.farm,
-      config,
-      stores.day + Math.max(0, forecastDays - 1),
-    );
-
-    const claims: Claim[] = [];
-    for (const store of STORE_IDS) {
-      const room = roomIn(stores, store);
-      if (room <= CRUMB_KG) continue;
-      const rate = stores.recentDailyKg[store];
-      const position = stores.held[store] + stores.onOrder[store];
-      const curve = forecast.demandKg[store];
-      const protectedDemand = curve
-        .slice(0, feed.deliveryLeadDays + feed.safetyCoverDays)
-        .reduce((sum, kg) => sum + kg, 0);
-      const targetDemand = curve
-        .slice(0, feed.deliveryLeadDays + target)
-        .reduce((sum, kg) => sum + kg, 0);
-      // A store the herd is not drawing on never runs out, so it is never due —
-      // but it can still be topped up when a lorry is going anyway.
-      const cover = rate > CRUMB_KG ? position / rate : Number.POSITIVE_INFINITY;
-      // A supplier will not send a lorry for a handful, so a small order rounds
-      // up — but never past what there is room to put away.
-      const need = Math.max(
-        targetDemand - position,
-        rate * target - position,
-        Math.min(feed.minimumOrderKg, room),
-      );
-      // A store cannot hold a buffer bigger than itself. One that tries to — a
-      // gas yard holding less than a week of gas against a week's reorder point
-      // — is inside its own reorder point every morning of its life and sends
-      // for a lorry the moment there is room for one bottle. So the point is
-      // also held to what leaves a decent run between deliveries.
-      const fullCover =
-        rate > CRUMB_KG ? stores.capacities[store] / rate : Number.POSITIVE_INFINITY;
-      const sendAt = Math.min(reorderAt, Math.max(0, fullCover - reorderAt));
-      claims.push({
-        store,
-        coverDays: cover,
-        // Cover has to carry the herd until a load ordered today could land.
-        due:
-          position <= protectedDemand + CRUMB_KG ||
-          cover <= sendAt + feed.deliveryLeadDays,
-        needKg: Math.max(0, need),
-        maxKg: room,
-        unitKg: stores.unitKg[store],
-      });
-    }
-
-    const arrivesDay = stores.day + feed.deliveryLeadDays;
-    const trips = planTrips(config, claims, arrivesDay, false);
-    if (trips.length === 0) {
-      return emptyDecision(stores.day, this.id, "no store has fallen to its reorder point");
-    }
-    return this.book(context, trips, arrivesDay, false, "cover fell to the reorder point");
-  }
-
-  decideEmergency(
-    context: ProcurementPlanningContext,
-    shortfall: Partial<StoreQuantities>,
-  ): ProcurementDecision {
-    const { config, stores } = context;
-    const { feed } = config;
-    const cover = Math.max(feed.reorderCoverDays, 1);
-    const claims: Claim[] = [];
-    for (const store of STORE_IDS) {
-      const room = roomIn(stores, store);
-      if (room <= CRUMB_KG) continue;
-      const short = shortfall[store] ?? 0;
-      const rate = stores.recentDailyKg[store];
-      const position = stores.held[store] + stores.onOrder[store];
-      claims.push({
-        store,
-        coverDays: rate > CRUMB_KG ? position / rate : Number.POSITIVE_INFINITY,
-        // Only a store that actually ran short is a reason to pay the premium.
-        due: short > CRUMB_KG,
-        needKg: Math.max(short, rate * cover),
-        maxKg: room,
-        unitKg: stores.unitKg[store],
-      });
-    }
-    const arrivesDay = stores.day + feed.emergencyLeadDays;
-    const trips = planTrips(config, claims, arrivesDay, true);
-    if (trips.length === 0) return emptyDecision(stores.day, this.id, "no store ran short");
-    return this.book(context, trips, arrivesDay, true, "store empty");
-  }
-
-  private book(
-    context: ProcurementPlanningContext,
-    trips: readonly Trip[],
-    arrivesDay: number,
-    emergency: boolean,
-    reason: string,
-  ): ProcurementDecision {
-    const { stores } = context;
-    const kgByStore = zeroStores();
-    for (const trip of trips) for (const line of trip.lines) kgByStore[line.store] += line.kg;
-    const lines: PlannedOrderLine[] = STORE_IDS.filter(
-      (store) => kgByStore[store] > CRUMB_KG,
-    ).map((store) => {
-      const unit = stores.unitKg[store];
-      const rate = stores.recentDailyKg[store];
-      const standing = stores.held[store] + stores.onOrder[store];
-      return {
-        store,
-        kg: kgByStore[store],
-        units: unit > 0 ? Math.round(kgByStore[store] / unit) : kgByStore[store],
-        projectedExhaustionDayBefore:
-          rate > CRUMB_KG ? stores.day + Math.floor(standing / rate) : null,
-        projectedExhaustionDayAfter:
-          rate > CRUMB_KG ? stores.day + Math.floor((standing + kgByStore[store]) / rate) : null,
-      };
-    });
-    return {
-      day: stores.day,
-      policy: this.id,
-      dispatch: emergency ? "emergency" : "normal",
-      arrivesDay,
-      targetDay: null,
-      lines,
-      trips: [...trips],
-      constrainedStores: [],
-      nextDispatchDay: null,
-      reason,
-      ...costOf(context, trips, emergency, arrivesDay + context.config.feed.targetCoverDays),
-    };
-  }
 }
 
 // ------------------------------------------------------------ the rolling plan
@@ -993,15 +846,35 @@ export class RollingCoverProcurementPolicy implements ProcurementPolicy {
 
 /**
  * Loads one deck by the max-min rule: the next package goes to whichever store
- * is covered for the shortest time on what it has been given so far.
+ * is covered for the shortest time on what it has been given so far, settled by
+ * store order where two are level. That tie-break is the whole of the
+ * determinism guarantee for this step.
  *
- * Protection comes first — every store on the queue has to be safe from the day
- * the lorry lands through its safety period before any of them is topped up
- * towards ninety days — and after that it is one queue, strictly by the date
- * each store would next touch its floor, settled by store order where two are
- * level. That tie-break is the whole of the determinism guarantee for this step.
+ * There is one queue and it starts from the first bag. There used to be two: a
+ * protection pass that carried each store past its safety period in turn, and
+ * then the balancing pass. The protection pass is not needed, because balancing
+ * already does the same work — the next package goes to the store with the
+ * earliest floor date, and every store on the deck shares one protection date,
+ * so no store is extended materially past that date while another is still
+ * short of it.
+ *
+ * What the protection pass added was an order of service: it filled the most
+ * urgent store to its floor before the next store got anything, so a deck that
+ * could not hold everything left the early stores safe and the late ones
+ * untouched. Balancing spreads the same shortfall across all of them instead,
+ * which is the better failure — the deck is short because another lorry is owed,
+ * and a farm waiting for it is better off with every bin equally low than with
+ * some full and one empty.
+ *
+ * `protectKg` is therefore no longer an allocation input. It survives as the
+ * test the caller applies to the finished deck, to decide whether that further
+ * lorry has to go.
  */
-function fillDeck(positions: readonly StorePosition[], deck: number): Map<StoreId, number> {
+function fillDeck(
+  positions: readonly StorePosition[],
+  deck: number,
+  looseStepKg: number = LOOSE_STEP_KG,
+): Map<StoreId, number> {
   const load = new Map<StoreId, number>();
   let deckLeft = deck;
 
@@ -1013,23 +886,8 @@ function fillDeck(positions: readonly StorePosition[], deck: number): Map<StoreI
     deckLeft -= step;
   };
   const stepFor = (position: StorePosition, want: number) =>
-    position.unitKg > 0 ? position.unitKg : Math.min(LOOSE_STEP_KG, want);
+    position.unitKg > 0 ? position.unitKg : Math.min(looseStepKg, want);
 
-  // ---- the lead time and the safety period ---------------------------------
-  const queue = [...positions].sort(
-    (a, b) =>
-      coverIndex(a, 0) - coverIndex(b, 0) ||
-      STORE_IDS.indexOf(a.store) - STORE_IDS.indexOf(b.store),
-  );
-  for (const position of queue) {
-    while (got(position) + CRUMB_KG < position.protectKg) {
-      const step = stepFor(position, position.protectKg - got(position));
-      if (step <= CRUMB_KG || !fits(position, step)) break;
-      give(position, step);
-    }
-  }
-
-  // ---- then extend the least-covered store towards the caller's horizon ----
   for (;;) {
     let best: StorePosition | null = null;
     let bestCover = Number.POSITIVE_INFINITY;
@@ -1040,6 +898,9 @@ function fillDeck(positions: readonly StorePosition[], deck: number): Map<StoreI
       const step = stepFor(position, position.targetKg - have);
       if (step <= CRUMB_KG || !fits(position, step)) continue;
       const cover = coverIndex(position, have);
+      // Strictly less than, so the store-order tie-break stands: `positions`
+      // is walked in store order and the first store at the earliest floor date
+      // keeps the package.
       if (best === null || cover < bestCover) {
         best = position;
         bestCover = cover;
@@ -1066,7 +927,14 @@ function fillDeck(positions: readonly StorePosition[], deck: number): Map<StoreI
 export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
   readonly id = "balanced-load" as const;
 
-  constructor(private readonly forecaster: Forecaster = forecastDemand) {}
+  private readonly tuning: BalancedLoadTuning;
+
+  constructor(
+    private readonly forecaster: Forecaster = forecastDemand,
+    tuning: Partial<BalancedLoadTuning> = {},
+  ) {
+    this.tuning = { ...BALANCED_LOAD_TUNING, ...tuning };
+  }
 
   decide(context: ProcurementPlanningContext): ProcurementDecision {
     const { config, stores } = context;
@@ -1075,7 +943,7 @@ export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
     const riskForecast = this.forecast(
       context,
       config.feed.deliveryLeadDays,
-      BALANCED_RISK_LOOKAHEAD_DAYS,
+      this.tuning.riskLookAheadDays,
     );
     const risk = this.riskCheck(context, riskForecast, config.feed.deliveryLeadDays);
 
@@ -1085,7 +953,7 @@ export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
         this.forecast(
           context,
           config.feed.emergencyLeadDays,
-          BALANCED_ALLOCATION_LOOKAHEAD_DAYS,
+          this.tuning.allocationLookAheadDays,
         ),
         risk.emergency,
         config.feed.emergencyLeadDays,
@@ -1099,7 +967,7 @@ export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
         this.forecast(
           context,
           config.feed.deliveryLeadDays,
-          BALANCED_ALLOCATION_LOOKAHEAD_DAYS,
+          this.tuning.allocationLookAheadDays,
         ),
         risk.normal,
         config.feed.deliveryLeadDays,
@@ -1131,7 +999,7 @@ export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
       this.forecast(
         context,
         context.config.feed.emergencyLeadDays,
-        BALANCED_ALLOCATION_LOOKAHEAD_DAYS,
+        this.tuning.allocationLookAheadDays,
       ),
       [...kinds],
       context.config.feed.emergencyLeadDays,
@@ -1221,72 +1089,128 @@ export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
     const committed: { arrivesDay: number; kg: number; store: StoreId }[] = [];
     const trips: Trip[] = [];
     const constrained = new Set<StoreId>();
+    /** What the deck currently being loaded could not cover, for this kind only. */
+    const kindConstrained = new Set<StoreId>();
     const before = new Map<StoreId, number | null>();
     const ordered = zeroStores();
 
     for (const kind of kinds) {
       const members = STORE_IDS.filter((store) => tripKindOf(store) === kind);
-      const positions = members.map((store) =>
-        positionOf(
-          store,
-          stores,
-          forecast,
-          committed,
-          leadDays,
-          feed.safetyCoverDays,
-          horizonTarget,
-        ),
-      );
+      const positionsNow = () =>
+        members.map((store) =>
+          positionOf(
+            store,
+            stores,
+            forecast,
+            committed,
+            leadDays,
+            feed.safetyCoverDays,
+            horizonTarget,
+          ),
+        );
 
+      kindConstrained.clear();
+      let positions = positionsNow();
       for (const position of positions) {
         before.set(position.store, position.riskIndex === null ? null : day + position.riskIndex);
       }
 
-      const eligible = positions.filter(
-        (position) => position.roomKg > CRUMB_KG && position.targetKg > CRUMB_KG,
-      );
-      if (eligible.length === 0) continue;
+      /**
+       * One deck is the ordinary answer, and on most farms it is the only one.
+       *
+       * It used to be the only answer allowed, on the reasoning that tomorrow's
+       * check would see today's committed load and justify the next lorry on its
+       * own merits. That holds only while one deck a day can outrun the herd. It
+       * cannot on a large one — two hundred sows eat rather more in a day than a
+       * 2.8 tonne lorry carries — and the farm then spends every morning one
+       * load behind, ordering at a premium and still running its bins dry. The
+       * policy was not making a bad trade in that case; it was unable to express
+       * the right one.
+       *
+       * Every deck is loaded the same way, by balancing from the first bag. What
+       * decides whether another one goes is the state the last one left behind:
+       * a further lorry is owed only while a compatible store still cannot be
+       * held through the lead time and its safety period, still has room to put
+       * a load away, and the deck that just went out was full. A deck that came
+       * back short is the proof that there was nothing more to load, and a half
+       * empty lorry is a journey paid for twice.
+       *
+       * Whether anything is still unprotected is read off the deck just filled
+       * rather than by projecting the stores again. `protectKg` is what a store
+       * needed before this lorry and `load` is what it got, so the comparison is
+       * the same one — and projecting every store over the whole forecast is far
+       * and away the most expensive thing this policy does. Recomputing costs a
+       * second full projection on every dispatch in the year, which is a real
+       * slowdown on a farm that never needs a second lorry.
+       */
+      const maxDecks = Math.max(1, feed.maxSupplyTripsPerDay);
+      for (let sent = 0; sent < maxDecks; sent += 1) {
+        const eligible = positions.filter(
+          (position) => position.roomKg > CRUMB_KG && position.targetKg > CRUMB_KG,
+        );
+        if (eligible.length === 0) break;
 
-      // Exactly one ordinary deck is allocated per kind in this morning's
-      // decision. If one truck is not enough, tomorrow's rolling check sees the
-      // committed load and can justify the next truck on its own merits.
-      const load = fillDeck(eligible, deck);
-      const payloadKg = [...load.values()].reduce((kg, line) => kg + line, 0);
-      if (payloadKg <= CRUMB_KG) continue;
+        const load = fillDeck(eligible, deck, this.tuning.looseStepKg);
+        const payloadKg = [...load.values()].reduce((kg, line) => kg + line, 0);
+        if (payloadKg <= CRUMB_KG) break;
 
-      const lines: TripLine[] = [];
-      for (const store of STORE_IDS) {
-        const kg = load.get(store) ?? 0;
-        if (kg <= CRUMB_KG) continue;
-        lines.push({ store, kg });
-        committed.push({ arrivesDay, kg, store });
-        ordered[store] += kg;
-      }
-      lines.sort((a, b) => b.kg - a.kg || a.store.localeCompare(b.store));
-      trips.push({
-        day: arrivesDay,
-        neededFromDay: arrivesDay,
-        kind,
-        payloadKg,
-        cost:
-          (kind === "bedding" ? config.housing.beddingDeliveryCost : feed.deliveryCostPerTrip) *
-          premium,
-        lines,
-      });
-
-      for (const position of eligible) {
-        const kg = load.get(position.store) ?? 0;
-        // Not reaching the protection requirement is a real service constraint.
-        if (kg + CRUMB_KG < position.protectKg) constrained.add(position.store);
-        // Reaching physical room before the forecast could use more is also a
-        // useful constraint to expose (gas-canister capacity is the common case).
-        if (
-          kg + CRUMB_KG >= position.roomKg &&
-          position.roomKg + CRUMB_KG < position.targetKg
-        ) {
-          constrained.add(position.store);
+        const lines: TripLine[] = [];
+        for (const store of STORE_IDS) {
+          const kg = load.get(store) ?? 0;
+          if (kg <= CRUMB_KG) continue;
+          lines.push({ store, kg });
+          committed.push({ arrivesDay, kg, store });
+          ordered[store] += kg;
         }
+        lines.sort((a, b) => b.kg - a.kg || a.store.localeCompare(b.store));
+        trips.push({
+          day: arrivesDay,
+          neededFromDay: arrivesDay,
+          kind,
+          payloadKg,
+          cost:
+            (kind === "bedding" ? config.housing.beddingDeliveryCost : feed.deliveryCostPerTrip) *
+            premium,
+          lines,
+        });
+
+        // The constraints this deck leaves behind. They are recorded fresh each
+        // time rather than accumulated, because a store this lorry could not
+        // protect is not constrained if the next one in the same decision does.
+        kindConstrained.clear();
+        for (const position of eligible) {
+          const kg = load.get(position.store) ?? 0;
+          // Not reaching the protection requirement is a real service constraint.
+          if (kg + CRUMB_KG < position.protectKg) kindConstrained.add(position.store);
+          // Reaching physical room before the forecast could use more is also a
+          // useful constraint to expose (gas-canister capacity is the common case).
+          if (kg + CRUMB_KG >= position.roomKg && position.roomKg + CRUMB_KG < position.targetKg) {
+            kindConstrained.add(position.store);
+          }
+        }
+
+        // Another deck is worth sending only for a store that is both still
+        // short of protection and still has somewhere to put it. A bin that
+        // could not be filled because it is physically full is not a reason to
+        // send a second lorry: the next one cannot unload into it either, and
+        // the deck would go to whatever else happened to be eligible.
+        const worthAnother = eligible.some(
+          (position) =>
+            (load.get(position.store) ?? 0) + CRUMB_KG < position.protectKg &&
+            (load.get(position.store) ?? 0) + CRUMB_KG < position.roomKg,
+        );
+        // And only if this one left with nothing to spare. If the deck came
+        // back short then every kilogram the stores could take is already on
+        // it, and whatever is still unprotected is short because a bin, a
+        // package size or the forecast says so — none of which a second lorry
+        // can mend.
+        const deckWasFull = payloadKg + CRUMB_KG >= deck;
+        if (!worthAnother || !deckWasFull || sent + 1 >= maxDecks) break;
+        // Only now is a further projection worth paying for.
+        positions = positionsNow();
       }
+
+      for (const store of kindConstrained) constrained.add(store);
     }
 
     if (trips.length === 0) {
@@ -1352,9 +1276,8 @@ export class BalancedLoadProcurementPolicy implements ProcurementPolicy {
 
 /** The policy a configuration asks for. */
 export function policyFor(config: PlannerConfig): ProcurementPolicy {
-  if (config.feed.operationalPolicy === "balanced-load") return new BalancedLoadProcurementPolicy();
   if (config.feed.operationalPolicy === "rolling-cover") return new RollingCoverProcurementPolicy();
-  return new ReorderPointProcurementPolicy();
+  return new BalancedLoadProcurementPolicy();
 }
 
 /**

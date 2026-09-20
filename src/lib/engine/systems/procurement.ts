@@ -158,9 +158,10 @@ function noteOrder(world: World, order: SupplyOrder, decision: ProcurementDecisi
 /**
  * The planner's own record: what it worked out this morning, and what changed.
  *
- * Forecast-based policies write these. The reorder rule has nothing to say
- * beyond the order itself — it has no forward plan to revise — and giving it a
- * plan event would be dressing one policy up as another in the log.
+ * Both remaining policies forecast, so both have a forward plan worth revising
+ * and both write these. The guard that used to stand here excused the reorder
+ * rule, which had nothing to say beyond the order itself; it went when the rule
+ * did.
  *
  * Three things are worth an entry and nothing else is: the plan changed
  * materially; the lorry was brought forward; or physical storage/package
@@ -168,7 +169,6 @@ function noteOrder(world: World, order: SupplyOrder, decision: ProcurementDecisi
  * morning for three years is noise, so it is not written.
  */
 function noteDecision(world: World, decision: ProcurementDecision): void {
-  if (decision.policy === "reorder-point") return;
   const previous = world.lastProcurementDecision;
   const expected = world.expectedNextDispatchDay;
 

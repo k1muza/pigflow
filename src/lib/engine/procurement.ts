@@ -275,14 +275,12 @@ export class Supplies {
     const listPrices = zeroStores();
     const held = zeroStores();
     const onOrder = zeroStores();
-    const recentDailyKg = zeroStores();
     for (const store of STORE_IDS) {
       capacities[store] = this.capacity(store);
       unitKg[store] = this.unitOf(store);
       listPrices[store] = this.listPrice[store];
       held[store] = this.held[store];
       onOrder[store] = this.onOrder[store];
-      recentDailyKg[store] = this.dailyRate(store);
     }
     const pendingOrders: PendingOrderView[] = this.pending.map((order) => ({
       id: order.id,
@@ -303,7 +301,6 @@ export class Supplies {
       capacities,
       unitKg,
       listPrices,
-      recentDailyKg,
       pendingOrders,
       duePayments,
       cash,
@@ -345,9 +342,9 @@ export class Supplies {
    * where the simulation happened to begin. It is bought and invoiced like any
    * other load — the farm owns feed on day one, and owes for it.
    *
-   * The reorder-point policy sizes this from today's requirement. The rolling
-   * policy is handed the average of its opening forecast window, so a litter
-   * due to wean tomorrow opens with weaner feed already in the bin rather than
+   * The caller passes a daily rate per store, held for the opening cover window.
+   * A forecasting policy hands over the average of that window, so a litter due
+   * to wean tomorrow opens with weaner feed already in the bin rather than
    * requiring an artificial day-one emergency order.
    */
   openStores(day: number, ratePerDay: Partial<StoreQuantities>): SupplyOrder[] {

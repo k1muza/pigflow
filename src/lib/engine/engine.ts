@@ -24,6 +24,7 @@ import { runNutrition } from "./systems/nutrition";
 import { runProcurement } from "./systems/procurement";
 import { runReproduction } from "./systems/reproduction";
 import { forecastDemand } from "./planning/forecast";
+import type { ProcurementPolicy } from "./planning/procurement";
 import { seedHerd } from "./seed";
 import {
   LEGACY_POLICIES,
@@ -88,6 +89,12 @@ export type EngineOptions = {
   keepEveryEvent?: boolean;
   /** A haulage plan worked out elsewhere, so a probe run does not recurse. */
   haulage?: HaulagePlan;
+  /**
+   * A procurement policy built elsewhere, in place of the one the config names.
+   * The tuning bench uses it to run the same policy at different settings
+   * without inventing configuration a farm would then be asked to fill in.
+   */
+  procurement?: ProcurementPolicy;
 };
 
 export class Engine {
@@ -114,6 +121,7 @@ export class Engine {
       }),
       haulage,
       eventLimit: options.keepEveryEvent === true ? Infinity : MAX_EVENTS,
+      procurement: options.procurement,
     });
 
     seedHerd(this.world);

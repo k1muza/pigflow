@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../../config";
+import { runEngine } from "../engine";
 import { STORE_IDS, type StoreId } from "../../sim/haulage";
 import { forecastDemand, type DemandForecastResult, type ExpectedFarmState } from "./forecast";
 import {
   BalancedLoadProcurementPolicy,
-  ReorderPointProcurementPolicy,
   RollingCoverProcurementPolicy,
   type Forecaster,
   type ProcurementPlanningContext,
+  type ProcurementPolicy,
   type ProcurementSnapshot,
   zeroStores,
 } from "./procurement";
@@ -49,36 +50,7 @@ describe("Expected demand follows observed thriftiness", () => {
 
     const average = forecastDemand(makeFarm(1), config, 0).demandKg.finisher[0];
     const fast = forecastDemand(makeFarm(1.2), config, 0).demandKg.finisher[0];
-
     expect(fast).toBeGreaterThan(average);
-  });
-});
-
-describe("Forward-looking reorder point", () => {
-  it("orders for a new ration before recent consumption exists", () => {
-    const planning = context((config, stores) => {
-      config.feed.targetCoverDays = 14;
-      config.feed.minimumOrderKg = 0;
-      stores.held.weaner = 0;
-      stores.recentDailyKg.weaner = 0;
-    });
-    const demand: Forecaster = (farm, _config, throughDay) => {
-      const days = throughDay - farm.day + 1;
-      const demandKg = Object.fromEntries(
-        STORE_IDS.map((store) => [
-          store,
-          Array.from({ length: days }, (_, day) =>
-            store === "weaner" && day >= 1 ? 100 : 0,
-          ),
-        ]),
-      ) as unknown as DemandForecastResult["demandKg"];
-      return { fromDay: farm.day, throughDay, demandKg, explanation: [] };
-    };
-
-    const decision = new ReorderPointProcurementPolicy(demand).decide(planning);
-    expect(decision.dispatch).toBe("normal");
-    expect(decision.arrivesDay).toBe(planning.config.feed.deliveryLeadDays);
-    expect(decision.lines.find((line) => line.store === "weaner")?.kg).toBeGreaterThan(0);
   });
 });
 
@@ -86,6 +58,7 @@ function context(
   tweak: (config: PlannerConfig, stores: ProcurementSnapshot) => void,
 ): ProcurementPlanningContext {
   const config = cloneDefaultConfig();
+
   config.feed.deliveryLeadDays = 3;
   config.feed.safetyCoverDays = 3;
   config.feed.rollingTargetCoverDays = 14;
@@ -106,7 +79,6 @@ function context(
       StoreId,
       number
     >,
-    recentDailyKg: zeroStores(),
     pendingOrders: [],
     duePayments: [],
     cash: 1_000_000,
@@ -280,5 +252,128 @@ describe("Capacity-balanced procurement", () => {
     // The next dispatch date, rather than an artificial fixed-cover target,
     // carries the small yard's constraint forward.
     expect(decision.nextDispatchDay).not.toBeNull();
+  });
+});
+
+/**
+ * The tuning bench varies balanced-load's own numbers by handing the engine a
+ * policy it built, rather than by inventing configuration a farm would then be
+ * asked to fill in. That seam has to be real: if the engine quietly ignored the
+ * policy passed to it, a sweep over those numbers would report that none of them
+ * matter, which is indistinguishable from the truth and much easier to believe.
+ */
+describe("the engine's procurement override", () => {
+  it("runs the policy it is handed instead of the one the config names", () => {
+    const config = cloneDefaultConfig();
+    config.project.months = 12;
+    config.stock.sows = 10;
+    config.herd.maxSows = 10;
+    config.feed.procurementMode = "operational";
+    config.feed.operationalPolicy = "rolling-cover";
+
+    let asked = 0;
+    const injected = new BalancedLoadProcurementPolicy(forecastDemand);
+    const spy: ProcurementPolicy = {
+      id: injected.id,
+      decide: (context) => {
+        asked += 1;
+        return injected.decide(context);
+      },
+      decideEmergency: (context, shortfall) => injected.decideEmergency(context, shortfall),
+    };
+
+    const engine = runEngine(config, 30, { procurement: spy });
+
+    expect(asked, "days the injected policy was consulted").toBeGreaterThan(0);
+    // And it is genuinely in charge: the config asked for rolling-cover.
+    expect(engine.world.procurement).toBe(spy);
+  });
+
+  it("falls back to the configured policy when none is handed in", () => {
+    const config = cloneDefaultConfig();
+    config.project.months = 12;
+    config.feed.procurementMode = "operational";
+    config.feed.operationalPolicy = "balanced-load";
+
+    expect(runEngine(config, 1).world.procurement.id).toBe("balanced-load");
+  });
+});
+
+
+/**
+ * A day's appetite larger than one lorry.
+ *
+ * The balanced policy used to allocate exactly one deck per kind per morning, on
+ * the reasoning that tomorrow's check would see today's committed load and send
+ * the next lorry on its own merits. That is sound while one deck a day can
+ * outrun the herd, and silently wrong when it cannot: the farm falls a load
+ * behind every morning and never catches up, ordering at a premium and still
+ * running its bins dry. It surfaced as two hundred sows losing 689 pigs over
+ * three years, but herd size is not the cause — a day's demand exceeding a deck
+ * is. Shrinking the lorry reproduces it in seconds rather than in twenty
+ * minutes.
+ *
+ * `maxSupplyTripsPerDay` is what the fix spends, so setting it to one restores
+ * the old behaviour exactly. That makes this an A/B on the mechanism itself
+ * rather than on a threshold somebody would later have to justify.
+ */
+describe("a farm that eats more in a day than the lorry carries", () => {
+  /** A herd whose daily appetite is comfortably more than the 200 kg lorry. */
+  function hungryFarm(maxSupplyTripsPerDay: number): PlannerConfig {
+    const config = cloneDefaultConfig();
+    config.project.months = 12;
+    config.stock.sows = 20;
+    config.herd.maxSows = 20;
+    config.herd.startMode = "staggered";
+    config.project.variation = "settled";
+    config.feed.procurementMode = "operational";
+    config.feed.operationalPolicy = "balanced-load";
+    config.feed.truckCapacityKg = 200;
+    config.feed.maxSupplyTripsPerDay = maxSupplyTripsPerDay;
+    return config;
+  }
+
+  function shortfallOf(config: PlannerConfig): number {
+    return runEngine(config, 120).history.reduce((kg, day) => kg + day.feedShortfallKg, 0);
+  }
+
+  it("goes hungry on one load a day and stays fed on as many as it needs", () => {
+    const capped = shortfallOf(hungryFarm(1));
+    const allowed = shortfallOf(hungryFarm(8));
+
+    // One deck a day cannot keep up, and no amount of replanning tomorrow fixes
+    // a farm that is already a load behind this morning.
+    //
+    // The capped arm misses less than it used to. Loading the deck by balancing
+    // from the first bag, rather than protecting the most urgent store before
+    // the next one is served, spreads a deck that cannot hold everything across
+    // all the bins instead of filling the early ones and starving the late ones.
+    // A farm one lorry short is short either way; it simply goes short in every
+    // bin at once rather than emptying one. The threshold is set to the claim
+    // rather than to the old figure.
+    expect(capped, "feed missed on one lorry a day").toBeGreaterThan(500);
+    // The other arm is the point: given the lorries, nothing is missed at all.
+    expect(allowed, "feed missed when it may send more").toBeLessThan(capped / 50);
+  });
+
+  it("does not spend the allowance it has not earned", () => {
+    // A second deck has to justify itself on protection alone, so a farm one
+    // lorry can comfortably keep up with almost never reaches for a second.
+    const config = cloneDefaultConfig();
+    config.project.months = 12;
+    config.stock.sows = 20;
+    config.herd.maxSows = 20;
+    config.herd.startMode = "staggered";
+    config.project.variation = "settled";
+    config.feed.procurementMode = "operational";
+    config.feed.operationalPolicy = "balanced-load";
+
+    const dispatches = runEngine(config, 360)
+      .history.map((day) => day.deliveries.filter((trip) => trip.kind === "supplies").length)
+      .filter((count) => count > 0);
+    const extra = dispatches.filter((count) => count > 1).length;
+
+    expect(dispatches.length, "days a supplies lorry came").toBeGreaterThan(0);
+    expect(extra / dispatches.length, "share of days needing a second lorry").toBeLessThan(0.1);
   });
 });

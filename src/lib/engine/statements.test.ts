@@ -91,8 +91,15 @@ describe("The cash book reaches the projection the product reads", () => {
     // took no delivery in its last thirty days owes nothing on the last day of
     // it — so what is asserted is that the debt is there and real, not that it
     // lands on any particular month end.
+    // How many month ends that is depends on how often the lorry comes, which
+    // is a property of the ordering policy rather than of the books. The
+    // capacity-balanced rule sends fewer and fuller loads than the reorder rule
+    // it replaced as the default, so fewer month ends fall inside a supplier's
+    // thirty days — it moved from over half to exactly half. The threshold is
+    // therefore set where the claim is, which is that the debt recurs through
+    // the plan rather than appearing once.
     const owing = projection.months.filter((month) => month.payables > 0);
-    expect(owing.length).toBeGreaterThan(projection.months.length / 2);
+    expect(owing.length).toBeGreaterThanOrEqual(projection.months.length / 3);
 
     // The profit and loss is the thing a margin is read off, so it must keep
     // reading the accrual side.

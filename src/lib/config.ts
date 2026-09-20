@@ -376,22 +376,25 @@ export const plannerSchema = z.object({
      * Which operating policy places the orders, once the farm is buying
      * operationally at all.
      *
-     * "reorder-point" is the rule the farm has always run on: a store whose
-     * cover has fallen to the reorder point sends a lorry, and everything close
-     * behind it rides along. It reads the herd's appetite off the last week of
-     * consumption and nothing else, so it cannot see a farrowing coming.
+     * "balanced-load" is the capacity-balanced operating rule and the default: a
+     * due store justifies the trip, then the available vehicle payload is shared
+     * so the compatible stores approach their next safety-stock dates together.
+     * The resulting cover period is an output, not a setting. Benchmarked
+     * against V1 perfect foresight over three, five, ten and twenty years it
+     * matches or beats it on journeys, cost and stock held.
      *
      * "rolling-cover" is the earlier fixed-cover experiment. It forecasts the
-     * herd and buys every compatible store up to one configured common date.
+     * herd and buys every compatible store up to one configured common date,
+     * which costs it about a fifth more journeys than it needs.
      *
-     * "balanced-load" is the capacity-balanced operating rule: a due store
-     * justifies the trip, then the available vehicle payload is shared so the
-     * compatible stores approach their next safety-stock dates together. The
-     * resulting cover period is an output, not a setting.
+     * "reorder-point" — the old rule that read appetite off the last week of
+     * consumption and could not see a farrowing coming — has been withdrawn.
+     * Plans that stored it are migrated to "balanced-load" by
+     * {@link withConfigDefaults}.
      */
     operationalPolicy: z
-      .enum(["reorder-point", "rolling-cover", "balanced-load"])
-      .default("reorder-point"),
+      .enum(["rolling-cover", "balanced-load"])
+      .default("balanced-load"),
     /**
      * Legacy fixed-cover target used only by the "rolling-cover" policy. The
      * capacity-balanced policy deliberately ignores this value.
@@ -405,14 +408,25 @@ export const plannerSchema = z.object({
     safetyCoverDays: z.number().int().min(0).max(30).default(3),
     /**
      * Loads the farm can take in on one day — the supplier's throughput and the
-     * yard's, which is not the same thing as what one lorry carries. Legacy
-     * fixed-cover planning may spill an order across days; balanced-load books
-     * only the trip justified by today's risk and replans tomorrow.
+     * yard's, which is not the same thing as what one lorry carries.
+     *
+     * Fixed-cover planning may spill a single order across several days to reach
+     * its target. Balanced-load does not buy to a target, so it sends one lorry
+     * and stops — unless one lorry cannot hold a store through the delivery lead
+     * time, which is what happens once a herd eats more in a day than a deck
+     * carries. Then it sends as many as protection needs, up to this many, and
+     * they carry protection only rather than stock for months ahead.
      */
     maxSupplyTripsPerDay: z.number().int().min(1).max(100).default(3),
-    /** Days of cover at which an order is placed. */
-    reorderCoverDays: z.number().int().min(1).max(120).default(7),
-    /** Days of cover an order is sized to bring the store back up to. */
+    /**
+     * Days of cover an order is sized to bring a store back up to.
+     *
+     * Two things read it. Perfect-foresight planning sizes its orders on it, so
+     * it still sets the shape of the benchmark run. Operational planning uses it
+     * only to stock the bins before day one — neither remaining policy buys to a
+     * fixed cover afterwards, so past the opening order it does nothing on an
+     * operational plan.
+     */
     targetCoverDays: z.number().int().min(2).max(240).default(21),
     /** Days between placing an order and the lorry coming through the gate. */
     deliveryLeadDays: z.number().int().min(0).max(60).default(3),
@@ -781,11 +795,10 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     deliveryCostPerTrip: 60,
     feedBufferDays: 7,
     procurementMode: "operational",
-    operationalPolicy: "reorder-point",
+    operationalPolicy: "balanced-load",
     rollingTargetCoverDays: 90,
     safetyCoverDays: 3,
     maxSupplyTripsPerDay: 3,
-    reorderCoverDays: 7,
     targetCoverDays: 21,
     deliveryLeadDays: 3,
     minimumOrderKg: 500,
@@ -879,6 +892,16 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
       };
     }
   }
+  // The reorder-point rule has been withdrawn. A plan saved while it was the
+  // default still has the string in it, and the schema no longer accepts it, so
+  // without this every such plan fails to load rather than opening on the rule
+  // that replaced it. Moving them is safe in the direction it moves them:
+  // balanced-load was measured against V1 perfect foresight at three, five, ten
+  // and twenty years and is at least as good on journeys, cost and stock held.
+  if (merged.feed?.operationalPolicy === "reorder-point") {
+    merged.feed.operationalPolicy = "balanced-load";
+  }
+
   // Older plans predate explicit housing inputs. Preserve the capacity they
   // previously saw on the dashboard by scaling the old planning ratios once,
   // then store those values as ordinary user-editable places from here on.

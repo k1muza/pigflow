@@ -680,7 +680,7 @@ export function buildWarnings(
         Math.round(run.feedShortfallKg ?? 0) +
         " kg of feed was asked for and not available, and " +
         (run.emergencyOrders ?? 0) +
-        " emergency loads were sent for at a premium. Restricted intake costs gain, which costs days, which is usually dearer than the premium was. Review the reorder point, the lead time and the bin size.",
+        " emergency loads were sent for at a premium. Restricted intake costs gain, which costs days, which is usually dearer than the premium was. Review the safety cover, the lead time and the bin size.",
     });
   }
 

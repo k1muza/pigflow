@@ -494,6 +494,8 @@ export class World {
     variation: Variation;
     haulage: HaulagePlan;
     eventLimit: number;
+    /** Overrides the policy the config names, for the tuning bench and tests. */
+    procurement?: ProcurementPolicy;
   }) {
     this.config = init.config;
     this.policies = init.policies;
@@ -507,7 +509,7 @@ export class World {
       init.policies.operationalProcurement,
       init.policies.accrualAccounting,
     );
-    this.procurement = policyFor(init.config);
+    this.procurement = init.procurement ?? policyFor(init.config);
     this.mortality = new MortalityScheduler(init.config);
     this.log = new EventLog(init.eventLimit);
     this.vaccinationSchedule = [...init.config.health.vaccinations].sort(

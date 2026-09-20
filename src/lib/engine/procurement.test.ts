@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
 import { FEED_RATIONS } from "../sim/animals";
+import { STORE_IDS, type StoreId } from "../sim/haulage";
+import type { DemandForecastResult } from "./planning/forecast";
 import {
-  ReorderPointProcurementPolicy,
+  BalancedLoadProcurementPolicy,
+  type Forecaster,
   type ProcurementPlanningContext,
 } from "./planning/procurement";
 import { Supplies } from "./procurement";
@@ -96,7 +99,14 @@ describe("A mixed load is priced line by line, not by the lorry", () => {
     const listed = supplies.priceOf("sow");
     expect(listed).toBeCloseTo(config.feed.sowFeedCostKg, 6);
 
-    const policy = new ReorderPointProcurementPolicy();
+    // The balanced rule buys against a forecast, and the farm in this context is
+    // deliberately empty — it is a question about goods and money, not about
+    // animals. So it is handed a demand curve directly: weaner is the ration
+    // that ran dry, and sow is eating fast enough to be near due itself, which
+    // is what earns it space on the rushed lorry. A sow bin with six weeks of
+    // cover would not be topped up and should not be — the deck would rightly
+    // all go to the empty bin.
+    const policy = new BalancedLoadProcurementPolicy(hungryFor({ weaner: 100, sow: 400 }));
     supplies.place(
       1,
       policy.decideEmergency(contextFor(config, supplies, 1), { weaner: 500 }),
@@ -117,3 +127,17 @@ describe("A mixed load is priced line by line, not by the lorry", () => {
     expect(supplies.priceOf("sow")).toBeLessThan(config.feed.sowFeedCostKg * premium);
   });
 });
+
+/** A flat demand curve, for the questions that are about goods rather than pigs. */
+function hungryFor(kgPerDay: Partial<Record<StoreId, number>>): Forecaster {
+  return (farm, _config, throughDay) => {
+    const days = Math.max(1, throughDay - farm.day + 1);
+    const demandKg = Object.fromEntries(
+      STORE_IDS.map((store) => [
+        store,
+        new Array<number>(days).fill(kgPerDay[store] ?? 0),
+      ]),
+    ) as unknown as DemandForecastResult["demandKg"];
+    return { fromDay: farm.day, throughDay, demandKg, explanation: [] };
+  };
+}

@@ -2675,11 +2675,10 @@ export function FarmInputs({
             value={config.feed.operationalPolicy}
             onChange={(v) => update("feed", "operationalPolicy", v)}
             options={[
-              { value: "rolling-cover", label: "Forecast future demand" },
-              { value: "reorder-point", label: "React to recent use" },
-              { value: "balanced-load", label: "Balanced load"}
+              { value: "balanced-load", label: "Fill the lorry that is going anyway" },
+              { value: "rolling-cover", label: "Buy to a fixed number of days" },
             ]}
-            hint="Forecasting includes animals expected to enter a new ration before a normal delivery can arrive."
+            hint="Both forecast the herd, including animals expected to enter a new ration before a normal delivery can arrive. Filling the lorry lets the cover period fall where it falls; buying to a fixed number of days sets it and pays for the extra journeys."
           />
           <Field
             label="Forecast target"

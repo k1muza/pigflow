@@ -270,6 +270,24 @@ describe("Plans saved before a field existed still load", () => {
     expect(withConfigDefaults({ project: { months: -4 } })).toBeNull();
   });
 
+  it("opens a plan saved on the withdrawn reorder rule", () => {
+    // The schema no longer accepts "reorder-point", so without the migration a
+    // plan saved while it was the default would fail to load rather than open.
+    const stored = cloneDefaultConfig() as unknown as Record<string, Record<string, unknown>>;
+    stored.feed.operationalPolicy = "reorder-point";
+
+    const restored = withConfigDefaults(stored);
+    expect(restored).not.toBeNull();
+    expect(restored!.feed.operationalPolicy).toBe("balanced-load");
+  });
+
+  it("leaves a plan that chose the fixed-cover rule on it", () => {
+    const stored = cloneDefaultConfig();
+    stored.feed.operationalPolicy = "rolling-cover";
+
+    expect(withConfigDefaults(stored)?.feed.operationalPolicy).toBe("rolling-cover");
+  });
+
   it("opens plans saved with experimental housing enforcement in observation-only mode", () => {
     const stored = cloneDefaultConfig();
     stored.housing.enforceCapacity = true;
