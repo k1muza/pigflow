@@ -590,6 +590,7 @@ function growthUnit(key: string): string {
 
 function feedUnit(key: string, currency: string): string {
   if (key === "truckCapacityKg") return "kg on the deck";
+  if (key === "maxSupplyTripsPerDay") return "loads a day";
   if (key === "feedBagKg") return "kg a bag";
   if (key === "binCapacityKg") return "kg a ration";
   if (key === "minimumOrderKg") return "kg";
@@ -715,6 +716,12 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
           config.feed.truckCapacityKg,
           "kg on the deck",
           "Everything one journey can carry, feed and gas together. Nothing is held back: the bottles queue for space on how soon the farm runs out of them.",
+        ],
+        [
+          "Loads a day",
+          config.feed.maxSupplyTripsPerDay,
+          "at most",
+          "What the mill will send and the yard can take in on one day. A second lorry goes only when the first left full and a store still cannot be held until the next delivery, so most farms never reach this.",
         ],
         [
           "Feed bag",

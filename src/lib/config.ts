@@ -411,11 +411,14 @@ export const plannerSchema = z.object({
      * yard's, which is not the same thing as what one lorry carries.
      *
      * Fixed-cover planning may spill a single order across several days to reach
-     * its target. Balanced-load does not buy to a target, so it sends one lorry
-     * and stops — unless one lorry cannot hold a store through the delivery lead
-     * time, which is what happens once a herd eats more in a day than a deck
-     * carries. Then it sends as many as protection needs, up to this many, and
-     * they carry protection only rather than stock for months ahead.
+     * its target. Balanced-load sends one lorry and stops, unless that lorry
+     * left full and a store still cannot be held through the delivery lead time
+     * — which is what happens once a herd eats more in a day than a deck
+     * carries. Then it sends another, and another, up to this many.
+     *
+     * On a small farm the ceiling is never reached and the value does not
+     * matter. On a large one it is what decides whether the herd is fed, so it
+     * is asked about rather than assumed.
      */
     maxSupplyTripsPerDay: z.number().int().min(1).max(100).default(3),
     /**

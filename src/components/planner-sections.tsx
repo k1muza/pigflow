@@ -2718,6 +2718,16 @@ export function FarmInputs({
             hint="Everything the lorry can carry on one journey, feed and gas together. No weight is held back: the bottles queue for space against the feed on how soon the farm runs out of them."
           />
           <Field
+            label="Loads a day"
+            value={config.feed.maxSupplyTripsPerDay}
+            onChange={(v) => update("feed", "maxSupplyTripsPerDay", Math.round(v))}
+            suffix="at most"
+            min={1}
+            max={100}
+            step={1}
+            hint={`What the mill will send and the yard can take in on one day. Most farms never reach it: a second lorry goes only when the first one left full and a store still cannot be held until the next delivery. A herd eating more than ${number(config.feed.truckCapacityKg, 0)} kg a day cannot be fed on one, so this is what decides whether it goes hungry.`}
+          />
+          <Field
             label="Feed bag"
             value={config.feed.feedBagKg}
             onChange={(v) => update("feed", "feedBagKg", v)}
