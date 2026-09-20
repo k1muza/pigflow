@@ -78,6 +78,28 @@ function cashflowValues(month: MonthlyProjection): [number, number][] {
   ];
 }
 
+/**
+ * What the plan actually received and paid over the whole horizon.
+ *
+ * Every money figure in this workbook sits under a heading that says cash, so
+ * the totals have to be footed from the cash book like the lines beneath them.
+ * `summary.totalCost` is the profit and loss figure — feed charged on the days
+ * it was eaten — and on the 2.0 engine bought on supplier terms that is not the
+ * money that left the bank. Footing a column of cash payments with it produced a
+ * "Total payments" that disagreed with its own lines by the amount still owed.
+ *
+ * Receipts are summed the same way for the same reason. Nothing sold today is
+ * booked on terms, so the two sides agree, but the total has no business
+ * reading off the profit and loss to discover that.
+ */
+function totalCashIn(projection: ProjectionResult): number {
+  return projection.months.reduce((sum, month) => sum + month.cashIn, 0);
+}
+
+function totalCashOut(projection: ProjectionResult): number {
+  return projection.months.reduce((sum, month) => sum + month.cashOut, 0);
+}
+
 const FONT = "Aptos";
 const MONEY_FORMAT = '$#,##0;[Red]($#,##0);-';
 const MONEY_FORMAT_DECIMAL = '$#,##0.00;[Red]($#,##0.00);-';
@@ -220,7 +242,7 @@ function addSummarySheet(
   sheet.getCell("B6").font = { name: FONT, size: 12, bold: true, color: { argb: COLORS.navy } };
   const metrics: Array<[string, number, string, string, number, string]> = [
     ["Opening cash", config.project.openingCash, MONEY_FORMAT, "Peak funding need", projection.summary.peakFundingNeed, MONEY_FORMAT],
-    ["Total receipts", projection.summary.totalRevenue, MONEY_FORMAT, "Total payments", projection.summary.totalCost, MONEY_FORMAT],
+    ["Total receipts", totalCashIn(projection), MONEY_FORMAT, "Total payments", totalCashOut(projection), MONEY_FORMAT],
     ["Closing cash", projection.summary.closingCash, MONEY_FORMAT, "Lowest cash balance", projection.summary.lowestCash, MONEY_FORMAT],
     ["Pigs sold", projection.summary.totalPigsSold, NUMBER_FORMAT, "Final sow herd", projection.summary.finalSows, NUMBER_FORMAT],
   ];
@@ -263,8 +285,8 @@ function addSummarySheet(
   projection.years.forEach((year, index) => {
     const row = annualHeaderRow + 1 + index;
     sheet.getCell(row, 2).value = year.label;
-    sheet.getCell(row, 3).value = year.revenue;
-    sheet.getCell(row, 4).value = year.totalCost;
+    sheet.getCell(row, 3).value = year.cashIn;
+    sheet.getCell(row, 4).value = year.cashOut;
     sheet.getCell(row, 5).value = year.netCashFlow;
     sheet.getCell(row, 6).value = year.closingCash;
     sheet.getCell(row, 7).value = year.pigsSold;
@@ -402,12 +424,12 @@ function addCashFlowSheet(
     setResultFormula(
       sheet.getCell(CASHFLOW_ROWS.totalReceipts, column),
       `SUM(${letter}${CASHFLOW_ROWS.firstReceipt}:${letter}${CASHFLOW_ROWS.lastReceipt})`,
-      month.revenue,
+      month.cashIn,
     );
     setResultFormula(
       sheet.getCell(CASHFLOW_ROWS.totalPayments, column),
       `SUM(${letter}${CASHFLOW_ROWS.firstPayment}:${letter}${CASHFLOW_ROWS.lastPayment})`,
-      month.totalCost,
+      month.cashOut,
     );
     setResultFormula(
       sheet.getCell(CASHFLOW_ROWS.netCashFlow, column),
@@ -436,9 +458,9 @@ function addCashFlowSheet(
   summedRows.forEach((row) => {
     const result =
       row === CASHFLOW_ROWS.totalReceipts
-        ? projection.summary.totalRevenue
+        ? totalCashIn(projection)
         : row === CASHFLOW_ROWS.totalPayments
-          ? projection.summary.totalCost
+          ? totalCashOut(projection)
           : row === CASHFLOW_ROWS.netCashFlow
             ? projection.months.reduce((sum, month) => sum + month.netCashFlow, 0)
             : projection.months.reduce((sum, month) => {

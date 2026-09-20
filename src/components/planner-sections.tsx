@@ -3709,10 +3709,10 @@ export function Money({
                         {period.label}
                       </td>
                       <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums text-ink-muted">
-                        {money(period.revenue, currency)}
+                        {money(period.cashIn, currency)}
                       </td>
                       <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums text-ink-muted">
-                        {money(period.totalCost, currency)}
+                        {money(period.cashOut, currency)}
                       </td>
                       <td
                         className={
@@ -3928,7 +3928,7 @@ function PeriodPanel({
                   <tr>
                     <td className="py-2 font-medium">Total received</td>
                     <td className="py-2 pr-10 text-right font-medium tabular-nums">
-                      {money(period.revenue, currency)}
+                      {money(period.cashIn, currency)}
                     </td>
                   </tr>
                 </tbody>
@@ -3959,7 +3959,7 @@ function PeriodPanel({
                   <tr>
                     <td className="py-2 font-medium">Total spent</td>
                     <td className="py-2 pr-10 text-right font-medium tabular-nums">
-                      {money(period.totalCost, currency)}
+                      {money(period.cashOut, currency)}
                     </td>
                   </tr>
                 </tbody>
