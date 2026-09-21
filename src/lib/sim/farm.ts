@@ -41,6 +41,17 @@ import {
   type StoreSeries,
   type Trip,
 } from "./haulage";
+import {
+  Books,
+  carryingValue,
+  chargeDepreciation,
+  emptyAccountingDay,
+  farmValuation,
+  readBalances,
+  valueFoundingStock,
+  type AccountingDay,
+  type FarmValuation,
+} from "./accounting";
 import { countFarmBuilt } from "./instrument";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
 import { MortalityScheduler } from "./mortality";
@@ -146,6 +157,10 @@ export type DayRecord = {
   totals: CategoryTotals;
   netCashFlow: number;
   closingCash: number;
+  /** Goods standing in the stores at the close, at what they cost to buy. */
+  storeValue: number;
+  /** What the day did to the farm's unsold stock and its breeding assets. */
+  accounting: AccountingDay;
 };
 
 export type LifetimeTotals = {
@@ -288,6 +303,12 @@ export type FarmSnapshot = {
     netWorth: number;
     totals: CategoryTotals;
     last30Days: { income: number; expenses: number; net: number };
+    /**
+     * The same farm read at cost rather than at what the abattoir would pay:
+     * the experimental balance sheet. It sits beside `netWorth` rather than
+     * replacing it, because the two answer different questions.
+     */
+    valuation: FarmValuation;
   };
   /** What is standing in each store at the close of the day being read. */
   stores: StoreLevel[];
@@ -534,6 +555,8 @@ export class Farm {
    * through the gate — until either it runs out or its days do.
    */
   private readonly packLeft = new Map<string, { left: number; openedOn: number }>();
+  /** The second set of books: what the farm owns, as against what it earned. */
+  readonly books = new Books();
   private readonly soldPigCosts = new CostRecord();
   /** Everything spent on keeping the breeding herd and rearing its replacements. */
   private readonly breedingCosts = new CostRecord();
@@ -779,7 +802,16 @@ export class Farm {
    * a farm does not trade its own feed.
    */
   private storeValue(day: number): number {
-    if (day < 0) return 0;
+    const { feed, supplies } = this.storeValueSplit(day);
+    return feed + supplies;
+  }
+
+  /**
+   * The same money, split the way a balance sheet wants it: feed in the bins on
+   * one line, and everything else the farm keeps a store of on another.
+   */
+  private storeValueSplit(day: number): { feed: number; supplies: number } {
+    if (day < 0) return { feed: 0, supplies: 0 };
     const { config } = this;
     const price: Record<FeedRation, number> = {
       sow: config.feed.sowFeedCostKg,
@@ -788,13 +820,31 @@ export class Farm {
       grower: config.feed.growerFeedCostKg,
       finisher: config.feed.finisherFeedCostKg,
     };
-    let value = 0;
+    let feed = 0;
     for (const ration of FEED_RATIONS) {
-      value += (this.haulage.stockByDay[ration]?.[day] ?? 0) * price[ration];
+      feed += (this.haulage.stockByDay[ration]?.[day] ?? 0) * price[ration];
     }
-    value += (this.haulage.stockByDay.gas?.[day] ?? 0) * config.health.gasCostPerKg;
-    value +=
+    const supplies =
+      (this.haulage.stockByDay.gas?.[day] ?? 0) * config.health.gasCostPerKg +
       (this.haulage.stockByDay.bedding?.[day] ?? 0) * config.housing.beddingCostPerKg;
+    return { feed, supplies };
+  }
+
+  /**
+   * Journeys already paid for whose goods are still standing in a store.
+   *
+   * A lorry is a cost the day it runs, but what it brought is not eaten that
+   * day, so part of what the farm paid the haulier is sitting in the bin along
+   * with the feed. It comes out again, a kilogram at a time, as the herd eats.
+   */
+  private freightInStore(day: number): number {
+    if (day < 0) return 0;
+    let value = 0;
+    for (const store of STORE_IDS) {
+      value +=
+        (this.haulage.stockByDay[store]?.[day] ?? 0) *
+        (this.haulage.haulagePerKgByDay[store]?.[day] ?? 0);
+    }
     return value;
   }
 
@@ -937,6 +987,12 @@ export class Farm {
     this.seedGrowingStock("weaner", Math.round(stock.weaners));
     this.seedGrowingStock("grower", Math.round(stock.growers));
     this.seedGrowingStock("finisher", Math.round(stock.finishers));
+
+    // The herd the plan opens with is what the farmer already owns. It is an
+    // opening balance rather than a purchase, so it is priced once, here, and
+    // never appears as a movement in any period's books.
+    valueFoundingStock(this, this.config);
+    Object.assign(this.books.opening, readBalances(this, 0));
   }
 
   /** Places starting pigs evenly through their stage rather than all on its first day. */
@@ -1042,6 +1098,8 @@ export class Farm {
       totals: emptyTotals(),
       netCashFlow: 0,
       closingCash: 0,
+      storeValue: 0,
+      accounting: emptyAccountingDay(),
     };
 
     if (day % 7 === 0) {
@@ -1085,6 +1143,7 @@ export class Farm {
       }
       for (const sow of this.sows) {
         sow.costs.add("health", "breeding", config.health.vetCostPerSowMonth);
+        this.books.keepBreedingHerd(config.health.vetCostPerSowMonth);
         this.breedingCosts.add("health", "breeding", config.health.vetCostPerSowMonth);
         ledger.accrue("veterinary", config.health.vetCostPerSowMonth);
       }
@@ -1110,6 +1169,12 @@ export class Farm {
     this.pigs = this.pigs.filter((pig) => pig.alive);
     this.sows = this.sows.filter((sow) => sow.alive);
     this.boars = this.boars.filter((boar) => boar.alive);
+
+    // The breeding herd is written down for the day it has just worked, and
+    // then the second set of books is sealed against the herd as it now stands.
+    chargeDepreciation(this, day, config, this.books);
+    record.storeValue = this.storeValue(day);
+    record.accounting = this.books.close(readBalances(this, this.freightInStore(day)));
 
     const closed = ledger.closeDay(day, date);
     record.totals = closed.totals;
@@ -1168,6 +1233,7 @@ export class Farm {
           this.ledger.accrue("veterinary", config.reproduction.pregnancyScanCost);
           this.breedingCosts.add("health", "breeding", config.reproduction.pregnancyScanCost);
           sow.costs.add("health", "breeding", config.reproduction.pregnancyScanCost);
+          this.books.keepBreedingHerd(config.reproduction.pregnancyScanCost);
         }
         this.log(
           day,
@@ -1263,6 +1329,7 @@ export class Farm {
         this.ledger.accrue("semen", config.service.aiCostPerService);
         this.breedingCosts.add("health", "breeding", config.service.aiCostPerService);
         sow.costs.add("health", "breeding", config.service.aiCostPerService);
+        this.books.keepBreedingHerd(config.service.aiCostPerService);
       }
       this.lifetime.servicesAttempted += 1;
       record.services += 1;
@@ -1548,6 +1615,7 @@ export class Farm {
       feedSpend[ration] += cost;
       sow.costs.add("feed", "breeding", cost);
       sow.costs.add("transport", "breeding", haulage);
+      this.books.keepBreedingHerd(cost + haulage);
       this.breedingCosts.add("feed", "breeding", cost);
       this.breedingCosts.add("transport", "breeding", haulage);
     }
@@ -1559,6 +1627,7 @@ export class Farm {
       feedSpend[ration] += cost;
       boar.costs.add("feed", "breeding", cost);
       boar.costs.add("transport", "breeding", haulage);
+      this.books.keepBreedingHerd(cost + haulage);
       this.breedingCosts.add("feed", "breeding", cost);
       this.breedingCosts.add("transport", "breeding", haulage);
     }
@@ -1571,6 +1640,9 @@ export class Farm {
       const charge = (type: CostType, amount: number) => {
         pig.costs.add(type, stage, amount);
         if (replacement) this.breedingCosts.add(type, stage, amount);
+        // The same posting, read the other way: this cost has not left the
+        // farm, it has turned into part of an animal standing in a pen.
+        this.books.capitalise(pig.destination, amount);
       };
 
       const ration = pig.dailyFeed(config);
@@ -1713,6 +1785,9 @@ export class Farm {
 
       this.giltsKeptPerLitter.set(litter, keptFromLitter + 1);
       pig.destination = "breeding";
+      // What she has cost so far goes with her: she is no longer stock on its
+      // way to the abattoir, she is a sow the farm is part way through rearing.
+      this.books.selectGilt(pig.costs.total);
       allowance -= 1;
       record.giltsSelected += 1;
     }
@@ -1767,6 +1842,7 @@ export class Farm {
         pig.leave(day, "sold");
         this.noteExit(pig.generation, true);
         this.soldPigCosts.absorb(pig.costs);
+        this.books.sellMarketPig(pig.costs.total);
         record.sold += 1;
         soldWeight += pig.weightKg;
       }
@@ -1783,7 +1859,13 @@ export class Farm {
         // and the same animal carries on as a sow, keeping her tag, her lineage
         // and the cost of rearing her.
         this.mortality.release(pig);
-        this.sows.push(Sow.fromGilt(pig, day));
+        const sow = Sow.fromGilt(pig, day);
+        // What she cost to rear is what she is worth walking in, and it is
+        // written off over the litters she is kept for. No profit is made here:
+        // the money simply stops being stock and starts being plant.
+        sow.breedingValue = pig.costs.total;
+        this.books.promoteGilt(pig.costs.total);
+        this.sows.push(sow);
         pig.alive = false;
         pig.exitDay = day;
         freeSowPlaces -= 1;
@@ -1792,6 +1874,7 @@ export class Farm {
         this.mortality.release(pig);
         pig.leave(day, "sold-as-gilt");
         this.noteExit(pig.generation, true);
+        this.books.sellGilt(pig.costs.total);
         giltSaleValue += config.herd.surplusGiltSaleValue;
         record.giltsSold += 1;
       }
@@ -1862,6 +1945,9 @@ export class Farm {
 
   private absorbLoss(pig: GrowingPig): void {
     if (pig.destination === "market") this.soldPigCosts.absorb(pig.costs);
+    // Whichever it was for, what the farm spent on it is gone: a dead finisher
+    // is a bigger loss than a dead weaner, and this is where that shows.
+    this.books.writeOffLivestock(pig.costs.total);
   }
 
   private runMortality(day: number, date: string, record: DayRecord): void {
@@ -1899,6 +1985,7 @@ export class Farm {
     for (const boar of this.boars) {
       if (!doomed.has(boar)) continue;
       boar.leave(day, "died");
+      this.books.writeOffBreedingStock(carryingValue(boar));
       record.breedingDeaths += 1;
       this.log(day, date, "death", boar.tag + " died");
     }
@@ -1906,6 +1993,7 @@ export class Farm {
     for (const sow of this.sows) {
       if (!doomed.has(sow)) continue;
       sow.leave(day, "died");
+      this.books.writeOffBreedingStock(carryingValue(sow));
       this.noteExit(sow.generation, false);
       record.breedingDeaths += 1;
       this.log(day, date, "death", sow.tag + " died (parity " + sow.parity + ")");
@@ -1944,6 +2032,9 @@ export class Farm {
     for (const sow of this.sows) {
       if (!sow.alive || !sow.readyToCull(config)) continue;
       sow.leave(day, "culled");
+      // The cull cheque is income; what she was carried at comes off the books
+      // against it, so a sow sold early shows as a loss on disposal.
+      this.books.sellBreedingStock(carryingValue(sow));
       this.noteExit(sow.generation, true);
       record.sowsCulled += 1;
       this.ledger.accrue("cull-sales", config.herd.cullSowSaleValue);
@@ -1958,6 +2049,7 @@ export class Farm {
     for (const boar of this.boars) {
       if (!boar.alive || !boar.readyToRotate(day, workingLifeDays)) continue;
       boar.leave(day, "culled");
+      this.books.sellBreedingStock(carryingValue(boar));
       record.boarsRotated += 1;
       this.ledger.accrue("cull-sales", config.herd.cullSowSaleValue);
       this.log(
@@ -1989,6 +2081,8 @@ export class Farm {
       });
       boar.costs.add("purchase", "breeding", config.herd.boarPurchaseCost);
       this.breedingCosts.add("purchase", "breeding", config.herd.boarPurchaseCost);
+      boar.breedingValue = config.herd.boarPurchaseCost;
+      this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
       this.log(day, date, "purchase", "Replacement boar " + tag + " bought in");
@@ -2008,6 +2102,8 @@ export class Farm {
       });
       boar.costs.add("purchase", "breeding", config.herd.boarPurchaseCost);
       this.breedingCosts.add("purchase", "breeding", config.herd.boarPurchaseCost);
+      boar.breedingValue = config.herd.boarPurchaseCost;
+      this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
       this.log(
@@ -2037,6 +2133,8 @@ export class Farm {
       });
       gilt.costs.add("purchase", "breeding", config.herd.giltPurchaseCost);
       this.breedingCosts.add("purchase", "breeding", config.herd.giltPurchaseCost);
+      gilt.breedingValue = config.herd.giltPurchaseCost;
+      this.books.buyBreedingStock(config.herd.giltPurchaseCost);
       this.sows.push(gilt);
       this.ledger.accrue("breeding-stock", config.herd.giltPurchaseCost);
     }
@@ -2196,7 +2294,19 @@ export class Farm {
     // What is standing in the stores on this day. A farm that has just taken a
     // lorry has not lost the money: it has turned it into feed it has not eaten
     // yet, and a plan that counts only the cash understates what it is worth.
-    const storeValue = this.storeValue(this.day);
+    const stores = this.storeValueSplit(this.day);
+    const storeValue = stores.feed + stores.supplies;
+
+    // The other reading of the same farm: everything at what it cost rather
+    // than at what it might fetch. The 1.x farm pays for its feed as the lorry
+    // lands, so it owes nothing and has no other liabilities to carry.
+    const valuation = farmValuation({
+      cash: this.ledger.cash,
+      feedValue: stores.feed,
+      suppliesValue: stores.supplies,
+      balances: this.history.at(-1)?.accounting ?? this.books.opening,
+      payables: 0,
+    });
 
     const last30Days = { income: 0, expenses: 0, net: 0 };
     for (const row of this.history.slice(-30)) {
@@ -2249,6 +2359,7 @@ export class Farm {
         netWorth: this.ledger.cash + herdValue + storeValue,
         totals: { ...this.ledger.totals },
         last30Days,
+        valuation,
       },
       stores: this.storeLevels(this.day),
       lifetime: { ...this.lifetime },

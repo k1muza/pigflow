@@ -180,6 +180,7 @@ export function runNutrition(world: World): void {
     }
     animal.costs.add("feed", "breeding", out.cost);
     animal.costs.add("transport", "breeding", out.haulage);
+    world.books.keepBreedingHerd(out.cost + out.haulage);
     world.breedingCosts.add("feed", "breeding", out.cost);
     world.breedingCosts.add("transport", "breeding", out.haulage);
   }
@@ -193,6 +194,9 @@ export function runNutrition(world: World): void {
     const charge = (type: CostType, amount: number) => {
       pig.costs.add(type, stage, amount);
       if (replacement) world.breedingCosts.add(type, stage, amount);
+      // The same posting, read the other way: this cost has not left the farm,
+      // it has turned into part of an animal standing in a pen.
+      world.books.capitalise(pig.destination, amount);
     };
 
     const ration = pig.dailyFeed(config);

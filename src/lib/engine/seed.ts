@@ -5,6 +5,7 @@ import {
   MATURE_SOW_WEIGHT_KG,
   expectedGiltServiceAgeDays,
 } from "../config";
+import { readBalances, valueFoundingStock } from "../sim/accounting";
 import { Boar, GrowingPig, Sow, type PigStage } from "../sim/animals";
 import { roomForStage } from "./housing";
 import type { World } from "./world";
@@ -177,6 +178,12 @@ export function seedHerd(world: World): void {
   seedGrowingStock(world, "weaner", Math.round(stock.weaners));
   seedGrowingStock(world, "grower", Math.round(stock.growers));
   seedGrowingStock(world, "finisher", Math.round(stock.finishers));
+
+  // The herd the plan opens with is what the farmer already owns. It is an
+  // opening balance rather than a purchase, so it is priced once, here, and
+  // never appears as a movement in any period's books.
+  valueFoundingStock(world, world.config);
+  Object.assign(world.books.opening, readBalances(world, 0));
 }
 
 /** Places starting pigs evenly through their stage rather than all on its first day. */

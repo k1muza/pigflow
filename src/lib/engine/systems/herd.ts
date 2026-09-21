@@ -4,6 +4,7 @@ import {
   GILT_ACCLIMATISATION_DAYS,
   GILT_ENTRY_AGE_DAYS,
 } from "../../config";
+import { carryingValue } from "../../sim/accounting";
 import { Boar, Sow } from "../../sim/animals";
 import type { World } from "../world";
 import { breedingStrength, everyMateNeedsABoar } from "./herd-genetics";
@@ -24,6 +25,9 @@ export function runHerd(world: World): void {
   for (const sow of world.sows) {
     if (!sow.alive || !sow.readyToCull(config)) continue;
     sow.leave(day, "culled");
+    // The cull cheque is income; what she was carried at comes off the books
+    // against it, so a sow sold early shows as a loss on disposal.
+    world.books.sellBreedingStock(carryingValue(sow));
     world.noteExit(sow.generation, true);
     record.sowsCulled += 1;
     world.ledger.accrue("cull-sales", config.herd.cullSowSaleValue);
@@ -48,6 +52,7 @@ export function runHerd(world: World): void {
   for (const boar of world.boars) {
     if (!boar.alive || !boar.readyToRotate(day, workingLifeDays)) continue;
     boar.leave(day, "culled");
+    world.books.sellBreedingStock(carryingValue(boar));
     record.boarsRotated += 1;
     world.ledger.accrue("cull-sales", config.herd.cullSowSaleValue);
     world.emit(
@@ -96,6 +101,8 @@ export function runHerd(world: World): void {
       nextServiceDay: day + GILT_ACCLIMATISATION_DAYS,
     });
     gilt.costs.add("purchase", "breeding", config.herd.giltPurchaseCost);
+    gilt.breedingValue = config.herd.giltPurchaseCost;
+    world.books.buyBreedingStock(config.herd.giltPurchaseCost);
     world.breedingCosts.add("purchase", "breeding", config.herd.giltPurchaseCost);
     world.sows.push(gilt);
     world.ledger.accrue("breeding-stock", config.herd.giltPurchaseCost);
@@ -127,6 +134,8 @@ function buyBoar(world: World, what: string, cause: string): void {
     joinedDay: day,
   });
   boar.costs.add("purchase", "breeding", config.herd.boarPurchaseCost);
+  boar.breedingValue = config.herd.boarPurchaseCost;
+  world.books.buyBreedingStock(config.herd.boarPurchaseCost);
   world.breedingCosts.add("purchase", "breeding", config.herd.boarPurchaseCost);
   world.boars.push(boar);
   world.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);

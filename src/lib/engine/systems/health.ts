@@ -25,6 +25,9 @@ export function runHealth(world: World): void {
     pig.treatmentPenaltyDays = health.treatmentGrowthPenaltyDays;
     pig.treatmentGrowthFactor = Math.max(0, 1 - health.treatmentGrowthPenaltyPct / 100);
     pig.costs.add("health", pig.costStage, health.treatmentCostPerPig);
+    // Treating a pig is money spent on that pig, so it stays with it until it
+    // leaves rather than being written off the month the vet came.
+    world.books.capitalise(pig.destination, health.treatmentCostPerPig);
     const group = treated.get(pig.stage);
     if (group) group.push(pig);
     else treated.set(pig.stage, [pig]);

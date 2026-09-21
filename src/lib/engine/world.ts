@@ -8,6 +8,7 @@ import {
   Sow,
   type PigStage,
 } from "../sim/animals";
+import { Books, emptyAccountingDay, type AccountingDay } from "../sim/accounting";
 import type { RationTally, Trip, HaulagePlan } from "../sim/haulage";
 import { emptyRations } from "../sim/haulage";
 import { emptyTotals, Ledger, type CategoryTotals } from "../sim/ledger";
@@ -216,6 +217,10 @@ export type EngineDayRecord = {
   closingCash: number;
   /** Owed to suppliers at the close of the day. */
   payables: number;
+  /** Goods standing in the stores at the close, at what they cost to buy. */
+  storeValue: number;
+  /** What the day did to the farm's unsold stock and its breeding assets. */
+  accounting: AccountingDay;
 };
 
 export type StageCounts = {
@@ -424,6 +429,8 @@ export function emptyDayRecord(day: number, date: string): EngineDayRecord {
     netCashFlow: 0,
     closingCash: 0,
     payables: 0,
+    storeValue: 0,
+    accounting: emptyAccountingDay(),
   };
 }
 
@@ -462,6 +469,8 @@ export class World {
   // ---- cost attribution ---------------------------------------------------
   readonly soldPigCosts = new CostRecord();
   readonly breedingCosts = new CostRecord();
+  /** The second set of books: what the farm owns, as against what it earned. */
+  readonly books = new Books();
   financingCosts = 0;
   readonly generationStats = new Map<number, { born: number; sold: number; died: number }>();
 

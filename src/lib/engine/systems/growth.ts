@@ -115,6 +115,9 @@ export function runSelection(world: World): void {
 
     world.giltsKeptPerLitter.set(litter, keptFromLitter + 1);
     pig.destination = "breeding";
+    // What she has cost so far goes with her: she is no longer stock on its way
+    // to the abattoir, she is a sow the farm is part way through rearing.
+    world.books.selectGilt(pig.costs.total);
     allowance -= 1;
     record.giltsSelected += 1;
   }
@@ -181,6 +184,7 @@ export function runMarketSales(world: World): void {
       pig.leave(day, "sold");
       world.noteExit(pig.generation, true);
       world.soldPigCosts.absorb(pig.costs);
+      world.books.sellMarketPig(pig.costs.total);
       record.sold += 1;
       soldWeight += pig.weightKg;
     }
@@ -454,6 +458,7 @@ export function runGrowthAndSales(world: World): void {
       pig.leave(day, "sold");
       world.noteExit(pig.generation, true);
       world.soldPigCosts.absorb(pig.costs);
+      world.books.sellMarketPig(pig.costs.total);
       record.sold += 1;
       soldWeight += pig.weightKg;
     }
@@ -490,7 +495,13 @@ export function runGrowthAndSales(world: World): void {
       // She is out of the market pen for good: she leaves it rather than being
       // carried along in it as a member who can never be sold.
       world.batches.remove(pig);
-      world.sows.push(Sow.fromGilt(pig, day));
+      const sow = Sow.fromGilt(pig, day);
+      // What she cost to rear is what she is worth walking in, and it is
+      // written off over the litters she is kept for. No profit is made here:
+      // the money simply stops being stock and starts being plant.
+      sow.breedingValue = pig.costs.total;
+      world.books.promoteGilt(pig.costs.total);
+      world.sows.push(sow);
       pig.alive = false;
       pig.exitDay = day;
       freeSowPlaces -= 1;
@@ -500,6 +511,7 @@ export function runGrowthAndSales(world: World): void {
       world.housing.release(roomForStage(pig.stage));
       pig.leave(day, "sold-as-gilt");
       world.noteExit(pig.generation, true);
+      world.books.sellGilt(pig.costs.total);
       giltSaleValue += config.herd.surplusGiltSaleValue;
       record.giltsSold += 1;
     }

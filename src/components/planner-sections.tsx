@@ -76,9 +76,19 @@ import {
   type PlanSimulationResult,
 } from "@/lib/simulation-result";
 import {
+  inventoryAdjustedPnL,
+  reconcileProfit,
+  type InventoryAdjustedPnL,
+  type PeriodAccounting,
+  type PnLReconciliation,
+} from "@/lib/accounts";
+import { inventoryTotal } from "@/lib/sim/accounting";
+import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  LEDGER_CATEGORIES,
+  emptyTotals,
   type CategoryTotals,
   type FarmCalendarDay,
   type FarmCalendarMonth,
@@ -489,6 +499,20 @@ export function Overview({
         netCashFlow: Math.round(year.netCashFlow),
       }));
 
+  // The same periods read at cost rather than at the bank. `owned` is what the
+  // farm has standing on it — feed in the bins and every animal at what has
+  // been spent on it — and the line is that less the overdraft and the
+  // suppliers. Buildings are in neither: the model carries the places a farm
+  // has as a limit on the herd, not as something on a balance sheet.
+  const worthPoint = (row: { storeValue: number; netWorth: number; accounting: PeriodAccounting }) => ({
+    owned: Math.round(row.storeValue + inventoryTotal(row.accounting.closing)),
+    netWorth: Math.round(row.netWorth),
+  });
+  const worthData =
+    zoom === "month"
+      ? months.map((row) => ({ label: row.month, ...worthPoint(row) }))
+      : years.map((year) => ({ label: year.label, ...worthPoint(year) }));
+
   const herdData = months.map((row) => ({
     label: row.month,
     piglets: row.piglets,
@@ -742,6 +766,72 @@ export function Overview({
                 />
               </ComposedChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* The same plan read at cost. Cash says whether the farm can survive
+              the month; this says whether the money it is spending is going
+              into something it still owns. */}
+          <div className="mt-5 border-t border-hairline pt-4">
+            <p className="text-[13px] font-medium text-ink">
+              Farm net worth
+              <span className="ml-1.5 text-[10px] font-normal text-ink-faint">experimental</span>
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-ink-faint">
+              Herd, stores and cash at what they cost, less what is owed. Buildings are not in it.
+            </p>
+            <div className="mt-3 h-[220px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={worthData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke={CHART.grid} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: CHART.axis }}
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={28}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => money(value, currency, true)}
+                    tick={{ fontSize: 11, fill: CHART.axis }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={64}
+                  />
+                  <Tooltip
+                    formatter={(value) => money(Number(value), currency)}
+                    cursor={{ fill: "color-mix(in srgb, var(--color-ink) 5%, transparent)" }}
+                    contentStyle={TOOLTIP_STYLE}
+                  />
+                  <Legend
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
+                  />
+                  <ReferenceLine y={0} stroke={CHART.baseline} />
+                  <Area
+                    dataKey="owned"
+                    name="Herd and stores at cost"
+                    stroke="none"
+                    fill={CHART.stage.sows}
+                    fillOpacity={0.35}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    dataKey="netWorth"
+                    name="Net worth"
+                    stroke={CHART.stage.finishers}
+                    strokeWidth={2}
+                    dot={
+                      worthData.length <= 14
+                        ? { r: 2.5, strokeWidth: 0, fill: CHART.stage.finishers }
+                        : false
+                    }
+                    activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--color-surface)" }}
+                    isAnimationActive={false}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </Panel>
 
@@ -1452,14 +1542,43 @@ export function Simulator({ simulation }: { simulation: PlanSimulationResult }) 
                     {money(state.finance.cash, currency)}
                   </td>
                 </tr>
-                <tr>
+                <tr className="border-b border-hairline">
                   <td className="py-2 font-medium">Net worth</td>
                   <td className="py-2 text-right font-semibold tabular-nums">
                     {money(state.finance.netWorth, currency)}
                   </td>
                 </tr>
+                {/* The same day at cost rather than at what the stock might
+                    fetch. It is the experimental reading, so it is shown under
+                    the established one and labelled as what it is. */}
+                <tr>
+                  <td className="py-2 font-medium">
+                    Net worth at cost
+                    <span className="ml-1.5 text-[10px] font-normal text-ink-faint">
+                      experimental
+                    </span>
+                  </td>
+                  <td className="py-2 text-right font-semibold tabular-nums">
+                    {money(state.finance.valuation.netWorth, currency)}
+                  </td>
+                </tr>
               </tbody>
             </table>
+            <p className="mt-3 text-xs leading-5 text-ink-faint">
+              At cost the farm is holding{" "}
+              {money(
+                state.finance.valuation.inventory.marketLivestock +
+                  state.finance.valuation.inventory.replacementGilts,
+                currency,
+              )}{" "}
+              of livestock and{" "}
+              {money(
+                state.finance.valuation.breedingAssets.sows +
+                  state.finance.valuation.breedingAssets.boars,
+                currency,
+              )}{" "}
+              of breeding stock.
+            </p>
             <p className="mt-3 text-xs leading-5 text-ink-faint">
               Cash plus {money(state.finance.herdValue, currency)} of stock on hand. Last 30 days:{" "}
               {money(state.finance.last30Days.income, currency)} in,{" "}
@@ -2298,6 +2417,14 @@ export function FarmInputs({
             max={72}
             step={1}
             hint="Boars are rotated off at this point. No female is served by her own sire or her maternal grandsire, so the farm stands a second boar once home-bred gilts come to service — or buys semen instead, if AI is on."
+          />
+          <Field
+            label="Boar value at rotation"
+            value={config.herd.boarResidualValue}
+            onChange={(v) => update("herd", "boarResidualValue", v)}
+            suffix={config.project.currency}
+            step={10}
+            hint="What he is expected to be worth by the end of his working life. Only the experimental inventory-adjusted books read it: they write him down from what he cost to this over the months he stands. What he actually sells for is still the cull value."
           />
           <Toggle
             label="Grow replacement gilts on the farm"
@@ -3417,6 +3544,8 @@ type PeriodView = {
   closingCash: number;
   /** Owed to suppliers at the close, which is what the two statements differ by. */
   payables: number;
+  /** The same period through the experimental second set of books. */
+  accounting: PeriodAccounting;
   bornAlive: number;
   weaned: number;
   pigsSold: number;
@@ -3441,6 +3570,7 @@ function monthView(month: MonthlyProjection): PeriodView {
     netCashFlow: month.netCashFlow,
     closingCash: month.closingCash,
     payables: month.payables,
+    accounting: month.accounting,
     bornAlive: month.bornAlive,
     weaned: month.weaned,
     pigsSold: month.pigsSold,
@@ -3470,6 +3600,7 @@ function yearView(year: PeriodSummary, months: MonthlyProjection[]): PeriodView 
     netCashFlow: year.netCashFlow,
     closingCash: year.closingCash,
     payables: year.payables,
+    accounting: year.accounting,
     bornAlive: year.bornAlive,
     weaned: year.weaned,
     pigsSold: year.pigsSold,
@@ -3478,6 +3609,391 @@ function yearView(year: PeriodSummary, months: MonthlyProjection[]): PeriodView 
     giltsSold: year.giltsSold,
     deaths: covered.reduce((sum, month) => sum + month.deaths, 0),
   };
+}
+
+// ------------------------------------------- the experimental second reading
+
+/** One period, under both profit statements, with what separates them. */
+type ProfitRow = {
+  key: string;
+  label: string;
+  current: number;
+  adjusted: number;
+  reconciliation: PnLReconciliation;
+  statement: InventoryAdjustedPnL;
+};
+
+function profitRows(periods: readonly PeriodView[]): ProfitRow[] {
+  return periods.map((period) => {
+    const reconciliation = reconcileProfit(period.totals, period.accounting);
+    return {
+      key: period.key,
+      label: period.label,
+      current: reconciliation.currentProfit,
+      adjusted: reconciliation.inventoryAdjustedProfit,
+      reconciliation,
+      statement: inventoryAdjustedPnL(period.totals, period.accounting),
+    };
+  });
+}
+
+/**
+ * Profit read two ways, and the balance sheet that explains the gap.
+ *
+ * Income less expenditure is the figure this plan has always shown and the one
+ * every other page still reads. It cannot tell a farm that is losing money from
+ * a farm that is building a herd: both spend more than they take, and on that
+ * statement both read as a loss. So the same run is shown again with the costs
+ * that turned into animals held back until those animals leave, and the two are
+ * put side by side rather than one being quietly swapped for the other.
+ *
+ * It is labelled experimental because it is: the model behind it is new, and
+ * nothing in the product depends on it.
+ */
+function ProfitAndWorth({
+  config,
+  projection,
+  periods,
+  granularity,
+}: {
+  config: PlannerConfig;
+  projection: ReturnType<typeof calculateProjection>;
+  periods: readonly PeriodView[];
+  granularity: Granularity;
+}) {
+  const currency = config.project.currency;
+  const rows = useMemo(() => profitRows(periods), [periods]);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const open = rows.find((row) => row.key === openKey) ?? rows.at(-1) ?? null;
+
+  const worth = projection.farmWorth;
+  const horizon = useMemo(
+    () => reconcileProfit(
+      projection.years.reduce((totals, year) => {
+        for (const category of LEDGER_CATEGORIES) totals[category.id] += year.totals[category.id];
+        return totals;
+      }, emptyTotals()),
+      projection.accounting,
+    ),
+    [projection],
+  );
+
+  const netWorthSeries = useMemo(
+    () =>
+      projection.months.map((month) => ({
+        label: month.month,
+        livestock:
+          month.accounting.closing.marketWip + month.accounting.closing.replacementWip,
+        breeding: month.accounting.closing.sowAssets + month.accounting.closing.boarAssets,
+        cash: month.closingCash,
+      })),
+    [projection],
+  );
+
+  const assetLines = [
+    ["Cash", worth.cash],
+    ["Feed in the bins", worth.inventory.feed],
+    ["Other stores and freight held", worth.inventory.supplies],
+    ["Market pigs, at cost", worth.inventory.marketLivestock],
+    ["Replacement gilts, at cost", worth.inventory.replacementGilts],
+    ["Breeding sows", worth.breedingAssets.sows],
+    ["Boars", worth.breedingAssets.boars],
+  ] as const;
+
+  return (
+    <div className="mt-5 space-y-5">
+      <SectionCard
+        icon={Scale}
+        title="Profit, read both ways"
+        description="Experimental. Income less expenditure beside the same run with the costs that turned into unsold animals held back until those animals leave."
+      >
+        <div className="overflow-hidden rounded-lg border border-hairline">
+          <div className="max-h-[420px] overflow-auto">
+            <table className="w-full min-w-[520px] border-collapse text-xs">
+              <thead className="sticky top-0 border-b border-hairline bg-plane text-left text-ink-muted">
+                <tr>
+                  {[
+                    granularity === "month" ? "Month" : "Plan year",
+                    "Current P&L",
+                    "Inventory-adjusted",
+                    "Difference",
+                  ].map((heading, index) => (
+                    <th
+                      key={heading}
+                      className={
+                        "whitespace-nowrap px-3.5 py-3 font-medium " +
+                        (index > 0 ? "text-right" : "")
+                      }
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr
+                    key={row.key}
+                    onClick={() => setOpenKey(row.key)}
+                    aria-selected={row.key === open?.key}
+                    className={
+                      "cursor-pointer border-b border-hairline last:border-0 " +
+                      (row.key === open?.key ? "bg-brand-soft" : "hover:bg-plane")
+                    }
+                  >
+                    <td className="whitespace-nowrap px-3.5 py-2.5 font-medium">{row.label}</td>
+                    <td
+                      className={
+                        "whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums " +
+                        (row.current < 0 ? "text-critical" : "text-ink-muted")
+                      }
+                    >
+                      {cashflowMoney(row.current, currency)}
+                    </td>
+                    <td
+                      className={
+                        "whitespace-nowrap px-3.5 py-2.5 text-right font-medium tabular-nums " +
+                        (row.adjusted < 0 ? "text-critical" : "")
+                      }
+                    >
+                      {cashflowMoney(row.adjusted, currency)}
+                    </td>
+                    <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums text-ink-faint">
+                      {cashflowMoney(row.adjusted - row.current, currency)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t border-hairline bg-plane font-medium">
+                <tr>
+                  <td className="whitespace-nowrap px-3.5 py-2.5">Whole plan</td>
+                  <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums">
+                    {cashflowMoney(horizon.currentProfit, currency)}
+                  </td>
+                  <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums">
+                    {cashflowMoney(horizon.inventoryAdjustedProfit, currency)}
+                  </td>
+                  <td className="whitespace-nowrap px-3.5 py-2.5 text-right tabular-nums text-ink-faint">
+                    {cashflowMoney(horizon.changeInFarmInventory, currency)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        {open ? (
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <Panel
+              title={"Why they differ — " + open.label}
+              description="Every line is a cost that moved into or out of something the farm still owns. They add up exactly: no profit is made by moving money between accounts."
+            >
+              <table className="w-full text-xs">
+                <tbody>
+                  {(
+                    [
+                      ["Current profit or loss", open.reconciliation.currentProfit],
+                      ["Costs carried into livestock", open.reconciliation.capitalisedIntoLivestock],
+                      ["Breeding stock bought in", open.reconciliation.breedingStockBought],
+                      ["Freight held in the stores", open.reconciliation.freightHeldInStores],
+                      ["Cost of livestock sold", -open.reconciliation.costOfLivestockSold],
+                      ["Mortality write-offs", -open.reconciliation.mortalityWriteOffs],
+                      ["Breeding stock depreciation", -open.reconciliation.breedingStockDepreciation],
+                      [
+                        "Carrying value of breeding stock sold",
+                        -open.reconciliation.carryingValueOfBreedingStockSold,
+                      ],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <tr key={label} className="border-b border-hairline last:border-0">
+                      <td className="py-1.5 pr-3 text-ink-muted">{label}</td>
+                      <td className="py-1.5 text-right tabular-nums">
+                        {cashflowMoney(value, currency)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="border-t border-rule font-medium">
+                    <td className="pt-2 pr-3">Inventory-adjusted profit or loss</td>
+                    <td className="pt-2 text-right tabular-nums">
+                      {cashflowMoney(open.reconciliation.inventoryAdjustedProfit, currency)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </Panel>
+
+            <Panel
+              title={"Trading statement — " + open.label}
+              description="The same period built from accounting movements rather than as one adjustment to the cash result."
+            >
+              <table className="w-full text-xs">
+                <tbody>
+                  {(
+                    [
+                      ["Sales revenue", open.statement.revenue.total, false],
+                      ["Cost of livestock sold", -open.statement.costOfSales.total, false],
+                      ["Gross profit", open.statement.grossProfit, true],
+                      ["Breeding herd keep", -open.statement.operatingExpenses.breedingHerd, false],
+                      ["Labour", -open.statement.operatingExpenses.labour, false],
+                      ["Overheads", -open.statement.operatingExpenses.overheads, false],
+                      [
+                        "Breeding stock depreciation",
+                        -open.statement.operatingExpenses.depreciation,
+                        false,
+                      ],
+                      [
+                        "Mortality and write-offs",
+                        -open.statement.operatingExpenses.mortalityLosses,
+                        false,
+                      ],
+                      ["Other running costs", -open.statement.operatingExpenses.other, false],
+                      ["Inventory-adjusted operating profit", open.statement.operatingProfit, true],
+                    ] as const
+                  ).map(([label, value, strong]) => (
+                    <tr
+                      key={label}
+                      className={
+                        strong
+                          ? "border-t border-rule font-medium"
+                          : "border-b border-hairline"
+                      }
+                    >
+                      <td className={(strong ? "pt-2 " : "py-1.5 ") + "pr-3 text-ink-muted"}>
+                        {label}
+                      </td>
+                      <td
+                        className={(strong ? "pt-2 " : "py-1.5 ") + "text-right tabular-nums"}
+                      >
+                        {cashflowMoney(value, currency)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+          </div>
+        ) : null}
+      </SectionCard>
+
+      <SectionCard
+        icon={Landmark}
+        title="Farm worth"
+        description="Experimental. What the place is worth at the end of the plan, valued at what everything on it cost rather than at what it might fetch."
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <table className="w-full text-xs">
+            <tbody>
+              {assetLines.map(([label, value]) => (
+                <tr key={label} className="border-b border-hairline">
+                  <td className="py-1.5 pr-3 text-ink-muted">{label}</td>
+                  <td
+                    className={
+                      "py-1.5 text-right tabular-nums " + (value < 0 ? "text-critical" : "")
+                    }
+                  >
+                    {cashflowMoney(value, currency)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-b border-rule font-medium">
+                <td className="py-1.5 pr-3">Gross assets</td>
+                <td className="py-1.5 text-right tabular-nums">
+                  {cashflowMoney(worth.totalAssets, currency)}
+                </td>
+              </tr>
+              <tr className="border-b border-hairline">
+                <td className="py-1.5 pr-3 text-ink-muted">Owed to suppliers</td>
+                <td className="py-1.5 text-right tabular-nums">
+                  {cashflowMoney(-worth.liabilities.payables, currency)}
+                </td>
+              </tr>
+              <tr className="font-medium">
+                <td className="pt-2 pr-3">Farm net worth</td>
+                <td
+                  className={
+                    "pt-2 text-right tabular-nums " +
+                    (worth.netWorth < 0 ? "text-critical" : "text-good")
+                  }
+                >
+                  {cashflowMoney(worth.netWorth, currency)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="h-[260px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={netWorthSeries}
+                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid vertical={false} stroke={CHART.grid} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: CHART.axis }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={30}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: CHART.axis }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={52}
+                />
+                <ReferenceLine y={0} stroke={CHART.baseline} />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  formatter={(value) => money(Number(value ?? 0), currency)}
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  height={30}
+                  wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="cash"
+                  name="Cash"
+                  stackId="worth"
+                  stroke="var(--color-surface)"
+                  strokeWidth={2}
+                  fill={CHART.cash}
+                  isAnimationActive={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="livestock"
+                  name="Livestock at cost"
+                  stackId="worth"
+                  stroke="var(--color-surface)"
+                  strokeWidth={2}
+                  fill={CHART.stage.finishers}
+                  isAnimationActive={false}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="breeding"
+                  name="Breeding stock"
+                  stackId="worth"
+                  stroke="var(--color-surface)"
+                  strokeWidth={2}
+                  fill={CHART.stage.sows}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-ink-faint">
+          Book value, not market value. An unsold pig is carried at what has been spent rearing
+          it, never at what the abattoir would pay — writing the sale price onto it would book
+          the profit before the lorry came.
+        </p>
+      </SectionCard>
+    </div>
+  );
 }
 
 /**
@@ -3794,6 +4310,12 @@ export function Money({
 
         <FundingControls config={editing} projection={projection} update={update} />
 
+        <ProfitAndWorth
+          config={config}
+          projection={projection}
+          periods={periods}
+          granularity={granularity}
+        />
       </div>
 
       <PeriodPanel
@@ -4138,6 +4660,24 @@ export function Methodology({
       config.herd.boarWorkingLifeMonths + " months per boar",
     ],
     ["Closing cash", "prior cash + income − every cost posted that day", "Reconciled daily"],
+    [
+      "Inventory-adjusted profit (experimental)",
+      "costs that turned into an unsold animal stay with it, and become an expense when it is sold, dies or is written off",
+      "Shown beside the ordinary profit, never instead of it",
+    ],
+    [
+      "Breeding stock depreciation (experimental)",
+      "a sow is written down from what she cost to rear, to her cull price, over the litters she is kept for; a boar by the month over his working life",
+      config.herd.cullAfterParity +
+      " parities per sow · " +
+      config.herd.boarWorkingLifeMonths +
+      " months per boar",
+    ],
+    [
+      "Farm net worth (experimental)",
+      "cash + feed and stores + livestock at accumulated cost + breeding stock at carrying value − what is owed to suppliers",
+      "Book value, not market value",
+    ],
   ];
 
   return (

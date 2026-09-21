@@ -1,4 +1,5 @@
 import { calculateProjection, type PlannerConfig } from "./model";
+import { inventoryTotal } from "./sim/accounting";
 
 /** Matched biological runs used on both sides of every comparison. */
 export const COMPARISON_SEEDS = [1, 2, 3, 4, 5] as const;
@@ -16,7 +17,13 @@ export type EnsembleMetric =
   | "pigsSoldPerYear"
   | "pigsWeanedPerSowYear"
   | "peakHeadCount"
-  | "peakFundingNeed";
+  | "peakFundingNeed"
+  // The experimental inventory-adjusted measures. They answer the question the
+  // cash measures cannot: whether a plan that burns money is losing it or
+  // building a herd with it.
+  | "inventoryAdjustedProfitPerYear"
+  | "livestockInventoryChangePerYear"
+  | "farmWorthAtEnd";
 
 export type PlanEnsemble = {
   settled: boolean;
@@ -112,6 +119,9 @@ export function buildPlanEnsemble(
     pigsWeanedPerSowYear: [],
     peakHeadCount: [],
     peakFundingNeed: [],
+    inventoryAdjustedProfitPerYear: [],
+    livestockInventoryChangePerYear: [],
+    farmWorthAtEnd: [],
   };
   const years = input.project.months / 12;
 
@@ -137,6 +147,16 @@ export function buildPlanEnsemble(
     values.pigsWeanedPerSowYear.push(projection.summary.pigsWeanedPerSowYear);
     values.peakHeadCount.push(projection.summary.peakHeadCount);
     values.peakFundingNeed.push(projection.summary.peakFundingNeed);
+    // Financing is stripped from both profit measures the same way, so the gap
+    // between them is the herd the plan built and nothing else.
+    const builtUp =
+      inventoryTotal(projection.accounting.closing) -
+      inventoryTotal(projection.accounting.opening);
+    values.inventoryAdjustedProfitPerYear.push(
+      years > 0 ? (operatingProfitOrLoss(config, projection.months) + builtUp) / years : 0,
+    );
+    values.livestockInventoryChangePerYear.push(years > 0 ? builtUp / years : 0);
+    values.farmWorthAtEnd.push(projection.summary.farmWorthAtEnd);
   }
 
   return {
@@ -151,6 +171,9 @@ export function buildPlanEnsemble(
       pigsWeanedPerSowYear: band(values.pigsWeanedPerSowYear),
       peakHeadCount: band(values.peakHeadCount),
       peakFundingNeed: band(values.peakFundingNeed),
+      inventoryAdjustedProfitPerYear: band(values.inventoryAdjustedProfitPerYear),
+      livestockInventoryChangePerYear: band(values.livestockInventoryChangePerYear),
+      farmWorthAtEnd: band(values.farmWorthAtEnd),
     },
   };
 }

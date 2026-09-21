@@ -24,6 +24,8 @@ import {
   type SowRow,
   type StockRow,
 } from "./sim";
+import { inventoryTotal, type AccountingBalances } from "./sim/accounting";
+import { mergeAccounting } from "./accounts";
 
 /**
  * One run of a plan, and every way the product reads it.
@@ -50,6 +52,8 @@ type PlanRun = {
   readonly horizonDay: number;
   readonly history: readonly DayRecord[];
   readonly lifetime: WarnableRun & { litters: number; weaned: number };
+  /** What the farm was holding before day one: its opening balance sheet. */
+  readonly openingBalances: AccountingBalances;
   /** The day the run has reached. */
   readonly day: number;
   dayOf(date: Date): number;
@@ -65,9 +69,11 @@ type RunOptions = { keepEveryEvent?: boolean };
 
 function legacyRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
   const farm = new Farm(config, undefined, options);
+  const openingBalances = farm.books.opening;
   const horizon = horizonDay(config);
   return {
     horizonDay: horizon,
+    openingBalances,
     get history() {
       return farm.history;
     },
@@ -93,6 +99,7 @@ function engineRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
   const horizon = engineHorizonDay(config);
   return {
     horizonDay: horizon,
+    openingBalances: world.books.opening,
     get history() {
       return world.history;
     },
@@ -352,6 +359,9 @@ function projectionOf(
   const byDay = new Map(run.history.map((day) => [day.day, day]));
   const months: MonthlyProjection[] = [];
 
+  // The herd and the stores the plan opened with, which is what the first month
+  // is measured against. Every month after it opens where the one before closed.
+  let opening = run.openingBalances;
   for (let index = 0; index < config.project.months; index += 1) {
     const monthStart = addMonths(start, index);
     const firstDay = run.dayOf(monthStart);
@@ -361,7 +371,9 @@ function projectionOf(
       const record = byDay.get(day);
       if (record) days.push(record);
     }
-    months.push(summariseMonth(index, monthStart, days));
+    const month = summariseMonth(index, monthStart, days, opening);
+    opening = month.accounting.closing;
+    months.push(month);
   }
 
   const sum = (pick: (month: MonthlyProjection) => number) =>
@@ -388,9 +400,21 @@ function projectionOf(
   const averageSows = months.length > 0 ? sowMonths / months.length : 0;
   const years = config.project.months / 12;
   const lifetime = run.lifetime;
+  const totalRevenue = sum((month) => month.revenue);
+
+  // The whole horizon through the second set of books, and the balance sheet it
+  // ends on. The terminal reading already carries the closing valuation; what
+  // the flows add is where it came from.
+  const horizonAccounting = mergeAccounting(months.map((month) => month.accounting));
+  const farmWorth = terminal.finance.valuation;
+  const openingWorth = config.project.openingCash + inventoryTotal(run.openingBalances);
+  // What the farm put into itself over the horizon, which is exactly what the
+  // two profit statements differ by.
+  const changeInInventory =
+    inventoryTotal(horizonAccounting.closing) - inventoryTotal(horizonAccounting.opening);
 
   const summary: ProjectionSummary = {
-    totalRevenue: sum((month) => month.revenue),
+    totalRevenue,
     totalFeedCost,
     totalVeterinaryCost: sum((month) => month.totals.veterinary + month.totals.vaccination),
     totalCost,
@@ -414,12 +438,23 @@ function projectionOf(
       months.find((month) => month.closingCash >= 0 && month.index > 0)?.month ?? null,
     herdValueAtEnd: terminal.finance.herdValue,
     netWorthAtEnd: terminal.finance.netWorth,
+    inventoryAdjustedProfit: totalRevenue - totalCost + changeInInventory,
+    farmWorthAtEnd: farmWorth.netWorth,
+    changeInFarmWorth: farmWorth.netWorth - openingWorth,
+    marketLivestockValueAtEnd: farmWorth.inventory.marketLivestock,
+    breedingHerdValueAtEnd:
+      farmWorth.breedingAssets.sows +
+      farmWorth.breedingAssets.boars +
+      farmWorth.inventory.replacementGilts,
+    feedInventoryValueAtEnd: farmWorth.inventory.feed,
   };
 
   return {
     months,
     years: summariseYears(months, start),
     summary,
+    accounting: horizonAccounting,
+    farmWorth,
     generations: terminal.generations,
     costOfProduction: terminal.costOfProduction,
     warnings: buildWarnings(config, summary, lifetime),

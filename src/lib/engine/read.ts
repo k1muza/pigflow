@@ -145,6 +145,7 @@ export function engineSnapshot(engine: Engine, timestamp?: string): FarmSnapshot
       netWorth: valuation.netWorth,
       totals: { ...world.ledger.totals },
       last30Days,
+      valuation: valuation.atCost,
     },
     stores: engine.storeLevels(),
     lifetime: { ...world.lifetime },

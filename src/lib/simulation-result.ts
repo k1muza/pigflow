@@ -3,6 +3,7 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { PlannerConfig } from "./config";
 import type { ProjectionResult } from "./model";
 import type { PlanSimulation } from "./simulation";
+import { farmValuation, ZERO_BALANCES } from "./sim/accounting";
 import type { CostOfProduction, FarmSnapshot, FarmTimeline, StoreLevel } from "./sim";
 
 /**
@@ -229,6 +230,13 @@ function emptyDay(): DaySnapshot {
       netWorth: 0,
       totals: {} as DaySnapshot["finance"]["totals"],
       last30Days: { income: 0, expenses: 0, net: 0 },
+      valuation: farmValuation({
+        cash: 0,
+        feedValue: 0,
+        suppliesValue: 0,
+        balances: ZERO_BALANCES,
+        payables: 0,
+      }),
     },
     stores: [],
     costOfProduction: {} as CostOfProduction,

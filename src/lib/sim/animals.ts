@@ -109,6 +109,17 @@ export abstract class Animal {
   exitDay: number | null = null;
   exitReason: ExitReason | null = null;
   readonly costs = new CostRecord();
+  /**
+   * What this animal was worth when it became a breeding asset, and how much of
+   * that has been written off since. Both are zero on anything that is not in
+   * the breeding herd — a growing pig is stock rather than plant, and what it
+   * is worth is simply what has been spent on it.
+   *
+   * Only the experimental inventory-adjusted books read them; see
+   * {@link ./accounting}.
+   */
+  breedingValue = 0;
+  accumulatedDepreciation = 0;
 
   constructor(init: {
     id: string;

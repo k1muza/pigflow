@@ -1,7 +1,20 @@
 import { addMonths, format } from "date-fns";
 
+import {
+  addFlows,
+  balancesOf,
+  emptyFlows,
+  mergeAccounting,
+  type PeriodAccounting,
+} from "./accounts";
 import { ESTRUS_CYCLE_DAYS, type PlannerConfig } from "./config";
 import { growoutFeedConversion } from "./growth-curve";
+import {
+  netWorthAtCost,
+  ZERO_BALANCES,
+  type AccountingBalances,
+  type FarmValuation,
+} from "./sim/accounting";
 import { simulatePlan } from "./simulation";
 import {
   addTotals,
@@ -107,6 +120,21 @@ export type MonthlyProjection = {
   closingCash: number;
   /** Owed to suppliers at the end of the month, which is what the two differ by. */
   payables: number;
+  /** Goods standing in the stores at the month end, at what they cost to buy. */
+  storeValue: number;
+  /**
+   * What the whole place is worth at the month end, at cost: cash, the stores,
+   * and every animal at what has been spent on it, less what is owed. Buildings
+   * are not in it — the model carries the places a farm has as a constraint on
+   * the herd rather than as an asset. Experimental, like the books behind it.
+   */
+  netWorth: number;
+  /**
+   * The same month read through the experimental second set of books: what it
+   * put into the herd and the stores rather than only what it earned and spent.
+   * {@link ../accounts} turns it into a profit statement and a balance sheet.
+   */
+  accounting: PeriodAccounting;
 };
 
 export type PeriodSummary = {
@@ -126,11 +154,16 @@ export type PeriodSummary = {
   netCashFlow: number;
   closingCash: number;
   payables: number;
+  /** Goods standing in the stores at the year end, at what they cost to buy. */
+  storeValue: number;
+  /** What the whole place is worth at the year end, at cost. Experimental. */
+  netWorth: number;
   pigsSold: number;
   bornAlive: number;
   weaned: number;
   giltsSold: number;
   sows: number;
+  accounting: PeriodAccounting;
 };
 
 export type ProjectionSummary = {
@@ -155,12 +188,32 @@ export type ProjectionSummary = {
   firstPositiveMonth: string | null;
   herdValueAtEnd: number;
   netWorthAtEnd: number;
+
+  // ---- the experimental inventory-adjusted view --------------------------
+  /**
+   * Profit with the costs that turned into unsold animals held back until
+   * those animals leave. On a farm that is neither growing nor shrinking it
+   * lands on the same figure as income less expenditure; on one that is filling
+   * its places it is higher, by exactly what it put into the herd.
+   */
+  inventoryAdjustedProfit: number;
+  /** Everything the farm owns at cost, less what it owes, at the horizon. */
+  farmWorthAtEnd: number;
+  /** How much of that it built over the plan, rather than started with. */
+  changeInFarmWorth: number;
+  marketLivestockValueAtEnd: number;
+  breedingHerdValueAtEnd: number;
+  feedInventoryValueAtEnd: number;
 };
 
 export type ProjectionResult = {
   months: MonthlyProjection[];
   years: PeriodSummary[];
   summary: ProjectionSummary;
+  /** The whole horizon through the second set of books. */
+  accounting: PeriodAccounting;
+  /** The farm's closing balance sheet, at cost. */
+  farmWorth: FarmValuation;
   generations: GenerationRow[];
   costOfProduction: CostOfProduction;
   warnings: ModelWarning[];
@@ -265,9 +318,20 @@ export function summariseMonth(
   index: number,
   date: Date,
   days: readonly BookedDayRecord[],
+  /**
+   * What the farm was holding before the first of these days ran. Without it a
+   * month cannot say how much it added to the herd, only how much is there now
+   * — so the caller, which knows what came before, hands it in.
+   */
+  opening: AccountingBalances = ZERO_BALANCES,
 ): MonthlyProjection {
   const totals = emptyTotals();
   const cashTotals = emptyTotals();
+  const accounting: PeriodAccounting = {
+    flows: emptyFlows(),
+    opening: { ...opening },
+    closing: { ...opening },
+  };
   const month: MonthlyProjection = {
     index,
     date: format(date, "yyyy-MM-dd"),
@@ -307,6 +371,9 @@ export function summariseMonth(
     netCashFlow: 0,
     closingCash: 0,
     payables: 0,
+    storeValue: 0,
+    netWorth: 0,
+    accounting,
   };
 
   for (const day of days) {
@@ -340,6 +407,8 @@ export function summariseMonth(
     }
     addTotals(totals, day.totals);
     addTotals(cashTotals, cashTotalsOf(day));
+    addFlows(accounting.flows, day.accounting);
+    accounting.closing = balancesOf(day.accounting);
   }
 
   const last = days.at(-1);
@@ -355,6 +424,13 @@ export function summariseMonth(
     month.workers = last.workers;
     month.closingCash = last.closingCash;
     month.payables = payablesOf(last);
+    month.storeValue = last.storeValue;
+    month.netWorth = netWorthAtCost({
+      cash: last.closingCash,
+      storeValue: last.storeValue,
+      payables: payablesOf(last),
+      balances: accounting.closing,
+    });
   }
 
   // The two statements, each totalled from its own book. On the 1.x engine they
@@ -397,11 +473,14 @@ export function summariseYears(months: MonthlyProjection[], start: Date): Period
       netCashFlow: incomeOf(cashTotals) - expensesOf(cashTotals),
       closingCash: last.closingCash,
       payables: last.payables,
+      storeValue: last.storeValue,
+      netWorth: last.netWorth,
       pigsSold: slice.reduce((sum, month) => sum + month.pigsSold, 0),
       bornAlive: slice.reduce((sum, month) => sum + month.bornAlive, 0),
       weaned: slice.reduce((sum, month) => sum + month.weaned, 0),
       giltsSold: slice.reduce((sum, month) => sum + month.giltsSold, 0),
       sows: last.sows,
+      accounting: mergeAccounting(slice.map((month) => month.accounting)),
     });
   }
   return years;

@@ -143,6 +143,16 @@ export const plannerSchema = z.object({
     boarWorkingLifeMonths: z.number().int().min(6).max(72),
     surplusGiltSaleValue: nonNegative,
     cullSowSaleValue: nonNegative,
+    /**
+     * What a boar is expected to be worth at the end of his working life.
+     *
+     * Read only by the experimental inventory-adjusted books, which write a
+     * boar down from what he cost to this over the months he stands. It is not
+     * what the plan actually receives for him — that is still the cull price —
+     * so setting the two apart is how you say a rotated boar sells at a gain or
+     * a loss against the books.
+     */
+    boarResidualValue: nonNegative.default(200),
   }),
   housing: z.object({
     farrowingPlaces: z.number().int().min(1).max(100_000),
@@ -714,6 +724,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     boarWorkingLifeMonths: 24,
     surplusGiltSaleValue: 320,
     cullSowSaleValue: 200,
+    boarResidualValue: 200,
   },
   housing: {
     farrowingPlaces: 6,

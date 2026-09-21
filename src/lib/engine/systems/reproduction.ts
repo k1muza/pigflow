@@ -94,6 +94,7 @@ export function runReproduction(world: World): void {
         world.ledger.accrue("veterinary", config.reproduction.pregnancyScanCost);
         world.breedingCosts.add("health", "breeding", config.reproduction.pregnancyScanCost);
         sow.costs.add("health", "breeding", config.reproduction.pregnancyScanCost);
+        world.books.keepBreedingHerd(config.reproduction.pregnancyScanCost);
       }
       world.emit(
         "PregnancyScanned",
@@ -419,6 +420,7 @@ function runService(world: World, windows: boolean): void {
       world.ledger.accrue("semen", config.service.aiCostPerService);
       world.breedingCosts.add("health", "breeding", config.service.aiCostPerService);
       sow.costs.add("health", "breeding", config.service.aiCostPerService);
+      world.books.keepBreedingHerd(config.service.aiCostPerService);
     }
     world.lifetime.servicesAttempted += 1;
     record.services += 1;

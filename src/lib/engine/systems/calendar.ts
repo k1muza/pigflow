@@ -110,6 +110,7 @@ export function runCalendar(world: World): void {
 
   for (const sow of world.sows) {
     sow.costs.add("health", "breeding", config.health.vetCostPerSowMonth);
+    world.books.keepBreedingHerd(config.health.vetCostPerSowMonth);
     world.breedingCosts.add("health", "breeding", config.health.vetCostPerSowMonth);
     ledger.accrue("veterinary", config.health.vetCostPerSowMonth);
   }

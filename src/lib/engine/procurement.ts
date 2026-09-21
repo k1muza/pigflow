@@ -157,6 +157,17 @@ export class Supplies {
     return STORE_IDS.reduce((total, store) => total + this.goodsValue[store], 0);
   }
 
+  /**
+   * Journeys already paid for whose goods are still standing in a store.
+   *
+   * A lorry is a cost the day it runs, but what it brought is not eaten that
+   * day, so part of what was paid the haulier is sitting in the bin along with
+   * the feed. It comes out again, a kilogram at a time, as the herd eats.
+   */
+  get haulageInStore(): number {
+    return STORE_IDS.reduce((total, store) => total + this.haulageValue[store], 0);
+  }
+
   quantity(store: StoreId): number {
     return this.held[store];
   }

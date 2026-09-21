@@ -101,6 +101,21 @@ const METRICS: {
     label: "Peak funding need",
     format: (value, currency) => money(value, currency, true),
   },
+  {
+    key: "inventoryAdjustedProfitPerYear",
+    label: "Inventory-adjusted profit / year (experimental)",
+    format: (value, currency) => money(value, currency, true),
+  },
+  {
+    key: "livestockInventoryChangePerYear",
+    label: "Herd and stores built / year (experimental)",
+    format: (value, currency) => money(value, currency, true),
+  },
+  {
+    key: "farmWorthAtEnd",
+    label: "Farm net worth at cost, at the end (experimental)",
+    format: (value, currency) => money(value, currency, true),
+  },
 ];
 
 function EnsembleTable({

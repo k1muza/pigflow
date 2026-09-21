@@ -1,5 +1,6 @@
 import type { Cell, Row, Worksheet } from "exceljs";
 
+import { reconcileProfit } from "./accounts";
 import { expectedGiltServiceAgeDays } from "./config";
 import type { MonthlyProjection, PlannerConfig, ProjectionResult } from "./model";
 import { CATEGORY_LABELS, EXPENSE_CATEGORIES, INCOME_CATEGORIES, type LedgerCategory } from "./sim";
@@ -600,6 +601,116 @@ function addHerdSheet(
   return sheet;
 }
 
+/**
+ * The experimental second profit statement, month by month, with the farm's
+ * closing balance sheet under it.
+ *
+ * It is its own sheet rather than extra columns on the cash flow for the same
+ * reason it is its own section on screen: a funder reading the cashflow should
+ * not have to work out which of two profit figures the plan is claiming. This
+ * one is labelled experimental on the sheet itself.
+ */
+function addFarmWorthSheet(
+  workbook: import("exceljs").Workbook,
+  config: PlannerConfig,
+  projection: ProjectionResult,
+) {
+  const sheet = workbook.addWorksheet("Farm Worth", {
+    properties: { tabColor: { argb: "8E7CC3" } },
+    views: [{ state: "frozen", ySplit: 6, xSplit: 1, showGridLines: false }],
+    pageSetup: {
+      paperSize: 9,
+      orientation: "landscape",
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: 0,
+      printTitlesRow: "1:6",
+      margins: { left: 0.25, right: 0.25, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 },
+    },
+  });
+  const headers = [
+    "Month",
+    "Current P&L",
+    "Inventory-adjusted P&L",
+    "Difference",
+    "Costs carried into livestock",
+    "Cost of livestock sold",
+    "Mortality write-offs",
+    "Breeding depreciation",
+    "Market pigs at cost",
+    "Replacement gilts at cost",
+    "Breeding sows",
+    "Boars",
+    "Closing cash",
+  ];
+  styleTitle(
+    sheet,
+    "Experimental: inventory-adjusted profit and farm worth",
+    `${config.project.name} · book values at cost, not at market. Read alongside the cash flow, not instead of it.`,
+    columnLetter(headers.length),
+  );
+  sheet.getRow(6).values = headers;
+  styleTableHeader(sheet.getRow(6), 1, headers.length);
+
+  projection.months.forEach((month, index) => {
+    const row = index + 7;
+    const reconciliation = reconcileProfit(month.totals, month.accounting);
+    const { flows, closing } = month.accounting;
+    sheet.getRow(row).values = [
+      monthCellDate(month.date),
+      reconciliation.currentProfit,
+      reconciliation.inventoryAdjustedProfit,
+      reconciliation.changeInFarmInventory,
+      reconciliation.capitalisedIntoLivestock,
+      reconciliation.costOfLivestockSold,
+      reconciliation.mortalityWriteOffs,
+      flows.depreciation,
+      closing.marketWip,
+      closing.replacementWip,
+      closing.sowAssets,
+      closing.boarAssets,
+      month.closingCash,
+    ];
+    sheet.getCell(row, 1).numFmt = "mmm-yy";
+    forCells(sheet, row, row, 2, headers.length, (cell) => {
+      cell.numFmt = MONEY_FORMAT;
+    });
+    forCells(sheet, row, row, 1, headers.length, (cell) => {
+      cell.border = { bottom: { style: "thin", color: { argb: COLORS.line } } };
+    });
+  });
+
+  const worth = projection.farmWorth;
+  const first = projection.months.length + 8;
+  sheet.getRow(first).values = ["Farm worth at the end of the plan"];
+  styleSection(sheet.getRow(first), headers.length);
+  const balanceSheet: [string, number][] = [
+    ["Cash", worth.cash],
+    ["Feed in the bins", worth.inventory.feed],
+    ["Other stores and freight held", worth.inventory.supplies],
+    ["Market pigs, at cost", worth.inventory.marketLivestock],
+    ["Replacement gilts, at cost", worth.inventory.replacementGilts],
+    ["Breeding sows", worth.breedingAssets.sows],
+    ["Boars", worth.breedingAssets.boars],
+    ["Gross assets", worth.totalAssets],
+    ["Owed to suppliers", -worth.liabilities.payables],
+    ["Farm net worth", worth.netWorth],
+  ];
+  balanceSheet.forEach(([label, value], index) => {
+    const row = first + 1 + index;
+    sheet.getRow(row).values = [label, value];
+    sheet.getCell(row, 2).numFmt = MONEY_FORMAT;
+    if (label === "Gross assets") styleTotal(sheet.getRow(row), headers.length);
+    if (label === "Farm net worth") styleTotal(sheet.getRow(row), headers.length, true);
+  });
+
+  sheet.getColumn(1).width = 30;
+  for (let column = 2; column <= headers.length; column += 1) sheet.getColumn(column).width = 18;
+  applyBase(sheet);
+  sheet.headerFooter.oddFooter = "&LExperimental inventory-adjusted view&RPage &P of &N";
+  return sheet;
+}
+
 /** The unit a feed assumption is quoted in, which its name alone does not say. */
 function growthUnit(key: string): string {
   const name = key.toLowerCase();
@@ -918,6 +1029,7 @@ export async function buildCashflowWorkbook(
   addSummarySheet(workbook, config, projection, generatedAt);
   addCashFlowSheet(workbook, config, projection);
   addHerdSheet(workbook, config, projection);
+  addFarmWorthSheet(workbook, config, projection);
   addAssumptionsSheet(workbook, config);
 
   const output = await workbook.xlsx.writeBuffer();

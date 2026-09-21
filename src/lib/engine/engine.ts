@@ -8,6 +8,12 @@ import {
   type CostType,
   type PigStage,
 } from "../sim/animals";
+import {
+  chargeDepreciation,
+  farmValuation,
+  readBalances,
+  type FarmValuation,
+} from "../sim/accounting";
 import { EMPTY_HAULAGE, type HaulagePlan } from "../sim/haulage";
 import { feedPlanFor, type CostOfProduction, type GenerationRow, type StoreLevel } from "../sim/farm";
 import { FEED_RATIONS } from "../sim/animals";
@@ -200,6 +206,14 @@ export class Engine {
     world.sows = world.sows.filter((sow) => sow.alive);
     world.boars = world.boars.filter((boar) => boar.alive);
 
+    // The breeding herd is written down for the day it has just worked, and
+    // then the second set of books is sealed against the herd as it now stands.
+    chargeDepreciation(world, day, config, world.books);
+    world.record.storeValue = world.supplies.storeValue;
+    world.record.accounting = world.books.close(
+      readBalances(world, world.supplies.haulageInStore),
+    );
+
     const closed = ledger.closeDay(day, date);
     const record = world.record;
     record.totals = closed.totals;
@@ -345,6 +359,7 @@ export class Engine {
     storeValue: number;
     payables: number;
     netWorth: number;
+    atCost: FarmValuation;
   } {
     const world = this.world;
     const counts = world.countHerd();
@@ -385,6 +400,18 @@ export class Engine {
       // delivery look like a gain.
       payables,
       netWorth: world.ledger.cash + livestock + storeValue - payables,
+      // The other reading of the same farm: everything at what it cost rather
+      // than at what it might fetch.
+      atCost: farmValuation({
+        cash: world.ledger.cash,
+        feedValue: FEED_RATIONS.reduce(
+          (total, ration) => total + world.supplies.value(ration),
+          0,
+        ),
+        suppliesValue: world.supplies.value("gas") + world.supplies.value("bedding"),
+        balances: world.history.at(-1)?.accounting ?? world.books.opening,
+        payables,
+      }),
     };
   }
 

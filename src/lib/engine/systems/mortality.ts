@@ -1,3 +1,4 @@
+import { carryingValue } from "../../sim/accounting";
 import { Boar, GrowingPig, Sow } from "../../sim/animals";
 import { roomForStage } from "../housing";
 import type { World } from "../world";
@@ -19,6 +20,9 @@ import type { World } from "../world";
  */
 function absorbLoss(world: World, pig: GrowingPig): void {
   if (pig.destination === "market") world.soldPigCosts.absorb(pig.costs);
+  // Whichever it was for, what the farm spent on it is gone: a dead finisher is
+  // a bigger loss than a dead weaner, and this is where that shows.
+  world.books.writeOffLivestock(pig.costs.total);
 }
 
 export function runMortality(world: World): void {
@@ -60,6 +64,7 @@ export function runMortality(world: World): void {
   for (const boar of world.boars) {
     if (!doomed.has(boar)) continue;
     boar.leave(day, "died");
+    world.books.writeOffBreedingStock(carryingValue(boar));
     record.breedingDeaths += 1;
     world.emit("PigDied", boar.tag + " died", { entities: [boar.tag] });
   }
@@ -68,6 +73,7 @@ export function runMortality(world: World): void {
     if (!doomed.has(sow)) continue;
     const wasLactating = sow.state === "lactating";
     sow.leave(day, "died");
+    world.books.writeOffBreedingStock(carryingValue(sow));
     if (wasLactating) world.housing.release("farrowing");
     world.noteExit(sow.generation, false);
     record.breedingDeaths += 1;

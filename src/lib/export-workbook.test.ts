@@ -17,6 +17,7 @@ describe("Funding cashflow workbook", () => {
       "Summary",
       "Cash Flow",
       "Herd Plan",
+      "Farm Worth",
       "Assumptions",
     ]);
 
@@ -77,6 +78,32 @@ describe("Funding cashflow workbook", () => {
     expect(herd.getCell(7 + config.project.months - 1, 1).value).toEqual(
       new Date("2029-12-01T00:00:00Z"),
     );
+    // The experimental second reading gets a sheet of its own rather than extra
+    // columns on the cashflow, so a lender is never shown two profit figures
+    // under one heading.
+    const worth = workbook.getWorksheet("Farm Worth")!;
+    expect(String(worth.getCell("A2").value)).toContain("Experimental");
+    expect(worth.getCell(7, 1).value).toEqual(new Date("2027-01-01T00:00:00Z"));
+    const firstMonth = projection.months[0];
+    expect(Number(worth.getCell(7, 2).value)).toBeCloseTo(
+      firstMonth.revenue - firstMonth.totalCost,
+      6,
+    );
+    expect(Number(worth.getCell(7, 3).value) - Number(worth.getCell(7, 2).value)).toBeCloseTo(
+      Number(worth.getCell(7, 4).value),
+      6,
+    );
+    const netWorthRow = (() => {
+      for (let row = 1; row <= worth.rowCount; row += 1) {
+        if (String(worth.getCell(`A${row}`).value ?? "").trim() === "Farm net worth") return row;
+      }
+      throw new Error("no farm net worth row");
+    })();
+    expect(Number(worth.getCell(netWorthRow, 2).value)).toBeCloseTo(
+      projection.farmWorth.netWorth,
+      6,
+    );
+
     const assumptions = workbook.getWorksheet("Assumptions")!;
     expect(assumptions.getCell("A2").value).toBe("Model assumptions");
   }, 20_000);
