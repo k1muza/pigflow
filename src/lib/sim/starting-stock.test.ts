@@ -8,6 +8,7 @@ import {
   withConfigDefaults,
   type PlannerConfig,
   type StartingStockEntry,
+  type StartingStockType,
 } from "../config";
 import { simulatePlan } from "../simulation";
 import {
@@ -25,11 +26,11 @@ import { openingStockValue, orphanStartingPiglets } from "./starting-stock";
  * guesses at.
  *
  * Two things are being tested and they pull in opposite directions. The first is
- * that what was entered is what the farm has and what it is carried at: the
- * counts, the values, the parities, the service behind a boar. The second is
- * that none of it is a transaction — no month is charged for it, no cash moves
- * and no profit appears — because an opening balance that turns up in a profit
- * statement is worse than no opening balance at all.
+ * that what was entered is what the farm has and what it is carried at: every
+ * animal, its value, and the age that says what it weighs and where it stands.
+ * The second is that none of it is a transaction — no month is charged for it,
+ * no cash moves and no profit appears — because an opening balance that turns up
+ * in a profit statement is worse than no opening balance at all.
  */
 
 function plan(overrides: (config: PlannerConfig) => void = () => {}): PlannerConfig {
@@ -40,7 +41,7 @@ function plan(overrides: (config: PlannerConfig) => void = () => {}): PlannerCon
   return config;
 }
 
-/** A plan that starts with nothing at all, to be given starting stock. */
+/** A plan that starts with nothing at all, to be given starting animals. */
 function empty(
   starting: StartingStockEntry[],
   overrides: (config: PlannerConfig) => void = () => {},
@@ -59,14 +60,26 @@ function empty(
   });
 }
 
+/** Several animals of one kind, entered the way the form enters them: singly. */
+function each(
+  type: StartingStockType,
+  count: number,
+  openingValue: number,
+  ageDays: number,
+): StartingStockEntry[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${type}-${openingValue}-${index}`,
+    type,
+    ageDays,
+    openingValue,
+  }));
+}
+
 describe("describing the opening stock", () => {
-  it("counts several groups of one type, each at its own value", () => {
-    // The case the whole form exists for: two parity-1 sows worth $350 a head
-    // and three parity-4 sows worth $230, which is not one averaged group.
-    const config = empty([
-      { id: "a", type: "sow", count: 2, parity: 1, reproductiveState: "open", openingValuePerHead: 350 },
-      { id: "b", type: "sow", count: 3, parity: 4, reproductiveState: "open", openingValuePerHead: 230 },
-    ]);
+  it("counts every animal, each at the value it was entered at", () => {
+    // The case the whole form exists for: two sows worth $350 and three worth
+    // $230, which is five animals rather than one averaged herd.
+    const config = empty([...each("sow", 2, 350, 700), ...each("sow", 3, 230, 1100)]);
 
     expect(openingCounts(config).sow).toBe(5);
     expect(openingStockValue(config)).toBeCloseTo(2 * 350 + 3 * 230, 6);
@@ -75,17 +88,21 @@ describe("describing the opening stock", () => {
     expect(farm.sows).toHaveLength(5);
     const values = farm.sows.map((sow) => sow.breedingValue).sort((a, b) => a - b);
     expect(values).toEqual([230, 230, 230, 350, 350]);
-    const parities = farm.sows.map((sow) => sow.parity).sort((a, b) => a - b);
-    expect(parities).toEqual([1, 1, 4, 4, 4]);
   });
 
-  it("takes the groups as the source of truth over the plain head counts", () => {
+  it("ages each animal by what it was entered at", () => {
+    const config = empty([...each("sow", 1, 300, 900), ...each("boar", 1, 500, 640)]);
+    const farm = new Farm(config);
+
+    expect(farm.sows[0].birthDay).toBe(-900);
+    expect(farm.boars[0].birthDay).toBe(-640);
+  });
+
+  it("takes the animals as the source of truth over the plain head counts", () => {
     const config = plan((draft) => {
       draft.stock.sows = 20;
       draft.stock.growers = 60;
-      draft.stock.starting = [
-        { id: "a", type: "sow", count: 3, parity: 2, reproductiveState: "open", openingValuePerHead: 300 },
-      ];
+      draft.stock.starting = each("sow", 3, 300, 800);
     });
 
     // The counts above are ignored rather than added to, so there is never a
@@ -97,29 +114,26 @@ describe("describing the opening stock", () => {
   });
 
   it("is what the plan warnings are written against", () => {
-    // Eleven sows described in groups and no boar row. The warning has to come
-    // off the groups: read off the plain counts it would see the default one
-    // boar and say nothing, and the plan would quietly produce no litters.
+    // Eleven sows entered and no boar. The warning has to come off the animals:
+    // read off the plain counts it would see the default one boar and say
+    // nothing, and the plan would quietly produce no litters.
     const config = plan((draft) => {
       draft.stock.boars = 1;
-      draft.stock.starting = [
-        { id: "a", type: "sow", count: 8, parity: 2, reproductiveState: "gestating", openingValuePerHead: 350 },
-        { id: "b", type: "sow", count: 3, parity: 4, reproductiveState: "open", openingValuePerHead: 230 },
-      ];
+      draft.stock.starting = each("sow", 11, 350, 750);
     });
     const warnings = simulatePlan(config, { snapshots: false }).projection.warnings;
     expect(warnings.some((warning) => warning.title === "No boar on the farm")).toBe(true);
   });
 
-  it("leaves a plan with no groups exactly as it was", () => {
-    // Backward compatibility, asserted rather than assumed: every plan already
-    // saved is this kind, and none of them may come out differently.
+  it("leaves a plan with no animals on it exactly as it was", () => {
+    // Backward compatibility, asserted rather than assumed: a plan saved before
+    // opening stock could be described at all is built from its head counts.
     const before = plan((draft) => {
+      draft.stock.starting = [];
       draft.stock.sows = 4;
       draft.stock.growers = 12;
     });
     const after = structuredClone(before);
-    after.stock.starting = [];
 
     const one = simulatePlan(before, { snapshots: false });
     const two = simulatePlan(after, { snapshots: false });
@@ -130,17 +144,12 @@ describe("describing the opening stock", () => {
 
 describe("starting piglets", () => {
   it("suckle the starting sows that are rearing a litter", () => {
-    const config = empty([
-      {
-        id: "a",
-        type: "sow",
-        count: 2,
-        parity: 3,
-        reproductiveState: "lactating",
-        openingValuePerHead: 300,
-      },
-      { id: "b", type: "piglet", count: 20, averageAgeDays: 10, openingValuePerHead: 12 },
-    ]);
+    // A herd said to be running already is spread through the cycle, so some of
+    // it is in the farrowing house on day one and there is a sow to put a
+    // piglet on.
+    const config = empty([...each("sow", 10, 300, 900), ...each("piglet", 20, 12, 10)], (draft) => {
+      draft.herd.startMode = "staggered";
+    });
     expect(orphanStartingPiglets(config)).toBe(0);
 
     const farm = new Farm(config);
@@ -149,24 +158,27 @@ describe("starting piglets", () => {
     // Milk is paid for through the sow's ration rather than by the head, so a
     // piglet on a sow is fed exactly as one farrowed here would be — and one on
     // no sow would be fed by nobody.
-    expect(farm.sows[0].litter.length + farm.sows[1].litter.length).toBe(20);
+    const suckled = farm.sows.reduce((total, sow) => total + sow.litter.length, 0);
+    expect(suckled).toBe(20);
     for (const piglet of piglets) {
       expect(piglet.damTag).not.toBeNull();
       expect(piglet.costs.total).toBeCloseTo(12, 6);
     }
     // Her litter's age is what says when she weans it.
-    for (const sow of farm.sows) {
+    for (const sow of farm.sows.filter((sow) => sow.litter.length > 0)) {
       expect(sow.weanDay).toBe(config.reproduction.weaningAgeDays - 10);
     }
   });
 
   it("are taken as just weaned when no starting sow is suckling", () => {
-    const config = empty([
-      { id: "a", type: "piglet", count: 8, averageWeightKg: 6, openingValuePerHead: 12 },
-    ]);
+    // A synchronised herd is served together on day one, so not one sow is in
+    // the farrowing house and there is nothing for a piglet to suckle.
+    const config = empty(each("piglet", 8, 12, 10), (draft) => {
+      draft.herd.startMode = "synchronised";
+    });
     // Said rather than quietly put right: the plan warns, and the animals stand
-    // in the weaner house at the weight they were given instead of vanishing or
-    // growing on milk nobody paid for.
+    // in the weaner house at the weight their age gives them instead of
+    // vanishing or growing on milk nobody paid for.
     expect(orphanStartingPiglets(config)).toBe(8);
 
     const farm = new Farm(config);
@@ -174,7 +186,8 @@ describe("starting piglets", () => {
     expect(placed).toHaveLength(8);
     for (const pig of placed) {
       expect(pig.stage).toBe("weaner");
-      expect(pig.weightKg).toBe(6);
+      expect(pig.weightKg).toBeGreaterThan(0);
+      expect(pig.weightKg).toBeLessThan(config.growth.weaningWeightKg);
       expect(pig.costs.total).toBeCloseTo(12, 6);
     }
 
@@ -184,19 +197,18 @@ describe("starting piglets", () => {
 });
 
 describe("what a starting animal is carried at", () => {
-  it("carries a started sow at what she was entered at, whatever her parity", () => {
-    // A parity-3 sow entered at $275 is worth $275 today. Writing her down
-    // again for parities one to three would charge this plan for wear that
-    // happened before it opened, and leave her under what her owner says
-    // she is worth.
-    const config = empty([
-      { id: "a", type: "sow", count: 1, parity: 3, reproductiveState: "open", openingValuePerHead: 275 },
-    ]);
+  it("carries a sow at what she was entered at, with her whole herd life ahead", () => {
+    // A sow entered at $275 is worth $275 today. She comes in with nothing
+    // written off her, and what she is worth is spread over the litters this
+    // plan asks of her rather than over any she had before it opened.
+    const config = empty(each("sow", 1, 275, 800), (draft) => {
+      draft.herd.startMode = "synchronised";
+    });
     const farm = new Farm(config);
     const sow = farm.sows[0];
 
     expect(sow.breedingValue).toBe(275);
-    expect(sow.valuedAfter).toBe(3);
+    expect(sow.valuedAfter).toBe(0);
     expect(sow.accumulatedDepreciation).toBe(0);
     expect(carryingValue(sow)).toBeCloseTo(275, 6);
   });
@@ -216,48 +228,51 @@ describe("what a starting animal is carried at", () => {
     expect(275 - sowDepreciationAtParity(275, 9, config, 3)).toBeCloseTo(150, 6);
   });
 
-  it("ages a boar by the service behind him and writes off only what is left", () => {
-    const config = empty(
-      [{ id: "a", type: "boar", count: 1, monthsInService: 6, openingValuePerHead: 350 }],
-      (draft) => {
-        draft.herd.boarWorkingLifeMonths = 24;
-        draft.herd.boarResidualValue = 110;
-      },
-    );
+  it("starts a boar's working life on the day the plan opens", () => {
+    const config = empty(each("boar", 1, 350, 640), (draft) => {
+      draft.herd.boarWorkingLifeMonths = 24;
+      draft.herd.boarResidualValue = 110;
+    });
 
     const farm = new Farm(config);
     const boar = farm.boars[0];
-    // He joined six months before the plan did, which is what his rotation is
-    // counted from and what the books value him against.
-    expect(boar.joinedDay).toBe(-Math.round(6 * 30.4375));
-    expect(boar.valuedAfter).toBe(Math.round(6 * 30.4375));
+    // However old he is, what he is entered at is what he is worth today and
+    // his rotation is counted from here.
+    expect(boar.birthDay).toBe(-640);
+    expect(boar.joinedDay).toBe(0);
+    expect(boar.valuedAfter).toBe(0);
     expect(boar.breedingValue).toBe(350);
     expect(carryingValue(boar)).toBeCloseTo(350, 6);
 
-    // $240 to write off over the eighteen months he has left, not the
-    // twenty-four he was bought for.
-    const served = boar.valuedAfter;
+    // $240 to write off over the working life ahead of him.
     const lifeDays = 24 * 30.4375;
-    const perDay = (350 - 110) / (lifeDays - served);
-    expect(boarDepreciationAtDay(350, served, config, served)).toBeCloseTo(0, 6);
-    expect(boarDepreciationAtDay(350, served + 30, config, served)).toBeCloseTo(perDay * 30, 6);
-    expect(350 - boarDepreciationAtDay(350, lifeDays, config, served)).toBeCloseTo(110, 6);
+    const perDay = (350 - 110) / lifeDays;
+    expect(boarDepreciationAtDay(350, 0, config, 0)).toBeCloseTo(0, 6);
+    expect(boarDepreciationAtDay(350, 30, config, 0)).toBeCloseTo(perDay * 30, 6);
+    expect(350 - boarDepreciationAtDay(350, lifeDays, config, 0)).toBeCloseTo(110, 6);
   });
 
   it("opens a market pig at its entered value and adds the plan's costs to it", () => {
-    const config = empty([
-      { id: "a", type: "grower", count: 4, averageWeightKg: 45, openingValuePerHead: 70 },
-    ]);
+    const config = empty(each("grower", 4, 70, 90));
     const farm = new Farm(config);
     const growers = farm.pigs.filter((pig) => pig.alive);
 
     expect(growers).toHaveLength(4);
     for (const pig of growers) {
-      expect(pig.weightKg).toBe(45);
+      // Age says what it weighs, inside the house it was entered as standing in.
+      expect(pig.stage).toBe("grower");
+      expect(pig.weightKg).toBeGreaterThanOrEqual(config.growth.growerStartWeightKg);
+      expect(pig.weightKg).toBeLessThanOrEqual(config.growth.finisherStartWeightKg);
       expect(pig.costs.total).toBeCloseTo(70, 6);
       expect(pig.costs.byType.purchase).toBeCloseTo(70, 6);
       expect(pig.costs.byStage.grower).toBeCloseTo(70, 6);
     }
+  });
+
+  it("grows a pig up its stage as its age rises", () => {
+    const young = new Farm(empty(each("grower", 1, 70, 70))).pigs[0];
+    const older = new Farm(empty(each("grower", 1, 70, 110))).pigs[0];
+    expect(older.weightKg).toBeGreaterThan(young.weightKg);
   });
 });
 
@@ -267,7 +282,7 @@ describe("what happens to a starting animal afterwards", () => {
     // eats and is doctored on its way to the abattoir costs its opening value
     // plus that rearing to sell, not the rearing alone.
     const config = empty(
-      [{ id: "a", type: "finisher", count: 6, averageWeightKg: 70, openingValuePerHead: 70 }],
+      each("finisher", 6, 70, 140),
       // With retention on, the females among them would be picked out to breed
       // and would leave market stock by another door. This is about the door
       // marked "sold".
@@ -294,14 +309,11 @@ describe("what happens to a starting animal afterwards", () => {
       draft.stock = {
         sows: 0,
         gilts: 0,
-        boars: 1,
+        boars: 0,
         weaners: 0,
         growers: 0,
         finishers: 0,
-        starting: [
-          { id: "a", type: "gilt", count: 4, openingValuePerHead: 320 },
-          { id: "b", type: "boar", count: 1, openingValuePerHead: 500 },
-        ],
+        starting: [...each("gilt", 4, 320, 200), ...each("boar", 1, 500, 640)],
       };
     });
     const farm = new Farm(config);
@@ -344,9 +356,9 @@ describe("opening stock as an opening balance", () => {
     };
   });
   const stocked = empty([
-    { id: "a", type: "sow", count: 4, parity: 2, reproductiveState: "open", openingValuePerHead: 300 },
-    { id: "b", type: "boar", count: 1, monthsInService: 4, openingValuePerHead: 450 },
-    { id: "c", type: "grower", count: 10, averageWeightKg: 50, openingValuePerHead: 80 },
+    ...each("sow", 4, 300, 800),
+    ...each("boar", 1, 450, 600),
+    ...each("grower", 10, 80, 95),
   ]);
 
   it("lifts what the farm owns on day one", () => {
@@ -441,16 +453,41 @@ describe("plans saved before any of this existed", () => {
     expect(loaded).not.toBeNull();
     expect(loaded!.stock.starting).toEqual([]);
     expect(hasDetailedStartingStock(loaded!)).toBe(false);
-    // And it is still built from its counts, not from an empty group list.
+    // And it is still built from its counts, not from an empty animal list.
     expect(openingCounts(loaded!)).toMatchObject({ sow: 6, grower: 30 });
+  });
+
+  it("read a plan written in groups into the animals those groups stood for", () => {
+    // The shape opening stock was first saved in: a row was a group, with a
+    // head count and one value per head on it.
+    const stored = structuredClone(cloneDefaultConfig()) as Record<string, unknown>;
+    (stored.stock as Record<string, unknown>).starting = [
+      { id: "a", type: "sow", count: 3, parity: 2, reproductiveState: "open", openingValuePerHead: 300 },
+      { id: "b", type: "grower", count: 2, averageAgeDays: 95, openingValuePerHead: 80 },
+    ];
+
+    const loaded = withConfigDefaults(stored);
+    expect(loaded).not.toBeNull();
+    const starting = loaded!.stock.starting;
+    expect(starting).toHaveLength(5);
+    expect(starting.filter((entry) => entry.type === "sow")).toHaveLength(3);
+    expect(openingStockValue(loaded!)).toBeCloseTo(3 * 300 + 2 * 80, 6);
+    // An age it did give is the age it keeps.
+    for (const entry of starting.filter((entry) => entry.type === "grower")) {
+      expect(entry.ageDays).toBe(95);
+    }
+    // And one it never gave is read in at a believable age for the kind.
+    for (const entry of starting.filter((entry) => entry.type === "sow")) {
+      expect(entry.ageDays).toBeGreaterThan(365);
+    }
   });
 });
 
 describe("both engines", () => {
   const starting: StartingStockEntry[] = [
-    { id: "a", type: "sow", count: 6, parity: 2, reproductiveState: "gestating", openingValuePerHead: 300 },
-    { id: "b", type: "boar", count: 1, monthsInService: 3, openingValuePerHead: 480 },
-    { id: "c", type: "weaner", count: 20, averageWeightKg: 12, openingValuePerHead: 35 },
+    ...each("sow", 6, 300, 850),
+    ...each("boar", 1, 480, 620),
+    ...each("weaner", 20, 35, 45),
   ];
 
   it("open on the same balance sheet under 1.x and 2.0", () => {

@@ -1,11 +1,13 @@
 import type { Cell, Row, Worksheet } from "exceljs";
 
 import { reconcileProfit } from "./accounts";
-import { expectedGiltServiceAgeDays, hasDetailedStartingStock } from "./config";
 import {
-  describeStartingStock,
-  openingStockValue,
-} from "./sim/starting-stock";
+  STARTING_STOCK_TYPES,
+  expectedGiltServiceAgeDays,
+  hasDetailedStartingStock,
+  openingCounts,
+} from "./config";
+import { STARTING_STOCK_LABELS, openingStockValue } from "./sim/starting-stock";
 import type { MonthlyProjection, PlannerConfig, ProjectionResult } from "./model";
 import { CATEGORY_LABELS, EXPENSE_CATEGORIES, INCOME_CATEGORIES, type LedgerCategory } from "./sim";
 
@@ -628,10 +630,18 @@ function openingStockRows(
       ["Opening finishers", config.stock.finishers, "head"],
     ];
   }
+  // The animals are entered one at a time and a real herd is hundreds of them,
+  // so the sheet reports them by kind: what the farm has of each and what that
+  // is carried at. The animal-by-animal detail is on the screen that took it.
+  const counts = openingCounts(config);
   const rows: [string, string | number | boolean, string][] = [];
-  for (const entry of config.stock.starting) {
-    rows.push([describeStartingStock(entry), Math.round(entry.count), "head"]);
-    rows.push(["    at, per head", entry.openingValuePerHead, currency]);
+  for (const type of STARTING_STOCK_TYPES) {
+    if (counts[type] === 0) continue;
+    const worth = config.stock.starting
+      .filter((entry) => entry.type === type)
+      .reduce((total, entry) => total + entry.openingValue, 0);
+    rows.push(["Opening " + STARTING_STOCK_LABELS[type].toLowerCase(), counts[type], "head"]);
+    rows.push(["    carried at", worth, currency]);
   }
   rows.push(["Opening stock at cost", openingStockValue(config), currency]);
   return rows;

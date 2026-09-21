@@ -49,10 +49,12 @@ import {
   chargeDepreciation,
   emptyAccountingDay,
   farmValuation,
+  herdValuesAtCost,
   readBalances,
   valueFoundingStock,
   type AccountingDay,
   type FarmValuation,
+  type StageValues,
 } from "./accounting";
 import { countFarmBuilt } from "./instrument";
 import { seedStartingStock, type StartingStockHost } from "./starting-stock";
@@ -293,6 +295,8 @@ export type FarmSnapshot = {
     liveweightKg: number;
     averageWeightKg: Record<PigStage, number>;
     maxSows: number;
+    /** What each group is carried at in the books, group by group. */
+    valueAtCost: StageValues;
   };
   finance: {
     openingCash: number;
@@ -2387,6 +2391,7 @@ export class Farm {
           finisher: average("finisher"),
           gilt: average("gilt"),
         },
+        valueAtCost: herdValuesAtCost(this),
       },
       finance: {
         openingCash: this.ledger.openingCash,

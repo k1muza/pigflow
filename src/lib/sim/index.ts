@@ -2,7 +2,7 @@ import { addMonths, differenceInCalendarDays, format, parseISO } from "date-fns"
 
 import type { PlannerConfig } from "../config";
 import { Farm, STORE_LABELS } from "./farm";
-import type { DayRecord, FarmEvent, StageCounts } from "./farm";
+import type { DayRecord, FarmEvent, FarmSnapshot, StageCounts } from "./farm";
 import {
   addTotals,
   cashTotalsOf,
@@ -11,6 +11,7 @@ import {
   incomeOf,
   type CategoryTotals,
 } from "./ledger";
+import type { StageValues } from "./accounting";
 import type { PigStage } from "./animals";
 
 export * from "./animals";
@@ -52,6 +53,92 @@ export function farmEventLog(config: PlannerConfig): FarmEvent[] {
   const farm = new Farm(config, undefined, { keepEveryEvent: true });
   farm.advanceTo(horizonDay(config));
   return farm.events;
+}
+
+/** One kind of animal standing on the farm, and what that group is worth. */
+export type HerdGroup = {
+  label: string;
+  count: number;
+  /** What the group is carried at, on the basis the balance sheet foots to. */
+  value: number;
+};
+
+/**
+ * The herd split into the groups a stockperson counts it in, each group priced.
+ *
+ * A head count says how big a herd is and nothing about what it is worth, and
+ * the two are not the same shape: two hundred piglets are worth less than
+ * twenty finishers. So the groups carry both.
+ *
+ * The price is what the books carry the animal at, which is the one figure a
+ * farmer can check against what they typed. An animal the farm started with is
+ * carried at what its owner said it was worth, plus what has been spent on it
+ * since; one born here is carried at what it has cost to rear. Priced instead
+ * at what a cull or an abattoir would pay, a sow entered at 300 showed as 200
+ * and a boar entered at 10 showed as 200 — the panel quietly revaluing what the
+ * farmer had just told it.
+ *
+ * Added up, the groups come to the livestock line of {@link farmWorthLines}: a
+ * panel that splits a total has to foot to it.
+ */
+export function herdGroups(counts: StageCounts, values: StageValues): HerdGroup[] {
+  return [
+    { label: "Piglets", count: counts.piglets, value: values.piglets },
+    { label: "Weaners", count: counts.weaners, value: values.weaners },
+    { label: "Growers", count: counts.growers, value: values.growers },
+    { label: "Finishers", count: counts.finishers, value: values.finishers },
+    { label: "Gilts", count: counts.gilts, value: values.gilts },
+    { label: "Sows in pig", count: counts.gestatingSows, value: values.gestatingSows },
+    { label: "Sows suckling", count: counts.lactatingSows, value: values.lactatingSows },
+    { label: "Sows to serve", count: counts.openSows, value: values.openSows },
+    { label: "Boars", count: counts.boars, value: values.boars },
+  ];
+}
+
+/** One line of the little balance sheet a day of the plan closes with. */
+export type WorthLine = {
+  label: string;
+  amount: number;
+  /** The line the ones above it add up to, rather than another asset. */
+  total?: boolean;
+};
+
+/**
+ * What the farm is worth at the close of a day, as lines that add up to it.
+ *
+ * The same three questions a farmer asks of a balance sheet — what is standing
+ * in the yards, what is standing in the stores, what is in the bank — and then
+ * what that comes to once the feed bill is taken off it.
+ *
+ * Every line is at cost, which is the only basis on which the sheet can agree
+ * with itself and with what was typed into it. It used to price the livestock
+ * at what it would fetch while taking the suppliers at what is owed them, so
+ * one column held two readings of the farm and the animals a farmer had just
+ * valued came back at a different figure. Read at cost, the starting flock on
+ * day one is exactly what the farmer entered, and every animal since is what it
+ * has cost to rear.
+ *
+ * The debt line is left out on the days there is none, which on the 1.x farm is
+ * every day — it pays for its feed as the lorry lands.
+ */
+export function farmWorthLines(finance: FarmSnapshot["finance"]): WorthLine[] {
+  const { inventory, breedingAssets, liabilities } = finance.valuation;
+  const livestock =
+    inventory.marketLivestock +
+    inventory.replacementGilts +
+    breedingAssets.sows +
+    breedingAssets.boars;
+  const owed = liabilities.payables + liabilities.other;
+  const lines: WorthLine[] = [
+    { label: "Livestock", amount: livestock },
+    { label: "Feed and supplies in store", amount: inventory.feed + inventory.supplies },
+    // Signed rather than split into cash and an overdraft: the farmer reads one
+    // bank balance, and the net worth is the same figure either way.
+    { label: "Cash in the bank", amount: finance.cash },
+  ];
+  if (owed > 0) lines.push({ label: "Owed for goods delivered", amount: -owed });
+  lines.push({ label: "Net worth", amount: finance.valuation.netWorth, total: true });
+  return lines;
 }
 
 /** One line of "what the farm did" over a stretch of days. */

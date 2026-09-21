@@ -11,8 +11,10 @@ import {
 import {
   chargeDepreciation,
   farmValuation,
+  herdValuesAtCost,
   readBalances,
   type FarmValuation,
+  type StageValues,
 } from "../sim/accounting";
 import { EMPTY_HAULAGE, type HaulagePlan } from "../sim/haulage";
 import { feedPlanFor, type CostOfProduction, type GenerationRow, type StoreLevel } from "../sim/farm";
@@ -355,6 +357,7 @@ export class Engine {
   valuation(): {
     liveweightKg: number;
     averageWeightKg: Record<PigStage, number>;
+    valuesAtCost: StageValues;
     herdValue: number;
     storeValue: number;
     payables: number;
@@ -393,6 +396,7 @@ export class Engine {
         finisher: average("finisher"),
         gilt: average("gilt"),
       },
+      valuesAtCost: herdValuesAtCost(world),
       herdValue: livestock + storeValue,
       storeValue,
       // Feed bought on terms is cash the farm still has and money it already

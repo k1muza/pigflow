@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 
 import {
-  cloneDefaultConfig,
+  newPlanConfig,
   getModelMetrics,
   plannerSchema,
   type PlannerConfig,
@@ -555,7 +555,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
   function resetPlan() {
     if (window.confirm("Reset this plan's inputs to the evidence-based starter assumptions?")) {
       setConfig((current) => {
-        const fresh = cloneDefaultConfig();
+        const fresh = newPlanConfig();
         // Resetting the numbers is not renaming the plan.
         fresh.project.name = current.project.name;
         return fresh;

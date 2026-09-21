@@ -1,4 +1,4 @@
-import { cloneDefaultConfig, withConfigDefaults, type PlannerConfig } from "./config";
+import { newPlanConfig, withConfigDefaults, type PlannerConfig } from "./config";
 
 /**
  * One saved plan. Everything the app shows — the herd, the cashflow, the
@@ -80,7 +80,7 @@ function withName(config: PlannerConfig, name: string): PlannerConfig {
 }
 
 export function createWorkspace(
-  config: PlannerConfig = cloneDefaultConfig(),
+  config: PlannerConfig = newPlanConfig(),
   id: string = newProjectId(),
 ): Workspace {
   const project = { id, config };
@@ -92,7 +92,7 @@ export function addProject(workspace: Workspace, name: string): Workspace {
   if (workspace.projects.length >= MAX_PROJECTS) return workspace;
   const project = {
     id: newProjectId(),
-    config: withName(cloneDefaultConfig(), availableName(workspace, name)),
+    config: withName(newPlanConfig(), availableName(workspace, name)),
   };
   return { activeId: project.id, projects: [...workspace.projects, project] };
 }

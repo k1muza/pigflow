@@ -132,6 +132,7 @@ export function engineSnapshot(engine: Engine, timestamp?: string): FarmSnapshot
       liveweightKg: valuation.liveweightKg,
       maxSows: config.herd.maxSows,
       averageWeightKg: valuation.averageWeightKg,
+      valueAtCost: valuation.valuesAtCost,
     },
     finance: {
       openingCash: world.ledger.openingCash,

@@ -41,6 +41,7 @@ export {
   ESTRUS_CYCLE_DAYS,
   GILT_ACCLIMATISATION_DAYS,
   GILT_ENTRY_AGE_DAYS,
+  newPlanConfig,
   plannerSchema,
   SERVICES_PER_BOAR_PER_WEEK,
   withConfigDefaults,
@@ -582,10 +583,11 @@ export function buildWarnings(
       title: "The starting piglets have no sow to suckle them",
       detail:
         orphanPiglets +
-        " piglets were entered as starting stock, but no starting sow is lactating. " +
-        "Milk is fed through the sow, so they are taken as just weaned instead — " +
-        "standing in the weaner house from day one at the weight you gave them. " +
-        "Add a lactating sow group if they really are still on a sow.",
+        " piglets were entered as starting stock, but not one starting sow is in the " +
+        "farrowing house on day one. Milk is fed through the sow, so they are taken as " +
+        "just weaned instead — standing in the weaner house from day one at the weight " +
+        "their age gives them. A herd started staggered rather than synchronised is " +
+        "spread through the cycle, and some of it is suckling when the plan opens.",
     });
   }
   if (opening.sow > config.herd.maxSows) {

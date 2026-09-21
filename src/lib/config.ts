@@ -64,9 +64,8 @@ const cashMovementSchema = z.object({
 export type CashMovement = z.infer<typeof cashMovementSchema>;
 
 /**
- * The stages a starting group of growing pigs can be standing in. A breeding
- * sow and a boar are described differently enough to be their own shapes, so
- * neither is in here.
+ * The stages a starting pig can be standing in. A breeding sow and a boar are
+ * not stages a pig grows through, so neither is in here.
  */
 export const STARTING_PIG_TYPES = ["piglet", "weaner", "grower", "finisher", "gilt"] as const;
 export type StartingPigType = (typeof STARTING_PIG_TYPES)[number];
@@ -75,100 +74,110 @@ export type StartingPigType = (typeof STARTING_PIG_TYPES)[number];
 export const STARTING_STOCK_TYPES = [...STARTING_PIG_TYPES, "sow", "boar"] as const;
 export type StartingStockType = (typeof STARTING_STOCK_TYPES)[number];
 
-const startingCount = z.number().int().min(0).max(100_000);
-
 /**
- * What one of these animals is worth on the day the plan opens.
+ * What this animal is worth on the day the plan opens.
  *
  * Not what it was bought for, and not what it would have cost to rear here:
  * what it is worth standing in the pen on day zero. The plan carries it at that
  * from then on, and for a market pig it is the first line of what that pig
  * finally costs to sell.
  */
-const openingValuePerHead = nonNegative;
+const openingValue = nonNegative;
 
 /**
- * A pen of growing pigs, or a group of maiden gilts, that the farm already has.
+ * One animal the farm owns on the day the plan opens.
  *
- * Weight and age are optional and are read as a description of the group: give
- * a weight and every animal in the group starts at it, which is what a pen
- * bought or weaned together actually looks like. Leave it out and the group is
- * spread evenly through its stage, the way opening pigs have always been
- * placed. A farm whose growers really are at four different weights is four
- * rows, which is what a repeatable form is for.
- */
-const startingPigSchema = z.object({
-  id: z.string().min(1).max(40),
-  type: z.enum(STARTING_PIG_TYPES),
-  count: startingCount,
-  averageWeightKg: z.number().finite().min(0.5).max(400).optional(),
-  averageAgeDays: z.number().int().min(0).max(2_000).optional(),
-  openingValuePerHead,
-});
-
-/**
- * Breeding females the farm already has, at one parity and one value.
- *
- * The parity is the litters behind her, and it is what fixes her age and how
- * much working life she has left. It is deliberately not used to write her down
- * again: she is carried at what she is entered at, and what is left of that
- * value is spread over the litters still ahead of her.
- */
-const startingSowSchema = z.object({
-  id: z.string().min(1).max(40),
-  type: z.literal("sow"),
-  count: startingCount,
-  parity: z.number().int().min(0).max(12),
-  /**
-   * Where she is in her cycle. A group of several is spread across the part of
-   * the cycle its state covers, so three gestating sows are not all due on one
-   * day. Lactating sows suckle the starting piglets, if any were entered.
-   */
-  reproductiveState: z.enum(["open", "gestating", "lactating"]).default("open"),
-  openingValuePerHead,
-});
-
-/**
- * Boars the farm already has.
- *
- * Months in service is how much of his working life is behind him: it ages him,
- * it decides when he is rotated out, and what he is entered at is written down
- * over the months he has left rather than over a whole working life he has not
- * got.
- */
-const startingBoarSchema = z.object({
-  id: z.string().min(1).max(40),
-  type: z.literal("boar"),
-  count: startingCount,
-  monthsInService: z.number().finite().min(0).max(120).optional(),
-  openingValuePerHead,
-});
-
-/**
- * One group of animals the farm owns on the day the plan opens.
+ * Three things, asked of every animal alike: what it is, what it is worth, and
+ * how old it is. Age is the one clock — it is what says how much a pig weighs,
+ * how far through its stage it stands, and how long it has been on the farm —
+ * so nothing here is asked twice in different units.
  *
  * The reason to enter these rather than a head count is the value. Opening
  * stock is an opening balance, and what it is worth is something the farmer
- * knows and the plan cannot work out: rebuilding it from what the animals would
+ * knows and the plan cannot work out: rebuilding it from what the animal would
  * have cost to rear here invents a history the farm did not have, and on a herd
  * that was bought in it is simply wrong.
  *
- * Several groups of one type are expected rather than merely allowed. Two
- * parity-1 sows at $350 and three parity-4 sows at $230 are two rows.
+ * One entry is one animal. A farm of forty sows is forty entries, each with the
+ * age and the value that sow actually has, rather than one row averaging them
+ * into a herd that does not exist.
  */
-export const startingStockSchema = z.discriminatedUnion("type", [
-  startingPigSchema,
-  startingSowSchema,
-  startingBoarSchema,
-]);
+export const startingStockSchema = z.object({
+  id: z.string().min(1).max(40),
+  type: z.enum(STARTING_STOCK_TYPES),
+  ageDays: z.number().int().min(0).max(4_000),
+  openingValue,
+});
 
 export type StartingStockEntry = z.infer<typeof startingStockSchema>;
-export type StartingPigEntry = z.infer<typeof startingPigSchema>;
-export type StartingSowEntry = z.infer<typeof startingSowSchema>;
-export type StartingBoarEntry = z.infer<typeof startingBoarSchema>;
 
-/** Rows one plan can hold: well past the groups any real farm is made of. */
-export const MAX_STARTING_STOCK_ROWS = 60;
+/** Animals one plan can hold, which is a herd rather than a sample of one. */
+export const MAX_STARTING_STOCK_ROWS = 2_000;
+
+/**
+ * A believable age for an animal of this kind.
+ *
+ * What a new animal is put on the form at, so that the age box starts at
+ * something a farmer corrects rather than at nothing, and what an old plan's
+ * groups are read in at where they never said an age at all.
+ */
+export const TYPICAL_AGE_DAYS: Record<StartingStockType, number> = {
+  piglet: 14,
+  weaner: 45,
+  grower: 85,
+  finisher: 130,
+  gilt: 200,
+  sow: 700,
+  boar: 400,
+};
+
+/**
+ * Reads a plan written before stock was entered animal by animal.
+ *
+ * A row used to be a group: a head count, a weight or a parity or months in
+ * service, and one value per head. Those rows are read here into the animals
+ * they stood for — a count of five becomes five animals — so an old plan opens
+ * as the farm it described rather than as a validation error. What the old row
+ * did not say plainly, age is taken from: an age given is used, a parity is the
+ * litters behind her at roughly a litter a year, and anything else falls back on
+ * a believable age for the kind. It is a best reading of an old plan, not a
+ * promise that the two simulate identically.
+ */
+function readLegacyStartingStock(input: unknown): unknown {
+  if (!Array.isArray(input)) return input ?? [];
+
+  const animals: unknown[] = [];
+  for (const row of input) {
+    if (row === null || typeof row !== "object") continue;
+    const old = row as Record<string, unknown>;
+    if (typeof old.count !== "number") {
+      animals.push(row);
+      continue;
+    }
+
+    const type = (old.type ?? "grower") as StartingStockType;
+    const parity = typeof old.parity === "number" ? old.parity : 0;
+    const age =
+      typeof old.averageAgeDays === "number"
+        ? old.averageAgeDays
+        : type === "sow"
+          ? TYPICAL_AGE_DAYS.sow + parity * 180
+          : type === "boar" && typeof old.monthsInService === "number"
+            ? TYPICAL_AGE_DAYS.boar + Math.round(old.monthsInService * DAYS_PER_MONTH)
+            : TYPICAL_AGE_DAYS[type];
+
+    const head = Math.max(0, Math.round(old.count));
+    for (let index = 0; index < head; index += 1) {
+      animals.push({
+        id: String(old.id ?? "stock") + "-" + index,
+        type,
+        ageDays: Math.round(age),
+        openingValue: old.openingValuePerHead ?? old.openingValue ?? 0,
+      });
+    }
+  }
+  return animals;
+}
 
 export const plannerSchema = z.object({
   project: z.object({
@@ -210,12 +219,15 @@ export const plannerSchema = z.object({
   }),
   stock: z.object({
     /**
-     * The plain head counts, which are what a plan with no detailed starting
-     * stock is built from. Every animal they place is valued by the plan rather
-     * than by the farmer: a growing pig opens at nothing and a founding sow is
-     * priced at what a replacement gilt costs.
+     * The plain head counts, which are what a plan with no starting animals is
+     * built from. Every animal they place is valued by the plan rather than by
+     * the farmer: a growing pig opens at nothing and a founding sow is priced at
+     * what a replacement gilt costs.
      *
-     * They are ignored as soon as {@link starting} has a row in it, so read
+     * Nothing on screen writes these any more — the farm is described animal by
+     * animal in {@link starting}, and a new plan comes with its animals already
+     * there. They are kept because plans saved before that still carry them, and
+     * they are ignored the moment {@link starting} has an animal in it, so read
      * them through {@link openingCounts} rather than reaching for them here.
      */
     sows: nonNegative,
@@ -225,16 +237,18 @@ export const plannerSchema = z.object({
     growers: nonNegative,
     finishers: nonNegative,
     /**
-     * The farm's actual opening stock, group by group, each group with what it
-     * is worth on day zero.
+     * The farm's actual opening stock, animal by animal, each with what it is
+     * worth on day zero.
      *
-     * Empty on every plan saved before this existed and on every new one, and
-     * while it is empty nothing about opening stock changes. One row makes this
-     * the source of truth for what the farm starts with — counts and values
-     * together, so there is never a head count to keep in step with a
-     * valuation kept somewhere else.
+     * This is the source of truth for what the farm starts with — counts and
+     * values together, so there is never a head count to keep in step with a
+     * valuation kept somewhere else. Empty only on a plan saved before opening
+     * stock could be described at all, and while it is empty the plain counts
+     * above still build the farm.
      */
-    starting: z.array(startingStockSchema).max(MAX_STARTING_STOCK_ROWS).default([]),
+    starting: z
+      .preprocess(readLegacyStartingStock, z.array(startingStockSchema).max(MAX_STARTING_STOCK_ROWS))
+      .default([]),
   }),
   herd: z.object({
     startMode: z.enum(["staggered", "synchronised"]),
@@ -654,27 +668,28 @@ export type PlannerSection = keyof PlannerConfig;
 export type OpeningCounts = Record<StartingStockType, number>;
 
 /**
- * Whether this plan describes its opening stock group by group.
+ * Whether this plan describes its opening stock animal by animal.
  *
- * One row is enough. A row with a count of zero is still a description — a
- * farmer who has emptied a row meant to empty it — so this asks whether the
- * form was used and not whether it adds up to any animals.
+ * One animal is enough. Only a plan saved before opening stock could be
+ * described at all comes through here false, and that plan is built from its
+ * plain head counts instead.
  */
 export function hasDetailedStartingStock(config: PlannerConfig): boolean {
   return config.stock.starting.length > 0;
 }
 
 /**
- * What the farm starts with, taken from the detailed groups if there are any
- * and from the plain head counts if there are not.
+ * What the farm starts with, counted off the animals it was given, or off the
+ * plain head counts on a plan too old to have any.
  *
  * Everything that wants to know how many sows or boars a plan opens with reads
  * this, so that the two ways of saying it cannot disagree.
  *
- * One asymmetry worth knowing: `piglet` counts only piglets entered as their
- * own group. A plan built from the head counts starts its suckling pigs as the
- * litters on its lactating sows, and those are not in here because nothing
- * asked for them — they are farrowed by the opening herd rather than entered.
+ * One asymmetry worth knowing: `piglet` counts only piglets entered as animals
+ * in their own right. A plan built from the head counts starts its suckling
+ * pigs as the litters on its lactating sows, and those are not in here because
+ * nothing asked for them — they are farrowed by the opening herd rather than
+ * entered.
  */
 export function openingCounts(config: PlannerConfig): OpeningCounts {
   const counts: OpeningCounts = {
@@ -687,9 +702,7 @@ export function openingCounts(config: PlannerConfig): OpeningCounts {
     boar: 0,
   };
   if (hasDetailedStartingStock(config)) {
-    for (const entry of config.stock.starting) {
-      counts[entry.type] += Math.max(0, Math.round(entry.count));
-    }
+    for (const entry of config.stock.starting) counts[entry.type] += 1;
     return counts;
   }
   const { stock } = config;
@@ -1065,6 +1078,34 @@ export function cloneDefaultConfig(): PlannerConfig {
 }
 
 /**
+ * The herd a new plan is founded on: two sows and the boar to serve them.
+ *
+ * Seven months old and priced at what a replacement costs here, which is the
+ * founding herd the plain head counts have always quietly placed. It is said
+ * out loud now, as three animals a farmer can see, age, price and delete.
+ */
+const FOUNDING_HERD: StartingStockEntry[] = [
+  { id: "stock-sow-1", type: "sow", ageDays: 213, openingValue: 350 },
+  { id: "stock-sow-2", type: "sow", ageDays: 213, openingValue: 350 },
+  { id: "stock-boar-1", type: "boar", ageDays: 213, openingValue: 600 },
+];
+
+/**
+ * A plan as a farmer first meets it: the starter assumptions, with the founding
+ * herd standing on the farm as animals rather than as head counts.
+ *
+ * {@link cloneDefaultConfig} is the assumptions on their own, which is what a
+ * test measuring one rule wants. Everything that makes a plan for somebody to
+ * open starts here instead: a new plan whose flock is empty would be a farm
+ * running on numbers it never shows anybody.
+ */
+export function newPlanConfig(): PlannerConfig {
+  const config = cloneDefaultConfig();
+  config.stock = { ...config.stock, sows: 0, boars: 0, starting: structuredClone(FOUNDING_HERD) };
+  return config;
+}
+
+/**
  * Merges a stored plan over the defaults so that plans saved before a field was
  * added still load instead of being discarded.
  */
@@ -1084,6 +1125,17 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
       };
     }
   }
+  // A new plan comes with animals on it, and a plan saved before opening stock
+  // could be described at all has none. Merging the one over the other would
+  // hand that old plan a farm it never had — and because animals override the
+  // plain head counts, it would open as two sows and a boar instead of as the
+  // herd it was actually written against. A plan that does not mention its
+  // starting stock is a plan with no starting stock.
+  const storedStock = stored.stock;
+  if (!storedStock || typeof storedStock !== "object" || !("starting" in storedStock)) {
+    merged.stock.starting = [];
+  }
+
   // The reorder-point and rolling-cover rules have both been withdrawn. A plan
   // saved while either was selected still has the string in it, and the schema no
   // longer accepts it, so without this every such plan fails to load rather than

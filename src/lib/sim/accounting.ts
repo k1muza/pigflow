@@ -511,6 +511,65 @@ export function readBalances(
   return { marketWip, replacementWip, sowAssets, boarAssets, freightInStore };
 }
 
+/** What each group a herd is counted in is carried at, at cost. */
+export type StageValues = {
+  gestatingSows: number;
+  lactatingSows: number;
+  openSows: number;
+  boars: number;
+  piglets: number;
+  weaners: number;
+  growers: number;
+  finishers: number;
+  gilts: number;
+};
+
+/**
+ * The books split by the groups a stockperson counts the herd in.
+ *
+ * {@link readBalances} answers what the farm holds in four buckets, which is
+ * what a balance sheet wants; this answers the same question group by group,
+ * which is what a panel showing the herd wants. Both read the same value off
+ * the same animal — a market pig at what has been spent on it, a sow or a boar
+ * at what is left of what she was entered or promoted at — so the nine groups
+ * add up to the four buckets and neither can drift from the other.
+ */
+export function herdValuesAtCost(farm: {
+  pigs: readonly GrowingPig[];
+  sows: readonly Sow[];
+  boars: readonly Boar[];
+}): StageValues {
+  const values: StageValues = {
+    gestatingSows: 0,
+    lactatingSows: 0,
+    openSows: 0,
+    boars: 0,
+    piglets: 0,
+    weaners: 0,
+    growers: 0,
+    finishers: 0,
+    gilts: 0,
+  };
+  for (const sow of farm.sows) {
+    if (!sow.alive) continue;
+    if (sow.state === "gestating") values.gestatingSows += carryingValue(sow);
+    else if (sow.state === "lactating") values.lactatingSows += carryingValue(sow);
+    else values.openSows += carryingValue(sow);
+  }
+  for (const boar of farm.boars) {
+    if (boar.alive) values.boars += carryingValue(boar);
+  }
+  for (const pig of farm.pigs) {
+    if (!pig.alive) continue;
+    if (pig.stage === "piglet") values.piglets += pig.costs.total;
+    else if (pig.stage === "weaner") values.weaners += pig.costs.total;
+    else if (pig.stage === "grower") values.growers += pig.costs.total;
+    else if (pig.stage === "finisher") values.finishers += pig.costs.total;
+    else values.gilts += pig.costs.total;
+  }
+  return values;
+}
+
 /**
  * How far a day's balances stand from what its movements said they would.
  *

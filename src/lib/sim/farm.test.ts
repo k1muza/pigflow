@@ -18,6 +18,7 @@ import {
   farmStateAt,
   farmTimeline,
   GrowingPig,
+  herdGroups,
   horizonDay,
   incomeOf,
   runFarm,
@@ -390,6 +391,24 @@ describe("Point-in-time farm state", () => {
     expect(state.stock.some((animal) => animal.kind === "sow")).toBe(true);
     expect(state.finance.netWorth).toBeCloseTo(state.finance.cash + state.finance.herdValue, 6);
     expect(state.recentEvents.length).toBeGreaterThan(0);
+  });
+
+  it("splits the herd into groups that foot to what the livestock is worth", () => {
+    const input = config();
+    const state = farmStateAt(input, "2028-06-15T23:00");
+    const groups = herdGroups(state.herd, state.herd.valueAtCost);
+
+    // Every animal on the farm is in exactly one group, and the groups come to
+    // the livestock line of the balance sheet — the books split nine ways
+    // rather than four, and no animal valued differently for being split.
+    const valuation = state.finance.valuation;
+    const livestock =
+      valuation.inventory.marketLivestock +
+      valuation.inventory.replacementGilts +
+      valuation.breedingAssets.sows +
+      valuation.breedingAssets.boars;
+    expect(groups.reduce((total, group) => total + group.count, 0)).toBe(state.herd.total);
+    expect(groups.reduce((total, group) => total + group.value, 0)).toBeCloseTo(livestock, 6);
   });
 
   it("agrees with the monthly cashflow at each month end", () => {

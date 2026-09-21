@@ -3,8 +3,14 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { PlannerConfig } from "./config";
 import type { ProjectionResult } from "./model";
 import type { PlanSimulation } from "./simulation";
-import { farmValuation, ZERO_BALANCES } from "./sim/accounting";
-import type { CostOfProduction, FarmSnapshot, FarmTimeline, StoreLevel } from "./sim";
+import { farmValuation, ZERO_BALANCES, type StageValues } from "./sim/accounting";
+import type {
+  CostOfProduction,
+  FarmSnapshot,
+  FarmTimeline,
+  PigStage,
+  StoreLevel,
+} from "./sim";
 
 /**
  * A finished plan in a shape that can cross a worker boundary.
@@ -30,6 +36,10 @@ export type DaySnapshot = {
   date: string;
   /** Every live animal's weight added up, which is what the herd is worth.  */
   liveweightKg: number;
+  /** What a pig of each stage weighs on average. */
+  averageWeightKg: Record<PigStage, number>;
+  /** What each group of the herd is carried at, which prices its line. */
+  valueAtCost: StageValues;
   finance: FarmSnapshot["finance"];
   stores: StoreLevel[];
   costOfProduction: CostOfProduction;
@@ -101,6 +111,8 @@ function daySnapshotOf(state: FarmSnapshot): DaySnapshot {
     day: state.day,
     date: state.date,
     liveweightKg: state.herd.liveweightKg,
+    averageWeightKg: state.herd.averageWeightKg,
+    valueAtCost: state.herd.valueAtCost,
     finance: state.finance,
     stores: state.stores,
     costOfProduction: state.costOfProduction,
@@ -220,6 +232,18 @@ function emptyDay(): DaySnapshot {
     day: 0,
     date: "",
     liveweightKg: 0,
+    averageWeightKg: { piglet: 0, weaner: 0, grower: 0, finisher: 0, gilt: 0 },
+    valueAtCost: {
+      gestatingSows: 0,
+      lactatingSows: 0,
+      openSows: 0,
+      boars: 0,
+      piglets: 0,
+      weaners: 0,
+      growers: 0,
+      finishers: 0,
+      gilts: 0,
+    },
     finance: {
       openingCash: 0,
       cash: 0,
