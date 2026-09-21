@@ -1129,16 +1129,26 @@ export function Simulator({ simulation }: { simulation: PlanSimulationResult }) 
   const [savingLog, setSavingLog] = useState(false);
 
   /**
-   * The farm's own log of the run, as a CSV. It is built here rather than held
-   * with the timeline because the whole of it is wanted only when it is asked
-   * for — a five year plan writes thousands of lines the calendar never shows.
+   * The farm's own log of the run, as a CSV.
+   *
+   * Asked for rather than held with the timeline, because the whole of it is
+   * wanted only when somebody wants it — a five year plan writes thousands of
+   * lines the calendar never shows, and carrying them in every result to serve
+   * a button nobody has pressed is the wrong trade. So it is a farm run of its
+   * own, and it goes to a worker of its own: it used to run here, which took
+   * the page away for as long as the run.
    */
   async function downloadEventLog() {
     if (savingLog) return;
     setSavingLog(true);
     try {
-      const { buildEventLogCsv, eventLogFilename } = await import("@/lib/export-event-log");
-      const blob = new Blob([buildEventLogCsv(config)], { type: "text/csv;charset=utf-8" });
+      const [{ eventLogCsv, eventLogFilename }, { runSimulationJob }] = await Promise.all([
+        import("@/lib/export-event-log"),
+        import("@/workers/simulation-client"),
+      ]);
+      const answer = await runSimulationJob({ type: "event-log", config });
+      if (answer.type !== "event-log") throw new Error("The farm answered the wrong question.");
+      const blob = new Blob([eventLogCsv(answer.events)], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -3482,6 +3492,7 @@ function FundingControls({
   projection,
   update,
 }: {
+  /** The inputs as they stand: these controls read them and write them. */
   config: PlannerConfig;
   projection: ReturnType<typeof calculateProjection>;
   update: <S extends PlannerSection, K extends keyof PlannerConfig[S]>(
@@ -3493,6 +3504,7 @@ function FundingControls({
   const currency = config.project.currency;
   const movements = config.finance.cashMovements;
   const target = config.finance.workingCapitalTarget;
+  const [planning, setPlanning] = useState<CashMovement["kind"] | null>(null);
 
   const injected = generatedTotal(movements, "in");
   const withdrawn = generatedTotal(movements, "out");
@@ -3502,14 +3514,31 @@ function FundingControls({
    * rows, so pressing a button twice gives the same answer as pressing it once,
    * and the two compose: money put in is there to be left alone when the surplus
    * is taken out.
+   *
+   * Which means a farm run, of a config that is not the open plan, and one that
+   * the plan on screen cannot answer for. It goes to a worker of its own —
+   * pressing this used to take the page away for as long as the run, which on a
+   * large herd is seconds.
    */
-  function replace(kind: CashMovement["kind"], plan: typeof planCashInjections) {
+  async function replace(kind: CashMovement["kind"], plan: typeof planCashInjections) {
+    if (planning) return;
+    setPlanning(kind);
     const kept = movements.filter((movement) => !isGenerated(movement, kind));
     const base = {
       ...config,
       finance: { ...config.finance, cashMovements: kept },
     };
-    update("finance", "cashMovements", [...kept, ...plan(base, calculateProjection(base))]);
+    try {
+      const { runSimulationJob } = await import("@/workers/simulation-client");
+      const answer = await runSimulationJob({ type: "project", config: base });
+      if (answer.type !== "projection") throw new Error("The farm answered the wrong question.");
+      update("finance", "cashMovements", [...kept, ...plan(base, answer.projection)]);
+    } catch (error) {
+      console.error(error);
+      window.alert("The funding plan could not be worked out. Please try again.");
+    } finally {
+      setPlanning(null);
+    }
   }
 
   function clear(kind: CashMovement["kind"]) {
@@ -3531,14 +3560,18 @@ function FundingControls({
             {money(target, currency)}.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => replace("in", planCashInjections)}>
+            <Button
+              size="sm"
+              disabled={planning !== null}
+              onClick={() => void replace("in", planCashInjections)}
+            >
               <Plus size={14} />
-              Add cash injections
+              {planning === "in" ? "Working it out…" : "Add cash injections"}
             </Button>
             <Button
               size="sm"
               variant="outline"
-              disabled={injected === 0}
+              disabled={injected === 0 || planning !== null}
               onClick={() => clear("in")}
             >
               Remove cash injections
@@ -3568,14 +3601,18 @@ function FundingControls({
             capital behind — and never more than the leanest month still to come can spare.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => replace("out", planCashWithdrawals)}>
+            <Button
+              size="sm"
+              disabled={planning !== null}
+              onClick={() => void replace("out", planCashWithdrawals)}
+            >
               <Minus size={14} />
-              Withdraw excess
+              {planning === "out" ? "Working it out…" : "Withdraw excess"}
             </Button>
             <Button
               size="sm"
               variant="outline"
-              disabled={withdrawn === 0}
+              disabled={withdrawn === 0 || planning !== null}
               onClick={() => clear("out")}
             >
               Remove withdrawals
@@ -3603,10 +3640,19 @@ function FundingControls({
 export function Money({
   config,
   projection,
+  editing,
   update,
 }: {
+  /** The config the projection beside it was worked out from. */
   config: PlannerConfig;
   projection: ReturnType<typeof calculateProjection>;
+  /**
+   * The inputs as they now stand, which is not always the same thing while a
+   * farm is running. The funding controls want this one: the rows they write
+   * have to show up under them the moment they are written, rather than when
+   * the next run comes back.
+   */
+  editing: PlannerConfig;
   update: <S extends PlannerSection, K extends keyof PlannerConfig[S]>(
     section: S,
     key: K,
@@ -3746,7 +3792,7 @@ export function Money({
           </div>
         </div>
 
-        <FundingControls config={config} projection={projection} update={update} />
+        <FundingControls config={editing} projection={projection} update={update} />
 
       </div>
 

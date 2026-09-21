@@ -14,16 +14,18 @@ import { answerSimulationRequest, type SimulationRequest } from "@/lib/simulatio
 
 const worker = self as unknown as Worker;
 
+const JOBS = new Set(["simulate", "project", "event-log"]);
+
 worker.onmessage = (event: MessageEvent<SimulationRequest>) => {
   const request = event.data;
-  if (request?.type !== "simulate") return;
+  if (!JOBS.has(request?.type)) return;
 
   const response = answerSimulationRequest(request);
-  if (response.type === "error") {
-    worker.postMessage(response);
+  if (response.type === "result") {
+    // The day columns are handed over rather than copied, which is most of the
+    // reason they are columns. See `lib/simulation-result`.
+    worker.postMessage(response, planResultTransfers(response.result));
     return;
   }
-  // The day columns are handed over rather than copied, which is most of the
-  // reason they are columns. See `lib/simulation-result`.
-  worker.postMessage(response, planResultTransfers(response.result));
+  worker.postMessage(response);
 };

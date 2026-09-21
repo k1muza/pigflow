@@ -4,12 +4,14 @@ import { CashflowPreview } from "@/components/planner-sections";
 import { usePlanner } from "@/components/planner-shell";
 
 export default function CashflowPage() {
-  const { config, projection, exporting, exportExcel } = usePlanner();
-  if (!projection) return null;
+  const { simulation, exporting, exportExcel } = usePlanner();
+  if (!simulation) return null;
+  // Both halves off one run: a cashflow read against inputs it was not worked
+  // out from is a cashflow that does not foot.
   return (
     <CashflowPreview
-      config={config}
-      projection={projection}
+      config={simulation.config}
+      projection={simulation.projection}
       exporting={exporting}
       onExport={exportExcel}
     />

@@ -9,8 +9,21 @@ import {
   IDLE_SIMULATION,
   PlanSimulationRunner,
   type PlanSimulationState,
-  type SimulationPort,
 } from "@/lib/simulation-worker";
+import { spawnSimulationWorker } from "@/workers/simulation-client";
+
+/**
+ * How long the inputs have to stop changing before a farm is run.
+ *
+ * A farm cannot be asked to stop once it starts, so a run that is superseded
+ * costs its worker (see `lib/simulation-worker`). Typing "300" over three
+ * keystrokes should therefore be one run and not three — and `useDeferredValue`
+ * will not do it: it coalesces updates only while React is busy, and somebody
+ * typing at a human pace gives it time to settle between every digit.
+ *
+ * Short enough not to feel like waiting, long enough to cover typing.
+ */
+const SETTLE_MS = 350;
 
 /**
  * One farm, running beside the page rather than in front of it.
@@ -21,7 +34,17 @@ import {
  * replies lives in `lib/simulation-worker`; this is only the part that has to be
  * a hook.
  */
-export function usePlanSimulation(config: PlannerConfig | null): PlanSimulationState {
+export function usePlanSimulation(
+  config: PlannerConfig | null,
+  /**
+   * What the result belongs to — the open plan's id. A result is kept while the
+   * same plan is being edited and dropped when another plan is opened, because
+   * this hook lives in the planner's layout and React keeps a layout's state
+   * across a move from one plan to another. Without it, plan B would show plan
+   * A's cashflow until its own arrived.
+   */
+  scope: string,
+): PlanSimulationState {
   const [state, setState] = useState<PlanSimulationState>(IDLE_SIMULATION);
   const runner = useRef<PlanSimulationRunner | null>(null);
 
@@ -43,9 +66,23 @@ export function usePlanSimulation(config: PlannerConfig | null): PlanSimulationS
     return runner.current;
   }, []);
 
+  // Another plan is another farm: what is on screen belongs to the one that has
+  // been closed. Runs before the effect below, so the new plan starts at once.
+  useEffect(() => {
+    runner.current?.forget();
+  }, [scope]);
+
   useEffect(() => {
     if (config === null) return;
-    acquire().run(config);
+    const current = acquire();
+    // Nothing is on screen, so there is nothing to wait for: the first plan of
+    // a session, and the first of a plan just opened, run immediately.
+    if (current.showing === null) {
+      current.run(config);
+      return;
+    }
+    const timer = setTimeout(() => current.run(config), SETTLE_MS);
+    return () => clearTimeout(timer);
   }, [acquire, config]);
 
   // Let the worker go when the planner does, and not before. Written as its own
@@ -61,15 +98,3 @@ export function usePlanSimulation(config: PlannerConfig | null): PlanSimulationS
   return state;
 }
 
-/**
- * The worker itself.
- *
- * `new URL(..., import.meta.url)` is what tells the bundler this is a module to
- * build for a worker rather than a string to leave alone, so the path is
- * written out here and cannot be built up.
- */
-function spawnSimulationWorker(): SimulationPort {
-  return new Worker(new URL("../workers/simulation.worker.ts", import.meta.url), {
-    type: "module",
-  }) as unknown as SimulationPort;
-}

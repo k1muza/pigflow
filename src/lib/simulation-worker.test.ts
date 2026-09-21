@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { cloneDefaultConfig, type PlannerConfig } from "./config";
+import { calculateProjection } from "./model";
+import { planEventLog } from "./plan";
 import { simulatePlan } from "./simulation";
 import { daySnapshotAt, planResultOf, type PlanSimulationResult } from "./simulation-result";
 import {
   answerSimulationRequest,
+  askSimulationWorker,
   PlanSimulationRunner,
   type PlanSimulationState,
   type SimulationPort,
@@ -64,6 +67,17 @@ class FakePort implements SimulationPort {
   fail(id: number, message: string): void {
     this.onmessage?.({ data: { type: "error", id, message } });
   }
+
+  /** Answers whatever it was last asked, as a real worker would. */
+  answerLast(result: PlanSimulationResult): void {
+    const request = this.sent[this.sent.length - 1];
+    this.reply(request.id, result);
+  }
+
+  /** Answers with something the runner never asked for. */
+  answerWrongQuestion(id: number): void {
+    this.onmessage?.({ data: { type: "event-log", id, events: [], runMs: 1 } });
+  }
 }
 
 /** The runner, its states in order, and the workers it was given. */
@@ -112,7 +126,9 @@ describe("The worker answers with the plan the main thread would have got", () =
     config.project.variation = "chance";
     const ask = (input: PlannerConfig) => {
       const answer = answerSimulationRequest({ type: "simulate", id: 1, config: input });
-      if (answer.type !== "result") throw new Error(answer.message);
+      if (answer.type !== "result") {
+        throw new Error(answer.type === "error" ? answer.message : "wrong kind of answer");
+      }
       return answer.result;
     };
 
@@ -131,6 +147,7 @@ describe("The worker answers with the plan the main thread would have got", () =
     expect(answer.type).toBe("error");
     expect(answer.id).toBe(7);
     if (answer.type === "error") expect(answer.message.length).toBeGreaterThan(0);
+    else expect.fail("a plan that cannot run should answer with an error");
   });
 });
 
@@ -335,4 +352,184 @@ describe("What a page does with the answer", () => {
     expect(ports[0].sent).toHaveLength(sentAfterFirstRun);
     expect(runner.workersSpawned).toBe(1);
   }, 120_000);
+});
+
+/**
+ * The work that happens because somebody pressed a button.
+ *
+ * An event log to download and a month of cash injections to plan both need a
+ * whole farm run, and both used to have it on the main thread — seconds in
+ * which the page could not be used, which is the thing the worker exists to
+ * stop. Each now gets a worker of its own so that it neither waits behind the
+ * plan on screen nor is killed by the next edit to it.
+ */
+describe("A one-off job, on a worker of its own", () => {
+  /** A port that answers by actually doing the work, one turn later. */
+  function honestPort(): { port: SimulationPort; built: number } {
+    const box = { port: null as unknown as SimulationPort, built: 0 };
+    const port: SimulationPort = {
+      onmessage: null,
+      onerror: null,
+      onmessageerror: null,
+      terminate: () => {
+        box.built += 1;
+      },
+      postMessage: (request) => {
+        setTimeout(() => port.onmessage?.({ data: answerSimulationRequest(request) }), 0);
+      },
+    };
+    box.port = port;
+    return box;
+  }
+
+  it("answers a projection with the cashflow a direct call gives", async () => {
+    const config = plan("1.x");
+    const box = honestPort();
+    const answer = await askSimulationWorker(
+      { type: "project", config },
+      { spawn: () => box.port },
+    );
+
+    expect(answer.type).toBe("projection");
+    if (answer.type !== "projection") return;
+    expect(answer.projection).toEqual(calculateProjection(config));
+    // The worker goes as soon as the answer is out; there is one job on it.
+    expect(box.built).toBe(1);
+  }, 120_000);
+
+  it("answers an event log with every line the farm wrote", async () => {
+    const config = plan("2.0");
+    const box = honestPort();
+    const answer = await askSimulationWorker(
+      { type: "event-log", config },
+      { spawn: () => box.port },
+    );
+
+    expect(answer.type).toBe("event-log");
+    if (answer.type !== "event-log") return;
+    expect(answer.events).toEqual(planEventLog(config));
+    expect(answer.events.length).toBeGreaterThan(0);
+    expect(box.built).toBe(1);
+  }, 180_000);
+
+  it("rejects on a plan that will not run, and lets the worker go", async () => {
+    const box = honestPort();
+    const broken = { ...plan("1.x"), project: { ...plan("1.x").project, months: 0 } };
+
+    await expect(
+      askSimulationWorker({ type: "project", config: broken }, { spawn: () => box.port }),
+    ).rejects.toThrow();
+    expect(box.built).toBe(1);
+  });
+
+  it("rejects when the worker dies on the job", async () => {
+    const port: SimulationPort = {
+      onmessage: null,
+      onerror: null,
+      onmessageerror: null,
+      terminate: () => {},
+      postMessage: () => {
+        setTimeout(() => port.onerror?.({ message: "Worker terminated unexpectedly." }), 0);
+      },
+    };
+
+    await expect(
+      askSimulationWorker({ type: "event-log", config: plan("1.x") }, { spawn: () => port }),
+    ).rejects.toThrow("Worker terminated unexpectedly.");
+  });
+
+  it("falls back to this thread when no worker can be had", async () => {
+    const config = plan("1.x");
+    const answer = await askSimulationWorker(
+      { type: "project", config },
+      {
+        spawn: () => {
+          throw new Error("Workers are blocked.");
+        },
+        fallback: answerSimulationRequest,
+      },
+    );
+
+    expect(answer.type).toBe("projection");
+    if (answer.type === "projection") {
+      expect(answer.projection.months.length).toBe(config.project.months);
+    }
+  }, 120_000);
+
+  it("rejects when there is no worker and no fallback either", async () => {
+    await expect(
+      askSimulationWorker(
+        { type: "project", config: plan("1.x") },
+        {
+          spawn: () => {
+            throw new Error("Workers are blocked.");
+          },
+        },
+      ),
+    ).rejects.toThrow("Workers are blocked.");
+  });
+});
+
+/**
+ * Opening another plan.
+ *
+ * Keeping the last result on screen is what stops an edit blanking every chart,
+ * and it only makes sense while it is the same plan being edited. This hook
+ * lives in the planner's layout, and React keeps a layout's state across a move
+ * from one plan to another — so without forgetting, plan B shows plan A's
+ * cashflow under plan B's name until its own arrives. That is not a stale
+ * number, it is the wrong farm.
+ */
+describe("A plan's result belongs to that plan", () => {
+  it("drops what is on screen when another plan is opened", () => {
+    const { runner, ports, latest } = runnerOn();
+
+    runner.run(plan("1.x"));
+    ports[0].reply(1, fakeResult("plan A"));
+    expect(latest().result?.config.project.name).toBe("plan A");
+
+    runner.forget();
+    expect(latest().result).toBeNull();
+    expect(latest().status).toBe("idle");
+    expect(runner.showing).toBeNull();
+  });
+
+  it("will not let the closed plan's answer arrive after it", () => {
+    const { runner, ports, latest } = runnerOn();
+
+    runner.run(plan("1.x"));
+    runner.forget();
+    // Plan A's farm was still running, so its worker was let go; were it to get
+    // its answer out anyway, the id it answers to is nobody's.
+    expect(ports[0].terminated).toBe(true);
+    ports[0].reply(1, fakeResult("plan A, late"));
+    expect(latest().result).toBeNull();
+
+    // Forgetting a plan moves the count on, so plan B's request is neither 1
+    // nor the 2 that nothing will ever answer to.
+    runner.run(plan("1.x"));
+    ports[1].answerLast(fakeResult("plan B"));
+    expect(latest().result?.config.project.name).toBe("plan B");
+  });
+
+  it("keeps the worker, which had nothing to do with it", () => {
+    const { runner, ports } = runnerOn();
+
+    runner.run(plan("1.x"));
+    ports[0].reply(1, fakeResult("plan A"));
+    runner.forget();
+    runner.run(plan("1.x"));
+
+    expect(runner.workersSpawned).toBe(1);
+    expect(ports[0].terminated).toBe(false);
+  });
+
+  it("reports an answer to a question it did not ask", () => {
+    const { runner, ports, latest } = runnerOn();
+    runner.run(plan("1.x"));
+    ports[0].answerWrongQuestion(1);
+
+    expect(latest().status).toBe("error");
+    expect(latest().result).toBeNull();
+  });
 });

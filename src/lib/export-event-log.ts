@@ -43,10 +43,10 @@ function field(value: string | number): string {
  * What it is good for is answering why the plan did something — which boar was
  * rotated when, what a service cost, when the lorry came.
  */
-export function buildEventLogCsv(config: PlannerConfig): string {
+export function eventLogCsv(events: readonly FarmEvent[]): string {
   const rows = [
     ["Day", "Date", "Type", "Event"],
-    ...planEventLog(config).map((event) => [
+    ...events.map((event) => [
       event.day,
       event.date,
       EVENT_LABELS[event.type],
@@ -56,6 +56,18 @@ export function buildEventLogCsv(config: PlannerConfig): string {
   // Excel reads a file without the mark in the system codepage, which turns the
   // separators and dashes in these messages into mojibake.
   return "﻿" + rows.map((row) => row.map(field).join(",")).join("\r\n") + "\r\n";
+}
+
+/**
+ * The same, running the farm here to get the log.
+ *
+ * The browser does not use this: the download asks a worker for the log and
+ * writes it with {@link eventLogCsv}, because running a whole farm to answer a
+ * button press is seconds in which the page cannot be used. This is for the
+ * tests, and for anything outside a browser, where one call is simpler than two.
+ */
+export function buildEventLogCsv(config: PlannerConfig): string {
+  return eventLogCsv(planEventLog(config));
 }
 
 /** A filename that says which plan the log came from. */

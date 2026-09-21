@@ -119,13 +119,20 @@ export type PlannerPage = {
   projectId: string;
   config: PlannerConfig;
   /**
-   * The one run of the plan behind every page: the last one that finished. It
-   * stays on screen while a newer one runs, and is null only before the first
-   * one comes back or while the inputs are outside the supported range.
+   * The one run of the plan behind every page: the last one that finished,
+   * carrying both the projection and the config the farm was actually given.
+   *
+   * A page that shows a simulated figure must read `simulation.config` and
+   * `simulation.projection` together and not touch `config` above, which is what
+   * the inputs say now. The two come apart while a run is in flight, and a page
+   * that mixes them shows this month's opening balance above last edit's
+   * closing ones.
+   *
+   * It stays on screen while a newer run goes on, and is null before the first
+   * one comes back, while the inputs are outside the supported range, and for
+   * as long as a newly opened plan has nothing of its own yet.
    */
   simulation: PlanSimulationResult | null;
-  /** The projection off that same run. */
-  projection: PlanSimulationResult["projection"] | null;
   /** Where the farm behind this page has got to. */
   simulationStatus: SimulationStatus;
   /** A newer plan is running behind the one on screen. */
@@ -483,12 +490,14 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
    *
    * Kept after the move into a worker, for a reason that changed rather than
    * went away. It used to be what stopped every keystroke blocking the page for
-   * a few hundred milliseconds; the worker does that now. What it still does is
-   * decide how often a run is worth starting at all: a plan that is superseded
-   * mid-run costs a worker its life (see `lib/simulation-worker`), and typing
-   * "300" a digit at a time should be one farm rather than three. It also keeps
-   * React free to go on painting the old charts while the new inputs settle,
-   * which is its own job and nothing to do with where the farm runs.
+   * a few hundred milliseconds; the worker does that now.
+   *
+   * What it still does is its actual job: keep React free to go on painting the
+   * charts, the tables and the calendar off the plan already in hand while the
+   * inputs are being changed. It is not a debounce and is not relied on as one
+   * — it coalesces updates only while React is busy, and somebody typing at a
+   * human pace gives it time to settle between every digit. Not running a farm
+   * per keystroke is `usePlanSimulation`'s doing; see `SETTLE_MS` there.
    */
   const settledConfig = useDeferredValue(config);
   const validation = useMemo(() => plannerSchema.safeParse(settledConfig), [settledConfig]);
@@ -496,24 +505,40 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
   // what comes back: the projection, the simulator's calendar, and whichever
   // day of it is open. Picking another date costs a lookup, not a run.
   /**
-   * The plan to run, or null for "not yet".
+   * The plan to hand to the farm, or null for "not yet".
    *
    * Two things hold it back. Nothing runs before the stored plans arrive, since
    * until then `config` is only the starting defaults and simulating those is a
    * whole farm run for a plan nobody asked for. And nothing runs while the
-   * deferred copy is still catching up with the inputs, which is what makes
-   * typing "300" a digit at a time one run rather than three — a run that is
-   * superseded costs a worker its life, so not starting it is cheaper than
-   * abandoning it.
+   * deferred copy is still catching up, so that a run is started against inputs
+   * React has finished with rather than ones still moving.
    */
   const committed = settledConfig === config;
   const checked = useMemo(
     () => (hydrated && committed && validation.success ? validation.data : null),
     [committed, hydrated, validation],
   );
-  const farm = usePlanSimulation(checked);
+  const farm = usePlanSimulation(checked, projectId);
+  /**
+   * The plan on screen: one run, with the config that produced it.
+   *
+   * Every page that shows a simulated figure reads both halves of this and
+   * neither half of `config`. The two are not interchangeable while a run is in
+   * flight — `config` is what the inputs now say and `simulation.config` is what
+   * the farm was actually given — and mixing them puts a $10,000 opening balance
+   * above closing balances worked out from $0.
+   */
   const simulation = farm.result;
-  const projection = simulation?.projection ?? null;
+  /**
+   * Whether the plan on screen answers the inputs as they stand.
+   *
+   * True only when the last run finished and nothing has superseded it: a run
+   * in flight means the result is a config behind, and a failed one means the
+   * result is the last config that worked. What it gates is the export — a
+   * workbook is a thing people send, and it should not have to be read
+   * alongside a badge to know which edit it describes.
+   */
+  const current = farm.status === "ready" && simulation !== null;
   const modelMetrics = useMemo(() => getModelMetrics(config), [config]);
 
   function update<S extends PlannerSection, K extends keyof PlannerConfig[S]>(
@@ -584,18 +609,20 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
   }
 
   async function exportExcel() {
-    if (!projection || exporting) return;
+    // The config and the projection go into the workbook together, so they have
+    // to have come out of the same run together.
+    if (!current || !simulation || exporting) return;
     setExporting(true);
     try {
       const { buildCashflowWorkbook } = await import("@/lib/export-workbook");
-      const output = await buildCashflowWorkbook(config, projection);
+      const output = await buildCashflowWorkbook(simulation.config, simulation.projection);
       const blob = new Blob([output], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `${config.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-funding-cashflow.xlsx`;
+      anchor.download = `${simulation.config.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-funding-cashflow.xlsx`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (error) {
@@ -611,7 +638,6 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     projectId,
     config,
     simulation,
-    projection,
     simulationStatus: farm.status,
     simulationUpdating: farm.isUpdating,
     simulationError: farm.error,
@@ -749,7 +775,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
               </button>
               <button
                 onClick={exportExcel}
-                disabled={!open || !projection || exporting}
+                disabled={!open || !current || exporting}
                 aria-label="Export the cashflow to Excel"
                 className="inline-flex items-center gap-2 rounded-lg bg-ink px-2.5 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:opacity-40 sm:px-3"
               >

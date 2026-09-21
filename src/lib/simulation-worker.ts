@@ -1,6 +1,9 @@
 import type { PlannerConfig } from "./config";
+import type { ProjectionResult } from "./model";
+import { planEventLog } from "./plan";
 import { simulatePlan } from "./simulation";
 import { planResultOf, type PlanSimulationResult } from "./simulation-result";
+import type { FarmEvent } from "./sim";
 
 /**
  * The wire between the page and the farm.
@@ -17,11 +20,27 @@ import { planResultOf, type PlanSimulationResult } from "./simulation-result";
  * about which replies are worth listening to.
  */
 
-export type SimulationRequest = {
-  type: "simulate";
+/**
+ * A piece of work the farm can be asked for.
+ *
+ * Three, because three things in the product need a farm run and want different
+ * parts of one. The plan behind the pages is `simulate`. Planning cash
+ * injections needs the monthly cashflow of a config that is not the open plan —
+ * the same plan without its own generated funding rows — and nothing else.
+ * The event log wants every line the farm wrote, which is the one thing the
+ * ordinary result deliberately leaves out: a long plan writes hundreds of
+ * thousands of them, and carrying that in every result to serve a button
+ * nobody has pressed is the wrong trade.
+ */
+export type SimulationJob =
+  | { type: "simulate"; config: PlannerConfig }
+  | { type: "project"; config: PlannerConfig }
+  | { type: "event-log"; config: PlannerConfig };
+
+/** A job with the number that ties a reply to it. */
+export type SimulationRequest = SimulationJob & {
   /** Goes up by one per request. The reply carries it back. */
   id: number;
-  config: PlannerConfig;
 };
 
 export type SimulationResponse =
@@ -32,6 +51,8 @@ export type SimulationResponse =
       /** What the farm itself took, in the worker, in milliseconds. */
       runMs: number;
     }
+  | { type: "projection"; id: number; projection: ProjectionResult; runMs: number }
+  | { type: "event-log"; id: number; events: FarmEvent[]; runMs: number }
   | {
       type: "error";
       id: number;
@@ -48,16 +69,102 @@ export type SimulationResponse =
  */
 export function answerSimulationRequest(request: SimulationRequest): SimulationResponse {
   const startedAt = now();
+  const { id } = request;
   try {
-    return {
-      type: "result",
-      id: request.id,
-      result: planResultOf(simulatePlan(request.config)),
-      runMs: now() - startedAt,
-    };
+    switch (request.type) {
+      case "simulate":
+        return {
+          type: "result",
+          id,
+          result: planResultOf(simulatePlan(request.config)),
+          runMs: now() - startedAt,
+        };
+      case "project":
+        return {
+          type: "projection",
+          id,
+          // No day readings: a cashflow has no use for the state of a Tuesday.
+          projection: simulatePlan(request.config, { snapshots: false }).projection,
+          runMs: now() - startedAt,
+        };
+      case "event-log":
+        return {
+          type: "event-log",
+          id,
+          events: planEventLog(request.config),
+          runMs: now() - startedAt,
+        };
+    }
   } catch (error) {
-    return { type: "error", id: request.id, message: messageOf(error) };
+    return { type: "error", id, message: messageOf(error) };
   }
+}
+
+/**
+ * One job, on a worker of its own, awaited.
+ *
+ * For the work that happens because somebody pressed a button: an event log to
+ * download, a month of cash injections to plan. It gets its own worker so that
+ * it neither waits behind the plan the pages are showing nor gets terminated
+ * when the next edit supersedes that plan, and the worker goes as soon as the
+ * answer is out. There is one job on it, so the id is a formality.
+ */
+export function askSimulationWorker(
+  job: SimulationJob,
+  options: {
+    spawn: () => SimulationPort;
+    /** Runs the job here instead, for a browser that would not give us a worker. */
+    fallback?: (request: SimulationRequest) => SimulationResponse;
+  },
+): Promise<SimulationResponse> {
+  const request: SimulationRequest = { ...job, id: 1 };
+
+  let port: SimulationPort;
+  try {
+    port = options.spawn();
+  } catch (error) {
+    const fallback = options.fallback;
+    if (!fallback) return Promise.reject(new Error(messageOf(error)));
+    // Synchronous and on this thread, which is what there is. Deferred by a
+    // turn so a caller can put its button into its waiting state first.
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const answer = fallback(request);
+        if (answer.type === "error") reject(new Error(answer.message));
+        else resolve(answer);
+      }, 0);
+    });
+  }
+
+  return new Promise<SimulationResponse>((resolve, reject) => {
+    const done = (settle: () => void) => {
+      port.onmessage = null;
+      port.onerror = null;
+      port.onmessageerror = null;
+      try {
+        port.terminate();
+      } catch {
+        // A worker that will not be terminated is already gone.
+      }
+      settle();
+    };
+    port.onmessage = (event) => {
+      const answer = event.data;
+      if (answer.id !== request.id) return;
+      done(() =>
+        answer.type === "error" ? reject(new Error(answer.message)) : resolve(answer),
+      );
+    };
+    port.onerror = (event) =>
+      done(() => reject(new Error(event?.message ?? "The simulation worker stopped.")));
+    port.onmessageerror = () =>
+      done(() => reject(new Error("The simulation worker sent something unreadable.")));
+    try {
+      port.postMessage(request);
+    } catch (error) {
+      done(() => reject(new Error(messageOf(error))));
+    }
+  });
 }
 
 /**
@@ -154,6 +261,11 @@ export class PlanSimulationRunner {
     return this.spawned;
   }
 
+  /** The plan on screen, if there is one. */
+  get showing(): PlanSimulationResult | null {
+    return this.state.result;
+  }
+
   /** Runs a plan, and abandons whichever one was running. */
   run(config: PlannerConfig): void {
     if (this.closed) return;
@@ -185,6 +297,24 @@ export class PlanSimulationRunner {
       this.running = false;
       this.fail(id, messageOf(error));
     }
+  }
+
+  /**
+   * Drops the plan on screen and abandons whatever was being run for it.
+   *
+   * For when the thing being read changes rather than the inputs to it: another
+   * plan opened. Keeping the last result is what stops an edit blanking every
+   * chart on the page, and that only makes sense while it is the same plan being
+   * edited — plan A's cashflow under plan B's name is not a stale number, it is
+   * the wrong farm. The worker is kept; there is nothing wrong with it.
+   */
+  forget(): void {
+    if (this.closed) return;
+    // Bumped so that a reply still on its way answers to nobody.
+    this.latest += 1;
+    if (this.running) this.dropWorker();
+    this.state = IDLE_SIMULATION;
+    this.options.onState(this.state);
   }
 
   /** Lets the worker go. The runner is finished with after this. */
@@ -235,6 +365,12 @@ export class PlanSimulationRunner {
 
     if (response.type === "error") {
       this.fail(response.id, response.message);
+      return;
+    }
+    if (response.type !== "result") {
+      // The runner only ever asks for a plan, so anything else answering to its
+      // id is a worker talking about something this is not.
+      this.fail(response.id, "The simulation worker answered the wrong question.");
       return;
     }
     this.publish({
