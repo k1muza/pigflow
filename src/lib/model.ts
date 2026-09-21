@@ -76,7 +76,22 @@ export type MonthlyProjection = {
   gilts: number;
   replacementPipeline: number;
   sows: number;
+  /**
+   * The sow herd at the month end split by what each sow is doing, which is
+   * what a herd development plan is actually about: a shed full of gestating
+   * sows and a shed full of open ones are the same head count and not the same
+   * farm. The three add up to {@link sows}.
+   */
+  gestatingSows: number;
+  lactatingSows: number;
+  openSows: number;
+  boars: number;
   breedingStock: number;
+  /** Every pig on the place at the month end, breeding stock included. */
+  head: number;
+  /** Breeding stock that left the herd this month, by the door it left through. */
+  sowsCulled: number;
+  boarsRotated: number;
   /**
    * The most head the farm carried on any one day of the month — every pig on
    * the place, breeding stock included. Month-end counts miss a batch that
@@ -185,6 +200,16 @@ export type ProjectionSummary = {
   littersPerSowYear: number;
   averageSows: number;
   finalSows: number;
+  /**
+   * The most sows the herd ever stood, and the first month it stood its full
+   * places. A herd that fills its places and is then drawn down by culling and
+   * mortality ends below capacity without ever having failed to reach it, and
+   * the two facts are different enough that a plan has to be able to say both.
+   * Worked out once here so that a warning and a herd milestone cannot disagree.
+   */
+  peakSows: number;
+  peakSowsMonth: string | null;
+  sowCapacityReachedMonth: string | null;
   /** The most head the farm ever carries at once over the whole horizon. */
   peakHeadCount: number;
   firstPositiveMonth: string | null;
@@ -357,7 +382,14 @@ export function summariseMonth(
     gilts: 0,
     replacementPipeline: 0,
     sows: 0,
+    gestatingSows: 0,
+    lactatingSows: 0,
+    openSows: 0,
+    boars: 0,
     breedingStock: 0,
+    head: 0,
+    sowsCulled: 0,
+    boarsRotated: 0,
     peakHead: 0,
     workers: 0,
     sowFeedKg: 0,
@@ -389,6 +421,8 @@ export function summariseMonth(
     month.giltsPromoted += day.giltsPromoted;
     month.giltsSold += day.giltsSold;
     month.deaths += day.pigletDeaths + day.growingDeaths + day.breedingDeaths;
+    month.sowsCulled += day.sowsCulled;
+    month.boarsRotated += day.boarsRotated;
     month.sowFeedKg += day.sowFeedKg;
     month.growingFeedKg += day.growingFeedKg;
     month.lorriesIn += day.lorriesIn;
@@ -422,7 +456,12 @@ export function summariseMonth(
     month.gilts = last.counts.gilts;
     month.replacementPipeline = last.counts.replacementPipeline;
     month.sows = last.counts.sows;
+    month.gestatingSows = last.counts.gestatingSows;
+    month.lactatingSows = last.counts.lactatingSows;
+    month.openSows = last.counts.openSows;
+    month.boars = last.counts.boars;
     month.breedingStock = last.counts.sows + last.counts.boars;
+    month.head = last.counts.total;
     month.workers = last.workers;
     month.closingCash = last.closingCash;
     month.payables = payablesOf(last);
@@ -508,6 +547,8 @@ export type WarnableRun = {
   servicesMissedForGenetics: number;
   servicesAttempted: number;
   aiServices: number;
+  /** Of those, the ones semen stood in for a boar the farm could not give her. */
+  aiFallbackServices?: number;
   aiCost: number;
   /** 2.0 only; a 1.x run reports zero for all of them. */
   movementsBlocked?: number;
@@ -531,6 +572,18 @@ export function buildWarnings(
       title: "Additional funding is required",
       detail:
         "The lowest projected cash balance is below zero. Plan at least the calculated funding gap plus a liquidity buffer.",
+    });
+  }
+  if (config.finance.initialCapitalCosts === 0) {
+    // The funding figure is read as the cost of the project, and on a plan that
+    // costs no capital works it is nothing of the kind: the model carries
+    // housing as a limit on herd size rather than as an asset, so a piggery
+    // with no sheds, water or power in it still simulates perfectly happily.
+    warnings.push({
+      level: "attention",
+      title: "No capital cost has been entered",
+      detail:
+        "The funding requirement this plan reports is working capital only. Housing, land, water and borehole, electrical reticulation, feed handling, effluent works, vehicles, professional fees and finance charges are not modelled and are not in it. Enter them as the initial capital cost, or add them to the funding figure by hand before presenting it as a project cost.",
     });
   }
   // Read off the detailed groups when the plan has them, so that a warning
@@ -562,9 +615,16 @@ export function buildWarnings(
     });
   }
   if (run.aiServices > 0) {
+    // A plan can put 0% of its services to semen and still buy doses, because
+    // semen is also what the farm reaches for when it has no boar to give a
+    // female — every boar worked out for the week, or every boar standing
+    // already behind her. Reporting one total for both left a farm reading
+    // "AI share 0%" beside an invoice for seventy-five doses.
+    const fallback = run.aiFallbackServices ?? 0;
+    const byPolicy = run.aiServices - fallback;
     warnings.push({
       level: "info",
-      title: "Part of the herd is served by AI",
+      title: fallback > 0 ? "Semen is standing in for a boar" : "Part of the herd is served by AI",
       detail:
         run.aiServices +
         " of " +
@@ -573,7 +633,17 @@ export function buildWarnings(
         Math.round(run.aiCost) +
         " " +
         config.project.currency +
-        ". Set against that, the farm stands fewer boars to buy, feed and rotate.",
+        ". " +
+        (fallback > 0
+          ? fallback +
+            " of them were not a choice of policy: the farm had no unrelated boar free that day, so it bought a dose rather than lose the heat" +
+            (byPolicy > 0
+              ? ", and " + byPolicy + " were the " + config.service.aiSharePct + "% put to semen by plan."
+              : ". The AI share is set to " +
+                config.service.aiSharePct +
+                "%, so every one of these doses was a substitute for a boar the farm did not have.") +
+            " Standing another boar is the alternative, and on this herd it is the cheaper one to compare against."
+          : "Set against that, the farm stands fewer boars to buy, feed and rotate."),
     });
   }
   const orphanPiglets = orphanStartingPiglets(config);
@@ -603,17 +673,35 @@ export function buildWarnings(
     });
   }
   if (summary.finalSows < config.herd.maxSows * 0.9 && config.herd.retainHomeBredGilts) {
+    // Ending below capacity and never reaching it are different farms, and the
+    // warning used to say the second whenever it saw the first — which put it
+    // in flat contradiction with the herd plan's own milestone for a herd that
+    // filled its places and was then drawn down by culling and mortality.
+    const reached = summary.sowCapacityReachedMonth;
     warnings.push({
       level: "info",
-      title: "The herd has not reached its sow places",
-      detail:
-        "It ends the plan at " +
-        summary.finalSows +
-        " of " +
-        config.herd.maxSows +
-        " sows. Home-bred gilts take about " +
-        Math.round(config.herd.giltServiceAgeDays / 30.4) +
-        " months to reach service, so a longer horizon or bought-in gilts would fill the places sooner.",
+      title: reached
+        ? "The herd ends below the sow places it reached"
+        : "The herd has not reached its sow places",
+      detail: reached
+        ? "It first stood its full " +
+          config.herd.maxSows +
+          " sows in " +
+          reached +
+          " and peaked at " +
+          summary.peakSows +
+          ", but ends the plan at " +
+          summary.finalSows +
+          ". Culling and sow mortality are taking females out faster than replacements are coming through; check the cull parity and whether enough gilts are being retained."
+        : "It ends the plan at " +
+          summary.finalSows +
+          " of " +
+          config.herd.maxSows +
+          " sows, having peaked at " +
+          summary.peakSows +
+          ". Home-bred gilts take about " +
+          Math.round(config.herd.giltServiceAgeDays / 30.4) +
+          " months to reach service, so a longer horizon or bought-in gilts would fill the places sooner.",
     });
   }
   if (!config.herd.retainHomeBredGilts && !config.herd.buyGiltsWhenShort) {

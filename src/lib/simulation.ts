@@ -399,6 +399,11 @@ function projectionOf(
   );
   const sowMonths = months.reduce((total, month) => total + month.sows, 0);
   const averageSows = months.length > 0 ? sowMonths / months.length : 0;
+  // The high-water mark of the breeding herd, and when it was set. A herd that
+  // fills its places and is then drawn down by culling ends below capacity
+  // without ever having failed to reach it; both readings come from here.
+  const peakSows = months.reduce((most, month) => Math.max(most, month.sows), 0);
+  const peakSowMonth = months.find((month) => month.sows === peakSows) ?? null;
   const years = config.project.months / 12;
   const lifetime = run.lifetime;
   const totalRevenue = sum((month) => month.revenue);
@@ -432,6 +437,10 @@ function projectionOf(
       averageSows > 0 && years > 0 ? lifetime.litters / (averageSows * years) : 0,
     averageSows,
     finalSows: months.at(-1)?.sows ?? 0,
+    peakSows,
+    peakSowsMonth: peakSowMonth?.month ?? null,
+    sowCapacityReachedMonth:
+      months.find((month) => month.sows >= config.herd.maxSows)?.month ?? null,
     peakHeadCount: Math.max(0, ...months.map((month) => month.peakHead)),
     firstPositiveMonth:
       months.find((month) => month.closingCash >= 0 && month.index > 0)?.month ?? null,

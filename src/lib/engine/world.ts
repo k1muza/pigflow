@@ -261,6 +261,8 @@ export type EngineLifetime = {
   boarsRotated: number;
   servicesAttempted: number;
   aiServices: number;
+  /** Of those, the ones semen stood in for a boar the farm could not give her. */
+  aiFallbackServices: number;
   aiCost: number;
   regularReturns: number;
   irregularReturns: number;
@@ -338,6 +340,7 @@ export function emptyLifetime(): EngineLifetime {
     boarsRotated: 0,
     servicesAttempted: 0,
     aiServices: 0,
+    aiFallbackServices: 0,
     aiCost: 0,
     regularReturns: 0,
     irregularReturns: 0,

@@ -15,6 +15,7 @@ export const PLAN_TABS = [
   "money",
   "method",
   "cashflow",
+  "reports",
 ] as const;
 
 export type Tab = (typeof PLAN_TABS)[number];

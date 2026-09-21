@@ -90,6 +90,17 @@ export type FarmEvent = {
   message: string;
 };
 
+/**
+ * The mate a female is put to, and why that mate.
+ *
+ * `fallback` marks semen the farm reached for because it had no boar to give
+ * her — every boar worked out for the week, or every boar standing already
+ * behind her. It is not the same event as the plan choosing AI for its own
+ * reasons, and a report that ran the two together left a farm reading "AI share
+ * 0%" beside an invoice for seventy-five doses.
+ */
+export type Sire = { tag: string; boar: Boar | null; fallback: boolean };
+
 export type StageCounts = {
   sows: number;
   gestatingSows: number;
@@ -187,6 +198,13 @@ export type LifetimeTotals = {
   servicesAttempted: number;
   /** Services put to bought-in semen, and what the herd spent on them. */
   aiServices: number;
+  /**
+   * Of those, the ones semen was reached for because the farm had no boar to
+   * give her — every boar worked out for the week, or every boar standing is
+   * one of her own sires. These happen whatever the AI share is set to, which
+   * is why a plan that puts 0% of its services to semen can still buy doses.
+   */
+  aiFallbackServices: number;
   aiCost: number;
   /** Returns to heat, split by whether she came back on the cycle or past it. */
   regularReturns: number;
@@ -531,6 +549,7 @@ export class Farm {
     marketHaulageCost: 0,
     servicesAttempted: 0,
     aiServices: 0,
+    aiFallbackServices: 0,
     aiCost: 0,
     regularReturns: 0,
     irregularReturns: 0,
@@ -1364,6 +1383,7 @@ export class Farm {
       } else {
         record.aiServices += 1;
         this.lifetime.aiServices += 1;
+        if (sire.fallback) this.lifetime.aiFallbackServices += 1;
         this.lifetime.aiCost += config.service.aiCostPerService;
         this.ledger.accrue("semen", config.service.aiCostPerService);
         this.breedingCosts.add("health", "breeding", config.service.aiCostPerService);
@@ -1423,23 +1443,26 @@ export class Farm {
    * own sires. A closed herd that would otherwise have had to stand — and feed —
    * another boar can buy a dose instead.
    */
-  private pickSire(sow: Sow, day: number): { tag: string; boar: Boar | null } | null {
+  private pickSire(sow: Sow, day: number): Sire | null {
     const { service } = this.config;
     if (!service.useAi) {
       const boar = this.pickBoar(sow);
-      return boar ? { tag: boar.tag, boar } : null;
+      return boar ? { tag: boar.tag, boar, fallback: false } : null;
     }
     // The draw is taken on every service while a share is set, so that a settled
     // plan puts exactly that share of them to semen rather than drifting with
     // however often the boars happen to be free.
     if (this.variation.usesAi(service.aiSharePct, [sow.tag, day])) {
       const stud = this.pickStud(sow);
-      if (stud) return { tag: stud, boar: null };
+      if (stud) return { tag: stud, boar: null, fallback: false };
     }
     const boar = this.pickBoar(sow);
-    if (boar) return { tag: boar.tag, boar };
+    if (boar) return { tag: boar.tag, boar, fallback: false };
+    // Semen reached for because the farm had no boar to give her, rather than
+    // because the plan asked for it. Counted apart so that a plan with a zero
+    // AI share can still explain the doses on its invoice.
     const stud = this.pickStud(sow);
-    return stud ? { tag: stud, boar: null } : null;
+    return stud ? { tag: stud, boar: null, fallback: true } : null;
   }
 
   /**
@@ -1463,7 +1486,7 @@ export class Farm {
    * and at which parity. A herd's breeding cycle starts here, so this is the
    * line the rest of a sow's record hangs off.
    */
-  private serviceLine(sow: Sow, sire: { tag: string; boar: Boar | null }): string {
+  private serviceLine(sow: Sow, sire: Sire): string {
     const parity = "parity " + (sow.parity + 1);
     if (sire.boar) return sow.tag + " served by " + sire.tag + ", natural, " + parity;
     const { aiInseminationsPerService: doses, aiCostPerService } = this.config.service;

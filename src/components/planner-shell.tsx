@@ -21,6 +21,7 @@ import {
   CloudOff,
   Copy,
   Download,
+  FileText,
   GitCompareArrows,
   HeartPulse,
   LoaderCircle,
@@ -52,6 +53,7 @@ import type { PlanSimulationResult } from "@/lib/simulation-result";
 import type { SimulationStatus } from "@/lib/simulation-worker";
 import { plural } from "@/lib/format";
 import { buildInputsJson, inputsJsonFilename } from "@/lib/export-inputs";
+import { downloadFile, XLSX_MIME } from "@/lib/download";
 import { planHref, tabFromPath, type Tab } from "@/lib/routes";
 import {
   activeProject,
@@ -96,6 +98,7 @@ const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "money", label: "Financial planning", icon: WalletCards },
   { id: "method", label: "Method & sources", icon: BookOpen },
   { id: "cashflow", label: "Cashflow", icon: TableProperties },
+  { id: "reports", label: "Reports", icon: FileText },
 ];
 
 // ----------------------------------------------------------- what a page sees
@@ -139,6 +142,16 @@ export type PlannerPage = {
   simulationUpdating: boolean;
   /** Why the last run failed, if it did. The plan on screen is the last good one. */
   simulationError: string | null;
+  /**
+   * Whether {@link simulation} answers the inputs as they now stand.
+   *
+   * False while a newer run is in flight, and false when the last one failed —
+   * in both cases what is on screen describes an earlier edit. Everything that
+   * writes a file people send is gated on this, because a document should not
+   * have to be read alongside a badge to know which version of the plan it
+   * describes.
+   */
+  simulationCurrent: boolean;
   metrics: ReturnType<typeof getModelMetrics>;
   update: <S extends PlannerSection, K extends keyof PlannerConfig[S]>(
     section: S,
@@ -565,13 +578,11 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
 
   function exportInputsJson() {
     if (!open) return;
-    const blob = new Blob([buildInputsJson(config)], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = inputsJsonFilename(config);
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    downloadFile(
+      buildInputsJson(config),
+      inputsJsonFilename(config),
+      "application/json;charset=utf-8",
+    );
   }
 
   function newPlan() {
@@ -616,15 +627,8 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     try {
       const { buildCashflowWorkbook } = await import("@/lib/export-workbook");
       const output = await buildCashflowWorkbook(simulation.config, simulation.projection);
-      const blob = new Blob([output], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${simulation.config.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-funding-cashflow.xlsx`;
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      const slug = simulation.config.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      downloadFile(output, `${slug}-funding-cashflow.xlsx`, XLSX_MIME);
     } catch (error) {
       console.error(error);
       window.alert("The Excel workbook could not be created. Please try again.");
@@ -641,6 +645,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     simulationStatus: farm.status,
     simulationUpdating: farm.isUpdating,
     simulationError: farm.error,
+    simulationCurrent: current,
     metrics: modelMetrics,
     update,
     exporting,

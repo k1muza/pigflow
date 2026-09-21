@@ -1,5 +1,6 @@
 import { BIRTH_WEIGHT_KG, SERVICES_PER_BOAR_PER_WEEK } from "../../config";
 import { Boar, GrowingPig, Sow } from "../../sim/animals";
+import type { Sire } from "../../sim/farm";
 import { createPiglet, studTag } from "../seed";
 import type { World } from "../world";
 
@@ -416,6 +417,7 @@ function runService(world: World, windows: boolean): void {
     } else {
       record.aiServices += 1;
       world.lifetime.aiServices += 1;
+      if (sire.fallback) world.lifetime.aiFallbackServices += 1;
       world.lifetime.aiCost += config.service.aiCostPerService;
       world.ledger.accrue("semen", config.service.aiCostPerService);
       world.breedingCosts.add("health", "breeding", config.service.aiCostPerService);
@@ -479,20 +481,22 @@ function conceptionRate(world: World, byAi: boolean): number {
 }
 
 /** The mate this female is put to today, or null when the farm has none to give her. */
-function pickSire(world: World, sow: Sow, day: number): { tag: string; boar: Boar | null } | null {
+function pickSire(world: World, sow: Sow, day: number): Sire | null {
   const { service } = world.config;
   if (!service.useAi) {
     const boar = pickBoar(world, sow);
-    return boar ? { tag: boar.tag, boar } : null;
+    return boar ? { tag: boar.tag, boar, fallback: false } : null;
   }
   if (world.variation.usesAi(service.aiSharePct, [sow.tag, day])) {
     const stud = pickStud(world, sow);
-    if (stud) return { tag: stud, boar: null };
+    if (stud) return { tag: stud, boar: null, fallback: false };
   }
   const boar = pickBoar(world, sow);
-  if (boar) return { tag: boar.tag, boar };
+  if (boar) return { tag: boar.tag, boar, fallback: false };
+  // Semen reached for because the farm had no boar to give her, rather than
+  // because the plan asked for it. See {@link Sire}.
   const stud = pickStud(world, sow);
-  return stud ? { tag: stud, boar: null } : null;
+  return stud ? { tag: stud, boar: null, fallback: true } : null;
 }
 
 function pickStud(world: World, sow: Sow): string | null {
@@ -529,7 +533,7 @@ export function everyMateIsHerAncestor(world: World, sow: Sow): boolean {
 }
 
 /** One service, written the way a service card reads. */
-function serviceLine(world: World, sow: Sow, sire: { tag: string; boar: Boar | null }): string {
+function serviceLine(world: World, sow: Sow, sire: Sire): string {
   const parity = "parity " + (sow.parity + 1);
   if (sire.boar) return sow.tag + " served by " + sire.tag + ", natural, " + parity;
   const { aiInseminationsPerService: doses, aiCostPerService } = world.config.service;
