@@ -7,6 +7,8 @@ import {
   openingCounts,
   withConfigDefaults,
   type PlannerConfig,
+  type StartingBoarEntry,
+  type StartingSowEntry,
   type StartingStockEntry,
   type StartingStockType,
 } from "../config";
@@ -60,19 +62,36 @@ function empty(
   });
 }
 
-/** Several animals of one kind, entered the way the form enters them: singly. */
+/**
+ * Several animals of one kind, entered the way the form enters them: singly.
+ *
+ * A sow's parity and state and a boar's service are what the kinds differ by,
+ * so they are passed through here rather than defaulted out of sight — a test
+ * that does not say gets a maiden sow or an unworked boar, and says so.
+ */
 function each(
   type: StartingStockType,
   count: number,
   openingValue: number,
   ageDays: number,
+  history: Partial<Omit<StartingSowEntry, "type"> & Omit<StartingBoarEntry, "type">> = {},
 ): StartingStockEntry[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: `${type}-${openingValue}-${index}`,
-    type,
-    ageDays,
-    openingValue,
-  }));
+  return Array.from({ length: count }, (_, index) => {
+    const animal = { id: `${type}-${openingValue}-${index}`, ageDays, openingValue };
+    if (type === "sow") {
+      return {
+        ...animal,
+        type,
+        parity: 0,
+        reproductiveState: "open" as const,
+        ...history,
+      } satisfies StartingSowEntry;
+    }
+    if (type === "boar") {
+      return { ...animal, type, monthsInService: 0, ...history } satisfies StartingBoarEntry;
+    }
+    return { ...animal, type } as StartingStockEntry;
+  });
 }
 
 describe("describing the opening stock", () => {
@@ -144,12 +163,10 @@ describe("describing the opening stock", () => {
 
 describe("starting piglets", () => {
   it("suckle the starting sows that are rearing a litter", () => {
-    // A herd said to be running already is spread through the cycle, so some of
-    // it is in the farrowing house on day one and there is a sow to put a
-    // piglet on.
-    const config = empty([...each("sow", 10, 300, 900), ...each("piglet", 20, 12, 10)], (draft) => {
-      draft.herd.startMode = "staggered";
-    });
+    const config = empty([
+      ...each("sow", 2, 300, 900, { parity: 3, reproductiveState: "lactating" }),
+      ...each("piglet", 20, 12, 10),
+    ]);
     expect(orphanStartingPiglets(config)).toBe(0);
 
     const farm = new Farm(config);
@@ -164,18 +181,31 @@ describe("starting piglets", () => {
       expect(piglet.damTag).not.toBeNull();
       expect(piglet.costs.total).toBeCloseTo(12, 6);
     }
-    // Her litter's age is what says when she weans it.
-    for (const sow of farm.sows.filter((sow) => sow.litter.length > 0)) {
+    // Her litter's age is what says when she weans it, where she did not say
+    // herself how long ago she farrowed.
+    for (const sow of farm.sows) {
       expect(sow.weanDay).toBe(config.reproduction.weaningAgeDays - 10);
     }
   });
 
+  it("take a sow at her word about when she farrowed", () => {
+    // She said it, so the piglet does not overrule her: she weans this litter
+    // the number of days from now that her own card says.
+    const config = empty([
+      ...each("sow", 1, 300, 900, {
+        parity: 4,
+        reproductiveState: "lactating",
+        daysSinceFarrowing: 18,
+      }),
+      ...each("piglet", 10, 12, 4),
+    ]);
+    const farm = new Farm(config);
+    expect(farm.sows[0].weanDay).toBe(config.reproduction.weaningAgeDays - 18);
+    expect(farm.sows[0].litter).toHaveLength(10);
+  });
+
   it("are taken as just weaned when no starting sow is suckling", () => {
-    // A synchronised herd is served together on day one, so not one sow is in
-    // the farrowing house and there is nothing for a piglet to suckle.
-    const config = empty(each("piglet", 8, 12, 10), (draft) => {
-      draft.herd.startMode = "synchronised";
-    });
+    const config = empty(each("piglet", 8, 12, 10));
     // Said rather than quietly put right: the plan warns, and the animals stand
     // in the weaner house at the weight their age gives them instead of
     // vanishing or growing on milk nobody paid for.
@@ -197,20 +227,50 @@ describe("starting piglets", () => {
 });
 
 describe("what a starting animal is carried at", () => {
-  it("carries a sow at what she was entered at, with her whole herd life ahead", () => {
-    // A sow entered at $275 is worth $275 today. She comes in with nothing
-    // written off her, and what she is worth is spread over the litters this
-    // plan asks of her rather than over any she had before it opened.
-    const config = empty(each("sow", 1, 275, 800), (draft) => {
-      draft.herd.startMode = "synchronised";
-    });
+  it("carries a started sow at what she was entered at, whatever her parity", () => {
+    // A parity-3 sow entered at $275 is worth $275 today. Writing her down
+    // again for parities one to three would charge this plan for wear that
+    // happened before it opened, and leave her under what her owner says
+    // she is worth.
+    const config = empty(each("sow", 1, 275, 800, { parity: 3 }));
     const farm = new Farm(config);
     const sow = farm.sows[0];
 
     expect(sow.breedingValue).toBe(275);
-    expect(sow.valuedAfter).toBe(0);
+    expect(sow.valuedAfter).toBe(3);
     expect(sow.accumulatedDepreciation).toBe(0);
     expect(carryingValue(sow)).toBeCloseTo(275, 6);
+  });
+
+  it("keeps a sow's parity and her state, which her age cannot say", () => {
+    // The whole reason these are asked for. A parity-5 sow in pig, entered as
+    // a maiden, would be given six more litters before the cull she is nearly
+    // due, would farrow on the wrong day, and would eat the wrong ration.
+    const config = empty(
+      each("sow", 1, 250, 1100, { parity: 5, reproductiveState: "gestating", daysPregnant: 60 }),
+    );
+    const farm = new Farm(config);
+    const sow = farm.sows[0];
+
+    expect(sow.parity).toBe(5);
+    expect(sow.state).toBe("gestating");
+    // Sixty days gone of her gestation, so she farrows on the day that leaves.
+    expect(sow.dueDay).toBe(Math.round(config.reproduction.gestationDays - 60));
+    // And she is culled after the litters this plan has left in her, not after
+    // a whole working life starting today.
+    expect(sow.valuedAfter).toBe(5);
+    expect(config.herd.cullAfterParity - sow.parity).toBeLessThan(config.herd.cullAfterParity);
+  });
+
+  it("spreads sows of one state across it when they do not say where they are", () => {
+    // Six gestating sows with no day given are six farrowings across the
+    // weeks, not one crowd on one date the farrowing house cannot hold.
+    const config = empty(each("sow", 6, 300, 900, { parity: 2, reproductiveState: "gestating" }));
+    const farm = new Farm(config);
+    const due = farm.sows.map((sow) => sow.dueDay).sort((a, b) => (a ?? 0) - (b ?? 0));
+
+    expect(new Set(due).size).toBe(6);
+    for (const sow of farm.sows) expect(sow.parity).toBe(2);
   });
 
   it("spreads what is left of her value over the litters she has left", () => {
@@ -228,28 +288,31 @@ describe("what a starting animal is carried at", () => {
     expect(275 - sowDepreciationAtParity(275, 9, config, 3)).toBeCloseTo(150, 6);
   });
 
-  it("starts a boar's working life on the day the plan opens", () => {
-    const config = empty(each("boar", 1, 350, 640), (draft) => {
+  it("ages a boar by his age and rotates him by the service behind him", () => {
+    const config = empty(each("boar", 1, 350, 1100, { monthsInService: 6 }), (draft) => {
       draft.herd.boarWorkingLifeMonths = 24;
       draft.herd.boarResidualValue = 110;
     });
 
     const farm = new Farm(config);
     const boar = farm.boars[0];
-    // However old he is, what he is entered at is what he is worth today and
-    // his rotation is counted from here.
-    expect(boar.birthDay).toBe(-640);
-    expect(boar.joinedDay).toBe(0);
-    expect(boar.valuedAfter).toBe(0);
+    // Two different facts. He is three years old, and he has been working for
+    // six months of it: the first is biology, the second is what his rotation
+    // and his write-off are counted from.
+    expect(boar.birthDay).toBe(-1100);
+    expect(boar.joinedDay).toBe(-Math.round(6 * 30.4375));
+    expect(boar.valuedAfter).toBe(Math.round(6 * 30.4375));
     expect(boar.breedingValue).toBe(350);
     expect(carryingValue(boar)).toBeCloseTo(350, 6);
 
-    // $240 to write off over the working life ahead of him.
+    // $240 to write off over the eighteen months he has left, not the
+    // twenty-four he was bought for.
+    const served = boar.valuedAfter;
     const lifeDays = 24 * 30.4375;
-    const perDay = (350 - 110) / lifeDays;
-    expect(boarDepreciationAtDay(350, 0, config, 0)).toBeCloseTo(0, 6);
-    expect(boarDepreciationAtDay(350, 30, config, 0)).toBeCloseTo(perDay * 30, 6);
-    expect(350 - boarDepreciationAtDay(350, lifeDays, config, 0)).toBeCloseTo(110, 6);
+    const perDay = (350 - 110) / (lifeDays - served);
+    expect(boarDepreciationAtDay(350, served, config, served)).toBeCloseTo(0, 6);
+    expect(boarDepreciationAtDay(350, served + 30, config, served)).toBeCloseTo(perDay * 30, 6);
+    expect(350 - boarDepreciationAtDay(350, lifeDays, config, served)).toBeCloseTo(110, 6);
   });
 
   it("opens a market pig at its entered value and adds the plan's costs to it", () => {
@@ -470,16 +533,33 @@ describe("plans saved before any of this existed", () => {
     expect(loaded).not.toBeNull();
     const starting = loaded!.stock.starting;
     expect(starting).toHaveLength(5);
-    expect(starting.filter((entry) => entry.type === "sow")).toHaveLength(3);
     expect(openingStockValue(loaded!)).toBeCloseTo(3 * 300 + 2 * 80, 6);
     // An age it did give is the age it keeps.
     for (const entry of starting.filter((entry) => entry.type === "grower")) {
       expect(entry.ageDays).toBe(95);
     }
-    // And one it never gave is read in at a believable age for the kind.
-    for (const entry of starting.filter((entry) => entry.type === "sow")) {
-      expect(entry.ageDays).toBeGreaterThan(365);
+    // The parity and the state are the whole point of the row and come across
+    // as they were: an old plan's parity-2 herd does not load as maidens.
+    const sows = starting.filter((entry) => entry.type === "sow");
+    expect(sows).toHaveLength(3);
+    for (const sow of sows) {
+      expect(sow.parity).toBe(2);
+      expect(sow.reproductiveState).toBe("open");
+      // Only the age it never gave is a reading rather than a record.
+      expect(sow.ageDays).toBeGreaterThan(365);
     }
+  });
+
+  it("read an old boar's service across, not just his age", () => {
+    const stored = structuredClone(cloneDefaultConfig()) as Record<string, unknown>;
+    (stored.stock as Record<string, unknown>).starting = [
+      { id: "b", type: "boar", count: 2, monthsInService: 9, openingValuePerHead: 400 },
+    ];
+
+    const loaded = withConfigDefaults(stored);
+    const boars = loaded!.stock.starting.filter((entry) => entry.type === "boar");
+    expect(boars).toHaveLength(2);
+    for (const boar of boars) expect(boar.monthsInService).toBe(9);
   });
 });
 

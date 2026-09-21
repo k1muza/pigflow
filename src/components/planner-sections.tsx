@@ -56,6 +56,8 @@ import {
   TYPICAL_AGE_DAYS,
   expectedGiltServiceAgeDays,
   openingCounts,
+  type StartingBoarEntry,
+  type StartingSowEntry,
   type StartingStockEntry,
   type StartingStockType,
 } from "@/lib/config";
@@ -2024,6 +2026,162 @@ const CELL_NUMBER = CELL_FIELD + " text-right tabular-nums";
 /** A dropdown standing among the boxes: the trigger sits the way an input does. */
 const CELL_SELECT = "h-9 rounded-md border-hairline bg-plane px-2 hover:border-rule";
 
+/**
+ * A change to one animal, whatever kind it is.
+ *
+ * The kinds are a discriminated union, and a patch is a few keys off one arm of
+ * it. Narrowing that properly at every box would cost more than it buys, so the
+ * patch is loose here and the row it lands on is the thing that keeps its
+ * shape: a box only ever appears on the kind whose field it edits.
+ */
+type StartingStockPatch = Partial<
+  Omit<StartingSowEntry, "type"> & Omit<StartingBoarEntry, "type">
+>;
+
+/** A box on the history line, narrow and captioned. */
+function HistoryBox({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex shrink-0 items-center gap-1.5">
+      <span className="text-[11px] text-ink-faint">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/**
+ * What a sow or a boar is carrying that its age cannot say.
+ *
+ * Shown only on the kinds it means anything for, under the three lines every
+ * animal answers. A growing pig has no working history, so it gets none of this
+ * and its row stays a single line.
+ */
+function StartingStockHistory({
+  entry,
+  index,
+  config,
+  onPatch,
+  optionalNumber,
+}: {
+  entry: StartingStockEntry;
+  index: number;
+  config: PlannerConfig;
+  onPatch: (index: number, patch: StartingStockPatch) => void;
+  optionalNumber: (text: string) => number | undefined;
+}) {
+  const label = (what: string) => "Animal " + (index + 1) + " " + what;
+  const line = "mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3";
+
+  if (entry.type === "boar") {
+    return (
+      <div className={line}>
+        <HistoryBox label="Months in service">
+          <input
+            type="number"
+            min={0}
+            max={120}
+            step={1}
+            value={entry.monthsInService}
+            aria-label={label("months in service")}
+            title="How long he has been working, which is what his rotation and his write-off are counted from. His age is a separate thing."
+            onChange={(event) =>
+              onPatch(index, { monthsInService: Math.max(0, Number(event.target.value)) })
+            }
+            className={CELL_NUMBER + " w-20"}
+          />
+        </HistoryBox>
+      </div>
+    );
+  }
+
+  if (entry.type !== "sow") return null;
+
+  return (
+    <div className={line}>
+      <HistoryBox label="Parity">
+        <input
+          type="number"
+          min={0}
+          max={12}
+          step={1}
+          value={entry.parity}
+          aria-label={label("parity")}
+          title="Litters she has already had. It decides when she is culled and what is left of her value to write off."
+          onChange={(event) =>
+            onPatch(index, {
+              parity: Math.min(12, Math.max(0, Math.round(Number(event.target.value)))),
+            })
+          }
+          className={CELL_NUMBER + " w-16"}
+        />
+      </HistoryBox>
+      <Select
+        value={entry.reproductiveState}
+        onValueChange={(value) =>
+          onPatch(index, {
+            reproductiveState: value as StartingSowEntry["reproductiveState"],
+          })
+        }
+      >
+        <SelectTrigger
+          aria-label={label("reproductive state")}
+          className={CELL_SELECT + " h-8 w-44"}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="open">Open, due to serve</SelectItem>
+          <SelectItem value="gestating">In pig</SelectItem>
+          <SelectItem value="lactating">Suckling a litter</SelectItem>
+        </SelectContent>
+      </Select>
+      {entry.reproductiveState === "gestating" ? (
+        <HistoryBox label="Days pregnant">
+          <input
+            type="number"
+            min={0}
+            max={config.reproduction.gestationDays}
+            step={1}
+            value={entry.daysPregnant ?? ""}
+            placeholder="spread"
+            aria-label={label("days pregnant")}
+            title={
+              "How far into this pregnancy she is, which fixes the day she farrows. Left empty, she is spread across the " +
+              Math.round(config.reproduction.gestationDays) +
+              " days of gestation with the others."
+            }
+            onChange={(event) =>
+              onPatch(index, { daysPregnant: optionalNumber(event.target.value) })
+            }
+            className={CELL_NUMBER + " w-20"}
+          />
+        </HistoryBox>
+      ) : null}
+      {entry.reproductiveState === "lactating" ? (
+        <HistoryBox label="Days since farrowing">
+          <input
+            type="number"
+            min={0}
+            max={config.reproduction.weaningAgeDays}
+            step={1}
+            value={entry.daysSinceFarrowing ?? ""}
+            placeholder="spread"
+            aria-label={label("days since farrowing")}
+            title={
+              "How long this litter has been on her, which fixes the day she weans and comes back into heat. Left empty, she is spread across the " +
+              Math.round(config.reproduction.weaningAgeDays) +
+              " days of lactation with the others."
+            }
+            onChange={(event) =>
+              onPatch(index, { daysSinceFarrowing: optionalNumber(event.target.value) })
+            }
+            className={CELL_NUMBER + " w-20"}
+          />
+        </HistoryBox>
+      ) : null}
+    </div>
+  );
+}
+
 /** The widths the caption strip and every animal's line are both laid out on. */
 const AGE_WIDTH = "w-24 sm:w-28";
 const WORTH_WIDTH = "w-24 sm:w-32";
@@ -2047,15 +2205,19 @@ function StartingStock({
   config,
   entries,
   onAdd,
+  onChangeType,
   onPatch,
   onRemove,
+  optionalNumber,
   className,
 }: {
   config: PlannerConfig;
   entries: readonly StartingStockEntry[];
   onAdd: (type: StartingStockType) => void;
-  onPatch: (index: number, patch: Partial<StartingStockEntry>) => void;
+  onChangeType: (index: number, type: StartingStockType) => void;
+  onPatch: (index: number, patch: StartingStockPatch) => void;
   onRemove: (index: number) => void;
+  optionalNumber: (text: string) => number | undefined;
   className?: string;
 }) {
   const currency = config.project.currency;
@@ -2083,58 +2245,70 @@ function StartingStock({
           </div>
           <ul className="space-y-1.5">
             {entries.map((entry, index) => (
-              <li key={entry.id} className="flex items-center gap-2">
-                <Select
-                  value={entry.type}
-                  onValueChange={(value) => onPatch(index, { type: value as StartingStockType })}
-                >
-                  <SelectTrigger
-                    aria-label={"Animal " + (index + 1) + " type"}
-                    className={CELL_SELECT + " flex-1"}
+              <li key={entry.id}>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={entry.type}
+                    onValueChange={(value) => onChangeType(index, value as StartingStockType)}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STARTING_STOCK_TYPES.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {STARTING_STOCK_NAMES[type]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <input
-                  type="number"
-                  min={0}
-                  step={10}
-                  value={entry.openingValue}
-                  aria-label={"Animal " + (index + 1) + " worth"}
-                  onChange={(event) =>
-                    onPatch(index, { openingValue: Math.max(0, Number(event.target.value)) })
-                  }
-                  className={CELL_NUMBER + " " + WORTH_WIDTH}
+                    <SelectTrigger
+                      aria-label={"Animal " + (index + 1) + " type"}
+                      className={CELL_SELECT + " flex-1"}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STARTING_STOCK_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {STARTING_STOCK_NAMES[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <input
+                    type="number"
+                    min={0}
+                    step={10}
+                    value={entry.openingValue}
+                    aria-label={"Animal " + (index + 1) + " worth"}
+                    onChange={(event) =>
+                      onPatch(index, { openingValue: Math.max(0, Number(event.target.value)) })
+                    }
+                    className={CELL_NUMBER + " " + WORTH_WIDTH}
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    max={4000}
+                    step={1}
+                    value={entry.ageDays}
+                    aria-label={"Animal " + (index + 1) + " age in days"}
+                    onChange={(event) =>
+                      onPatch(index, {
+                        ageDays: Math.min(
+                          4000,
+                          Math.max(0, Math.round(Number(event.target.value))),
+                        ),
+                      })
+                    }
+                    className={CELL_NUMBER + " " + AGE_WIDTH}
+                  />
+                  <button
+                    onClick={() => onRemove(index)}
+                    aria-label={"Remove animal " + (index + 1)}
+                    title="Remove this animal"
+                    className="w-8 shrink-0 rounded-md p-1.5 text-ink-faint transition hover:bg-critical-soft hover:text-critical"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+                <StartingStockHistory
+                  entry={entry}
+                  index={index}
+                  config={config}
+                  onPatch={onPatch}
+                  optionalNumber={optionalNumber}
                 />
-                <input
-                  type="number"
-                  min={0}
-                  max={4000}
-                  step={1}
-                  value={entry.ageDays}
-                  aria-label={"Animal " + (index + 1) + " age in days"}
-                  onChange={(event) =>
-                    onPatch(index, {
-                      ageDays: Math.min(4000, Math.max(0, Math.round(Number(event.target.value)))),
-                    })
-                  }
-                  className={CELL_NUMBER + " " + AGE_WIDTH}
-                />
-                <button
-                  onClick={() => onRemove(index)}
-                  aria-label={"Remove animal " + (index + 1)}
-                  title="Remove this animal"
-                  className="w-8 shrink-0 rounded-md p-1.5 text-ink-faint transition hover:bg-critical-soft hover:text-critical"
-                >
-                  <Trash2 size={14} />
-                </button>
               </li>
             ))}
           </ul>
@@ -2221,14 +2395,36 @@ export function FarmInputs({
     update("stock", "starting", next);
   }
 
-  function patchStartingStock(index: number, patch: Partial<StartingStockEntry>) {
+  function patchStartingStock(index: number, patch: StartingStockPatch) {
     writeStartingStock(
-      startingStock.map((row, position) => (position === index ? { ...row, ...patch } : row)),
+      startingStock.map((row, position) =>
+        position === index ? ({ ...row, ...patch } as StartingStockEntry) : row,
+      ),
     );
   }
 
   function removeStartingStock(index: number) {
     writeStartingStock(startingStock.filter((_, position) => position !== index));
+  }
+
+  /**
+   * An animal of a given kind, at a believable age and with no history behind
+   * it: the shape the form writes, whether it is adding one or changing one.
+   *
+   * A sow has a parity and a place in her cycle; a boar has months behind him;
+   * a growing pig has neither. Those are what the kinds differ by, so changing
+   * the kind is changing the shape and the history starts again.
+   */
+  function startingAnimal(
+    id: string,
+    type: StartingStockType,
+    ageDays: number,
+    openingValue: number,
+  ): StartingStockEntry {
+    const kept = { id, ageDays, openingValue };
+    if (type === "sow") return { ...kept, type, parity: 0, reproductiveState: "open" };
+    if (type === "boar") return { ...kept, type, monthsInService: 0 };
+    return { ...kept, type };
   }
 
   /**
@@ -2241,13 +2437,37 @@ export function FarmInputs({
   function addStartingStock(type: StartingStockType) {
     writeStartingStock([
       ...startingStock,
-      {
-        id: "stock-" + Date.now() + "-" + startingStock.length,
+      startingAnimal(
+        "stock-" + Date.now() + "-" + startingStock.length,
         type,
-        ageDays: TYPICAL_AGE_DAYS[type],
-        openingValue: 0,
-      },
+        TYPICAL_AGE_DAYS[type],
+        0,
+      ),
     ]);
+  }
+
+  /** The same animal, made a different kind. Age and value are what the farmer
+   * has already typed, so they come across; the history cannot, because a sow
+   * has no months in service and a boar no parity. */
+  function changeStartingStockType(index: number, type: StartingStockType) {
+    const row = startingStock[index];
+    if (row.type === type) return;
+    const next = startingAnimal(row.id, type, row.ageDays, row.openingValue);
+    writeStartingStock(
+      startingStock.map((existing, position) => (position === index ? next : existing)),
+    );
+  }
+
+  /**
+   * A number typed into an animal's history, where empty means "you work it
+   * out". Days pregnant and days since farrowing are both optional, and the
+   * difference between an empty box and a zero matters: empty spreads her
+   * across the part of the cycle she is in, zero puts her at the start of it.
+   */
+  function optionalNumber(text: string): number | undefined {
+    if (text.trim() === "") return undefined;
+    const value = Number(text);
+    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : undefined;
   }
 
   function addVaccination() {
@@ -2442,8 +2662,10 @@ export function FarmInputs({
         config={config}
         entries={startingStock}
         onAdd={addStartingStock}
+        onChangeType={changeStartingStockType}
         onPatch={patchStartingStock}
         onRemove={removeStartingStock}
+        optionalNumber={optionalNumber}
         className={cardClass("flock")}
       />
 

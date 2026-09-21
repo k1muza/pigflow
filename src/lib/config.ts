@@ -85,31 +85,96 @@ export type StartingStockType = (typeof STARTING_STOCK_TYPES)[number];
 const openingValue = nonNegative;
 
 /**
- * One animal the farm owns on the day the plan opens.
+ * What is asked of every animal alike, whatever kind it is.
  *
- * Three things, asked of every animal alike: what it is, what it is worth, and
- * how old it is. Age is the one clock — it is what says how much a pig weighs,
- * how far through its stage it stands, and how long it has been on the farm —
- * so nothing here is asked twice in different units.
+ * What it is, what it is worth, and how old it is. Age is biology and nothing
+ * else: it is what says how much a pig weighs and how far through its stage it
+ * stands. It is deliberately not asked to stand in for a working history — how
+ * many litters a sow has had, or how long a boar has been in service — because
+ * it cannot. A three-year-old sow may be parity 2 or parity 6, and the two are
+ * different farms.
  *
  * The reason to enter these rather than a head count is the value. Opening
  * stock is an opening balance, and what it is worth is something the farmer
  * knows and the plan cannot work out: rebuilding it from what the animal would
  * have cost to rear here invents a history the farm did not have, and on a herd
  * that was bought in it is simply wrong.
- *
- * One entry is one animal. A farm of forty sows is forty entries, each with the
- * age and the value that sow actually has, rather than one row averaging them
- * into a herd that does not exist.
  */
-export const startingStockSchema = z.object({
+const startingAnimal = {
   id: z.string().min(1).max(40),
-  type: z.enum(STARTING_STOCK_TYPES),
   ageDays: z.number().int().min(0).max(4_000),
   openingValue,
+};
+
+/**
+ * A growing pig or a maiden gilt the farm already has.
+ *
+ * Nothing beyond the three: a pig's age places it in its stage and prices its
+ * keep, and it has no working history to record.
+ */
+const startingPigSchema = z.object({
+  ...startingAnimal,
+  type: z.enum(STARTING_PIG_TYPES),
 });
 
+/**
+ * A breeding female the farm already has, with the history she is carrying.
+ *
+ * Her parity is the litters behind her and her state is where she stands in the
+ * cycle today, and neither can be read off her age. They decide when she is
+ * culled, when she farrows, what she eats and what she is written down to, so a
+ * parity-5 sow entered as a maiden is a materially different animal: she would
+ * be given six more litters before the cull she is nearly due, and her value
+ * spread over all of them.
+ *
+ * The timing within her state is asked for where it exists, because that is the
+ * thing a farmer has on the card on the pen: days pregnant fixes the day she
+ * farrows, and days since farrowing fixes the day she weans and comes back into
+ * heat. Left out, she is spread across the part of the cycle her state covers,
+ * which is the best a plan can do without being told.
+ */
+const startingSowSchema = z.object({
+  ...startingAnimal,
+  type: z.literal("sow"),
+  parity: z.number().int().min(0).max(12).default(0),
+  reproductiveState: z.enum(["open", "gestating", "lactating"]).default("open"),
+  /** How far into this pregnancy she is. Only read when she is gestating. */
+  daysPregnant: z.number().int().min(0).max(130).optional(),
+  /** How long this litter has been on her. Only read when she is lactating. */
+  daysSinceFarrowing: z.number().int().min(0).max(90).optional(),
+});
+
+/**
+ * A boar the farm already has, and how much of his working life is behind him.
+ *
+ * Age is how old he is; months in service is how long he has been working, and
+ * the two are different facts. What he is entered at is written down over the
+ * months he has left rather than over a whole working life he has not got, and
+ * it is his tenure rather than his age that says when he is rotated out.
+ */
+const startingBoarSchema = z.object({
+  ...startingAnimal,
+  type: z.literal("boar"),
+  monthsInService: z.number().finite().min(0).max(120).default(0),
+});
+
+/**
+ * One animal the farm owns on the day the plan opens.
+ *
+ * One entry is one animal. A farm of forty sows is forty entries, each with the
+ * age, the parity and the value that sow actually has, rather than one row
+ * averaging them into a herd that does not exist.
+ */
+export const startingStockSchema = z.discriminatedUnion("type", [
+  startingPigSchema,
+  startingSowSchema,
+  startingBoarSchema,
+]);
+
 export type StartingStockEntry = z.infer<typeof startingStockSchema>;
+export type StartingPigEntry = z.infer<typeof startingPigSchema>;
+export type StartingSowEntry = z.infer<typeof startingSowSchema>;
+export type StartingBoarEntry = z.infer<typeof startingBoarSchema>;
 
 /** Animals one plan can hold, which is a herd rather than a sample of one. */
 export const MAX_STARTING_STOCK_ROWS = 2_000;
@@ -136,12 +201,15 @@ export const TYPICAL_AGE_DAYS: Record<StartingStockType, number> = {
  *
  * A row used to be a group: a head count, a weight or a parity or months in
  * service, and one value per head. Those rows are read here into the animals
- * they stood for — a count of five becomes five animals — so an old plan opens
- * as the farm it described rather than as a validation error. What the old row
- * did not say plainly, age is taken from: an age given is used, a parity is the
- * litters behind her at roughly a litter a year, and anything else falls back on
- * a believable age for the kind. It is a best reading of an old plan, not a
- * promise that the two simulate identically.
+ * they stood for — a count of five becomes five animals, each carrying the
+ * parity, the state and the service the row gave them — so an old plan opens as
+ * the farm it described rather than as a validation error.
+ *
+ * The one thing the old rows did not always say is age, and it is the one thing
+ * now asked of every animal. Where a row gave one it is kept; where it did not,
+ * a sow's is read off her parity at roughly two litters a year and everything
+ * else falls back on a believable age for the kind. That much is a best reading
+ * rather than a promise, and it is the only part of an old plan that is.
  */
 function readLegacyStartingStock(input: unknown): unknown {
   if (!Array.isArray(input)) return input ?? [];
@@ -157,14 +225,21 @@ function readLegacyStartingStock(input: unknown): unknown {
 
     const type = (old.type ?? "grower") as StartingStockType;
     const parity = typeof old.parity === "number" ? old.parity : 0;
+    const months = typeof old.monthsInService === "number" ? old.monthsInService : 0;
     const age =
       typeof old.averageAgeDays === "number"
         ? old.averageAgeDays
         : type === "sow"
           ? TYPICAL_AGE_DAYS.sow + parity * 180
-          : type === "boar" && typeof old.monthsInService === "number"
-            ? TYPICAL_AGE_DAYS.boar + Math.round(old.monthsInService * DAYS_PER_MONTH)
+          : type === "boar"
+            ? TYPICAL_AGE_DAYS.boar + Math.round(months * DAYS_PER_MONTH)
             : TYPICAL_AGE_DAYS[type];
+    const history =
+      type === "sow"
+        ? { parity, reproductiveState: old.reproductiveState ?? "open" }
+        : type === "boar"
+          ? { monthsInService: months }
+          : {};
 
     const head = Math.max(0, Math.round(old.count));
     for (let index = 0; index < head; index += 1) {
@@ -173,6 +248,7 @@ function readLegacyStartingStock(input: unknown): unknown {
         type,
         ageDays: Math.round(age),
         openingValue: old.openingValuePerHead ?? old.openingValue ?? 0,
+        ...history,
       });
     }
   }
@@ -1085,9 +1161,23 @@ export function cloneDefaultConfig(): PlannerConfig {
  * out loud now, as three animals a farmer can see, age, price and delete.
  */
 const FOUNDING_HERD: StartingStockEntry[] = [
-  { id: "stock-sow-1", type: "sow", ageDays: 213, openingValue: 350 },
-  { id: "stock-sow-2", type: "sow", ageDays: 213, openingValue: 350 },
-  { id: "stock-boar-1", type: "boar", ageDays: 213, openingValue: 600 },
+  {
+    id: "stock-sow-1",
+    type: "sow",
+    ageDays: 213,
+    openingValue: 350,
+    parity: 0,
+    reproductiveState: "open",
+  },
+  {
+    id: "stock-sow-2",
+    type: "sow",
+    ageDays: 213,
+    openingValue: 350,
+    parity: 0,
+    reproductiveState: "open",
+  },
+  { id: "stock-boar-1", type: "boar", ageDays: 213, openingValue: 600, monthsInService: 0 },
 ];
 
 /**

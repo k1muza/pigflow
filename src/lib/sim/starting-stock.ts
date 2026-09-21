@@ -1,9 +1,13 @@
 import {
   BIRTH_WEIGHT_KG,
+  DAYS_PER_MONTH,
   MATURE_SOW_WEIGHT_KG,
   STARTING_PIG_TYPES,
   type PlannerConfig,
+  type StartingBoarEntry,
+  type StartingPigEntry,
   type StartingPigType,
+  type StartingSowEntry,
   type StartingStockEntry,
 } from "../config";
 import { Boar, GrowingPig, Sow, type CostStage, type PigStage } from "./animals";
@@ -20,10 +24,17 @@ import type { Variation } from "./variation";
  * one animal at a time, each with the value its owner puts on it.
  *
  * Three things are asked of every animal alike — what it is, what it is worth,
- * and how old it is — and the third does the work the old group rows needed
- * weights and parities and months in service for. Age says what a pig weighs
- * and how far through its stage it stands. It is one question, asked once, in
- * units a farmer has on a card in the pen.
+ * and how old it is — and age does the work a weight used to: it says what a
+ * pig weighs and how far through its stage it stands, in units a farmer has on
+ * a card on the pen.
+ *
+ * Age is biology and stops there. A sow is asked separately for her parity and
+ * where she stands in her cycle, and a boar for the months he has worked,
+ * because none of that can be read off a birthday: a three-year-old sow may be
+ * parity 2 or parity 6, open or carrying, and a boar of the same age may have
+ * eighteen months of service behind him or none. Those facts decide when she
+ * farrows, when she is culled, what is left to write off him, and when he is
+ * rotated out — so they are asked for rather than inferred.
  *
  * That value is an opening balance and is treated as one throughout. Nothing
  * here posts to the ledger, touches the cash book or records a movement in the
@@ -67,7 +78,15 @@ export type StartingStockHost = {
   penCohort?(pigs: readonly GrowingPig[], stage: PigStage): void;
 };
 
-function isPigEntry(entry: StartingStockEntry): boolean {
+function isSowEntry(entry: StartingStockEntry): entry is StartingSowEntry {
+  return entry.type === "sow";
+}
+
+function isBoarEntry(entry: StartingStockEntry): entry is StartingBoarEntry {
+  return entry.type === "boar";
+}
+
+function isPigEntry(entry: StartingStockEntry): entry is StartingPigEntry {
   return entry.type !== "sow" && entry.type !== "boar";
 }
 
@@ -81,8 +100,9 @@ export function orphanStartingPiglets(config: PlannerConfig): number {
   const entries = config.stock.starting;
   const piglets = entries.filter((entry) => entry.type === "piglet").length;
   if (piglets === 0) return 0;
-  const sows = entries.filter((entry) => entry.type === "sow").length;
-  const suckling = sowPhases(config, sows).filter((phase) => isLactating(config, phase)).length;
+  const suckling = entries.filter(
+    (entry) => isSowEntry(entry) && entry.reproductiveState === "lactating",
+  ).length;
   return suckling > 0 ? 0 : piglets;
 }
 
@@ -124,11 +144,20 @@ export const STARTING_STOCK_NAMES: Record<StartingStockEntry["type"], string> = 
 export function seedStartingStock(host: StartingStockHost): void {
   const entries = host.config.stock.starting;
 
-  const sows = entries.filter((entry) => entry.type === "sow");
-  const phases = sowPhases(host.config, sows.length);
-  const lactating: Sow[] = [];
-  sows.forEach((entry, index) => placeSow(host, entry, phases[index], lactating));
-  for (const entry of entries.filter((entry) => entry.type === "boar")) placeBoar(host, entry);
+  // Sows of one state are spread across the part of the cycle that state covers,
+  // so a herd of gestating sows farrows across the weeks rather than all on one
+  // day. A sow who said where in her state she is takes no part in the spread.
+  const sows = entries.filter(isSowEntry);
+  const placedOfState = new Map<StartingSowEntry["reproductiveState"], number>();
+  const ofState = (state: StartingSowEntry["reproductiveState"]) =>
+    sows.filter((entry) => entry.reproductiveState === state).length;
+  const lactating: LactatingSow[] = [];
+  for (const entry of sows) {
+    const index = placedOfState.get(entry.reproductiveState) ?? 0;
+    placedOfState.set(entry.reproductiveState, index + 1);
+    placeSow(host, entry, index, ofState(entry.reproductiveState), lactating);
+  }
+  for (const entry of entries.filter(isBoarEntry)) placeBoar(host, entry);
 
   const pigs = entries.filter(isPigEntry);
   for (const type of STARTING_PIG_TYPES) {
@@ -150,87 +179,111 @@ function cycleDaysOf(config: PlannerConfig): number {
   );
 }
 
-/**
- * Where each starting sow stands in her cycle on the day the plan opens.
- *
- * A herd started synchronised is served together on day one, which is what a
- * farm buying in a batch of gilts actually does. A herd said to be running
- * already is spread evenly through the cycle, so the farrowing house is not
- * asked to hold every litter on one date. It is the same rule the plain head
- * counts have always been placed by, kept in one place so that the two ways of
- * describing a herd cannot drift apart.
- */
-function sowPhases(config: PlannerConfig, count: number): number[] {
-  if (count <= 0) return [];
-  const cycleDays = cycleDaysOf(config);
-  if (config.herd.startMode === "synchronised") {
-    return Array.from({ length: count }, () => cycleDays);
-  }
-  return Array.from({ length: count }, (_, index) => Math.floor((index * cycleDays) / count));
-}
+/** A sow suckling on day one, and whether she said herself when she weans. */
+type LactatingSow = { sow: Sow; statedTiming: boolean };
 
-/** Whether a sow at this point in her cycle is suckling a litter. */
-function isLactating(config: PlannerConfig, phase: number): boolean {
+/**
+ * How far through her cycle a starting sow is, counted from her last service.
+ *
+ * A sow who said where she is in her state is taken at her word: days pregnant
+ * is days since service, and days since farrowing is that much past the end of
+ * gestation. A sow who did not is spread evenly across the part of the cycle
+ * her state covers, along with the others in the same state — so three
+ * gestating sows are three farrowings on three days rather than one crowd on
+ * one, and a plan that says the same thing twice gets the same farm.
+ */
+function phaseFor(
+  entry: StartingSowEntry,
+  index: number,
+  count: number,
+  config: PlannerConfig,
+): number {
   const { reproduction } = config;
+  const within = (span: number) => (count <= 1 ? 0 : Math.floor((index * span) / count));
+  if (entry.reproductiveState === "gestating") {
+    const stated = entry.daysPregnant;
+    return stated === undefined
+      ? within(reproduction.gestationDays)
+      : Math.min(stated, reproduction.gestationDays);
+  }
+  if (entry.reproductiveState === "lactating") {
+    const stated = entry.daysSinceFarrowing;
+    const into =
+      stated === undefined
+        ? within(reproduction.weaningAgeDays)
+        : Math.min(stated, reproduction.weaningAgeDays);
+    return reproduction.gestationDays + into;
+  }
   return (
-    phase >= reproduction.gestationDays &&
-    phase < reproduction.gestationDays + reproduction.weaningAgeDays
+    reproduction.gestationDays +
+    reproduction.weaningAgeDays +
+    within(reproduction.weanToServiceDays)
   );
 }
 
 function placeSow(
   host: StartingStockHost,
-  entry: StartingStockEntry,
-  phase: number,
-  lactating: Sow[],
+  entry: StartingSowEntry,
+  index: number,
+  count: number,
+  lactating: LactatingSow[],
 ): void {
   const { config } = host;
   const { reproduction } = config;
   const cycleDays = cycleDaysOf(config);
-  // A sow suckling a litter has reared at least one, whatever her age says.
-  const parity = isLactating(config, phase) ? 1 : 0;
+  const phase = phaseFor(entry, index, count, config);
+  // A sow suckling a litter has reared at least one, whatever the entry says.
+  const parity =
+    entry.reproductiveState === "lactating" ? Math.max(1, entry.parity) : entry.parity;
 
   const tag = host.nextSowTag();
   const sow = new Sow({
     id: tag,
     tag,
+    // Her age is her age. It used to be built out of her parity because there
+    // was nothing else to build it from; now she is asked, and the two facts
+    // are kept apart — a parity-6 sow of four years and one of two years are
+    // both farms that exist.
     birthDay: -Math.round(entry.ageDays),
-    weightKg: MATURE_SOW_WEIGHT_KG,
+    weightKg: Math.min(MATURE_SOW_WEIGHT_KG + parity * 6, 250),
   });
   sow.parity = parity;
 
-  if (phase < reproduction.gestationDays) {
+  if (entry.reproductiveState === "gestating") {
     sow.state = "gestating";
     sow.dueDay = Math.round(reproduction.gestationDays - phase);
-  } else if (isLactating(config, phase)) {
+  } else if (entry.reproductiveState === "lactating") {
     sow.state = "lactating";
     sow.weanDay = Math.round(reproduction.gestationDays + reproduction.weaningAgeDays - phase);
-    lactating.push(sow);
+    lactating.push({ sow, statedTiming: entry.daysSinceFarrowing !== undefined });
   } else {
     sow.state = "open";
     sow.nextServiceDay = Math.round(cycleDays - phase);
   }
 
-  // What she is worth today, with whatever she has behind her already reflected
-  // in it. `valuedAfter` is what stops the books writing her down a second time
-  // for litters she reared before this plan opened.
+  // What she is worth today, with the parities she has behind her already
+  // reflected in it. `valuedAfter` is what stops the books writing her down a
+  // second time for litters she reared before this plan opened.
   sow.breedingValue = entry.openingValue;
   sow.valuedAfter = parity;
   host.sows.push(sow);
 }
 
-function placeBoar(host: StartingStockHost, entry: StartingStockEntry): void {
+function placeBoar(host: StartingStockHost, entry: StartingBoarEntry): void {
   const tag = host.nextBoarTag();
-  // He is as old as he was entered, and his working life is counted from the
-  // day the plan opens: what is left of his value is written off over it.
+  const servedDays = Math.round(Math.max(0, entry.monthsInService) * DAYS_PER_MONTH);
+  // Two different facts, kept apart: he is as old as he was entered, and he
+  // joined the team however long ago he was put to work. The rotation and the
+  // write-off are counted from the joining — a boar six months into a two-year
+  // working life has eighteen left, whatever his birthday says.
   const boar = new Boar({
     id: tag,
     tag,
     birthDay: -Math.round(entry.ageDays),
-    joinedDay: 0,
+    joinedDay: -servedDays,
   });
   boar.breedingValue = entry.openingValue;
-  boar.valuedAfter = 0;
+  boar.valuedAfter = servedDays;
   host.boars.push(boar);
 }
 
@@ -422,7 +475,7 @@ function saleAgeDays(config: PlannerConfig): number {
 function placePiglets(
   host: StartingStockHost,
   entries: readonly StartingStockEntry[],
-  lactating: readonly Sow[],
+  lactating: readonly LactatingSow[],
 ): void {
   const { config } = host;
   const { growth, reproduction } = config;
@@ -432,7 +485,8 @@ function placePiglets(
   entries.forEach((entry, index) => {
     const ageDays = Math.min(Math.round(entry.ageDays), Math.round(reproduction.weaningAgeDays));
     const weightKg = BIRTH_WEIGHT_KG + gainPerDay * ageDays;
-    const dam = lactating.length > 0 ? lactating[index % lactating.length] : null;
+    const nursing = lactating.length > 0 ? lactating[index % lactating.length] : null;
+    const dam = nursing?.sow ?? null;
     const tag = host.nextPigTag();
     const piglet = new GrowingPig({
       id: tag,
@@ -453,9 +507,12 @@ function placePiglets(
     } else {
       host.noteBirth(piglet.generation);
       dam.litter.push(piglet);
-      // Her litter's age is what says when she weans it, and the piglet is
-      // better evidence of that than the place she was given in her own cycle.
-      dam.weanDay = Math.max(1, Math.round(reproduction.weaningAgeDays - ageDays));
+      // Her litter's age is what says when she weans it — unless she said when
+      // she farrowed, in which case she is the better evidence of the two and
+      // the piglet does not overrule her.
+      if (!nursing?.statedTiming) {
+        dam.weanDay = Math.max(1, Math.round(reproduction.weaningAgeDays - ageDays));
+      }
     }
     host.catchUpVaccinations(piglet, 0);
     openAt(piglet, entry);
