@@ -6,7 +6,6 @@ import { STORE_IDS, type StoreId } from "../../sim/haulage";
 import { forecastDemand, type DemandForecastResult, type ExpectedFarmState } from "./forecast";
 import {
   BalancedLoadProcurementPolicy,
-  RollingCoverProcurementPolicy,
   type Forecaster,
   type ProcurementPlanningContext,
   type ProcurementPolicy,
@@ -61,7 +60,6 @@ function context(
 
   config.feed.deliveryLeadDays = 3;
   config.feed.safetyCoverDays = 3;
-  config.feed.rollingTargetCoverDays = 14;
   config.feed.feedBagKg = 50;
   const stores: ProcurementSnapshot = {
     day: 0,
@@ -88,40 +86,51 @@ function context(
   return { config, stores, farm: EMPTY_FARM };
 }
 
-describe("Rolling-cover target integrity", () => {
-  it("covers an interim shortage even when a later confirmed delivery covers the target day", () => {
+/**
+ * A confirmed delivery further out does not settle the question.
+ *
+ * The coverage arithmetic works off the running maximum of the shortfall from
+ * the arrival day onwards, not off the balance on one chosen day. Read the
+ * latter way, a bin with a large load booked for next week looks comfortable
+ * while it is in fact about to go under its safety floor on the way there. These
+ * two cases are the same store, told apart only by whether it can reach that
+ * booked delivery on what it is holding.
+ */
+describe("a store that cannot reach the load already coming", () => {
+  const pendingSowLoad = (stores: ProcurementSnapshot) => {
+    stores.pendingOrders = [
+      {
+        id: 1,
+        placedDay: -1,
+        arrivesDay: 10,
+        emergency: false,
+        lines: [{ store: "sow", kg: 2_000 }],
+      },
+    ];
+  };
+
+  it("sends a load for a bin that breaches its floor before the booked one lands", () => {
     const planning = context((_config, stores) => {
       stores.held.sow = 200;
-      stores.pendingOrders = [
-        {
-          id: 1,
-          placedDay: -1,
-          arrivesDay: 10,
-          emergency: false,
-          lines: [{ store: "sow", kg: 2_000 }],
-        },
-      ];
+      pendingSowLoad(stores);
     });
-    const decision = new RollingCoverProcurementPolicy(constantDemand("sow", 50)).decide(planning);
+    const decision = new BalancedLoadProcurementPolicy(constantDemand("sow", 50)).decide(planning);
 
-    // The delivery on day 10 makes the final target-day balance positive, but
-    // the bin breaches its safety floor before then. The bridge is eight bags.
+    // 200 kg at 50 a day is under the three-day safety floor by day 2, and a
+    // load ordered today does not land until day 3.
     expect(decision.dispatch).toBe("normal");
-    expect(decision.lines.find((line) => line.store === "sow")?.kg).toBe(400);
+    expect(decision.lines.find((line) => line.store === "sow")?.kg ?? 0).toBeGreaterThan(0);
   });
 
-  it("keeps one common target when the requirement spills across delivery days", () => {
-    const planning = context((config, stores) => {
-      config.feed.truckCapacityKg = 500;
-      config.feed.maxSupplyTripsPerDay = 1;
-      stores.held.sow = 400;
+  it("leaves alone the same bin holding enough to get there", () => {
+    const planning = context((_config, stores) => {
+      stores.held.sow = 2_000;
+      pendingSowLoad(stores);
     });
-    const decision = new RollingCoverProcurementPolicy(constantDemand("sow", 100)).decide(planning);
-    const ordered = decision.lines.find((line) => line.store === "sow")?.kg ?? 0;
+    const decision = new BalancedLoadProcurementPolicy(constantDemand("sow", 50)).decide(planning);
 
-    expect(decision.targetDay).toBe(17);
-    expect(ordered).toBe(1_600);
-    expect(decision.trips.map((trip) => trip.day)).toEqual([3, 4, 5, 6]);
+    expect(decision.dispatch).toBe("none");
+    expect(decision.lines).toHaveLength(0);
   });
 });
 
@@ -269,7 +278,6 @@ describe("the engine's procurement override", () => {
     config.stock.sows = 10;
     config.herd.maxSows = 10;
     config.feed.procurementMode = "operational";
-    config.feed.operationalPolicy = "rolling-cover";
 
     let asked = 0;
     const injected = new BalancedLoadProcurementPolicy(forecastDemand);
@@ -285,7 +293,9 @@ describe("the engine's procurement override", () => {
     const engine = runEngine(config, 30, { procurement: spy });
 
     expect(asked, "days the injected policy was consulted").toBeGreaterThan(0);
-    // And it is genuinely in charge: the config asked for rolling-cover.
+    // And it is genuinely in charge. Identity is the assertion, not the id: the
+    // spy wears the same id as the policy the config would have built, so only
+    // object identity distinguishes "ran the injected one" from "ignored it".
     expect(engine.world.procurement).toBe(spy);
   });
 

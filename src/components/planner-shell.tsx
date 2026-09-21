@@ -23,6 +23,7 @@ import {
   Download,
   GitCompareArrows,
   HeartPulse,
+  LoaderCircle,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -40,13 +41,15 @@ import {
 } from "lucide-react";
 
 import {
-  calculateProjection,
   cloneDefaultConfig,
   getModelMetrics,
   plannerSchema,
   type PlannerConfig,
   type PlannerSection,
 } from "@/lib/model";
+import { usePlanSimulation } from "@/hooks/use-plan-simulation";
+import type { PlanSimulationResult } from "@/lib/simulation-result";
+import type { SimulationStatus } from "@/lib/simulation-worker";
 import { plural } from "@/lib/format";
 import { buildInputsJson, inputsJsonFilename } from "@/lib/export-inputs";
 import { planHref, tabFromPath, type Tab } from "@/lib/routes";
@@ -104,15 +107,31 @@ const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
  * the simulation is the expensive part and moving between pages must not start
  * it again. Each page below is then only a way of looking at a result that is
  * already in hand.
+ *
+ * "Once" now means once for the whole plan rather than once per page: the
+ * cashflow's projection, the simulator's calendar and the day panel all come
+ * off {@link PlannerPage.simulation}, which is one run of the engine the plan is
+ * set to — and that run happens in a worker, so the page below stays drawable
+ * while it goes on.
  */
 export type PlannerPage = {
   /** The plan being read — the id in the address bar. */
   projectId: string;
   config: PlannerConfig;
-  /** The projection, or null while the inputs are outside the supported range. */
-  projection: ReturnType<typeof calculateProjection> | null;
-  /** The same config once it has parsed. The simulator will not run without it. */
-  checked: PlannerConfig | null;
+  /**
+   * The one run of the plan behind every page: the last one that finished. It
+   * stays on screen while a newer one runs, and is null only before the first
+   * one comes back or while the inputs are outside the supported range.
+   */
+  simulation: PlanSimulationResult | null;
+  /** The projection off that same run. */
+  projection: PlanSimulationResult["projection"] | null;
+  /** Where the farm behind this page has got to. */
+  simulationStatus: SimulationStatus;
+  /** A newer plan is running behind the one on screen. */
+  simulationUpdating: boolean;
+  /** Why the last run failed, if it did. The plan on screen is the last good one. */
+  simulationError: string | null;
   metrics: ReturnType<typeof getModelMetrics>;
   update: <S extends PlannerSection, K extends keyof PlannerConfig[S]>(
     section: S,
@@ -245,6 +264,74 @@ function SyncBadge({ sync, savedAt }: { sync: SyncState; savedAt: string | null 
       <Icon size={13} />
       {state.text}
     </span>
+  );
+}
+
+/**
+ * Where the farm behind the page has got to.
+ *
+ * It sits beside the sync badge because it answers the same kind of question —
+ * is what I am looking at the current thing? — and because the answer is worth
+ * a line of text rather than a spinner over the whole page. While a new plan
+ * runs, the old one stays on screen and this says so; if a run fails, the last
+ * good plan stays on screen and this says that too.
+ */
+function FarmBadge({
+  status,
+  updating,
+  error,
+}: {
+  status: SimulationStatus;
+  updating: boolean;
+  error: string | null;
+}) {
+  if (status === "error") {
+    return (
+      <span
+        title={(error ?? "The simulation failed.") + " The plan shown is the last one that ran."}
+        className="hidden items-center gap-1.5 text-xs text-amber-600 lg:flex"
+      >
+        <ServerCrash size={13} /> Simulation failed
+      </span>
+    );
+  }
+  if (!updating && status !== "running") return null;
+  return (
+    <span
+      title="The farm is running. What is on screen is the plan before this edit."
+      className="hidden items-center gap-1.5 text-xs text-ink-faint lg:flex"
+    >
+      <LoaderCircle size={13} className="animate-spin" /> Updating…
+    </span>
+  );
+}
+
+/**
+ * What a plan looks like before its first run comes back.
+ *
+ * The farm now runs beside the page rather than in front of it, which means
+ * there is a moment — the first one — when a plan is open and nothing has been
+ * worked out about it yet. Saying so beats an empty panel.
+ */
+function RunningFirstPlan() {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-hairline bg-raised/50 p-4 text-sm text-ink-muted">
+      <LoaderCircle size={16} className="shrink-0 animate-spin" />
+      Running the farm…
+    </div>
+  );
+}
+
+/** A first run that failed: there is no earlier plan to fall back on. */
+function FarmWouldNotRun({ error }: { error: string | null }) {
+  return (
+    <div className="flex gap-3 rounded-xl border border-critical/30 bg-critical-soft p-4 text-sm">
+      <AlertTriangle className="mt-0.5 shrink-0 text-critical" size={16} />
+      <div>
+        <p className="font-medium text-ink">The farm could not be simulated.</p>
+        <p className="mt-1 text-ink-muted">{error ?? "The simulation failed."}</p>
+      </div>
+    </div>
   );
 }
 
@@ -390,14 +477,43 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     });
   }
 
-  // Simulating a large herd over the horizon costs a few hundred milliseconds, so
-  // the inputs stay on the live config and the herd runs against a deferred copy.
+  /**
+   * The inputs stay on the live config and the farm runs against a deferred
+   * copy.
+   *
+   * Kept after the move into a worker, for a reason that changed rather than
+   * went away. It used to be what stopped every keystroke blocking the page for
+   * a few hundred milliseconds; the worker does that now. What it still does is
+   * decide how often a run is worth starting at all: a plan that is superseded
+   * mid-run costs a worker its life (see `lib/simulation-worker`), and typing
+   * "300" a digit at a time should be one farm rather than three. It also keeps
+   * React free to go on painting the old charts while the new inputs settle,
+   * which is its own job and nothing to do with where the farm runs.
+   */
   const settledConfig = useDeferredValue(config);
   const validation = useMemo(() => plannerSchema.safeParse(settledConfig), [settledConfig]);
-  const projection = useMemo(
-    () => (validation.success ? calculateProjection(validation.data) : null),
-    [validation],
+  // One run of the farm per settled plan, in a worker. Every page below reads
+  // what comes back: the projection, the simulator's calendar, and whichever
+  // day of it is open. Picking another date costs a lookup, not a run.
+  /**
+   * The plan to run, or null for "not yet".
+   *
+   * Two things hold it back. Nothing runs before the stored plans arrive, since
+   * until then `config` is only the starting defaults and simulating those is a
+   * whole farm run for a plan nobody asked for. And nothing runs while the
+   * deferred copy is still catching up with the inputs, which is what makes
+   * typing "300" a digit at a time one run rather than three — a run that is
+   * superseded costs a worker its life, so not starting it is cheaper than
+   * abandoning it.
+   */
+  const committed = settledConfig === config;
+  const checked = useMemo(
+    () => (hydrated && committed && validation.success ? validation.data : null),
+    [committed, hydrated, validation],
   );
+  const farm = usePlanSimulation(checked);
+  const simulation = farm.result;
+  const projection = simulation?.projection ?? null;
   const modelMetrics = useMemo(() => getModelMetrics(config), [config]);
 
   function update<S extends PlannerSection, K extends keyof PlannerConfig[S]>(
@@ -494,8 +610,11 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
   const page: PlannerPage = {
     projectId,
     config,
+    simulation,
     projection,
-    checked: validation.success ? validation.data : null,
+    simulationStatus: farm.status,
+    simulationUpdating: farm.isUpdating,
+    simulationError: farm.error,
     metrics: modelMetrics,
     update,
     exporting,
@@ -612,6 +731,11 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <FarmBadge
+                status={farm.status}
+                updating={farm.isUpdating}
+                error={farm.error}
+              />
               <SyncBadge sync={sync} savedAt={savedAt} />
               <ThemeToggle />
               <button
@@ -691,6 +815,14 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
                 </p>
               </div>
             </div>
+          ) : null}
+
+          {hydrated && open && validation.success && simulation === null ? (
+            farm.status === "error" ? (
+              <FarmWouldNotRun error={farm.error} />
+            ) : (
+              <RunningFirstPlan />
+            )
           ) : null}
 
           {hydrated && open ? (

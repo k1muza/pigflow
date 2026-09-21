@@ -376,30 +376,25 @@ export const plannerSchema = z.object({
      * Which operating policy places the orders, once the farm is buying
      * operationally at all.
      *
-     * "balanced-load" is the capacity-balanced operating rule and the default: a
-     * due store justifies the trip, then the available vehicle payload is shared
-     * so the compatible stores approach their next safety-stock dates together.
-     * The resulting cover period is an output, not a setting. Benchmarked
-     * against V1 perfect foresight over three, five, ten and twenty years it
-     * matches or beats it on journeys, cost and stock held.
+     * "balanced-load" is the capacity-balanced operating rule, and now the only
+     * one: a due store justifies the trip, then the available vehicle payload is
+     * shared so the compatible stores approach their next safety-stock dates
+     * together. The resulting cover period is an output, not a setting.
+     * Benchmarked against V1 perfect foresight over three, five, ten and twenty
+     * years it matches or beats it on journeys, cost and stock held.
      *
-     * "rolling-cover" is the earlier fixed-cover experiment. It forecasts the
-     * herd and buys every compatible store up to one configured common date,
-     * which costs it about a fifth more journeys than it needs.
+     * Two rules have been withdrawn: "reorder-point", which read appetite off
+     * the last week of consumption and could not see a farrowing coming, and
+     * "rolling-cover", which bought every compatible store up to one configured
+     * common date and cost about a fifth more journeys than it needed. Plans
+     * that stored either are migrated by {@link withConfigDefaults}.
      *
-     * "reorder-point" — the old rule that read appetite off the last week of
-     * consumption and could not see a farrowing coming — has been withdrawn.
-     * Plans that stored it are migrated to "balanced-load" by
-     * {@link withConfigDefaults}.
+     * The field is kept rather than dropped now that it names one rule. It is
+     * what the engine's policy seam reads, every procurement decision is stamped
+     * with it, and the optimiser bench parameterises on it — so a future rule is
+     * added to this enum rather than by reintroducing the axis.
      */
-    operationalPolicy: z
-      .enum(["rolling-cover", "balanced-load"])
-      .default("balanced-load"),
-    /**
-     * Legacy fixed-cover target used only by the "rolling-cover" policy. The
-     * capacity-balanced policy deliberately ignores this value.
-     */
-    rollingTargetCoverDays: z.number().int().min(14).max(180).default(90),
+    operationalPolicy: z.enum(["balanced-load"]).default("balanced-load"),
     /**
      * Demand buffer kept ahead of physical zero. Forecast policies use this to
      * decide when a store becomes operationally at risk; it is not itself a
@@ -410,11 +405,10 @@ export const plannerSchema = z.object({
      * Loads the farm can take in on one day — the supplier's throughput and the
      * yard's, which is not the same thing as what one lorry carries.
      *
-     * Fixed-cover planning may spill a single order across several days to reach
-     * its target. Balanced-load sends one lorry and stops, unless that lorry
-     * left full and a store still cannot be held through the delivery lead time
-     * — which is what happens once a herd eats more in a day than a deck
-     * carries. Then it sends another, and another, up to this many.
+     * Balanced-load sends one lorry and stops, unless that lorry left full and a
+     * store still cannot be held through the delivery lead time — which is what
+     * happens once a herd eats more in a day than a deck carries. Then it sends
+     * another, and another, up to this many.
      *
      * On a small farm the ceiling is never reached and the value does not
      * matter. On a large one it is what decides whether the herd is fed, so it
@@ -426,9 +420,9 @@ export const plannerSchema = z.object({
      *
      * Two things read it. Perfect-foresight planning sizes its orders on it, so
      * it still sets the shape of the benchmark run. Operational planning uses it
-     * only to stock the bins before day one — neither remaining policy buys to a
-     * fixed cover afterwards, so past the opening order it does nothing on an
-     * operational plan.
+     * only to stock the bins before day one — the balanced-load rule does not buy
+     * to a fixed cover afterwards, so past the opening order it does nothing on
+     * an operational plan.
      */
     targetCoverDays: z.number().int().min(2).max(240).default(21),
     /** Days between placing an order and the lorry coming through the gate. */
@@ -799,7 +793,6 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     feedBufferDays: 7,
     procurementMode: "operational",
     operationalPolicy: "balanced-load",
-    rollingTargetCoverDays: 90,
     safetyCoverDays: 3,
     maxSupplyTripsPerDay: 3,
     targetCoverDays: 21,
@@ -895,13 +888,17 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
       };
     }
   }
-  // The reorder-point rule has been withdrawn. A plan saved while it was the
-  // default still has the string in it, and the schema no longer accepts it, so
-  // without this every such plan fails to load rather than opening on the rule
-  // that replaced it. Moving them is safe in the direction it moves them:
-  // balanced-load was measured against V1 perfect foresight at three, five, ten
-  // and twenty years and is at least as good on journeys, cost and stock held.
-  if (merged.feed?.operationalPolicy === "reorder-point") {
+  // The reorder-point and rolling-cover rules have both been withdrawn. A plan
+  // saved while either was selected still has the string in it, and the schema no
+  // longer accepts it, so without this every such plan fails to load rather than
+  // opening on the rule that replaced them. Moving them is safe in the direction
+  // it moves them: balanced-load was measured against V1 perfect foresight at
+  // three, five, ten and twenty years and is at least as good on journeys, cost
+  // and stock held. A stored rollingTargetCoverDays needs no such handling — it
+  // rides along in the same object and is dropped on parse, the schema no longer
+  // declaring it.
+  const storedPolicy = merged.feed?.operationalPolicy;
+  if (storedPolicy === "reorder-point" || storedPolicy === "rolling-cover") {
     merged.feed.operationalPolicy = "balanced-load";
   }
 

@@ -41,6 +41,7 @@ import {
   type StoreSeries,
   type Trip,
 } from "./haulage";
+import { countFarmBuilt } from "./instrument";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
 import { MortalityScheduler } from "./mortality";
 import { sowRosterOf, stockRosterOf } from "./roster";
@@ -261,7 +262,11 @@ export type CostOfProduction = {
   fullCostPerDeadweightKg: number;
 };
 
-export type FarmState = {
+/**
+ * A farm read at a moment, bar the animal-by-animal rosters. This is the part
+ * of a day small enough to keep for every day of a plan.
+ */
+export type FarmSnapshot = {
   day: number;
   date: string;
   timestamp: string;
@@ -289,9 +294,12 @@ export type FarmState = {
   lifetime: LifetimeTotals;
   generations: GenerationRow[];
   costOfProduction: CostOfProduction;
+  recentEvents: FarmEvent[];
+};
+
+export type FarmState = FarmSnapshot & {
   stock: StockRow[];
   sows: SowRow[];
-  recentEvents: FarmEvent[];
 };
 
 const MAX_EVENTS = 400;
@@ -557,6 +565,7 @@ export class Farm {
    * takes a run of its own (see {@link feedPlanFor}).
    */
   constructor(input: PlannerConfig, plans?: HaulagePlan, options?: { keepEveryEvent?: boolean }) {
+    countFarmBuilt();
     this.eventLimit = options?.keepEveryEvent === true ? Infinity : MAX_EVENTS;
     this.config = plannerSchema.parse(input);
     this.start = parseISO(this.config.project.startDate);
@@ -2152,8 +2161,17 @@ export class Farm {
     };
   }
 
-  /** Everything knowable about the farm as it stands right now. */
-  state(timestamp?: string): FarmState {
+  /**
+   * Everything knowable about the farm as it stands right now, bar the two
+   * rosters.
+   *
+   * Split out from {@link state} so that a plan can keep one of these for every
+   * day it ran without keeping a row per animal per day alongside it. A herd of
+   * two hundred sows writes close to two million roster rows over three years,
+   * and holding those is the difference between a simulator that remembers its
+   * own run and one that has to run the farm again to answer a calendar click.
+   */
+  snapshot(timestamp?: string): FarmSnapshot {
     const counts = this.countHerd();
     const date = format(this.dateOf(Math.max(this.day, 0)), "yyyy-MM-dd");
     const weightTotals: Record<PigStage, { sum: number; count: number }> = {
@@ -2236,10 +2254,13 @@ export class Farm {
       lifetime: { ...this.lifetime },
       generations: this.generationReport(),
       costOfProduction: this.costOfProduction(),
-      stock: this.stockRoster(),
-      sows: this.sowRoster(),
       recentEvents: this.events.slice(-12).reverse(),
     };
+  }
+
+  /** Everything knowable about the farm as it stands right now. */
+  state(timestamp?: string): FarmState {
+    return { ...this.snapshot(timestamp), stock: this.stockRoster(), sows: this.sowRoster() };
   }
 
   /** Every live animal, sorted into a stable roster for point-in-time inspection. */

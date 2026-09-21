@@ -4,7 +4,7 @@ import { Engine } from "./engine";
 import { observeFarm } from "./planning/observe";
 import { forecastDemand } from "./planning/forecast";
 
-function farmOf(sows: number, rolling: boolean): PlannerConfig {
+function farmOf(sows: number): PlannerConfig {
   const config: PlannerConfig = cloneDefaultConfig();
   config.project.engine = "2.0";
   config.project.months = 18;
@@ -16,12 +16,11 @@ function farmOf(sows: number, rolling: boolean): PlannerConfig {
   config.housing.growerPlaces = sows * 12;
   config.housing.finisherPlaces = sows * 12;
   config.feed.procurementMode = "operational";
-  if (rolling) config.feed.operationalPolicy = "rolling-cover";
   return config;
 }
 
-async function run(sows: number, rolling: boolean) {
-  const config = farmOf(sows, rolling);
+async function run(sows: number) {
+  const config = farmOf(sows);
   const t = Date.now();
   const engine = new Engine(config);
   for (let day = 30; day <= 18 * 30; day += 30) {
@@ -44,15 +43,14 @@ async function run(sows: number, rolling: boolean) {
 }
 
 describe("smoke", () => {
-  it("compares policies on a real herd", async () => {
+  it("runs the ordering policy on a real herd", async () => {
     for (const sows of [60, 500]) {
-      console.log(sows, "reorder", await run(sows, false));
-      console.log(sows, "rolling", await run(sows, true));
+      console.log(sows, "balanced-load", await run(sows));
     }
   }, 420000);
 
   it("benchmarks the forecaster on 500 sows", () => {
-    const config = farmOf(500, true);
+    const config = farmOf(500);
     const engine = new Engine(config).advanceTo(200);
     const farm = observeFarm(200, engine.world);
     console.log("groups", farm.growing.length, "sowGroups", farm.sows.length, "pigs", engine.world.pigs.length);

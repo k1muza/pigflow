@@ -1,8 +1,8 @@
-import { addMonths, format, parseISO } from "date-fns";
+import { addMonths, format } from "date-fns";
 
-import { ESTRUS_CYCLE_DAYS, plannerSchema, type PlannerConfig } from "./config";
+import { ESTRUS_CYCLE_DAYS, type PlannerConfig } from "./config";
 import { growoutFeedConversion } from "./growth-curve";
-import { engineProjection } from "./engine/projection";
+import { simulatePlan } from "./simulation";
 import {
   addTotals,
   cashTotalsOf,
@@ -12,8 +12,6 @@ import {
   INCOME_CATEGORIES,
   emptyTotals,
   expensesOf,
-  Farm,
-  horizonDay,
   incomeOf,
   type CategoryTotals,
   type CostOfProduction,
@@ -418,87 +416,9 @@ export function summariseYears(months: MonthlyProjection[], start: Date): Period
  * against 1.x rather than instead of it — see `lib/engine/parity`.
  */
 export function calculateProjection(input: PlannerConfig): ProjectionResult {
-  const config = plannerSchema.parse(input);
-  if (config.project.engine === "2.0") return engineProjection(config);
-  const farm = new Farm(config);
-  farm.advanceTo(horizonDay(config));
-
-  const start = parseISO(config.project.startDate);
-  const byDay = new Map(farm.history.map((day) => [day.day, day]));
-  const months: MonthlyProjection[] = [];
-
-  for (let index = 0; index < config.project.months; index += 1) {
-    const monthStart = addMonths(start, index);
-    const firstDay = farm.dayOf(monthStart);
-    const lastDay = farm.dayOf(addMonths(start, index + 1)) - 1;
-    const days: DayRecord[] = [];
-    for (let day = firstDay; day <= lastDay; day += 1) {
-      const record = byDay.get(day);
-      if (record) days.push(record);
-    }
-    months.push(summariseMonth(index, monthStart, days));
-  }
-
-  const state = farm.state();
-  const sum = (pick: (month: MonthlyProjection) => number) =>
-    months.reduce((total, month) => total + pick(month), 0);
-
-  const totalCost = sum((month) => month.totalCost);
-  // Every store's goods plus the trips that brought them: what the farm spends
-  // to keep something in front of the animals.
-  const totalFeedCost = sum(
-    (month) =>
-      month.totals["feed-sow"] +
-      month.totals["feed-creep"] +
-      month.totals["feed-weaner"] +
-      month.totals["feed-grower"] +
-      month.totals["feed-finisher"] +
-      month.totals.deliveries,
-  );
-  const operatingCostExcludingCapital = totalCost - sum((month) => month.totals.capital);
-  const lowestCash = Math.min(
-    config.project.openingCash,
-    ...months.map((month) => month.closingCash),
-  );
-  const sowMonths = months.reduce((total, month) => total + month.sows, 0);
-  const averageSows = months.length > 0 ? sowMonths / months.length : 0;
-  const years = config.project.months / 12;
-
-  const summary: ProjectionSummary = {
-    totalRevenue: sum((month) => month.revenue),
-    totalFeedCost,
-    totalVeterinaryCost: sum((month) => month.totals.veterinary + month.totals.vaccination),
-    totalCost,
-    totalPigsSold: sum((month) => month.pigsSold),
-    totalBornAlive: sum((month) => month.bornAlive),
-    totalWeaned: sum((month) => month.weaned),
-    totalDeaths: sum((month) => month.deaths),
-    closingCash: months.at(-1)?.closingCash ?? config.project.openingCash,
-    lowestCash,
-    peakFundingNeed: Math.max(0, -lowestCash),
-    feedShareOfOperatingCost:
-      operatingCostExcludingCapital > 0 ? totalFeedCost / operatingCostExcludingCapital : 0,
-    pigsWeanedPerSowYear:
-      averageSows > 0 && years > 0 ? farm.lifetime.weaned / (averageSows * years) : 0,
-    littersPerSowYear:
-      averageSows > 0 && years > 0 ? farm.lifetime.litters / (averageSows * years) : 0,
-    averageSows,
-    finalSows: months.at(-1)?.sows ?? 0,
-    peakHeadCount: Math.max(0, ...months.map((month) => month.peakHead)),
-    firstPositiveMonth:
-      months.find((month) => month.closingCash >= 0 && month.index > 0)?.month ?? null,
-    herdValueAtEnd: state.finance.herdValue,
-    netWorthAtEnd: state.finance.netWorth,
-  };
-
-  return {
-    months,
-    years: summariseYears(months, start),
-    summary,
-    generations: state.generations,
-    costOfProduction: state.costOfProduction,
-    warnings: buildWarnings(config, summary, farm.lifetime),
-  };
+  // No day-by-day readings: a cashflow never asks what was standing here on a
+  // Tuesday, and the comparison tool projects a dozen plans one after another.
+  return simulatePlan(input, { snapshots: false }).projection;
 }
 
 /** The handful of lifetime figures the warnings actually read. */

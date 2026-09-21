@@ -1,19 +1,7 @@
-import { parseISO } from "date-fns";
-
 import type { PlannerConfig } from "./config";
-import { Engine, engineHorizonDay } from "./engine/engine";
-import { engineEventLog, engineState } from "./engine/read";
-import {
-  Farm,
-  farmEventLog,
-  farmStateAt,
-  farmTimeline,
-  horizonDay,
-  timelineOf,
-  type FarmEvent,
-  type FarmState,
-  type FarmTimeline,
-} from "./sim";
+import { engineHorizonDay } from "./engine/engine";
+import { simulatePlan } from "./simulation";
+import { Farm, horizonDay, type FarmEvent, type FarmState, type FarmTimeline } from "./sim";
 
 /**
  * Reading a plan, whichever engine runs it.
@@ -26,6 +14,12 @@ import {
  *
  * So the read models go through here. One decision, made once, in the one place
  * a page has to come through to see a farm at all.
+ *
+ * Each function below stands a farm up, reads one thing off it and lets it go,
+ * which is what a caller that wants one thing wants. A caller that wants several
+ * — the planner shell, which shows a projection, a calendar and a day panel of
+ * the same plan — should hold a {@link simulatePlan} instead and read all of
+ * them off the one run.
  */
 
 /** The horizon in the terms the chosen engine counts days in. */
@@ -38,23 +32,12 @@ export function planHorizonDay(config: PlannerConfig): number {
  * Events resolve to whole days, so a timestamp reads the state of its own day.
  */
 export function planStateAt(config: PlannerConfig, timestamp: string): FarmState {
-  if (config.project.engine !== "2.0") return farmStateAt(config, timestamp);
-
-  const engine = new Engine(config);
-  const moment = parseISO(timestamp);
-  const requested = Number.isNaN(moment.getTime()) ? 0 : engine.world.dayOf(moment);
-  const day = Math.min(Math.max(requested, -1), engineHorizonDay(config));
-  engine.advanceTo(day);
-  return engineState(engine, timestamp);
+  return simulatePlan(config, { snapshots: false }).stateAt(timestamp);
 }
 
 /** The whole plan day by day, and the same days grouped into months. */
 export function planTimeline(config: PlannerConfig): FarmTimeline {
-  if (config.project.engine !== "2.0") return farmTimeline(config);
-
-  const engine = new Engine(config).advanceTo(engineHorizonDay(config));
-  const world = engine.world;
-  return timelineOf(config, world.history, (date) => world.dayOf(date));
+  return simulatePlan(config, { snapshots: false }).timeline;
 }
 
 /**
@@ -64,11 +47,7 @@ export function planTimeline(config: PlannerConfig): FarmTimeline {
  * going to read.
  */
 export function planEventLog(config: PlannerConfig): FarmEvent[] {
-  if (config.project.engine !== "2.0") return farmEventLog(config);
-
-  const engine = new Engine(config, { keepEveryEvent: true });
-  engine.advanceTo(engineHorizonDay(config));
-  return engineEventLog(engine.world.log.events);
+  return simulatePlan(config, { snapshots: false, keepEveryEvent: true }).events;
 }
 
 /**

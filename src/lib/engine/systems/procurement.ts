@@ -212,26 +212,18 @@ function noteDecision(world: World, decision: ProcurementDecision): void {
     const labels = decision.constrainedStores.map((store) => STORE_LABELS[store]).join(", ");
     world.emit(
       "ProcurementPlanConstrained",
-      decision.policy === "balanced-load"
-        ? labels + " reached a storage, package or protection constraint"
-        : labels + " could not be bought up to the target date",
+      labels + " reached a storage, package or protection constraint",
       {
-        cause:
-          decision.policy === "balanced-load"
-            ? "the available store or vehicle capacity limited the balanced load"
-            : "storage, packaging or the day's lorries would not carry it",
+        cause: "the available store or vehicle capacity limited the balanced load",
         changes: { stores: decision.constrainedStores.length },
       },
     );
   }
 
   world.lastProcurementDecision = decision;
-  world.expectedNextDispatchDay =
-    decision.policy === "balanced-load"
-      ? decision.nextDispatchDay
-      : decision.dispatch === "none"
-        ? decision.nextDispatchDay
-        : null;
+  // Balanced-load reports the next expected trip whether or not it sent one
+  // today, because the forecast that found today's risk found the next one too.
+  world.expectedNextDispatchDay = decision.nextDispatchDay;
 }
 
 /** The plan in a sentence, which is what a person reads the log for. */
@@ -254,38 +246,23 @@ function planSentence(decision: ProcurementDecision): string {
     })
     .join(", ");
   const trips = decision.trips.length;
-
-  if (decision.policy === "balanced-load") {
-    const payload = decision.trips.reduce((sum, trip) => sum + trip.payloadKg, 0);
-    const next =
-      decision.nextDispatchDay === null
-        ? "no further trip is visible in the forecast"
-        : "next supply risk around day " + decision.nextDispatchDay;
-    return (
-      (decision.dispatch === "emergency" ? "Emergency balanced load" : "Balanced load") +
-      " arriving day " +
-      (decision.arrivesDay ?? 0) +
-      ": " +
-      goods +
-      ", " +
-      Math.round(payload) +
-      " kg in " +
-      trips +
-      (trips === 1 ? " trip; " : " trips; ") +
-      next
-    );
-  }
+  const payload = decision.trips.reduce((sum, trip) => sum + trip.payloadKg, 0);
+  const next =
+    decision.nextDispatchDay === null
+      ? "no further trip is visible in the forecast"
+      : "next supply risk around day " + decision.nextDispatchDay;
 
   return (
-    (decision.dispatch === "emergency" ? "Emergency replan" : "Replanned") +
-    " to day " +
-    (decision.targetDay ?? 0) +
-    ", arriving day " +
+    (decision.dispatch === "emergency" ? "Emergency balanced load" : "Balanced load") +
+    " arriving day " +
     (decision.arrivesDay ?? 0) +
     ": " +
     goods +
-    ", in " +
+    ", " +
+    Math.round(payload) +
+    " kg in " +
     trips +
-    (trips === 1 ? " trip" : " trips")
+    (trips === 1 ? " trip; " : " trips; ") +
+    next
   );
 }

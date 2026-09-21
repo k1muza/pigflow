@@ -1,6 +1,6 @@
 import { addMonths, format } from "date-fns";
 
-import type { FarmEvent, FarmEventType, FarmState } from "../sim/farm";
+import type { FarmEvent, FarmEventType, FarmSnapshot, FarmState } from "../sim/farm";
 import { cashTotalsOf, expensesOf, incomeOf } from "../sim/ledger";
 import { sowRosterOf, stockRosterOf } from "../sim/roster";
 import type { DomainEvent, EventType } from "./events";
@@ -95,9 +95,13 @@ export function engineEventLog(events: readonly DomainEvent[]): FarmEvent[] {
 
 /**
  * What is standing on the farm at the day the engine has run to, in the shape
- * the simulator panel reads.
+ * the simulator panel reads, bar the animal-by-animal rosters.
+ *
+ * The rosters are split off for the same reason they are on the 1.x farm: a
+ * plan keeps one of these for every day it ran, and a row per animal per day
+ * would not fit. See {@link ../sim/farm!Farm.snapshot}.
  */
-export function engineState(engine: Engine, timestamp?: string): FarmState {
+export function engineSnapshot(engine: Engine, timestamp?: string): FarmSnapshot {
   const world = engine.world;
   const config = engine.config;
   const day = world.day;
@@ -146,8 +150,16 @@ export function engineState(engine: Engine, timestamp?: string): FarmState {
     lifetime: { ...world.lifetime },
     generations: engine.generationReport(),
     costOfProduction: engine.costOfProduction(),
-    stock: stockRosterOf(world.sows, world.boars, world.pigs, day),
-    sows: sowRosterOf(world.sows, day),
     recentEvents: events.slice(-12).reverse(),
+  };
+}
+
+/** The same, with every animal standing on the farm written out. */
+export function engineState(engine: Engine, timestamp?: string): FarmState {
+  const world = engine.world;
+  return {
+    ...engineSnapshot(engine, timestamp),
+    stock: stockRosterOf(world.sows, world.boars, world.pigs, world.day),
+    sows: sowRosterOf(world.sows, world.day),
   };
 }

@@ -70,7 +70,11 @@ import {
   planCashInjections,
   planCashWithdrawals,
 } from "@/lib/funding";
-import { planStateAt, planTimeline } from "@/lib/plan";
+import {
+  daySnapshotAt,
+  type DaySnapshot,
+  type PlanSimulationResult,
+} from "@/lib/simulation-result";
 import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
@@ -79,7 +83,6 @@ import {
   type FarmCalendarDay,
   type FarmCalendarMonth,
   type FarmPeriodEvent,
-  type FarmState,
   type LedgerCategory,
 } from "@/lib/sim";
 import { Button } from "@/components/ui/button";
@@ -1102,13 +1105,23 @@ function YearSpanPicker({
 
 // ------------------------------------------------------------------ simulator
 
-export function Simulator({ config }: { config: PlannerConfig }) {
+/**
+ * The calendar and the day panel, read off the plan's one run.
+ *
+ * The run is handed in rather than started here. It used to run the farm twice
+ * over on its own account — once for the timeline and again for the selected
+ * day — on top of the run the cashflow page had already made of the same plan,
+ * and a fourth time every time somebody picked another date. Now it runs once,
+ * in a worker, and a date is an index into what came back.
+ */
+export function Simulator({ simulation }: { simulation: PlanSimulationResult }) {
+  const config = simulation.config;
   const start = parseISO(config.project.startDate);
   const end = addMonths(start, config.project.months);
   const lastDay = subDays(end, 1);
   const currency = config.project.currency;
 
-  const timeline = useMemo(() => planTimeline(config), [config]);
+  const timeline = simulation.timeline;
   const [view, setView] = useState<TimelineView>("calendar");
   const [picked, setPicked] = useState(() => config.project.startDate);
   const [yearIndex, setYearIndex] = useState(0);
@@ -1149,7 +1162,12 @@ export function Simulator({ config }: { config: PlannerConfig }) {
     return picked;
   }, [picked, start, lastDay]);
 
-  const state = useMemo(() => planStateAt(config, `${selected}T23:00`), [config, selected]);
+  // A lookup into the run, not a run: the farm was read on every day of the
+  // plan as it went, and this picks that day's figures out of the columns.
+  const state = useMemo(
+    () => daySnapshotAt(simulation, `${selected}T23:00`),
+    [simulation, selected],
+  );
   const byDate = useMemo(
     () => new Map(timeline.days.map((day) => [day.date, day])),
     [timeline],
@@ -1579,7 +1597,7 @@ function DetailPanel({
   day: FarmCalendarDay | null;
   month: FarmCalendarMonth | null;
   monthEnd: FarmCalendarDay | null;
-  state: FarmState;
+  state: DaySnapshot;
   currency: string;
 }) {
   const months = view === "months";
@@ -1769,7 +1787,7 @@ function DetailPanel({
               {counts ? (
                 <p className="mt-3 text-xs leading-5 text-ink-faint">
                   {number(counts.total, 0)} head in all, carrying{" "}
-                  {number(state.herd.liveweightKg, 0)} kg of liveweight.{" "}
+                  {number(state.liveweightKg, 0)} kg of liveweight.{" "}
                   {plural(counts.replacementPipeline, "gilt")} are growing on to replace the{" "}
                   {plural(counts.sows, "sow")} in the herd.
                 </p>
@@ -2670,25 +2688,6 @@ export function FarmInputs({
         icon={Truck}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SelectField
-            label="Ordering policy"
-            value={config.feed.operationalPolicy}
-            onChange={(v) => update("feed", "operationalPolicy", v)}
-            options={[
-              { value: "balanced-load", label: "Fill the lorry that is going anyway" },
-              { value: "rolling-cover", label: "Buy to a fixed number of days" },
-            ]}
-            hint="Both forecast the herd, including animals expected to enter a new ration before a normal delivery can arrive. Filling the lorry lets the cover period fall where it falls; buying to a fixed number of days sets it and pays for the extra journeys."
-          />
-          <Field
-            label="Forecast target"
-            value={config.feed.rollingTargetCoverDays}
-            onChange={(v) => update("feed", "rollingTargetCoverDays", Math.round(v))}
-            suffix="days after delivery"
-            min={14}
-            max={180}
-            step={1}
-          />
           <Field
             label="Safety stock"
             value={config.feed.safetyCoverDays}

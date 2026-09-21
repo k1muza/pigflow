@@ -11,6 +11,7 @@ import {
 import { EMPTY_HAULAGE, type HaulagePlan } from "../sim/haulage";
 import { feedPlanFor, type CostOfProduction, type GenerationRow, type StoreLevel } from "../sim/farm";
 import { FEED_RATIONS } from "../sim/animals";
+import { countEngineBuilt } from "../sim/instrument";
 import { variationFor } from "../sim/variation";
 import type { DomainEvent } from "./events";
 import type { RoomLevel } from "./housing";
@@ -102,6 +103,7 @@ export class Engine {
   readonly config: PlannerConfig;
 
   constructor(input: PlannerConfig, options: EngineOptions = {}) {
+    countEngineBuilt();
     this.config = plannerSchema.parse(input);
     const policies: Policies = { ...policiesFor(this.config), ...options.policies };
     // Perfect-foresight procurement needs to know what the herd will eat, which
@@ -398,15 +400,10 @@ export class Engine {
 function openingDemand(world: World): Partial<Record<string, number>> {
   const { config } = world;
   if (world.policies.operationalProcurement) {
-    const cover = Math.max(
-      1,
-      config.feed.operationalPolicy === "rolling-cover"
-        ? config.feed.rollingTargetCoverDays
-        : config.feed.targetCoverDays,
-    );
-    // balanced-load deliberately uses the ordinary startup cover here. This is
-    // only the opening-bin bootstrap before day 0; ongoing replenishment is
-    // determined by vehicle capacity and projected risk, not by this number.
+    const cover = Math.max(1, config.feed.targetCoverDays);
+    // The ordinary startup cover is deliberate here. This is only the opening-bin
+    // bootstrap before day 0; ongoing replenishment is determined by vehicle
+    // capacity and projected risk, not by this number.
     const forecast = forecastDemand(
       world.procurementContext(0).farm,
       config,

@@ -10,7 +10,6 @@ function plan() {
   config.project.months = 18;
   config.project.variation = "settled";
   config.feed.procurementMode = "operational";
-  config.feed.operationalPolicy = "rolling-cover";
   return config;
 }
 

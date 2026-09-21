@@ -577,7 +577,9 @@ remain authoritative.
 
 Remove `rollingTargetCoverDays` from this policy.
 
-It may remain for backward compatibility if an earlier `rolling-cover` policy is retained separately.
+Settled: `rolling-cover` has since been withdrawn, so `rollingTargetCoverDays` was
+removed from the schema outright rather than kept for backward compatibility. A
+stored value is dropped on load.
 
 ---
 

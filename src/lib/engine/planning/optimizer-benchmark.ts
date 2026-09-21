@@ -73,9 +73,7 @@ export type OptimizerKnobs = {
   policy: OperationalProcurementPolicy;
   /** Days of demand each store is held above, on top of lead time. */
   safetyCoverDays?: number;
-  /** Fixed cover target. Read by rolling-cover only. */
-  rollingTargetCoverDays?: number;
-  /** Lorries allowed to land in one day. Read by rolling-cover only. */
+  /** Lorries allowed to land in one day. */
   maxSupplyTripsPerDay?: number;
   /**
    * balanced-load's own numbers, which are not configuration and are therefore
@@ -288,16 +286,12 @@ export async function runOptimizer(
   const tuned = structuredClone(config);
   tuned.feed.operationalPolicy = knobs.policy;
   if (knobs.safetyCoverDays !== undefined) tuned.feed.safetyCoverDays = knobs.safetyCoverDays;
-  if (knobs.rollingTargetCoverDays !== undefined) {
-    tuned.feed.rollingTargetCoverDays = knobs.rollingTargetCoverDays;
-  }
   if (knobs.maxSupplyTripsPerDay !== undefined) {
     tuned.feed.maxSupplyTripsPerDay = knobs.maxSupplyTripsPerDay;
   }
-  const procurement =
-    knobs.tuning && knobs.policy === "balanced-load"
-      ? new BalancedLoadProcurementPolicy(forecastDemand, knobs.tuning)
-      : undefined;
+  const procurement = knobs.tuning
+    ? new BalancedLoadProcurementPolicy(forecastDemand, knobs.tuning)
+    : undefined;
   return runInYearChunks(
     tuned,
     { ...LEGACY_POLICIES, operationalProcurement: true },
@@ -379,7 +373,6 @@ export type OptimizerSweepEntry = {
 export function labelFor(knobs: OptimizerKnobs): string {
   const parts: string[] = [knobs.policy];
   if (knobs.safetyCoverDays !== undefined) parts.push(`safety=${knobs.safetyCoverDays}`);
-  if (knobs.rollingTargetCoverDays !== undefined) parts.push(`cover=${knobs.rollingTargetCoverDays}`);
   if (knobs.maxSupplyTripsPerDay !== undefined) parts.push(`trips=${knobs.maxSupplyTripsPerDay}`);
   if (knobs.tuning?.riskLookAheadDays !== undefined) {
     parts.push(`risk=${knobs.tuning.riskLookAheadDays}`);

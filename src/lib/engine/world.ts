@@ -509,7 +509,7 @@ export class World {
       init.policies.operationalProcurement,
       init.policies.accrualAccounting,
     );
-    this.procurement = init.procurement ?? policyFor(init.config);
+    this.procurement = init.procurement ?? policyFor();
     this.mortality = new MortalityScheduler(init.config);
     this.log = new EventLog(init.eventLimit);
     this.vaccinationSchedule = [...init.config.health.vaccinations].sort(

@@ -299,9 +299,10 @@ export type FarmTimeline = {
 };
 
 /**
- * The whole plan day by day, and the same days grouped into months. The farm is
- * run once and read twice, so switching the timeline between a calendar and a
- * list of months costs nothing.
+ * The whole plan day by day, and the same days grouped into months, off a 1.x
+ * farm of its own. The pages read a plan through `lib/simulation`, which runs
+ * whichever engine the plan is set to once and takes the timeline off that; this
+ * is the 1.x reference the tests hold it against.
  */
 export function farmTimeline(config: PlannerConfig): FarmTimeline {
   const farm = new Farm(config);
@@ -343,11 +344,21 @@ export function timelineOf(
 
   const start = parseISO(config.project.startDate);
   const months: FarmCalendarMonth[] = [];
+  // The history is in day order and the months are walked in day order with it,
+  // so each month's run of days is found by carrying on from where the last one
+  // ended. Filtering the whole history once a month reads the same days over
+  // again — sixty times for a five year plan, and the last month of it pays for
+  // all five years.
+  let from = 0;
   for (let index = 0; index < config.project.months; index += 1) {
     const monthStart = addMonths(start, index);
     const firstDay = dayOf(monthStart);
     const lastDay = dayOf(addMonths(start, index + 1)) - 1;
-    const records = history.filter((day) => day.day >= firstDay && day.day <= lastDay);
+    while (from < history.length && history[from].day < firstDay) from += 1;
+    let to = from;
+    while (to < history.length && history[to].day <= lastDay) to += 1;
+    const records = history.slice(from, to);
+    from = to;
     if (records.length === 0) continue;
     const sum = (pick: (day: DayRecord) => number) =>
       records.reduce((total, day) => total + pick(day), 0);

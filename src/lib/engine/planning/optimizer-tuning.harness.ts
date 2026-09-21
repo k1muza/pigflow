@@ -11,7 +11,7 @@
  * a person reads and acts on — not a pass or a fail. What it settles on gets
  * locked into `optimizer-benchmark.test.ts` as a regression gate.
  *
- *   npm run bench:optimizer                                  # compare the policies
+ *   npm run bench:optimizer                                  # policy vs the oracle
  *   BENCH_MODE=sweep npm run bench:optimizer                 # sweep the tuning knobs
  *   BENCH_YEARS=3,5 BENCH_MODE=sweep npm run bench:optimizer
  *   BENCH_SOWS=200 npm run bench:optimizer
@@ -32,7 +32,6 @@ import {
   type OptimizerBenchmarkRow,
   type OptimizerCandidate,
 } from "./optimizer-benchmark";
-import type { OperationalProcurementPolicy } from "./procurement";
 
 const years = (process.env.BENCH_YEARS ?? OPTIMIZER_BENCHMARK_YEARS.join(","))
   .split(",")
@@ -41,38 +40,6 @@ const years = (process.env.BENCH_YEARS ?? OPTIMIZER_BENCHMARK_YEARS.join(","))
 
 const sows = Number(process.env.BENCH_SOWS ?? 20);
 const mode = process.env.BENCH_MODE ?? "compare";
-
-/**
- * Which policies the comparison runs. Narrowing it is worth having: rolling-cover
- * sends a fifth more lorries than it needs to, and on a large herd that is not
- * merely a worse answer but a much slower one to compute, so a run aimed at the
- * other two should not have to wait for it.
- */
-const SUPPORTED_POLICIES = ["rolling-cover", "balanced-load"] as const;
-
-function policiesFromEnv(): OperationalProcurementPolicy[] {
-  const asked = (process.env.BENCH_POLICIES ?? SUPPORTED_POLICIES.join(","))
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  // Checked rather than cast. A cast would let `balanced_load` through, and
-  // `policyFor` would quietly hand back the default while the report went on
-  // calling the column by the name that was typed — a plausible-looking table
-  // measuring something other than what it says it measures.
-  const unknown = asked.filter(
-    (name) => !(SUPPORTED_POLICIES as readonly string[]).includes(name),
-  );
-  if (unknown.length > 0) {
-    throw new Error(
-      `BENCH_POLICIES: unknown ${unknown.length === 1 ? "policy" : "policies"} ` +
-        `${unknown.join(", ")}. Supported: ${SUPPORTED_POLICIES.join(", ")}.`,
-    );
-  }
-  return asked as OperationalProcurementPolicy[];
-}
-
-const policies = policiesFromEnv();
 
 /**
  * The farm every candidate is measured on.
@@ -202,12 +169,12 @@ describe("optimiser tuning bench", () => {
         return;
       }
 
-      // Sharing one oracle across the three policies is not an optimisation for
-      // its own sake: it is what makes the three numbers the same number, read
-      // against a single ideal rather than three separately simulated ones.
+      // One candidate on shipping defaults, measured against the V1 foresight
+      // oracle. This used to compare several policies against one shared oracle;
+      // only balanced-load is left, and the oracle is still what the number means.
       const compared = await sweepOptimizer(
         config,
-        policies.map((policy) => ({ policy })),
+        [{ policy: "balanced-load" }],
         years,
         (done, total, label) => console.log(`  [${done}/${total}] ${label}`),
       );
