@@ -1769,6 +1769,14 @@ function DetailPanel({
   // what is standing on the farm.
   const stores = state.stores.filter((store) => store.quantity > 0);
   const worth = farmWorthLines(state.finance);
+  // A category at nothing is a category the month did not have. Printing all
+  // fifteen of them buries the three that happened under a column of zeroes,
+  // so only the lines that moved are shown. The totals under them are printed
+  // whatever they come to: a month with no money in is a fact to read, not a
+  // gap to leave out.
+  const moved = (category: LedgerCategory) => (month?.totals[category] ?? 0) !== 0;
+  const income = INCOME_CATEGORIES.filter(moved);
+  const expenses = EXPENSE_CATEGORIES.filter(moved);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -1797,7 +1805,7 @@ function DetailPanel({
                 <h4 className="text-sm font-semibold text-ink">Income and expenditure</h4>
                 <table className="mt-3 w-full text-sm">
                   <tbody>
-                    {INCOME_CATEGORIES.map((category) => (
+                    {income.map((category) => (
                       <tr key={category} className="border-b border-hairline">
                         <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[category]}</td>
                         <td className="py-1.5 text-right tabular-nums">
@@ -1811,7 +1819,7 @@ function DetailPanel({
                         {money(month.cashIn, currency)}
                       </td>
                     </tr>
-                    {EXPENSE_CATEGORIES.map((category) => (
+                    {expenses.map((category) => (
                       <tr key={category} className="border-b border-hairline">
                         <td className="py-1.5 text-ink-muted">{CATEGORY_LABELS[category]}</td>
                         <td className="py-1.5 text-right tabular-nums">
