@@ -72,6 +72,8 @@ function seedsFor(project: Project): readonly number[] {
 const METRICS: {
   key: EnsembleMetric;
   label: string;
+  /** A line under the label, for a measure whose name cannot carry it all. */
+  note?: string;
   format: (value: number, currency: string) => string;
 }[] = [
   { key: "breakEvenPerDeadweightKg", label: "Cost / kg deadweight", format: rate },
@@ -108,7 +110,13 @@ const METRICS: {
   },
   {
     key: "livestockInventoryChangePerYear",
-    label: "Herd and stores built / year (experimental)",
+    // It was headed "Herd and stores" and the stores are not in it: the feed in
+    // the bins and the gas in the tank are no part of this figure. What it
+    // measures is the animals, at what has been spent on them, plus the freight
+    // still sitting in a store — which is what makes it exactly the gap between
+    // the two profit measures above.
+    label: "Herd built / year (experimental)",
+    note: "Animals at cost. Feed and the other stores are not in it.",
     format: (value, currency) => money(value, currency, true),
   },
   {
@@ -146,7 +154,14 @@ function EnsembleTable({
         <TableBody>
           {METRICS.map((metric) => (
             <TableRow key={metric.key}>
-              <TableCell className="font-medium text-ink-muted">{metric.label}</TableCell>
+              <TableCell className="font-medium text-ink-muted">
+                {metric.label}
+                {metric.note ? (
+                  <span className="block text-[11px] font-normal text-ink-faint">
+                    {metric.note}
+                  </span>
+                ) : null}
+              </TableCell>
               {ensembles.map((ensemble, index) => (
                 <TableCell key={projects[index].id}>
                   <BandValue

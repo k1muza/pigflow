@@ -1,3 +1,4 @@
+import { currentProfitOrLoss, inventoryAdjustedProfit } from "./accounts";
 import { calculateProjection, type PlannerConfig } from "./model";
 import { inventoryTotal } from "./sim/accounting";
 
@@ -139,7 +140,7 @@ export function buildPlanEnsemble(
         : 0,
     );
     values.profitOrLossPerYear.push(
-      years > 0 ? operatingProfitOrLoss(config, projection.months) / years : 0,
+      years > 0 ? operatingProfitOrLoss(projection.months) / years : 0,
     );
     values.pigsSoldPerYear.push(
       years > 0 ? projection.summary.totalPigsSold / years : 0,
@@ -147,13 +148,13 @@ export function buildPlanEnsemble(
     values.pigsWeanedPerSowYear.push(projection.summary.pigsWeanedPerSowYear);
     values.peakHeadCount.push(projection.summary.peakHeadCount);
     values.peakFundingNeed.push(projection.summary.peakFundingNeed);
-    // Financing is stripped from both profit measures the same way, so the gap
-    // between them is the herd the plan built and nothing else.
+    // Financing is stripped from both profit measures by the same two figures,
+    // so the gap between them is the herd the plan built and nothing else.
     const builtUp =
       inventoryTotal(projection.accounting.closing) -
       inventoryTotal(projection.accounting.opening);
     values.inventoryAdjustedProfitPerYear.push(
-      years > 0 ? (operatingProfitOrLoss(config, projection.months) + builtUp) / years : 0,
+      years > 0 ? adjustedProfitOrLoss(projection.months) / years : 0,
     );
     values.livestockInventoryChangePerYear.push(years > 0 ? builtUp / years : 0);
     values.farmWorthAtEnd.push(projection.summary.farmWorthAtEnd);
@@ -255,27 +256,25 @@ function sumMonths(
 }
 
 /**
- * Farm income less farm costs. Generated cash injections and withdrawals move
- * the bank balance but are financing, so neither is allowed to masquerade as
- * profit or loss.
+ * Farm income less farm costs over a run of months.
+ *
+ * Generated cash injections and withdrawals move the bank balance but are
+ * financing, so neither is allowed to masquerade as profit or loss. Which rows
+ * those were is recorded by the run itself rather than matched up again from the
+ * config here, so this reads the same figure the cashflow page and the workbook
+ * read; see `lib/accounts`.
  */
 function operatingProfitOrLoss(
-  config: PlannerConfig,
   months: ReturnType<typeof calculateProjection>["months"],
 ): number {
-  const included = new Set(months.map((month) => month.index));
-  let financingIn = 0;
-  let financingOut = 0;
-  for (const movement of config.finance.cashMovements) {
-    if (!movement.auto || !included.has(movement.monthIndex)) continue;
-    if (movement.kind === "in") financingIn += movement.amount;
-    else financingOut += movement.amount;
-  }
-  return (
-    sumMonths(months, (month) => month.revenue - month.totalCost) -
-    financingIn +
-    financingOut
-  );
+  return sumMonths(months, (month) => currentProfitOrLoss(month.totals, month.accounting));
+}
+
+/** The same months with what went into the herd held back. One calculation. */
+function adjustedProfitOrLoss(
+  months: ReturnType<typeof calculateProjection>["months"],
+): number {
+  return sumMonths(months, (month) => inventoryAdjustedProfit(month.totals, month.accounting));
 }
 
 export function buildFutureEnsemble(
@@ -310,7 +309,7 @@ export function buildFutureEnsemble(
           startMonth + (index + 1) * 12,
         );
         return {
-          profitOrLoss: operatingProfitOrLoss(config, months),
+          profitOrLoss: operatingProfitOrLoss(months),
           closingCash: months.at(-1)?.closingCash ?? startingCash.at(-1) ?? 0,
           pigsSold: sumMonths(months, (month) => month.pigsSold),
           deadweightKg: sumMonths(months, (month) => month.saleDeadweightKg),

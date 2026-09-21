@@ -1,7 +1,11 @@
 import type { Cell, Row, Worksheet } from "exceljs";
 
 import { reconcileProfit } from "./accounts";
-import { expectedGiltServiceAgeDays } from "./config";
+import { expectedGiltServiceAgeDays, hasDetailedStartingStock } from "./config";
+import {
+  describeStartingStock,
+  openingStockValue,
+} from "./sim/starting-stock";
 import type { MonthlyProjection, PlannerConfig, ProjectionResult } from "./model";
 import { CATEGORY_LABELS, EXPENSE_CATEGORIES, INCOME_CATEGORIES, type LedgerCategory } from "./sim";
 
@@ -602,6 +606,38 @@ function addHerdSheet(
 }
 
 /**
+ * The opening stock, as the plan describes it.
+ *
+ * A plan built from head counts gets the six counts it was given. A plan that
+ * describes its stock group by group gets the groups, each with what it is
+ * carried at, and the total of the lot — because on such a plan the six counts
+ * are not what the farm starts with and printing them would be printing a
+ * figure the simulation never read.
+ */
+function openingStockRows(
+  config: PlannerConfig,
+): [string, string | number | boolean, string][] {
+  const currency = config.project.currency;
+  if (!hasDetailedStartingStock(config)) {
+    return [
+      ["Opening sows", config.stock.sows, "head"],
+      ["Opening gilts", config.stock.gilts, "head"],
+      ["Opening boars", config.stock.boars, "head"],
+      ["Opening weaners", config.stock.weaners, "head"],
+      ["Opening growers", config.stock.growers, "head"],
+      ["Opening finishers", config.stock.finishers, "head"],
+    ];
+  }
+  const rows: [string, string | number | boolean, string][] = [];
+  for (const entry of config.stock.starting) {
+    rows.push([describeStartingStock(entry), Math.round(entry.count), "head"]);
+    rows.push(["    at, per head", entry.openingValuePerHead, currency]);
+  }
+  rows.push(["Opening stock at cost", openingStockValue(config), currency]);
+  return rows;
+}
+
+/**
  * The experimental second profit statement, month by month, with the farm's
  * closing balance sheet under it.
  *
@@ -694,6 +730,7 @@ function addFarmWorthSheet(
     ["Boars", worth.breedingAssets.boars],
     ["Gross assets", worth.totalAssets],
     ["Owed to suppliers", -worth.liabilities.payables],
+    ["Bank overdraft", -worth.liabilities.overdraft],
     ["Farm net worth", worth.netWorth],
   ];
   balanceSheet.forEach(([label, value], index) => {
@@ -774,12 +811,7 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
     [
       "OPENING HERD & POLICY",
       [
-        ["Opening sows", config.stock.sows, "head"],
-        ["Opening gilts", config.stock.gilts, "head"],
-        ["Opening boars", config.stock.boars, "head"],
-        ["Opening weaners", config.stock.weaners, "head"],
-        ["Opening growers", config.stock.growers, "head"],
-        ["Opening finishers", config.stock.finishers, "head"],
+        ...openingStockRows(config),
         ["Herd start mode", config.herd.startMode, ""],
         ["Maximum sows", config.herd.maxSows, "head"],
         ["Cull after parity", config.herd.cullAfterParity, "parities"],

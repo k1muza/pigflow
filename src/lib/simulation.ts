@@ -25,7 +25,8 @@ import {
   type StockRow,
 } from "./sim";
 import { inventoryTotal, type AccountingBalances } from "./sim/accounting";
-import { mergeAccounting } from "./accounts";
+import { addTotals, emptyTotals } from "./sim/ledger";
+import { inventoryAdjustedProfit, mergeAccounting } from "./accounts";
 
 /**
  * One run of a plan, and every way the product reads it.
@@ -406,12 +407,10 @@ function projectionOf(
   // ends on. The terminal reading already carries the closing valuation; what
   // the flows add is where it came from.
   const horizonAccounting = mergeAccounting(months.map((month) => month.accounting));
+  const horizonTotals = emptyTotals();
+  for (const month of months) addTotals(horizonTotals, month.totals);
   const farmWorth = terminal.finance.valuation;
   const openingWorth = config.project.openingCash + inventoryTotal(run.openingBalances);
-  // What the farm put into itself over the horizon, which is exactly what the
-  // two profit statements differ by.
-  const changeInInventory =
-    inventoryTotal(horizonAccounting.closing) - inventoryTotal(horizonAccounting.opening);
 
   const summary: ProjectionSummary = {
     totalRevenue,
@@ -438,7 +437,10 @@ function projectionOf(
       months.find((month) => month.closingCash >= 0 && month.index > 0)?.month ?? null,
     herdValueAtEnd: terminal.finance.herdValue,
     netWorthAtEnd: terminal.finance.netWorth,
-    inventoryAdjustedProfit: totalRevenue - totalCost + changeInInventory,
+    // Read from `lib/accounts` rather than added up again here: every page and
+    // the workbook show this same figure, and they can only do that if there is
+    // one of it.
+    inventoryAdjustedProfit: inventoryAdjustedProfit(horizonTotals, horizonAccounting),
     farmWorthAtEnd: farmWorth.netWorth,
     changeInFarmWorth: farmWorth.netWorth - openingWorth,
     marketLivestockValueAtEnd: farmWorth.inventory.marketLivestock,

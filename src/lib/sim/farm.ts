@@ -11,6 +11,8 @@ import {
   ANCESTRY_EXCLUSION_DEPTH,
   expectedGiltServiceAgeDays,
   deadweightKg,
+  hasDetailedStartingStock,
+  openingCounts,
   plannerSchema,
   workersNeeded,
   type PlannerConfig,
@@ -53,6 +55,7 @@ import {
   type FarmValuation,
 } from "./accounting";
 import { countFarmBuilt } from "./instrument";
+import { seedStartingStock, type StartingStockHost } from "./starting-stock";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
 import { MortalityScheduler } from "./mortality";
 import { sowRosterOf, stockRosterOf } from "./roster";
@@ -887,6 +890,38 @@ export class Farm {
   }
 
   private seedHerd(): void {
+    // A plan that describes its opening stock group by group is built from
+    // that description; one that gives only head counts is built the way it
+    // always was. The two are kept apart rather than one being expressed in
+    // terms of the other, because every plan already saved is the second kind
+    // and none of them may come out differently for this existing.
+    if (hasDetailedStartingStock(this.config)) {
+      seedStartingStock(this.startingStockHost());
+      Object.assign(this.books.opening, readBalances(this, 0));
+      return;
+    }
+    this.seedCountedHerd();
+  }
+
+  /** What {@link seedStartingStock} needs of this farm to put animals on it. */
+  private startingStockHost(): StartingStockHost {
+    return {
+      config: this.config,
+      variation: this.variation,
+      pigs: this.pigs,
+      sows: this.sows,
+      boars: this.boars,
+      nextPigTag: () => this.nextPigTag(),
+      nextSowTag: () => this.nextSowTag(),
+      nextBoarTag: () => this.nextBoarTag(),
+      growthDraw: (tag) => this.growthDraw(tag),
+      catchUpVaccinations: (pig, day) => this.catchUpVaccinations(pig, day),
+      enterStage: (pigs, stage, day) => this.mortality.enterStage(pigs, stage, day),
+      noteBirth: (generation) => this.noteBirth(generation),
+    };
+  }
+
+  private seedCountedHerd(): void {
     const { reproduction, growth, stock, herd } = this.config;
     const cycleDays =
       reproduction.gestationDays + reproduction.weaningAgeDays + reproduction.weanToServiceDays;
@@ -1516,6 +1551,10 @@ export class Farm {
     for (const movement of this.config.finance.cashMovements) {
       if (!movement.auto || movement.monthIndex !== monthIndex) continue;
       if (movement.amount <= 0) continue;
+      // Posted to other income and to fixed overheads so that the cash book
+      // balances, and recorded as financing so that no profit statement reads
+      // either of them as the farm having traded. See `lib/accounts`.
+      this.books.finance(movement.kind, movement.amount);
       if (movement.kind === "in") {
         this.ledger.accrue("other-income", movement.amount);
         this.log(day, date, "funding", `Cash injection${noteOf(movement.note)}`);
@@ -2068,7 +2107,7 @@ export class Farm {
 
     // Boars cannot be bred out of the market pigs, so the team is always kept up
     // to the planned number — without one, the whole herd stops breeding.
-    const boarsWanted = Math.round(config.stock.boars);
+    const boarsWanted = openingCounts(config).boar;
     const boarsAlive = this.boars.filter((boar) => boar.alive).length;
     for (let i = boarsAlive; i < boarsWanted; i += 1) {
       const tag = this.nextBoarTag();

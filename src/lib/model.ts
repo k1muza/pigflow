@@ -7,7 +7,7 @@ import {
   mergeAccounting,
   type PeriodAccounting,
 } from "./accounts";
-import { ESTRUS_CYCLE_DAYS, type PlannerConfig } from "./config";
+import { ESTRUS_CYCLE_DAYS, openingCounts, type PlannerConfig } from "./config";
 import { growoutFeedConversion } from "./growth-curve";
 import {
   netWorthAtCost,
@@ -15,6 +15,7 @@ import {
   type AccountingBalances,
   type FarmValuation,
 } from "./sim/accounting";
+import { orphanStartingPiglets } from "./sim/starting-stock";
 import { simulatePlan } from "./simulation";
 import {
   addTotals,
@@ -531,8 +532,11 @@ export function buildWarnings(
         "The lowest projected cash balance is below zero. Plan at least the calculated funding gap plus a liquidity buffer.",
     });
   }
-  const breedingFemales = config.stock.sows + config.stock.gilts;
-  if (breedingFemales > 0 && config.stock.boars === 0 && !config.service.useAi) {
+  // Read off the detailed groups when the plan has them, so that a warning
+  // about having no boar is about the boars the farm will actually start with.
+  const opening = openingCounts(config);
+  const breedingFemales = opening.sow + opening.gilt;
+  if (breedingFemales > 0 && opening.boar === 0 && !config.service.useAi) {
     warnings.push({
       level: "attention",
       title: "No boar on the farm",
@@ -548,7 +552,7 @@ export function buildWarnings(
         " services were deferred because every boar was already working. Add boars or use artificial insemination.",
     });
   }
-  if (breedingFemales > 0 && config.service.useAi && config.stock.boars === 0) {
+  if (breedingFemales > 0 && config.service.useAi && opening.boar === 0) {
     warnings.push({
       level: "info",
       title: "No boar on the farm to find heats",
@@ -571,13 +575,26 @@ export function buildWarnings(
         ". Set against that, the farm stands fewer boars to buy, feed and rotate.",
     });
   }
-  if (config.stock.sows > config.herd.maxSows) {
+  const orphanPiglets = orphanStartingPiglets(config);
+  if (orphanPiglets > 0) {
+    warnings.push({
+      level: "attention",
+      title: "The starting piglets have no sow to suckle them",
+      detail:
+        orphanPiglets +
+        " piglets were entered as starting stock, but no starting sow is lactating. " +
+        "Milk is fed through the sow, so they are taken as just weaned instead — " +
+        "standing in the weaner house from day one at the weight you gave them. " +
+        "Add a lactating sow group if they really are still on a sow.",
+    });
+  }
+  if (opening.sow > config.herd.maxSows) {
     warnings.push({
       level: "attention",
       title: "The starting herd is over capacity",
       detail:
         "You start with " +
-        config.stock.sows +
+        opening.sow +
         " sows but only " +
         config.herd.maxSows +
         " places. The herd will shrink to capacity as sows are culled, and no gilts are retained until it does.",

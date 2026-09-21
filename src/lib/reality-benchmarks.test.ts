@@ -118,7 +118,7 @@ describe("Published commercial-production guardrails", () => {
 
   it("delivers a realistic whole-growout feed conversion", () => {
     const input = cloneDefaultConfig();
-    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 600, growers: 0, finishers: 0 };
+    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 600, growers: 0, finishers: 0, starting: [] };
     input.growth.weanerMortalityPct = 0;
     input.growth.growerMortalityPct = 0;
     input.growth.finisherMortalityPct = 0;

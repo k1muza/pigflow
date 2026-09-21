@@ -130,6 +130,10 @@ export function runFinancing(world: World): void {
   for (const movement of world.config.finance.cashMovements) {
     if (!movement.auto || movement.monthIndex !== monthIndex) continue;
     if (movement.amount <= 0) continue;
+    // Posted to other income and to fixed overheads so that the cash book
+    // balances, and recorded as financing so that no profit statement reads
+    // either of them as the farm having traded. See `lib/accounts`.
+    world.books.finance(movement.kind, movement.amount);
     if (movement.kind === "in") {
       world.ledger.accrue("other-income", movement.amount);
       world.emit("FinancingPosted", `Cash injection${noteOf(movement.note)}`, {

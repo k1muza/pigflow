@@ -607,7 +607,18 @@ Other assets
 
 ```text
 Supplier payables
+Bank overdraft
 Other liabilities
+```
+
+A bank balance below zero is a liability and not an asset worth less than
+nothing. An overdrawn account is borrowing, and carrying it as negative cash
+understates both sides of the sheet while leaving the net worth correct — so a
+plan being funded reads as smaller than it is rather than as borrowed against.
+
+```text
+assetCash  = max(0, cash)
+overdraft  = max(0, -cash)
 ```
 
 ### Result
@@ -1107,3 +1118,106 @@ Profit view
 For comparisons, show both simultaneously.
 
 Do not remove or reinterpret the existing profit metric until the inventory-adjusted model has been validated against multiple farm scenarios and the differences are understood.
+
+---
+
+## 30. Amendments
+
+Three amendments, from review of the first implementation. Each replaces what
+is written above it where the two disagree.
+
+### 30.1 Opening stock is entered, not reconstructed
+
+A plan may describe the animals it opens with group by group, each group with a
+**value per head on day zero**. Those groups are then the source of truth for
+what the farm starts with: the head counts are read off them rather than kept
+beside them.
+
+The value entered is what the animal is worth on day zero. It is **not** its
+original purchase price, and the plan must not rebuild it from what the animal
+would have cost to rear here — on a herd that was bought in that is simply the
+wrong number, and on any herd it invents a history the farm did not have.
+
+Opening stock is an opening balance and nothing else:
+
+```text
+increases opening livestock assets
+no day-0 expense
+no day-0 cash payment
+no day-0 revenue
+no effect on the existing P&L
+```
+
+Each generated animal is seeded from its group:
+
+| Opening animal | Basis |
+|---|---|
+| Market pig | `CostRecord` starts at `openingValuePerHead` |
+| Replacement gilt | `CostRecord` starts at `openingValuePerHead` |
+| Sow | `breedingValue` starts at `openingValuePerHead` |
+| Boar | `breedingValue` starts at `openingValuePerHead` |
+
+So a starting market pig's cost of sale is its opening value plus everything
+spent on it after day zero:
+
+```text
+Opening grower book value       $70
+Feed after simulation start      $28
+Health                            $3
+------------------------------------
+Carrying value at sale          $101
+```
+
+A plan that gives only head counts keeps the behaviour specified above: the
+growing pigs open at nothing and the founding breeding stock is priced at what a
+replacement gilt or a boar costs. Plans saved before this existed are that kind,
+and none of them may come out differently.
+
+### 30.2 Depreciation runs from the day-0 carrying value
+
+§5.6 and §5.7 write an animal down from its value over its whole working life.
+That is right for an animal the plan itself reared or bought, and wrong for one
+the farm already owned: a parity-3 sow entered at $275 is worth $275 today, and
+writing her down again for parities one to three charges this plan for wear that
+happened before it opened.
+
+Both formulas therefore take the point in the working life at which the value
+was set — zero for anything the plan put into the herd:
+
+```text
+sowDepreciationPerParity =
+    max(0, breedingValue - expectedCullValue)
+    / max(1, cullAfterParity - valuedAtParity)
+
+sowAccumulated = perParity × max(0, currentParity - valuedAtParity)
+```
+
+```text
+boarDepreciationPerDay =
+    max(0, breedingValue - residualValue)
+    / max(1, workingLifeDays - valuedAfterServiceDays)
+
+boarAccumulated = perDay × max(0, daysInService - valuedAfterServiceDays)
+```
+
+A boar entered at $350 with six months behind him is carried at $350 on day
+zero, and that $350 is written down over the eighteen months he has left.
+
+### 30.3 Financing is not trading, in either statement
+
+Generated funding injections and withdrawals are posted to other income and to
+fixed overheads so that the cash book balances. Neither is the farm earning or
+spending anything, so **both** profit statements take both figures back out —
+and take out the same two figures, recorded by the run rather than matched up
+again by each reader.
+
+There is one inventory-adjusted profit calculation:
+
+```text
+currentProfit  = (income - financingIn) - (expenses - financingOut)
+adjustedProfit = currentProfit + changeInInventoryAtCost
+```
+
+The plan summary, the trading statement, the reconciliation, the workbook and
+the plan comparison all read that one figure. Rows the owner typed himself — a
+grant, a repair — are farm items and stay in both statements.

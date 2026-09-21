@@ -68,6 +68,24 @@ export type AccountingDay = {
   /** Breeding stock written down for the working life used up today. */
   depreciation: number;
 
+  // ---- money that moved without the farm trading --------------------------
+  /**
+   * Cash the funding buttons put in today, and took out.
+   *
+   * Neither is the farm earning or spending anything: a generated injection
+   * tops the bank up and a generated withdrawal takes a surplus out, and the
+   * herd is exactly as it was either way. They are posted to other income and
+   * to fixed overheads so that the cash book balances, which means both profit
+   * statements would otherwise read them as trading — an injection as income
+   * and a withdrawal as a cost. Recording them here is how every reading of the
+   * period takes the same two figures back out again.
+   *
+   * Rows the owner typed himself are not in here. A grant or a repair is a farm
+   * item and is costed like one; see `config.finance.cashMovements`.
+   */
+  financingIn: number;
+  financingOut: number;
+
   // ---- and what was standing at the close ---------------------------------
   marketWip: number;
   replacementWip: number;
@@ -96,7 +114,20 @@ export type FarmValuation = {
     replacementGilts: number;
   };
   breedingAssets: { sows: number; boars: number };
-  liabilities: { payables: number; other: number };
+  liabilities: {
+    payables: number;
+    /**
+     * A bank balance below zero, which is money the farm owes rather than an
+     * asset it has less than none of. It is shown as a liability because that
+     * is what it is: an overdrawn account is borrowing, and putting it on the
+     * asset side as negative cash understates both sides of the sheet while
+     * leaving the net worth right — so a plan being funded looks smaller than
+     * it is instead of looking borrowed against.
+     */
+    overdraft: number;
+    other: number;
+  };
+  /** What the farm holds. Never includes the overdraft; see the liabilities. */
   totalAssets: number;
   totalLiabilities: number;
   netWorth: number;
@@ -139,18 +170,28 @@ export function farmValuation(parts: {
     replacementGilts: balances.replacementWip,
   };
   const breedingAssets = { sows: balances.sowAssets, boars: balances.boarAssets };
-  const liabilities = { payables: parts.payables, other: parts.otherLiabilities ?? 0 };
+  // An overdrawn account is a debt, so it crosses to the other side of the
+  // sheet rather than sitting in the assets as a negative. The net worth is the
+  // same figure either way, which is the point: nothing is being revalued here,
+  // only shown under the heading it belongs to.
+  const cash = Math.max(0, parts.cash);
+  const overdraft = Math.max(0, -parts.cash);
+  const liabilities = {
+    payables: parts.payables,
+    overdraft,
+    other: parts.otherLiabilities ?? 0,
+  };
   const totalAssets =
-    parts.cash +
+    cash +
     inventory.feed +
     inventory.supplies +
     inventory.marketLivestock +
     inventory.replacementGilts +
     breedingAssets.sows +
     breedingAssets.boars;
-  const totalLiabilities = liabilities.payables + liabilities.other;
+  const totalLiabilities = liabilities.payables + liabilities.overdraft + liabilities.other;
   return {
-    cash: parts.cash,
+    cash,
     inventory,
     breedingAssets,
     liabilities,
@@ -188,6 +229,8 @@ export function emptyAccountingDay(): AccountingDay {
     mortalityLossLivestock: 0,
     mortalityLossBreeding: 0,
     depreciation: 0,
+    financingIn: 0,
+    financingOut: 0,
     ...ZERO_BALANCES,
   };
 }
@@ -217,13 +260,21 @@ export function inventoryTotal(balances: AccountingBalances): number {
  * A gilt reared for less than a cull sow fetches has nothing to depreciate, so
  * she simply holds her value. That is not a trick of the arithmetic: a cheap
  * home-bred gilt genuinely is not losing anything as she works.
+ *
+ * `valuedAfter` is the parity she was already at when she was put on the books
+ * at this value, which is zero for every sow the plan itself reared or bought.
+ * A sow the farm already owned is entered at what she is worth now, so what is
+ * left of her value is spread over the litters she has left rather than over a
+ * whole working life she has not got.
  */
 export function sowDepreciationPerParity(
   breedingValue: number,
   config: PlannerConfig,
+  valuedAfter = 0,
 ): number {
   const depreciable = Math.max(0, breedingValue - config.herd.cullSowSaleValue);
-  return depreciable / Math.max(1, config.herd.cullAfterParity);
+  const paritiesLeft = config.herd.cullAfterParity - Math.max(0, valuedAfter);
+  return depreciable / Math.max(1, paritiesLeft);
 }
 
 /** What a sow at this parity should have been written down by in total. */
@@ -231,19 +282,27 @@ export function sowDepreciationAtParity(
   breedingValue: number,
   parity: number,
   config: PlannerConfig,
+  valuedAfter = 0,
 ): number {
   const depreciable = Math.max(0, breedingValue - config.herd.cullSowSaleValue);
-  return Math.min(depreciable, sowDepreciationPerParity(breedingValue, config) * parity);
+  // Litters since she was valued, which for anything the plan bred is all of them.
+  const worked = Math.max(0, parity - Math.max(0, valuedAfter));
+  return Math.min(depreciable, sowDepreciationPerParity(breedingValue, config, valuedAfter) * worked);
 }
 
-/** What a boar loses in value for each day he stands, spread over his working life. */
+/**
+ * What a boar loses in value for each day he stands, spread over his working
+ * life. `valuedAfter` is the days of service already behind him when he was put
+ * on the books at this value; see {@link sowDepreciationPerParity}.
+ */
 export function boarDepreciationPerDay(
   breedingValue: number,
   config: PlannerConfig,
+  valuedAfter = 0,
 ): number {
   const depreciable = Math.max(0, breedingValue - config.herd.boarResidualValue);
-  const workingLifeDays = Math.max(1, config.herd.boarWorkingLifeMonths * DAYS_PER_MONTH);
-  return depreciable / workingLifeDays;
+  const workingLifeDays = config.herd.boarWorkingLifeMonths * DAYS_PER_MONTH;
+  return depreciable / Math.max(1, workingLifeDays - Math.max(0, valuedAfter));
 }
 
 /** What a boar this far into his working life should have been written down by. */
@@ -251,11 +310,13 @@ export function boarDepreciationAtDay(
   breedingValue: number,
   daysInService: number,
   config: PlannerConfig,
+  valuedAfter = 0,
 ): number {
   const depreciable = Math.max(0, breedingValue - config.herd.boarResidualValue);
+  const stood = Math.max(0, daysInService - Math.max(0, valuedAfter));
   return Math.min(
     depreciable,
-    boarDepreciationPerDay(breedingValue, config) * Math.max(0, daysInService),
+    boarDepreciationPerDay(breedingValue, config, valuedAfter) * stood,
   );
 }
 
@@ -350,6 +411,18 @@ export class Books {
     this.flows.depreciation += amount;
   }
 
+  // ---- and what never went through the farm at all ------------------------
+
+  /**
+   * Cash the funding buttons moved. Recorded so that both profit statements can
+   * leave it out; see {@link AccountingDay.financingIn}.
+   */
+  finance(kind: "in" | "out", amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    if (kind === "in") this.flows.financingIn += amount;
+    else this.flows.financingOut += amount;
+  }
+
   // ---- closing ------------------------------------------------------------
 
   /**
@@ -382,7 +455,12 @@ export function chargeDepreciation(
 ): void {
   for (const sow of farm.sows) {
     if (!sow.alive || sow.breedingValue <= 0) continue;
-    const target = sowDepreciationAtParity(sow.breedingValue, sow.parity, config);
+    const target = sowDepreciationAtParity(
+      sow.breedingValue,
+      sow.parity,
+      config,
+      sow.valuedAfter,
+    );
     const charge = target - sow.accumulatedDepreciation;
     if (charge <= 0) continue;
     sow.accumulatedDepreciation = target;
@@ -390,7 +468,12 @@ export function chargeDepreciation(
   }
   for (const boar of farm.boars) {
     if (!boar.alive || boar.breedingValue <= 0) continue;
-    const target = boarDepreciationAtDay(boar.breedingValue, day - boar.joinedDay, config);
+    const target = boarDepreciationAtDay(
+      boar.breedingValue,
+      day - boar.joinedDay,
+      config,
+      boar.valuedAfter,
+    );
     const charge = target - boar.accumulatedDepreciation;
     if (charge <= 0) continue;
     boar.accumulatedDepreciation = target;

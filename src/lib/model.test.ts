@@ -83,7 +83,7 @@ describe("PigFlow monthly projection", () => {
 
   it("does not create pigs when there is no starting herd", () => {
     const input = config();
-    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 0, growers: 0, finishers: 0 };
+    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 0, growers: 0, finishers: 0, starting: [] };
     const result = calculateProjection(input);
     expect(result.summary.totalPigsSold).toBe(0);
     expect(result.months.every((month) => month.bornAlive === 0)).toBe(true);

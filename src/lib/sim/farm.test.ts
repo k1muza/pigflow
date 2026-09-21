@@ -94,7 +94,7 @@ describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
 
   it("keeps the herd's feed use close to the planned feed curve", () => {
     const input = config();
-    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 2000, growers: 0, finishers: 0 };
+    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 2000, growers: 0, finishers: 0, starting: [] };
     input.growth.weanerMortalityPct = 0;
     input.growth.growerMortalityPct = 0;
     input.growth.finisherMortalityPct = 0;
@@ -114,7 +114,7 @@ describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
 describe("Rule 2 — sow places, gilt retention and surplus sales", () => {
   it("grows a two-gilt start into a full breeding herd", () => {
     const input = config();
-    input.stock = { sows: 0, gilts: 2, boars: 1, weaners: 0, growers: 0, finishers: 0 };
+    input.stock = { sows: 0, gilts: 2, boars: 1, weaners: 0, growers: 0, finishers: 0, starting: [] };
     input.herd.maxSows = 20;
     input.project.months = 60;
     const farm = runFarm(input);
@@ -161,7 +161,7 @@ describe("Rule 2 — sow places, gilt retention and surplus sales", () => {
 
   it("buys gilts in only when asked and the home-bred pipeline is short", () => {
     const input = config();
-    input.stock = { sows: 2, gilts: 0, boars: 1, weaners: 0, growers: 0, finishers: 0 };
+    input.stock = { sows: 2, gilts: 0, boars: 1, weaners: 0, growers: 0, finishers: 0, starting: [] };
     input.herd.maxSows = 12;
     input.herd.retainHomeBredGilts = false;
     input.herd.buyGiltsWhenShort = true;
@@ -215,7 +215,7 @@ describe("Rule 3 — generations, including the ones that overlap", () => {
 describe("Rule 4 — what a pig costs at each age", () => {
   it("charges each vaccination once, at the age it is due", () => {
     const input = config();
-    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 100, growers: 0, finishers: 0 };
+    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 100, growers: 0, finishers: 0, starting: [] };
     input.herd.retainHomeBredGilts = false;
     const farm = runFarm(input, 200);
     // Starting weaners are past the early doses, so only the later ones are given.
@@ -332,7 +332,7 @@ describe("Farm entities", () => {
 
   it("grows pigs through the stages and sells them at the target liveweight", () => {
     const input = config();
-    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 20, growers: 0, finishers: 0 };
+    input.stock = { sows: 0, gilts: 0, boars: 0, weaners: 20, growers: 0, finishers: 0, starting: [] };
     input.herd.retainHomeBredGilts = false;
     const farm = runFarm(input);
     expect(farm.lifetime.sold).toBeGreaterThan(15);

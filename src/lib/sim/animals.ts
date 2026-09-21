@@ -120,6 +120,22 @@ export abstract class Animal {
    */
   breedingValue = 0;
   accumulatedDepreciation = 0;
+  /**
+   * How far into its working life this animal was when {@link breedingValue}
+   * was set on it — parities for a sow, days in service for a boar.
+   *
+   * Zero for everything the plan itself puts into the breeding herd, which is
+   * every animal that was reared or bought here: its value was set on the day
+   * it walked in, and the whole of its working life is still ahead of it.
+   *
+   * It is not zero for a sow or boar the farm already owned when the plan
+   * opened. She is entered at what she is worth today, with her parities
+   * already behind her, so writing her down for them would charge the plan for
+   * wear that happened before it started and leave her carried at less than
+   * the farmer said she was worth. What is left of her value is spread over
+   * what is left of her working life instead.
+   */
+  valuedAfter = 0;
 
   constructor(init: {
     id: string;

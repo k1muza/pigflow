@@ -3,6 +3,7 @@ import {
   DAYS_PER_MONTH,
   GILT_ACCLIMATISATION_DAYS,
   GILT_ENTRY_AGE_DAYS,
+  openingCounts,
 } from "../../config";
 import { carryingValue } from "../../sim/accounting";
 import { Boar, Sow } from "../../sim/animals";
@@ -70,7 +71,7 @@ export function runHerd(world: World): void {
 
   // Boars cannot be bred out of the market pigs, so the team is always kept up
   // to the planned number — without one, the whole herd stops breeding.
-  const boarsWanted = Math.round(config.stock.boars);
+  const boarsWanted = openingCounts(config).boar;
   const boarsAlive = world.boars.filter((boar) => boar.alive).length;
   for (let i = boarsAlive; i < boarsWanted; i += 1) {
     buyBoar(world, "Replacement boar", "the team was below its planned strength");

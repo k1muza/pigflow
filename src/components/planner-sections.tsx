@@ -50,7 +50,15 @@ import {
   Wheat,
 } from "lucide-react";
 
-import { expectedGiltServiceAgeDays } from "@/lib/config";
+import {
+  MAX_STARTING_STOCK_ROWS,
+  STARTING_STOCK_TYPES,
+  expectedGiltServiceAgeDays,
+  hasDetailedStartingStock,
+  openingCounts,
+  type StartingStockEntry,
+  type StartingStockType,
+} from "@/lib/config";
 import { money, number, plural, rate } from "@/lib/format";
 import {
   BENCHMARK_SOURCES,
@@ -83,6 +91,10 @@ import {
   type PnLReconciliation,
 } from "@/lib/accounts";
 import { inventoryTotal } from "@/lib/sim/accounting";
+import {
+  STARTING_STOCK_LABELS,
+  openingStockValue,
+} from "@/lib/sim/starting-stock";
 import {
   CATEGORY_LABELS,
   EXPENSE_CATEGORIES,
@@ -1929,6 +1941,298 @@ function DetailPanel({
   );
 }
 
+// ------------------------------------------------------------- starting stock
+
+/** The shape of every cell in the starting-stock table, so they match. */
+const CELL_INPUT =
+  "w-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm outline-none transition hover:border-hairline focus:border-brand";
+const CELL_NUMBER = CELL_INPUT + " text-right tabular-nums";
+
+/**
+ * What the farm already owns on the day the plan opens, group by group.
+ *
+ * A head count cannot say what a herd is worth, and the plan has no way to work
+ * it out: a bought-in gilt cost what she cost, and rebuilding her value from
+ * what she would have cost to rear here is a history this farm did not have. So
+ * the farmer says it — a row per group, each with its own value per head — and
+ * those rows become what the plan starts with, counts and values together.
+ *
+ * Several rows of one type is the ordinary case rather than an edge one. Two
+ * parity-1 sows at $350 and three parity-4 sows at $230 are two rows, and that
+ * is the whole reason this is a repeatable form and not six more boxes.
+ */
+function StartingStock({
+  config,
+  detailed,
+  entries,
+  onAdd,
+  onChangeType,
+  onPatch,
+  onRemove,
+  optionalNumber,
+  className,
+}: {
+  config: PlannerConfig;
+  detailed: boolean;
+  entries: readonly StartingStockEntry[];
+  onAdd: () => void;
+  onChangeType: (index: number, type: StartingStockType) => void;
+  onPatch: (index: number, patch: Partial<StartingStockEntry>) => void;
+  onRemove: (index: number) => void;
+  optionalNumber: (text: string) => number | undefined;
+  className?: string;
+}) {
+  const currency = config.project.currency;
+  const head = entries.reduce((total, entry) => total + Math.max(0, Math.round(entry.count)), 0);
+  const worth = openingStockValue(config);
+
+  return (
+    <SectionCard
+      className={className}
+      title="Starting stock"
+      description="What the farm already has on day one, and what it is worth. An opening balance: it lifts what the farm owns without any of it being a cost, a payment or a sale in month one."
+      icon={Scale}
+    >
+      <div className="overflow-hidden rounded-lg border border-hairline">
+        <table className="w-full text-sm">
+          <thead className="border-b border-hairline bg-plane text-left text-xs text-ink-muted">
+            <tr>
+              <th className="w-44 px-3 py-2 font-medium">Stock type</th>
+              <th className="w-24 px-3 py-2 text-right font-medium">Head</th>
+              <th className="w-36 px-3 py-2 text-right font-medium">
+                Value ({currency}/head)
+              </th>
+              <th className="px-3 py-2 font-medium">Detail</th>
+              <th className="w-12 px-3 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry, index) => (
+              <tr key={entry.id} className="border-b border-hairline last:border-0">
+                <td className="px-2 py-1.5">
+                  <select
+                    value={entry.type}
+                    aria-label={"Starting stock " + (index + 1) + " type"}
+                    onChange={(event) =>
+                      onChangeType(index, event.target.value as StartingStockType)
+                    }
+                    className={CELL_INPUT}
+                  >
+                    {STARTING_STOCK_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {STARTING_STOCK_LABELS[type]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-2 py-1.5">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={entry.count}
+                    aria-label={"Starting stock " + (index + 1) + " head"}
+                    onChange={(event) =>
+                      onPatch(index, { count: Math.max(0, Math.round(Number(event.target.value))) })
+                    }
+                    className={CELL_NUMBER}
+                  />
+                </td>
+                <td className="px-2 py-1.5">
+                  <input
+                    type="number"
+                    min={0}
+                    step={10}
+                    value={entry.openingValuePerHead}
+                    aria-label={"Starting stock " + (index + 1) + " value per head"}
+                    onChange={(event) =>
+                      onPatch(index, {
+                        openingValuePerHead: Math.max(0, Number(event.target.value)),
+                      })
+                    }
+                    className={CELL_NUMBER}
+                  />
+                </td>
+                <td className="px-2 py-1.5">
+                  <StartingStockDetail
+                    entry={entry}
+                    index={index}
+                    onPatch={onPatch}
+                    optionalNumber={optionalNumber}
+                  />
+                </td>
+                <td className="px-2 py-1.5 text-right">
+                  <button
+                    onClick={() => onRemove(index)}
+                    aria-label={"Remove starting stock " + (index + 1)}
+                    className="rounded-md p-1.5 text-ink-faint transition hover:bg-critical-soft hover:text-critical"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {entries.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-4 text-center text-xs text-ink-faint">
+                  No starting stock described. The plan is using the head counts above, and
+                  values every animal itself: growing pigs open at nothing and a founding sow
+                  at what a replacement gilt costs here.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+          {detailed ? (
+            <tfoot className="border-t border-hairline bg-plane text-xs font-medium">
+              <tr>
+                <td className="px-3 py-2">Opening stock</td>
+                <td className="px-3 py-2 text-right tabular-nums">{number(head, 0)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{money(worth, currency)}</td>
+                <td className="px-3 py-2 font-normal text-ink-faint" colSpan={2}>
+                  At cost on day one, in the opening balance sheet
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
+        </table>
+        <div className="border-t border-hairline bg-plane px-3 py-2">
+          <button
+            onClick={onAdd}
+            disabled={entries.length >= MAX_STARTING_STOCK_ROWS}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-ink-muted transition hover:bg-surface hover:text-ink disabled:opacity-40"
+          >
+            <Plus size={14} /> Add starting stock
+          </button>
+        </div>
+      </div>
+
+      <p className="mt-3 text-xs leading-5 text-ink-faint">
+        {detailed
+          ? "These groups are what the farm starts with: the head counts above are read off them. A value per head is what the animal is worth today, not what it once cost — a parity-3 sow entered at 275 is carried at 275 on day one, and only what is left of her value is written off over the litters she has ahead of her. When a starting market pig is sold, its opening value plus everything spent on it since is the cost of that sale."
+          : "Leave this empty and nothing changes: the plan goes on using the head counts above. Add a row and these groups take over, so there is never a head count to keep in step with a valuation kept somewhere else."}
+      </p>
+    </SectionCard>
+  );
+}
+
+/**
+ * The part of a row that depends on what kind of animal it is.
+ *
+ * A sow has a parity and a place in her cycle; a boar has months behind him; a
+ * growing pig has a weight and an age, both of which may be left empty to have
+ * the plan place the group through its stage the way it always has.
+ */
+function StartingStockDetail({
+  entry,
+  index,
+  onPatch,
+  optionalNumber,
+}: {
+  entry: StartingStockEntry;
+  index: number;
+  onPatch: (index: number, patch: Partial<StartingStockEntry>) => void;
+  optionalNumber: (text: string) => number | undefined;
+}) {
+  const label = (what: string) => "Starting stock " + (index + 1) + " " + what;
+
+  if (entry.type === "sow") {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-xs text-ink-muted">
+          Parity
+          <input
+            type="number"
+            min={0}
+            max={12}
+            step={1}
+            value={entry.parity}
+            aria-label={label("parity")}
+            onChange={(event) =>
+              onPatch(index, {
+                parity: Math.min(12, Math.max(0, Math.round(Number(event.target.value)))),
+              })
+            }
+            className={CELL_NUMBER + " w-16"}
+          />
+        </label>
+        <select
+          value={entry.reproductiveState}
+          aria-label={label("reproductive state")}
+          onChange={(event) =>
+            onPatch(index, {
+              reproductiveState: event.target.value as "open" | "gestating" | "lactating",
+            })
+          }
+          className={CELL_INPUT + " w-36"}
+        >
+          <option value="open">Open, due to serve</option>
+          <option value="gestating">In pig</option>
+          <option value="lactating">Suckling a litter</option>
+        </select>
+      </div>
+    );
+  }
+
+  if (entry.type === "boar") {
+    return (
+      <label className="flex items-center gap-1.5 text-xs text-ink-muted">
+        Months in service
+        <input
+          type="number"
+          min={0}
+          max={120}
+          step={1}
+          value={entry.monthsInService ?? ""}
+          placeholder="0"
+          aria-label={label("months in service")}
+          onChange={(event) =>
+            onPatch(index, { monthsInService: optionalNumber(event.target.value) })
+          }
+          className={CELL_NUMBER + " w-20"}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-1.5 text-xs text-ink-muted">
+        Weight (kg)
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={entry.averageWeightKg ?? ""}
+          placeholder="spread"
+          aria-label={label("average weight")}
+          onChange={(event) =>
+            onPatch(index, { averageWeightKg: optionalNumber(event.target.value) })
+          }
+          className={CELL_NUMBER + " w-20"}
+        />
+      </label>
+      <label className="flex items-center gap-1.5 text-xs text-ink-muted">
+        Age (days)
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={entry.averageAgeDays ?? ""}
+          placeholder="from weight"
+          aria-label={label("average age")}
+          onChange={(event) => {
+            const days = optionalNumber(event.target.value);
+            onPatch(index, {
+              averageAgeDays: days === undefined ? undefined : Math.round(days),
+            });
+          }}
+          className={CELL_NUMBER + " w-24"}
+        />
+      </label>
+    </div>
+  );
+}
+
 // --------------------------------------------------------------- farm inputs
 
 export function FarmInputs({
@@ -1961,6 +2265,72 @@ export function FarmInputs({
       "vaccinations",
       config.health.vaccinations.filter((_, position) => position !== index),
     );
+  }
+
+  const opening = openingCounts(config);
+  const detailed = hasDetailedStartingStock(config);
+  const startingStock = config.stock.starting;
+
+  function writeStartingStock(next: StartingStockEntry[]) {
+    update("stock", "starting", next);
+  }
+
+  function patchStartingStock(index: number, patch: Partial<StartingStockEntry>) {
+    writeStartingStock(
+      startingStock.map((row, position) =>
+        position === index ? ({ ...row, ...patch } as StartingStockEntry) : row,
+      ),
+    );
+  }
+
+  /**
+   * A row of a new kind, keeping what the two kinds have in common.
+   *
+   * Changing the type of a row is changing its shape, and a sow has no weight
+   * and a boar no parity. The head count and the value per head are carried
+   * across because they are what the farmer just typed; the rest starts again.
+   */
+  function changeStartingStockType(index: number, type: StartingStockType) {
+    const row = startingStock[index];
+    if (row.type === type) return;
+    const kept = { id: row.id, count: row.count, openingValuePerHead: row.openingValuePerHead };
+    const next: StartingStockEntry =
+      type === "sow"
+        ? { ...kept, type, parity: 0, reproductiveState: "open" }
+        : type === "boar"
+          ? { ...kept, type, monthsInService: 0 }
+          : { ...kept, type };
+    writeStartingStock(
+      startingStock.map((existing, position) => (position === index ? next : existing)),
+    );
+  }
+
+  function removeStartingStock(index: number) {
+    writeStartingStock(startingStock.filter((_, position) => position !== index));
+  }
+
+  function addStartingStock() {
+    writeStartingStock([
+      ...startingStock,
+      {
+        id: "stock-" + Date.now(),
+        type: "grower",
+        count: 1,
+        openingValuePerHead: 0,
+      },
+    ]);
+  }
+
+  /**
+   * A number typed into the starting stock table, where empty means "you work
+   * it out". Weight, age and months in service are all optional, and the
+   * difference between an empty box and a zero matters: empty spreads a group
+   * through its stage, zero pins it to the bottom of it.
+   */
+  function optionalNumber(text: string): number | undefined {
+    if (text.trim() === "") return undefined;
+    const value = Number(text);
+    return Number.isFinite(value) ? Math.max(0, value) : undefined;
   }
 
   function addVaccination() {
@@ -2146,56 +2516,82 @@ export function FarmInputs({
       <SectionCard
         className={cardClass("plan")}
         title="Animals on hand"
-        description="Starting growing pigs are spread evenly through their stage rather than bunched on one date."
+        description={
+          detailed
+            ? "Counted off the starting stock below, which is what this plan is built from. Edit the groups there."
+            : "Starting growing pigs are spread evenly through their stage rather than bunched on one date. For what they are worth on day one, describe them as groups below instead."
+        }
         icon={PiggyBank}
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <Field
             label="Breeding sows"
-            value={config.stock.sows}
+            value={detailed ? opening.sow : config.stock.sows}
             onChange={(v) => update("stock", "sows", v)}
             suffix="head"
             step={1}
+            disabled={detailed}
           />
           <Field
             label="Maiden gilts"
-            value={config.stock.gilts}
+            value={detailed ? opening.gilt : config.stock.gilts}
             onChange={(v) => update("stock", "gilts", v)}
             suffix="head"
             step={1}
-            hint="Start from two gilts and the farm will grow its own herd up to the sow places."
+            disabled={detailed}
+            hint={
+              detailed
+                ? undefined
+                : "Start from two gilts and the farm will grow its own herd up to the sow places."
+            }
           />
           <Field
             label="Boars"
-            value={config.stock.boars}
+            value={detailed ? opening.boar : config.stock.boars}
             onChange={(v) => update("stock", "boars", v)}
             suffix="head"
             step={1}
+            disabled={detailed}
             hint={`Each boar covers about ${SERVICES_PER_BOAR_PER_WEEK} services a week.`}
           />
           <Field
             label="Weaners"
-            value={config.stock.weaners}
+            value={detailed ? opening.weaner : config.stock.weaners}
             onChange={(v) => update("stock", "weaners", v)}
             suffix="head"
             step={1}
+            disabled={detailed}
           />
           <Field
             label="Growers"
-            value={config.stock.growers}
+            value={detailed ? opening.grower : config.stock.growers}
             onChange={(v) => update("stock", "growers", v)}
             suffix="head"
             step={1}
+            disabled={detailed}
           />
           <Field
             label="Finishers"
-            value={config.stock.finishers}
+            value={detailed ? opening.finisher : config.stock.finishers}
             onChange={(v) => update("stock", "finishers", v)}
             suffix="head"
             step={1}
+            disabled={detailed}
           />
         </div>
       </SectionCard>
+
+      <StartingStock
+        config={config}
+        detailed={detailed}
+        entries={startingStock}
+        onAdd={addStartingStock}
+        onChangeType={changeStartingStockType}
+        onPatch={patchStartingStock}
+        onRemove={removeStartingStock}
+        optionalNumber={optionalNumber}
+        className={cardClass("plan")}
+      />
 
       <SectionCard
         className={cardClass("plan")}
@@ -3907,6 +4303,14 @@ function ProfitAndWorth({
                   {cashflowMoney(-worth.liabilities.payables, currency)}
                 </td>
               </tr>
+              {worth.liabilities.overdraft > 0 ? (
+                <tr className="border-b border-hairline">
+                  <td className="py-1.5 pr-3 text-ink-muted">Bank overdraft</td>
+                  <td className="py-1.5 text-right tabular-nums text-critical">
+                    {cashflowMoney(-worth.liabilities.overdraft, currency)}
+                  </td>
+                </tr>
+              ) : null}
               <tr className="font-medium">
                 <td className="pt-2 pr-3">Farm net worth</td>
                 <td

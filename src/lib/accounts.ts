@@ -121,26 +121,34 @@ export type InventoryAdjustedPnL = {
 };
 
 /**
- * What the period's ledger costs come to once the ones that turned into an
- * animal, a breeding asset or a bin of feed are taken back out again.
+ * What the farm put into itself over the period, at cost.
  *
- * Everything the farm spends lands in the ledger. Some of it buys something the
- * farm still has at the end of the period, and that part is not an expense yet.
- * Working it out by subtraction rather than by classifying each ledger line is
- * deliberate: the books record what was capitalised as it happens, so this
- * cannot drift out of step with them the way a hand-maintained list of
- * "capitalisable categories" would.
+ * Everything the farm spends lands in the ledger, and some of it buys something
+ * the farm still has at the end of the period: a pig in the finishing house, a
+ * gilt in the pipeline, a bought-in boar, a journey whose load is still in the
+ * bin it was tipped into. That part is not an expense yet, and this is how much
+ * of it there is.
+ *
+ * It is read as the movement in what is standing rather than by classifying
+ * each ledger line, which is deliberate: the books record what was capitalised
+ * as it happens, so this cannot drift out of step with them the way a
+ * hand-maintained list of capitalisable categories would.
  */
-function periodExpenses(totals: CategoryTotals, period: PeriodAccounting): number {
-  const { flows } = period;
-  const freightMovement = period.closing.freightInStore - period.opening.freightInStore;
-  return (
-    expensesOf(totals) -
-    flows.capitalisedMarket -
-    flows.capitalisedReplacement -
-    flows.breedingPurchases -
-    freightMovement
-  );
+export function inventoryChange(period: PeriodAccounting): number {
+  return inventoryTotal(period.closing) - inventoryTotal(period.opening);
+}
+
+/**
+ * The cash the funding buttons moved this period, which is not trading.
+ *
+ * A generated injection is posted to other income and a generated withdrawal to
+ * fixed overheads, because the cash book has to balance. Neither is the farm
+ * earning or spending anything, so every profit figure takes both back out
+ * again — and takes them out of the same two figures, which is the point of
+ * their being recorded here rather than worked out again by each reader.
+ */
+export function financingOf(period: PeriodAccounting): { in: number; out: number } {
+  return { in: period.flows.financingIn, out: period.flows.financingOut };
 }
 
 /**
@@ -157,13 +165,16 @@ export function inventoryAdjustedPnL(
   period: PeriodAccounting,
 ): InventoryAdjustedPnL {
   const { flows } = period;
+  const financing = financingOf(period);
 
   const revenue = {
     pigSales: totals["pig-sales"],
     giltSales: totals["gilt-sales"],
     cullSales: totals["cull-sales"],
-    other: totals["other-income"],
-    total: incomeOf(totals),
+    // A generated injection was posted here to keep the cash book square. It is
+    // the owner putting money in, which is income on nobody's statement.
+    other: totals["other-income"] - financing.in,
+    total: incomeOf(totals) - financing.in,
   };
 
   const costOfSales = {
@@ -174,37 +185,66 @@ export function inventoryAdjustedPnL(
       flows.costOfMarketPigsSold + flows.costOfGiltsSold + flows.costOfBreedingStockSold,
   };
 
-  // What the ledger charged this period and the animals did not absorb.
-  const throughTheLedger = periodExpenses(totals, period);
+  const grossProfit = revenue.total - costOfSales.total;
+  // The one calculation, rather than a second one that ought to agree with it.
+  // The expense side is then footed backwards from it: the named lines are the
+  // ones a farmer would ask for, and whatever is left over falls into the last
+  // line rather than being forced into one it does not belong in.
+  const operatingProfit = inventoryAdjustedProfit(totals, period);
+
   const breedingHerd = flows.breedingHerdCosts;
   const labour = totals.labour;
-  const overheads = totals.overheads + totals.contingency + totals.capital;
+  // And a generated withdrawal was posted here, for the same reason. Taking a
+  // surplus out of the business is not an overhead of keeping pigs.
+  const overheads =
+    totals.overheads - financing.out + totals.contingency + totals.capital;
   const mortalityLosses = flows.mortalityLossLivestock + flows.mortalityLossBreeding;
+  const total = grossProfit - operatingProfit;
   const operatingExpenses = {
     breedingHerd,
     labour,
     overheads,
     depreciation: flows.depreciation,
     mortalityLosses,
-    other: throughTheLedger - breedingHerd - labour - overheads,
-    // Depreciation and mortality never touched the ledger, so they are added to
-    // it rather than found inside it.
-    total: throughTheLedger + flows.depreciation + mortalityLosses,
+    other:
+      total - breedingHerd - labour - overheads - flows.depreciation - mortalityLosses,
+    total,
   };
 
-  const grossProfit = revenue.total - costOfSales.total;
-  return {
-    revenue,
-    costOfSales,
-    grossProfit,
-    operatingExpenses,
-    operatingProfit: grossProfit - operatingExpenses.total,
-  };
+  return { revenue, costOfSales, grossProfit, operatingExpenses, operatingProfit };
 }
 
-/** Income less expenditure for the period: the statement the plan has always shown. */
-export function currentProfitOrLoss(totals: CategoryTotals): number {
-  return incomeOf(totals) - expensesOf(totals);
+/**
+ * Income less expenditure for the period: the statement the plan has always
+ * shown, with the financing taken back out of both sides of it.
+ *
+ * Every reading of a period goes through here, so that profit means the same
+ * thing on the cashflow page, in the workbook and in a comparison of two plans.
+ */
+export function currentProfitOrLoss(
+  totals: CategoryTotals,
+  period: PeriodAccounting,
+): number {
+  const financing = financingOf(period);
+  return incomeOf(totals) - financing.in - (expensesOf(totals) - financing.out);
+}
+
+/**
+ * The same period with the costs that turned into unsold animals held back
+ * until those animals leave.
+ *
+ * This is the inventory-adjusted profit and it is the only place it is worked
+ * out. The trading statement in {@link inventoryAdjustedPnL} foots to it, the
+ * reconciliation in {@link reconcileProfit} arrives at it, and the plan summary,
+ * the workbook and the plan comparison all read it from here. Four expressions
+ * of the same arithmetic in four files is how two pages come to disagree about
+ * what a farm made.
+ */
+export function inventoryAdjustedProfit(
+  totals: CategoryTotals,
+  period: PeriodAccounting,
+): number {
+  return currentProfitOrLoss(totals, period) + inventoryChange(period);
 }
 
 /**
@@ -238,25 +278,16 @@ export function reconcileProfit(
   period: PeriodAccounting,
 ): PnLReconciliation {
   const { flows } = period;
-  const currentProfit = currentProfitOrLoss(totals);
-  const capitalisedIntoLivestock = flows.capitalisedMarket + flows.capitalisedReplacement;
-  const freightHeldInStores =
-    period.closing.freightInStore - period.opening.freightInStore;
-  const costOfLivestockSold =
-    flows.costOfMarketPigsSold + flows.costOfGiltsSold;
-  const mortalityWriteOffs = flows.mortalityLossLivestock + flows.mortalityLossBreeding;
-  const changeInFarmInventory =
-    inventoryTotal(period.closing) - inventoryTotal(period.opening);
   return {
-    currentProfit,
-    capitalisedIntoLivestock,
+    currentProfit: currentProfitOrLoss(totals, period),
+    capitalisedIntoLivestock: flows.capitalisedMarket + flows.capitalisedReplacement,
     breedingStockBought: flows.breedingPurchases,
-    freightHeldInStores,
-    costOfLivestockSold,
-    mortalityWriteOffs,
+    freightHeldInStores: period.closing.freightInStore - period.opening.freightInStore,
+    costOfLivestockSold: flows.costOfMarketPigsSold + flows.costOfGiltsSold,
+    mortalityWriteOffs: flows.mortalityLossLivestock + flows.mortalityLossBreeding,
     breedingStockDepreciation: flows.depreciation,
     carryingValueOfBreedingStockSold: flows.costOfBreedingStockSold,
-    inventoryAdjustedProfit: currentProfit + changeInFarmInventory,
-    changeInFarmInventory,
+    inventoryAdjustedProfit: inventoryAdjustedProfit(totals, period),
+    changeInFarmInventory: inventoryChange(period),
   };
 }

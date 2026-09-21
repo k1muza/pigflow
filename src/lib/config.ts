@@ -63,6 +63,113 @@ const cashMovementSchema = z.object({
 
 export type CashMovement = z.infer<typeof cashMovementSchema>;
 
+/**
+ * The stages a starting group of growing pigs can be standing in. A breeding
+ * sow and a boar are described differently enough to be their own shapes, so
+ * neither is in here.
+ */
+export const STARTING_PIG_TYPES = ["piglet", "weaner", "grower", "finisher", "gilt"] as const;
+export type StartingPigType = (typeof STARTING_PIG_TYPES)[number];
+
+/** Every kind of animal a plan can be told the farm already owns. */
+export const STARTING_STOCK_TYPES = [...STARTING_PIG_TYPES, "sow", "boar"] as const;
+export type StartingStockType = (typeof STARTING_STOCK_TYPES)[number];
+
+const startingCount = z.number().int().min(0).max(100_000);
+
+/**
+ * What one of these animals is worth on the day the plan opens.
+ *
+ * Not what it was bought for, and not what it would have cost to rear here:
+ * what it is worth standing in the pen on day zero. The plan carries it at that
+ * from then on, and for a market pig it is the first line of what that pig
+ * finally costs to sell.
+ */
+const openingValuePerHead = nonNegative;
+
+/**
+ * A pen of growing pigs, or a group of maiden gilts, that the farm already has.
+ *
+ * Weight and age are optional and are read as a description of the group: give
+ * a weight and every animal in the group starts at it, which is what a pen
+ * bought or weaned together actually looks like. Leave it out and the group is
+ * spread evenly through its stage, the way opening pigs have always been
+ * placed. A farm whose growers really are at four different weights is four
+ * rows, which is what a repeatable form is for.
+ */
+const startingPigSchema = z.object({
+  id: z.string().min(1).max(40),
+  type: z.enum(STARTING_PIG_TYPES),
+  count: startingCount,
+  averageWeightKg: z.number().finite().min(0.5).max(400).optional(),
+  averageAgeDays: z.number().int().min(0).max(2_000).optional(),
+  openingValuePerHead,
+});
+
+/**
+ * Breeding females the farm already has, at one parity and one value.
+ *
+ * The parity is the litters behind her, and it is what fixes her age and how
+ * much working life she has left. It is deliberately not used to write her down
+ * again: she is carried at what she is entered at, and what is left of that
+ * value is spread over the litters still ahead of her.
+ */
+const startingSowSchema = z.object({
+  id: z.string().min(1).max(40),
+  type: z.literal("sow"),
+  count: startingCount,
+  parity: z.number().int().min(0).max(12),
+  /**
+   * Where she is in her cycle. A group of several is spread across the part of
+   * the cycle its state covers, so three gestating sows are not all due on one
+   * day. Lactating sows suckle the starting piglets, if any were entered.
+   */
+  reproductiveState: z.enum(["open", "gestating", "lactating"]).default("open"),
+  openingValuePerHead,
+});
+
+/**
+ * Boars the farm already has.
+ *
+ * Months in service is how much of his working life is behind him: it ages him,
+ * it decides when he is rotated out, and what he is entered at is written down
+ * over the months he has left rather than over a whole working life he has not
+ * got.
+ */
+const startingBoarSchema = z.object({
+  id: z.string().min(1).max(40),
+  type: z.literal("boar"),
+  count: startingCount,
+  monthsInService: z.number().finite().min(0).max(120).optional(),
+  openingValuePerHead,
+});
+
+/**
+ * One group of animals the farm owns on the day the plan opens.
+ *
+ * The reason to enter these rather than a head count is the value. Opening
+ * stock is an opening balance, and what it is worth is something the farmer
+ * knows and the plan cannot work out: rebuilding it from what the animals would
+ * have cost to rear here invents a history the farm did not have, and on a herd
+ * that was bought in it is simply wrong.
+ *
+ * Several groups of one type are expected rather than merely allowed. Two
+ * parity-1 sows at $350 and three parity-4 sows at $230 are two rows.
+ */
+export const startingStockSchema = z.discriminatedUnion("type", [
+  startingPigSchema,
+  startingSowSchema,
+  startingBoarSchema,
+]);
+
+export type StartingStockEntry = z.infer<typeof startingStockSchema>;
+export type StartingPigEntry = z.infer<typeof startingPigSchema>;
+export type StartingSowEntry = z.infer<typeof startingSowSchema>;
+export type StartingBoarEntry = z.infer<typeof startingBoarSchema>;
+
+/** Rows one plan can hold: well past the groups any real farm is made of. */
+export const MAX_STARTING_STOCK_ROWS = 60;
+
 export const plannerSchema = z.object({
   project: z.object({
     name: z.string().min(1),
@@ -102,12 +209,32 @@ export const plannerSchema = z.object({
     engine: z.enum(["1.x", "2.0"]).default("1.x"),
   }),
   stock: z.object({
+    /**
+     * The plain head counts, which are what a plan with no detailed starting
+     * stock is built from. Every animal they place is valued by the plan rather
+     * than by the farmer: a growing pig opens at nothing and a founding sow is
+     * priced at what a replacement gilt costs.
+     *
+     * They are ignored as soon as {@link starting} has a row in it, so read
+     * them through {@link openingCounts} rather than reaching for them here.
+     */
     sows: nonNegative,
     gilts: nonNegative,
     boars: nonNegative,
     weaners: nonNegative,
     growers: nonNegative,
     finishers: nonNegative,
+    /**
+     * The farm's actual opening stock, group by group, each group with what it
+     * is worth on day zero.
+     *
+     * Empty on every plan saved before this existed and on every new one, and
+     * while it is empty nothing about opening stock changes. One row makes this
+     * the source of truth for what the farm starts with — counts and values
+     * together, so there is never a head count to keep in step with a
+     * valuation kept somewhere else.
+     */
+    starting: z.array(startingStockSchema).max(MAX_STARTING_STOCK_ROWS).default([]),
   }),
   herd: z.object({
     startMode: z.enum(["staggered", "synchronised"]),
@@ -523,6 +650,63 @@ export const plannerSchema = z.object({
 export type PlannerConfig = z.infer<typeof plannerSchema>;
 export type PlannerSection = keyof PlannerConfig;
 
+/** How many of each kind of animal the plan opens with. */
+export type OpeningCounts = Record<StartingStockType, number>;
+
+/**
+ * Whether this plan describes its opening stock group by group.
+ *
+ * One row is enough. A row with a count of zero is still a description — a
+ * farmer who has emptied a row meant to empty it — so this asks whether the
+ * form was used and not whether it adds up to any animals.
+ */
+export function hasDetailedStartingStock(config: PlannerConfig): boolean {
+  return config.stock.starting.length > 0;
+}
+
+/**
+ * What the farm starts with, taken from the detailed groups if there are any
+ * and from the plain head counts if there are not.
+ *
+ * Everything that wants to know how many sows or boars a plan opens with reads
+ * this, so that the two ways of saying it cannot disagree.
+ *
+ * One asymmetry worth knowing: `piglet` counts only piglets entered as their
+ * own group. A plan built from the head counts starts its suckling pigs as the
+ * litters on its lactating sows, and those are not in here because nothing
+ * asked for them — they are farrowed by the opening herd rather than entered.
+ */
+export function openingCounts(config: PlannerConfig): OpeningCounts {
+  const counts: OpeningCounts = {
+    piglet: 0,
+    weaner: 0,
+    grower: 0,
+    finisher: 0,
+    gilt: 0,
+    sow: 0,
+    boar: 0,
+  };
+  if (hasDetailedStartingStock(config)) {
+    for (const entry of config.stock.starting) {
+      counts[entry.type] += Math.max(0, Math.round(entry.count));
+    }
+    return counts;
+  }
+  const { stock } = config;
+  counts.sow = Math.round(stock.sows);
+  counts.gilt = Math.round(stock.gilts);
+  counts.boar = Math.round(stock.boars);
+  counts.weaner = Math.round(stock.weaners);
+  counts.grower = Math.round(stock.growers);
+  counts.finisher = Math.round(stock.finishers);
+  return counts;
+}
+
+/** Every animal the plan opens with, added up. */
+export function openingHeadCount(config: PlannerConfig): number {
+  return Object.values(openingCounts(config)).reduce((total, count) => total + count, 0);
+}
+
 /** Mean length of a calendar month, for turning months of policy into days. */
 export const DAYS_PER_MONTH = 30.4375;
 /** Days between returns to estrus when a service does not hold. */
@@ -705,6 +889,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weaners: 0,
     growers: 0,
     finishers: 0,
+    starting: [],
   },
   herd: {
     startMode: "synchronised",

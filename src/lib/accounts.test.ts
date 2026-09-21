@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   currentProfitOrLoss,
   inventoryAdjustedPnL,
+  inventoryAdjustedProfit,
+  inventoryChange,
   mergeAccounting,
   reconcileProfit,
 } from "./accounts";
@@ -19,7 +21,7 @@ import {
 } from "./sim/accounting";
 import { Boar, Sow } from "./sim/animals";
 import { Farm } from "./sim/farm";
-import { horizonDay } from "./sim";
+import { addTotals, emptyTotals, horizonDay } from "./sim";
 
 /**
  * The experimental second set of books, checked the two ways that matter.
@@ -191,7 +193,7 @@ describe("the two profit statements", () => {
 
   it("sum over the horizon to the figure the summary reports", () => {
     const totalCurrent = projection.months.reduce(
-      (sum, month) => sum + currentProfitOrLoss(month.totals),
+      (sum, month) => sum + currentProfitOrLoss(month.totals, month.accounting),
       0,
     );
     const horizon = reconcileProfit(projection.years[0].totals, projection.accounting);
@@ -286,6 +288,184 @@ describe("the farm's balance sheet", () => {
     expect(terminal.inventory.marketLivestock).toBeLessThan(
       Math.max(1, finishers) * perPig * 20,
     );
+  });
+});
+
+describe("financing is not trading", () => {
+  /**
+   * The generated funding rows move the bank balance without the farm having
+   * earned or spent anything. They are posted to other income and to fixed
+   * overheads so that the cash book balances, which means both profit
+   * statements would read them as trading unless both take them back out — and
+   * unless both take out the same two figures.
+   */
+  function funded(): PlannerConfig {
+    return plan((draft) => {
+      draft.project.months = 12;
+      draft.project.openingCash = 0;
+      draft.finance.cashMovements = [
+        { id: "auto-in-0", monthIndex: 0, kind: "in", amount: 25_000, note: "", auto: true },
+        { id: "auto-out-6", monthIndex: 6, kind: "out", amount: 4_000, note: "", auto: true },
+      ];
+    });
+  }
+
+  it("leaves an injection out of both profit figures", () => {
+    const bare = plan((draft) => {
+      draft.project.months = 12;
+      draft.project.openingCash = 0;
+    });
+    const without = simulatePlan(bare, { snapshots: false }).projection;
+    const with_ = simulatePlan(funded(), { snapshots: false }).projection;
+
+    // The cash book sees the money; neither profit statement does.
+    expect(with_.months[0].cashIn - without.months[0].cashIn).toBeCloseTo(25_000, 6);
+    expect(
+      currentProfitOrLoss(with_.months[0].totals, with_.months[0].accounting),
+    ).toBeCloseTo(currentProfitOrLoss(without.months[0].totals, without.months[0].accounting), 6);
+    expect(
+      inventoryAdjustedProfit(with_.months[0].totals, with_.months[0].accounting),
+    ).toBeCloseTo(
+      inventoryAdjustedProfit(without.months[0].totals, without.months[0].accounting),
+      6,
+    );
+  });
+
+  it("leaves a withdrawal out of both profit figures", () => {
+    const projection = simulatePlan(funded(), { snapshots: false }).projection;
+    const month = projection.months[6];
+    expect(month.accounting.flows.financingOut).toBeCloseTo(4_000, 6);
+    // Taken out of the same figure by both statements, so the gap between them
+    // is still the herd and nothing else.
+    const statement = inventoryAdjustedPnL(month.totals, month.accounting);
+    expect(statement.operatingProfit).toBeCloseTo(
+      inventoryAdjustedProfit(month.totals, month.accounting),
+      6,
+    );
+    expect(statement.operatingProfit - currentProfitOrLoss(month.totals, month.accounting))
+      .toBeCloseTo(inventoryChange(month.accounting), 6);
+  });
+
+  it("counts only the rows the funding buttons wrote", () => {
+    // A grant or a repair the owner typed in himself is a farm item and is
+    // costed like one, so it stays in the profit statement.
+    const config = plan((draft) => {
+      draft.project.months = 12;
+      draft.finance.cashMovements = [
+        { id: "mine", monthIndex: 0, kind: "in", amount: 9_000, note: "Grant", auto: false },
+      ];
+    });
+    const month = simulatePlan(config, { snapshots: false }).projection.months[0];
+    expect(month.accounting.flows.financingIn).toBe(0);
+    expect(month.totals["other-income"]).toBeGreaterThanOrEqual(9_000);
+  });
+});
+
+describe("one inventory-adjusted profit, read everywhere", () => {
+  const config = plan((draft) => {
+    draft.project.months = 24;
+    draft.finance.cashMovements = [
+      { id: "auto-in-0", monthIndex: 0, kind: "in", amount: 30_000, note: "", auto: true },
+      { id: "auto-out-18", monthIndex: 18, kind: "out", amount: 5_000, note: "", auto: true },
+    ];
+  });
+  const projection = simulatePlan(config, { snapshots: false }).projection;
+
+  function horizonTotals() {
+    const totals = emptyTotals();
+    for (const month of projection.months) addTotals(totals, month.totals);
+    return totals;
+  }
+
+  it("agrees with the plan summary", () => {
+    // What the summary reports is what lib/accounts works out, not a second
+    // sum over the months that happens to land nearby.
+    expect(projection.summary.inventoryAdjustedProfit).toBeCloseTo(
+      inventoryAdjustedProfit(horizonTotals(), projection.accounting),
+      6,
+    );
+  });
+
+  it("agrees with the reconciliation the page and the workbook show", () => {
+    const totals = horizonTotals();
+    const reconciliation = reconcileProfit(totals, projection.accounting);
+    expect(reconciliation.inventoryAdjustedProfit).toBeCloseTo(
+      projection.summary.inventoryAdjustedProfit,
+      6,
+    );
+    // And every line of the reconciliation adds up to it, so the explanation on
+    // screen is an explanation of this figure rather than of another one.
+    expect(
+      reconciliation.currentProfit + reconciliation.changeInFarmInventory,
+    ).toBeCloseTo(reconciliation.inventoryAdjustedProfit, 6);
+  });
+
+  it("agrees with the trading statement, line by line", () => {
+    for (const month of projection.months) {
+      const statement = inventoryAdjustedPnL(month.totals, month.accounting);
+      expect(statement.operatingProfit).toBeCloseTo(
+        inventoryAdjustedProfit(month.totals, month.accounting),
+        6,
+      );
+      // The named expense lines and the residual foot to the total, and the
+      // total foots to the profit. Nothing is left hanging.
+      const { operatingExpenses: expenses } = statement;
+      expect(
+        expenses.breedingHerd +
+          expenses.labour +
+          expenses.overheads +
+          expenses.depreciation +
+          expenses.mortalityLosses +
+          expenses.other,
+      ).toBeCloseTo(expenses.total, 6);
+      expect(statement.grossProfit - expenses.total).toBeCloseTo(
+        statement.operatingProfit,
+        6,
+      );
+    }
+  });
+
+  it("sums over the months to the figure the whole plan reports", () => {
+    const summed = projection.months.reduce(
+      (total, month) => total + inventoryAdjustedProfit(month.totals, month.accounting),
+      0,
+    );
+    expect(summed).toBeCloseTo(projection.summary.inventoryAdjustedProfit, 4);
+  });
+});
+
+describe("an overdrawn account", () => {
+  it("is a liability rather than an asset worth less than nothing", () => {
+    const config = plan((draft) => {
+      draft.project.months = 12;
+      // Nothing to start with and a capital bill to pay, so the bank goes under.
+      draft.project.openingCash = 0;
+      draft.finance.initialCapitalCosts = 40_000;
+      draft.finance.cashMovements = [];
+    });
+    const run = simulatePlan(config, { snapshots: false });
+    const worth = run.projection.farmWorth;
+
+    expect(run.projection.summary.lowestCash).toBeLessThan(0);
+    expect(worth.liabilities.overdraft).toBeGreaterThan(0);
+    // The asset side never shows a negative bank balance, and the two sides
+    // still come to the same net worth they always did.
+    expect(worth.cash).toBeGreaterThanOrEqual(0);
+    expect(worth.netWorth).toBeCloseTo(worth.totalAssets - worth.totalLiabilities, 6);
+    expect(worth.totalLiabilities).toBeCloseTo(
+      worth.liabilities.payables + worth.liabilities.overdraft + worth.liabilities.other,
+      6,
+    );
+  });
+
+  it("leaves a farm in credit with no overdraft at all", () => {
+    const config = plan((draft) => {
+      draft.project.months = 12;
+      draft.project.openingCash = 100_000;
+    });
+    const worth = simulatePlan(config, { snapshots: false }).projection.farmWorth;
+    expect(worth.liabilities.overdraft).toBe(0);
+    expect(worth.cash).toBeGreaterThan(0);
   });
 });
 

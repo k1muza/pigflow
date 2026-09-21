@@ -4,9 +4,11 @@ import {
   GILT_ENTRY_AGE_DAYS,
   MATURE_SOW_WEIGHT_KG,
   expectedGiltServiceAgeDays,
+  hasDetailedStartingStock,
 } from "../config";
 import { readBalances, valueFoundingStock } from "../sim/accounting";
 import { Boar, GrowingPig, Sow, type PigStage } from "../sim/animals";
+import { seedStartingStock, type StartingStockHost } from "../sim/starting-stock";
 import { roomForStage } from "./housing";
 import type { World } from "./world";
 
@@ -87,7 +89,44 @@ export function createPiglet(
   return piglet;
 }
 
+/** What {@link seedStartingStock} needs of this world to put animals on it. */
+function startingStockHost(world: World): StartingStockHost {
+  return {
+    config: world.config,
+    variation: world.variation,
+    pigs: world.pigs,
+    sows: world.sows,
+    boars: world.boars,
+    nextPigTag: () => world.nextPigTag(),
+    nextSowTag: () => world.nextSowTag(),
+    nextBoarTag: () => world.nextBoarTag(),
+    growthDraw: (tag) => growthDraw(world, tag),
+    catchUpVaccinations: (pig, day) => catchUpVaccinations(world, pig, day),
+    enterStage: (pigs, stage, day) => world.mortality.enterStage(pigs, stage, day),
+    noteBirth: (generation) => world.noteBirth(generation),
+    // Opening stock arrives already penned. A plan that starts with sixty
+    // growers starts with a pen of sixty, not sixty animals that happen to
+    // share a house: they move on together and are sold together, like
+    // anything weaned here.
+    penCohort: (pigs, stage) => {
+      if (pigs.length > 0) world.batches.open(pigs, stage, roomForStage(stage), 0);
+    },
+  };
+}
+
 export function seedHerd(world: World): void {
+  // See the same branch in 1.x: a plan that describes its opening stock group
+  // by group is built from that description, and one that gives only head
+  // counts is built exactly the way it always was.
+  if (hasDetailedStartingStock(world.config)) {
+    seedStartingStock(startingStockHost(world));
+    Object.assign(world.books.opening, readBalances(world, 0));
+    return;
+  }
+  seedCountedHerd(world);
+}
+
+function seedCountedHerd(world: World): void {
   const { reproduction, growth, stock, herd } = world.config;
   const cycleDays =
     reproduction.gestationDays + reproduction.weaningAgeDays + reproduction.weanToServiceDays;
