@@ -9,6 +9,7 @@ import {
   housingEventsByDay,
   type HousingPeriodEvent,
   housingEventsFor,
+  workplaceClause,
   housingSnapshots,
   PhysicalHousingAllocator,
   physicalFarmPlanOf,
@@ -459,10 +460,10 @@ function withHousingEvents(
   const byDay = housingEventsByDay(housing);
   if (byDay.size === 0) return timeline;
 
-  const days = timeline.days.map((day) => {
-    const events = byDay.get(day.day);
-    return events === undefined ? day : { ...day, events: merge(day.events, events) };
-  });
+  const days = timeline.days.map((day) => ({
+    ...day,
+    events: merge(day.events, byDay.get(day.day) ?? [], housing, day.day, true),
+  }));
 
   const dayOfDate = new Map(timeline.days.map((day) => [day.date, day.day]));
   const months = timeline.months.map((month) => {
@@ -470,7 +471,7 @@ function withHousingEvents(
     const through = dayOfDate.get(month.endDate);
     if (from === undefined || through === undefined) return month;
     const events = housingEventsFor(housing, from, through);
-    return events.length === 0 ? month : { ...month, events: merge(month.events, events) };
+    return { ...month, events: merge(month.events, events, housing, through, false) };
   });
 
   return { ...timeline, days, months };
@@ -488,16 +489,26 @@ function withHousingEvents(
  */
 function merge(
   plain: readonly FarmPeriodEvent[],
-  housing: readonly HousingPeriodEvent[],
+  lines: readonly HousingPeriodEvent[],
+  housing: HousingSimulationResult,
+  day: number,
+  withBuildings: boolean,
 ): FarmPeriodEvent[] {
   const superseded = new Set<string>();
-  for (const event of housing) {
+  for (const event of lines) {
     for (const key of event.replaces ?? []) superseded.add(key);
   }
-  const kept = plain.filter((event) => event.key === undefined || !superseded.has(event.key));
+  const kept = plain
+    .filter((event) => event.key === undefined || !superseded.has(event.key))
+    // And the ones that survive are told where the work happens, which is the
+    // one thing a count of jobs could never say for itself.
+    .map((event) => {
+      const clause = workplaceClause(event, housing.plan, day, withBuildings);
+      return clause === "" ? event : { ...event, label: event.label + clause };
+    });
   // `replaces` is how the two lists were reconciled and is no business of
   // anything downstream, so it is left behind here.
-  const added = housing.map(({ type, label, count }) => ({ type, label, count }));
+  const added = lines.map(({ type, label, count }) => ({ type, label, count }));
   return [...kept, ...added];
 }
 

@@ -1,4 +1,5 @@
 import { HOUSING_LABELS, type HousingType } from "../rules";
+import type { FarmPeriodEvent, PigStage } from "../../sim";
 import type {
   HousingConflict,
   HousingMovementEvent,
@@ -158,6 +159,76 @@ function pensPhrase(places: readonly { roomId: string; penId: string }[]): strin
   if (rooms.size === 0) return "";
   const written = [...rooms].map(([room, pens]) => `${room}: ${pens.join(", ")}`).join(" · ");
   return " · " + written + (extra > 0 ? ` and ${extra} more` : "");
+}
+
+// ------------------------------------------------- where the work happens
+
+/**
+ * The house a plain activity line is about, where the housing can say.
+ *
+ * The farm's own lines count what was done and do not say who it was done to —
+ * "service 1 sow" names no sow — so the pen cannot be known from them. The
+ * house can: a sow is served in the service house, scanned in the gestation
+ * house and farrows in the farrowing house, whichever sow she is. That is the
+ * honest answer to "where do I go for this", and it is as far as a count can be
+ * taken.
+ *
+ * The lines left out are left out because they have no single house. A cull can
+ * take a sow out of any of three, a loss can happen anywhere, and a line that
+ * guessed would be worse than a line that says nothing.
+ */
+const WORK_HOUSE: Partial<Record<FarmPeriodEvent["type"], HousingType>> = {
+  service: "service_sow",
+  scan: "gestation",
+  conception: "gestation",
+  farrowing: "farrowing",
+  weaning: "farrowing",
+  sale: "finisher",
+};
+
+/** Where an animal of this kind stands, for the lines that name a kind. */
+const STAGE_HOUSE: Record<PigStage, HousingType> = {
+  piglet: "farrowing",
+  weaner: "weaner",
+  grower: "grower",
+  finisher: "finisher",
+  gilt: "gilt",
+};
+
+/** The most buildings a line names before the house alone has to do. */
+const BUILDINGS_NAMED = 3;
+
+/**
+ * Where the work on this line is done, as a clause to put on the end of it.
+ *
+ * Empty when the farm has no such house — a plan with no gilt pens is not told
+ * its gilts are in them — and empty for the lines that have no one house.
+ */
+export function workplaceClause(
+  event: Pick<FarmPeriodEvent, "type" | "stage">,
+  plan: PhysicalFarmPlan,
+  day: number,
+  withBuildings: boolean,
+): string {
+  const house = event.stage !== undefined ? STAGE_HOUSE[event.stage] : WORK_HOUSE[event.type];
+  if (house === undefined) return "";
+
+  // The building and not the room: a room of that house is where the animals
+  // this work is about happen to be standing, and a count of jobs does not know
+  // which room that is. The building is where the house is, whoever is in it —
+  // and it is the thing a person walks to. Rooms not built yet are not where
+  // anybody is working this morning.
+  const standing: string[] = [];
+  for (const building of plan.buildings) {
+    const has = building.rooms.some(
+      (room) => room.housingType === house && room.commissionedDay <= day,
+    );
+    if (has) standing.push(building.id);
+  }
+  if (standing.length === 0) return "";
+  const named =
+    withBuildings && standing.length <= BUILDINGS_NAMED ? ` (${standing.join(", ")})` : "";
+  return ` · in ${HOUSE_PHRASE[house]}${named}`;
 }
 
 /** What one stretch of the record comes to, once it has been cut out of it. */

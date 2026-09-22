@@ -184,6 +184,16 @@ export type FarmPeriodEvent = {
    * lines nothing supersedes, which is most of them.
    */
   key?: "moved-to-grower" | "moved-to-finisher";
+  /**
+   * The kind of pig the work was done to, where the line is about one kind.
+   *
+   * Carried so that something which knows the farm's buildings can say where
+   * the work happens — a piglet is vaccinated in the farrowing house and a
+   * finisher in the finishing house, and the line itself has no way to know
+   * that. Absent on the lines that are about the whole herd or about no
+   * animals at all.
+   */
+  stage?: PigStage;
 };
 
 /**
@@ -233,7 +243,7 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
 
   for (const stage of Object.keys(STAGE_NAMES) as PigStage[]) {
     const count = sum((day) => day.vaccinations[stage]);
-    push({ type: "vaccination", label: `Vaccinate ${head(count, STAGE_NAMES[stage])}`, count });
+    push({ type: "vaccination", stage, label: `Vaccinate ${head(count, STAGE_NAMES[stage])}`, count });
   }
 
   const services = sum((day) => day.services);
@@ -337,7 +347,9 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
     }
   }
   for (const [job, count] of jobs) {
-    push({ type: "processing", label: `${job} · ${head(count, "piglets")}`, count });
+    // Processing is what is done to a litter in the days after it is born, so
+    // it happens where the litter is: on the sow, in the farrowing house.
+    push({ type: "processing", stage: "piglet", label: `${job} · ${head(count, "piglets")}`, count });
   }
 
   const losses = sum((day) => day.pigletDeaths + day.growingDeaths + day.breedingDeaths);

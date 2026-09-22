@@ -926,6 +926,43 @@ describe("generating a farm from the plan", () => {
     }
   });
 
+  it("says where the farm's own work happens, in the house it happens in", () => {
+    const config = structuredClone(GENERATED_FROM);
+    config.housing.physical = GENERATED;
+    const timeline = simulatePlan(config, { snapshots: false, physicalHousing: true }).timeline;
+
+    // A count of jobs cannot say which pen — "service 1 sow" names no sow — but
+    // the house it is done in is the same house whichever sow she is, and the
+    // building is the thing a person walks to.
+    const serviced = timeline.days
+      .flatMap((day) => day.events)
+      .find((event) => event.type === "service");
+    expect(serviced?.label).toMatch(/ · in the service house \([A-Z]+-\d+\)$/);
+
+    const farrowed = timeline.days
+      .flatMap((day) => day.events)
+      .find((event) => event.type === "farrowing");
+    expect(farrowed?.label).toContain(" · in the farrowing house (FARR-01)");
+
+    // A piglet is vaccinated where a piglet stands, and a weaner where a weaner
+    // does; the line carries the stage so the housing can say which that is.
+    const vaccinated = timeline.days
+      .flatMap((day) => day.events)
+      .filter((event) => event.type === "vaccination");
+    expect(vaccinated.some((event) => event.label.includes("in the farrowing house"))).toBe(true);
+
+    // A loss can happen anywhere, so nothing is claimed about where it was.
+    const lost = timeline.days.flatMap((day) => day.events).find((event) => event.type === "loss");
+    expect(lost?.label).not.toContain(" · in ");
+
+    // A month is not walked, so it names the house and not the buildings.
+    const month = timeline.months
+      .flatMap((entry) => entry.events)
+      .find((event) => event.type === "service");
+    expect(month?.label).toContain(" · in the service house");
+    expect(month?.label).not.toContain("(");
+  });
+
   it("keeps the plain stage-change line on a plan with no pens to move between", () => {
     const timeline = simulatePlan(GENERATED_FROM, { snapshots: false }).timeline;
     const grown = timeline.days.filter((entry) =>
