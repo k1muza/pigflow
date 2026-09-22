@@ -137,12 +137,9 @@ export function physicalFarmPlanOf(
     }
 
     const kinds = new Set(rooms.map((room) => room.housingType));
-    buildings.push({
+    const written: PhysicalBuilding = {
       id: buildingId,
       name: building.label,
-      // A house of one kind says which; the breeding house holds three and says
-      // nothing, because naming one of them would be naming the wrong one.
-      housingType: kinds.size === 1 ? [...kinds][0] : undefined,
       widthM: building.rectangle.widthM,
       lengthM: building.rectangle.lengthM,
       commissionedDay: rooms.reduce(
@@ -150,7 +147,17 @@ export function physicalFarmPlanOf(
         rooms[0]?.commissionedDay ?? housing.firstDay,
       ),
       rooms,
-    });
+    };
+    // A house of one kind says which; the breeding house holds three and says
+    // nothing, because naming one of them would be naming the wrong one.
+    //
+    // Left off the object rather than set to undefined. A plan is saved as
+    // Firestore data rather than as JSON, and a field explicitly set to
+    // undefined is not an absent field there — it is a value Firestore refuses,
+    // and it refuses it by throwing over the whole batch, so one such field
+    // would stop every plan in the workspace from being saved.
+    if (kinds.size === 1) written.housingType = [...kinds][0];
+    buildings.push(written);
   }
 
   return {

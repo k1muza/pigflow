@@ -197,6 +197,17 @@ function statusOf(state: PhysicalFarmState, penId: string): string {
   return state.pens[penId].status;
 }
 
+/** Every path in a stored object whose value is explicitly undefined. */
+function undefinedFields(value: unknown, prefix = "", into: string[] = []): string[] {
+  if (value === null || typeof value !== "object") return into;
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    const path = prefix ? prefix + "." + key : key;
+    if (child === undefined) into.push(path);
+    else undefinedFields(child, path, into);
+  }
+  return into;
+}
+
 /** Every animal standing in a pen, place-takers and sucklers alike. */
 function housedHead(state: PhysicalFarmState): number {
   return Object.values(state.pens).reduce(
@@ -759,6 +770,28 @@ describe("generating a farm from the plan", () => {
     const diff = planDiff(GENERATED, again);
     expect(diff.penIdsAdded).toEqual([]);
     expect(diff.penIdsRemoved).toEqual([]);
+  });
+
+  it("is storable: nothing in it is a field set to undefined", () => {
+    // Plans are written to Firestore as data rather than as JSON, and there a
+    // field explicitly set to undefined is not an absent field — it is a value
+    // Firestore refuses, by throwing over the whole batch. A generated farm
+    // travels in the plan, so one such field here would stop every plan in the
+    // workspace from being saved and say so only as "Not syncing".
+    expect(undefinedFields(GENERATED)).toEqual([]);
+    // And it survives the round trip through storage unchanged.
+    expect(JSON.parse(JSON.stringify(GENERATED))).toEqual(GENERATED);
+  });
+
+  it("loads back from storage as the farm it was saved as", () => {
+    const stored = JSON.parse(
+      JSON.stringify({ ...GENERATED_FROM, housing: { ...GENERATED_FROM.housing, physical: GENERATED } }),
+    );
+    const loaded = withConfigDefaults(stored);
+    if (loaded === null) throw new Error("A plan with generated housing would not load.");
+    expect(loaded.housing.physical).toEqual(GENERATED);
+    expect(housingIsStale(loaded)).toBe(false);
+    expect(planTotals(loaded.housing.physical).pens).toBe(planTotals(GENERATED).pens);
   });
 
   it("stamps what it was generated from, so staleness is a fact", () => {
