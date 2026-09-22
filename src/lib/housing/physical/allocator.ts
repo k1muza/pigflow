@@ -869,9 +869,11 @@ export class PhysicalHousingAllocator {
       const room = this.limitOf(pen, requirement.governingWeightKg) - pen.members.size;
       if (room > 0) {
         free += room;
-        // Space that exists and cannot be used, because the batch standing in
-        // the pen is not one this animal may join.
-        if (pen.members.size > 0 && !this.canTake(day, pen, requirement)) blockedByGroup += room;
+        // Space that exists and cannot be had: the batch standing in the pen is
+        // not one this animal may join, or the pen does not take its kind at
+        // all. Either way it is a place the house has and this animal has not,
+        // which is a different complaint from a house that is simply full.
+        if (!this.canTake(day, pen, requirement)) blockedByGroup += room;
       }
     }
     if (commissioned === 0) return { reason: "NO_COMMISSIONED_PEN", availableHeadCapacity: 0 };

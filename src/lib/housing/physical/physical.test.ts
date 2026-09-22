@@ -14,6 +14,7 @@ import {
   penOccupantsOnDay,
 } from "./history";
 import {
+  ALLOWED_STAGES,
   allPens,
   housingInputHash,
   housingIsStale,
@@ -96,22 +97,7 @@ function farm(...buildings: PhysicalBuilding[]): PhysicalFarmPlan {
   // The stages each pen accepts are the model's own, not the test's: a test
   // that wrote its own would be testing itself.
   const plan: PhysicalFarmPlan = { buildings };
-  for (const pen of allPens(plan)) {
-    pen.allowedStages = [
-      ...(
-        {
-          boar: ["boar"],
-          service_sow: ["open-sow"],
-          gestation: ["gestating-sow"],
-          farrowing: ["gestating-sow", "lactating-sow", "piglet"],
-          gilt: ["gilt"],
-          weaner: ["weaner"],
-          grower: ["grower"],
-          finisher: ["finisher"],
-        } as const
-      )[pen.housingType],
-    ];
-  }
+  for (const pen of allPens(plan)) pen.allowedStages = [...ALLOWED_STAGES[pen.housingType]];
   return plan;
 }
 
@@ -422,6 +408,29 @@ describe("what the biology does to the housing", () => {
     ]);
     expect(penOccupantsOnDay(result, "FARR-01-R01-P01", 41)).toEqual([]);
     expect(farmStateOnDay(plan, result, 41).pens["FARR-01-R01-P01"].occupiedHead).toBe(0);
+  });
+
+  it("moves a served sow out of the service house on the day she is scanned", () => {
+    const served = farm(building("BREED", [SERVICE]), building("GEST", [GESTATION]));
+    const result = run(
+      served,
+      (day) =>
+        day < 10
+          ? [{ ...sow("SOW-9", "gestating", { due: 115 }), expectedScanDay: 10 }]
+          : [sow("SOW-9", "gestating", { due: 115 })],
+      1,
+      14,
+    );
+
+    const move = result.movements.find((entry) => entry.reason === "GESTATION");
+    expect(move?.day).toBe(10);
+    expect(move?.from?.buildingId).toBe("BREED-01");
+    expect(move?.to?.buildingId).toBe("GEST-01");
+    // Until then she is in the service house, not in gestation.
+    expect(penOf(farmStateOnDay(served, result, 9), "SOW-9")).toBe("BREED-01-R01-P01");
+    expect(housingEventsFor(result, 10, 10)[0].label).toBe(
+      "Move SOW-9 into the gestation house once she is confirmed in pig · GEST-01-R01: P01",
+    );
   });
 
   it("leaves an orphaned litter in the pen it is standing in", () => {

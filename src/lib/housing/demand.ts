@@ -40,6 +40,15 @@ export type HousingAnimalSnapshot = {
   cohortId?: string;
   expectedFarrowDay?: number;
   expectedWeanDay?: number;
+  /**
+   * The day she is due to be scanned, or absent once she has been.
+   *
+   * What tells a served sow from a confirmed one, which is a housing question
+   * and not only a veterinary one: until the scan says she is in pig she stays
+   * where she was served. The farm's own date rather than a housing rule of
+   * thumb, so a unit that scans at three weeks moves her at three weeks.
+   */
+  expectedScanDay?: number;
   sex?: "male" | "female";
 };
 
@@ -98,6 +107,7 @@ export function housingSnapshots(day: number, herd: HousingHerdView): HousingAni
       sex: "female",
       expectedFarrowDay: sow.dueDay ?? undefined,
       expectedWeanDay: sow.weanDay ?? undefined,
+      expectedScanDay: sow.scanDay ?? undefined,
     });
   }
   for (const boar of herd.boars) {
@@ -190,6 +200,17 @@ function zeroHead(): Record<HousingType, number> {
  * her. Before that she is in gestation if she is carrying and in the service
  * house if she is not, which covers a sow waiting for her first heat after
  * weaning, one that returned, and one being served.
+ *
+ * A served sow is not a sow in pig. She stays in the service house until the
+ * scan says she is carrying, which is the manual's own practice and the farm's
+ * too: a sow that returns does it inside the first three weeks, and she returns
+ * where the boar is and where somebody is watching for it. Moving her into the
+ * gestation house on the day she is served would fill that house with sows who
+ * are not in pig, and empty the service house of the ones most worth watching.
+ *
+ * The date comes off her own card rather than out of a housing rule, so a unit
+ * that scans at three weeks moves her at three weeks and one that scans at five
+ * moves her at five.
  */
 function sowHousing(
   animal: HousingAnimalSnapshot,
@@ -202,6 +223,9 @@ function sowHousing(
     if (due !== undefined && day >= due - policy.farrowing.preFarrowDays) {
       return { type: "farrowing", reserved: true };
     }
+    // Carrying, but not yet confirmed to be: still in the service house.
+    const scan = animal.expectedScanDay;
+    if (scan !== undefined && day < scan) return { type: "service_sow", reserved: false };
     return { type: "gestation", reserved: false };
   }
   return { type: "service_sow", reserved: false };

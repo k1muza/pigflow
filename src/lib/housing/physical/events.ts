@@ -81,6 +81,7 @@ const VERB: Record<MovementReason, string> = {
 const BECAUSE: Partial<Record<MovementReason, string>> = {
   PRE_FARROW: " to farrow",
   WEANING: " at weaning",
+  GESTATION: " once she is confirmed in pig",
   SERVICE: " to be served",
 };
 

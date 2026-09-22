@@ -44,14 +44,21 @@ export type HousedStage =
 /**
  * Which occupants each kind of pen may hold.
  *
- * The farrowing pen is the only one that holds two kinds at once, and it holds
- * them for the reason a farrowing pen exists: the sow is moved in before she is
- * due — carrying, so still gestating — and her litter is born into the pen she
- * is standing in and stays in it until it is weaned off her.
+ * The two houses that hold more than one kind hold them for the same sort of
+ * reason: a sow's state changes while she is standing still.
+ *
+ * A farrowing pen takes her before she is due — carrying, so still gestating —
+ * and her litter is born into the pen she is standing in and stays in it until
+ * it is weaned off her.
+ *
+ * A service place takes her open, and goes on holding her after she is served
+ * and while she is carrying, until the scan says she is in pig. A sow that
+ * returns does it inside the first three weeks, and she returns where the boar
+ * is and where somebody is watching for it.
  */
 export const ALLOWED_STAGES: Record<HousingType, readonly HousedStage[]> = {
   boar: ["boar"],
-  service_sow: ["open-sow"],
+  service_sow: ["open-sow", "gestating-sow"],
   gestation: ["gestating-sow"],
   farrowing: ["gestating-sow", "lactating-sow", "piglet"],
   gilt: ["gilt"],
@@ -161,7 +168,7 @@ export type PhysicalLocation = {
  * layout, so that a saved plan can say which generator drew it rather than
  * being silently compared against rules it was never drawn under.
  */
-export const PHYSICAL_HOUSING_GENERATOR_VERSION = "1.0.0";
+export const PHYSICAL_HOUSING_GENERATOR_VERSION = "1.1.0";
 
 // ---------------------------------------------------------------- reading one
 
