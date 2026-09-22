@@ -1,6 +1,6 @@
 import type { PlannerConfig } from "../config";
 import type { GrowingPig, PigStage } from "./animals";
-import { expectedWeaningWeightKg } from "./lactation";
+import { expectedWeaningWeightKg, openingWeanerWeightKg } from "./lactation";
 import { hashUnit } from "./rng";
 
 /**
@@ -415,9 +415,10 @@ export class MortalityScheduler {
     const from =
       pig.stageEntryWeightKg ??
       (stage === "weaner"
-        ? // Where the weaner house actually starts on this plan: what the
-          // lactation ration will carry a litter to, not what the plan hoped for.
-          expectedWeaningWeightKg(this.config)
+        ? // Where the weaner house starts for an animal with no entry of its
+          // own, which is opening stock — so on the genotype's rate rather than
+          // on a lactation ration that was never fed to it.
+          openingWeanerWeightKg(this.config)
         : stage === "grower"
           ? growth.growerStartWeightKg
           : stage === "finisher"

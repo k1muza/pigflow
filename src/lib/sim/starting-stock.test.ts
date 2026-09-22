@@ -8,11 +8,12 @@ import {
   withConfigDefaults,
   type PlannerConfig,
   type StartingBoarEntry,
+  type StartingPigEntry,
   type StartingSowEntry,
   type StartingStockEntry,
   type StartingStockType,
 } from "../config";
-import { expectedWeaningWeightKg } from "./lactation";
+import { expectedWeaningWeightKg, openingWeanerWeightKg } from "./lactation";
 import { simulatePlan } from "../simulation";
 import {
   boarDepreciationAtDay,
@@ -75,7 +76,11 @@ function each(
   count: number,
   openingValue: number,
   ageDays: number,
-  history: Partial<Omit<StartingSowEntry, "type"> & Omit<StartingBoarEntry, "type">> = {},
+  history: Partial<
+    Omit<StartingSowEntry, "type"> &
+      Omit<StartingBoarEntry, "type"> &
+      Omit<StartingPigEntry, "type">
+  > = {},
 ): StartingStockEntry[] {
   return Array.from({ length: count }, (_, index) => {
     const animal = { id: `${type}-${openingValue}-${index}`, ageDays, openingValue };
@@ -91,7 +96,7 @@ function each(
     if (type === "boar") {
       return { ...animal, type, monthsInService: 0, ...history } satisfies StartingBoarEntry;
     }
-    return { ...animal, type } as StartingStockEntry;
+    return { ...animal, type, ...history } as StartingStockEntry;
   });
 }
 
@@ -159,6 +164,93 @@ describe("describing the opening stock", () => {
     const two = simulatePlan(after, { snapshots: false });
     expect(two.projection.summary).toEqual(one.projection.summary);
     expect(two.projection.accounting).toEqual(one.projection.accounting);
+  });
+});
+
+describe("an opening litter", () => {
+  /** A sow suckling a litter this old, with that many piglets on her. */
+  const suckling = (sucklers: number, ageDays: number) => [
+    ...each("sow", 1, 350, 400, {
+      reproductiveState: "lactating" as const,
+      daysSinceFarrowing: ageDays,
+    }),
+    ...each("piglet", sucklers, 20, ageDays),
+  ];
+
+  const pigletWeights = (config: PlannerConfig) =>
+    new Farm(config).pigs.filter((pig) => pig.stage === "piglet").map((pig) => pig.weightKg);
+
+  it("is fed off the sow it is actually on, not off an average one", () => {
+    // Milk is one ration divided between however many are drinking it. A sow
+    // with six on her is feeding each of them better than a sow with fourteen,
+    // and the plan knows the real number here — it was typed in — so using the
+    // average litter instead threw away the one fact it had.
+    const config = (sucklers: number) =>
+      empty(suckling(sucklers, 20), (c) => (c.feed.lactationKgDay = 5));
+
+    const few = pigletWeights(config(6));
+    const many = pigletWeights(config(14));
+    expect(few).toHaveLength(6);
+    expect(many).toHaveLength(14);
+    expect(few[0]).toBeGreaterThan(many[0]);
+  });
+
+  it("weighs the same however many sows are standing beside it", () => {
+    // The litter that matters is the one on the sow, not the herd average: two
+    // sows with six each are two litters of six.
+    const one = pigletWeights(empty(suckling(6, 20), (c) => (c.feed.lactationKgDay = 5)));
+    const two = pigletWeights(
+      empty(
+        [
+          ...each("sow", 2, 350, 400, {
+            reproductiveState: "lactating" as const,
+            daysSinceFarrowing: 20,
+          }),
+          ...each("piglet", 12, 20, 20),
+        ],
+        (c) => (c.feed.lactationKgDay = 5),
+      ),
+    );
+    expect(two).toHaveLength(12);
+    for (const weightKg of two) expect(weightKg).toBeCloseTo(one[0], 9);
+  });
+});
+
+describe("what the plan already owns on day zero", () => {
+  /** Every growing pig the plan opens with, at the weight it opens at. */
+  const opened = (config: PlannerConfig) =>
+    new Farm(config).pigs.filter((pig) => pig.alive && pig.stage !== "piglet");
+
+  it("does not reweigh an existing weaner when the sow ration changes", () => {
+    // Backwards causality, and the reason this is not a detail: a 45-day-old
+    // weaner standing in the house on day zero was weaned by whatever fed it,
+    // weeks before the plan begins. Deciding to feed the sows more from Monday
+    // cannot reach back and make it heavier — and if it could, the farm would
+    // sell the difference for nothing, which is the whole defect this branch
+    // exists to remove.
+    const thin = empty(each("weaner", 6, 40, 45), (c) => (c.feed.lactationKgDay = 4.5));
+    const generous = empty(each("weaner", 6, 40, 45), (c) => (c.feed.lactationKgDay = 12));
+
+    const weights = (config: PlannerConfig) => opened(config).map((pig) => pig.weightKg);
+    expect(weights(thin)).toEqual(weights(generous));
+    expect(weights(thin).length).toBe(6);
+    // And it is the genotype's own rate that placed them, fully fed, which is
+    // all a plan can say about a pig it did not rear.
+    expect(weights(thin)[0]).toBeGreaterThan(openingWeanerWeightKg(thin));
+  });
+
+  it("believes the weighbridge over the arithmetic", () => {
+    const guessed = empty(each("grower", 1, 60, 90));
+    const weighed = empty(each("grower", 1, 60, 90, { weightKg: 41.5 }));
+
+    expect(opened(weighed)[0].weightKg).toBe(41.5);
+    expect(opened(guessed)[0].weightKg).not.toBe(41.5);
+    // A weighed pig is the farmer's fact, so nothing in the plan moves it.
+    const heavierRation = empty(each("grower", 1, 60, 90, { weightKg: 41.5 }), (c) => {
+      c.growth.weanerDailyGainKg = 0.55;
+      c.feed.lactationKgDay = 12;
+    });
+    expect(opened(heavierRation)[0].weightKg).toBe(41.5);
   });
 });
 

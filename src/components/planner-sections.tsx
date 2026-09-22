@@ -57,6 +57,7 @@ import {
   expectedGiltServiceAgeDays,
   openingCounts,
   type StartingBoarEntry,
+  type StartingPigEntry,
   type StartingSowEntry,
   type StartingStockEntry,
   type StartingStockType,
@@ -2045,7 +2046,9 @@ const CELL_SELECT = "h-9 rounded-md border-hairline bg-plane px-2 hover:border-r
  * shape: a box only ever appears on the kind whose field it edits.
  */
 type StartingStockPatch = Partial<
-  Omit<StartingSowEntry, "type"> & Omit<StartingBoarEntry, "type">
+  Omit<StartingSowEntry, "type"> &
+    Omit<StartingBoarEntry, "type"> &
+    Omit<StartingPigEntry, "type">
 >;
 
 /** A box on the history line, narrow and captioned. */
@@ -2080,6 +2083,27 @@ function StartingStockHistory({
 }) {
   const label = (what: string) => "Animal " + (index + 1) + " " + what;
   const line = "mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3";
+
+  if (entry.type !== "sow" && entry.type !== "boar") {
+    return (
+      <div className={line}>
+        <HistoryBox label="Weight">
+          <input
+            type="number"
+            min={0}
+            max={400}
+            step={0.5}
+            value={entry.weightKg ?? ""}
+            placeholder="from age"
+            aria-label={label("weight")}
+            title="What it weighs today, if it has been weighed. Left empty, the plan works it out from the animal's age and this plan's growth rates — which is a guess about a pig that was reared before the plan began, and the scale is not."
+            onChange={(event) => onPatch(index, { weightKg: optionalNumber(event.target.value) })}
+            className={CELL_NUMBER + " w-20"}
+          />
+        </HistoryBox>
+      </div>
+    );
+  }
 
   if (entry.type === "boar") {
     return (

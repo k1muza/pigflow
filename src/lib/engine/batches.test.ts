@@ -213,7 +213,10 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
     const heaviest = Math.max(...live.map((pig) => pig.weightKg));
     expect(heaviest).toBeLessThanOrEqual(input.growth.matureWeightKg);
     expect(heaviest).toBeGreaterThan(input.growth.saleWeightKg);
-  });
+    // Three minutes of farm. One finishing place over a thousand days is a herd
+    // that never leaves, so the standing head — and the work of a day — grows
+    // for the whole run. It is the slowest case in the suite by design.
+  }, 300_000);
 
   it("leaves a plan that sells on time exactly where it was", () => {
     // The curve is normalised to 1 at sale weight, so it describes what happens

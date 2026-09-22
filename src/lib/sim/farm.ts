@@ -61,8 +61,8 @@ import { seedStartingStock, type StartingStockHost } from "./starting-stock";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
 import {
   expectedPigletWeightAtAgeKg,
-  expectedWeaningWeightKg,
   litterGrowthAccount,
+  openingWeanerWeightKg,
 } from "./lactation";
 import { MortalityScheduler } from "./mortality";
 import { sowRosterOf, stockRosterOf } from "./roster";
@@ -1081,10 +1081,10 @@ export class Farm {
   private seedGrowingStock(stage: Exclude<PigStage, "piglet" | "gilt">, count: number): void {
     if (count <= 0) return;
     const { growth, reproduction } = this.config;
-    // Where a weaner starts is where this plan's own lactation ration leaves
-    // one, not the weaner the plan hopes for: opening stock that never existed
-    // still has to be the stock this farm produces.
-    const weanedAtKg = expectedWeaningWeightKg(this.config);
+    // Where a weaner starts, for an animal that was weaned before the plan
+    // began: its genotype's own rate, and not this plan's lactation ration,
+    // which was never fed to it. See `lib/sim/lactation`.
+    const weanedAtKg = openingWeanerWeightKg(this.config);
     const startWeight =
       stage === "weaner"
         ? weanedAtKg

@@ -109,12 +109,28 @@ const startingAnimal = {
 /**
  * A growing pig or a maiden gilt the farm already has.
  *
- * Nothing beyond the three: a pig's age places it in its stage and prices its
- * keep, and it has no working history to record.
+ * Little beyond the three: a pig's age places it in its stage and prices its
+ * keep, and it has no working history to record. What it weighs is asked for
+ * where the farmer knows it, because it is the one fact about an animal on the
+ * farm today that the plan cannot work out and the weighbridge can.
  */
 const startingPigSchema = z.object({
   ...startingAnimal,
   type: z.enum(STARTING_PIG_TYPES),
+  /**
+   * What it weighs today, if it has been weighed.
+   *
+   * Left out, the plan infers it from the age: how far up its stage an animal
+   * growing at this plan's rates would have come by now. That inference has to
+   * start somewhere, and the thing it must not start from is this plan's own
+   * lactation ration — a pig standing in the weaner house on day zero was
+   * weaned by whatever fed it, weeks before the plan begins, and raising the
+   * sow ration for the litters to come cannot reach back and make it heavier.
+   * So the assumption is the genotype's own rate, fully fed, which is what a
+   * farm with nothing else to go on would say. A weighbridge beats it, which is
+   * why this is here.
+   */
+  weightKg: z.number().min(0.5).max(400).optional(),
 });
 
 /**

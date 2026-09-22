@@ -9,7 +9,7 @@ import { readBalances, valueFoundingStock } from "../sim/accounting";
 import { Boar, GrowingPig, Sow, type PigStage } from "../sim/animals";
 import {
   expectedPigletWeightAtAgeKg,
-  expectedWeaningWeightKg,
+  openingWeanerWeightKg,
 } from "../sim/lactation";
 import { seedStartingStock, type StartingStockHost } from "../sim/starting-stock";
 import { roomForStage } from "./housing";
@@ -239,10 +239,10 @@ function seedGrowingStock(
 ): void {
   if (count <= 0) return;
   const { growth, reproduction } = world.config;
-  // Where a weaner starts is where this plan's own lactation ration leaves one,
-  // not the weaner the plan hopes for: opening stock that never existed still
-  // has to be the stock this farm produces.
-  const weanedAtKg = expectedWeaningWeightKg(world.config);
+  // Where a weaner starts, for an animal that was weaned before the plan began:
+  // its genotype's own rate, and not this plan's lactation ration, which was
+  // never fed to it. See `lib/sim/lactation`.
+  const weanedAtKg = openingWeanerWeightKg(world.config);
   const startWeight =
     stage === "weaner"
       ? weanedAtKg
