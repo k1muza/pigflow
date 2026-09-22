@@ -7,6 +7,7 @@ import {
   ARC_HOUSING_POLICY,
   HousingPlanner,
   housingEventsByDay,
+  type HousingPeriodEvent,
   housingEventsFor,
   housingSnapshots,
   PhysicalHousingAllocator,
@@ -31,6 +32,7 @@ import {
   Farm,
   horizonDay,
   timelineOf,
+  type FarmPeriodEvent,
   type DayRecord,
   type FarmEvent,
   type FarmSnapshot,
@@ -459,7 +461,7 @@ function withHousingEvents(
 
   const days = timeline.days.map((day) => {
     const events = byDay.get(day.day);
-    return events === undefined ? day : { ...day, events: [...day.events, ...events] };
+    return events === undefined ? day : { ...day, events: merge(day.events, events) };
   });
 
   const dayOfDate = new Map(timeline.days.map((day) => [day.date, day.day]));
@@ -468,10 +470,35 @@ function withHousingEvents(
     const through = dayOfDate.get(month.endDate);
     if (from === undefined || through === undefined) return month;
     const events = housingEventsFor(housing, from, through);
-    return events.length === 0 ? month : { ...month, events: [...month.events, ...events] };
+    return events.length === 0 ? month : { ...month, events: merge(month.events, events) };
   });
 
   return { ...timeline, days, months };
+}
+
+/**
+ * The farm's own lines and the housing's, with nothing said twice.
+ *
+ * "3 weaners become growers" and "move 3 head into the grower house,
+ * GROW-01-R01: P02" are the same fact, and the second is the one worth reading:
+ * it says which pen they went into. So where a housing line offers to stand in
+ * for a plain one, the plain one goes — and a day whose grower house was full
+ * keeps its own line, because then nothing moved and there is nothing to say it
+ * instead.
+ */
+function merge(
+  plain: readonly FarmPeriodEvent[],
+  housing: readonly HousingPeriodEvent[],
+): FarmPeriodEvent[] {
+  const superseded = new Set<string>();
+  for (const event of housing) {
+    for (const key of event.replaces ?? []) superseded.add(key);
+  }
+  const kept = plain.filter((event) => event.key === undefined || !superseded.has(event.key));
+  // `replaces` is how the two lists were reconciled and is no business of
+  // anything downstream, so it is left behind here.
+  const added = housing.map(({ type, label, count }) => ({ type, label, count }));
+  return [...kept, ...added];
 }
 
 /**

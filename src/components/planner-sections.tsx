@@ -222,6 +222,7 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
   purchase: "bg-warning-soft text-ink-muted",
   feed: "bg-warning-soft text-ink-muted",
   housing: "bg-plane text-ink-muted",
+  "housing-pens": "bg-plane text-ink-muted",
   "housing-shortage": "bg-critical-soft text-critical",
 };
 
@@ -272,6 +273,7 @@ const EVENT_NAMES: Record<FarmPeriodEvent["type"], string> = {
   purchase: "Buy",
   feed: "Feed",
   housing: "Move",
+  "housing-pens": "Pens",
   "housing-shortage": "No room",
 };
 

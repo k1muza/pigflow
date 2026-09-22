@@ -168,9 +168,22 @@ export type FarmPeriodEvent = {
      * it is built. See `housingEventsFor`.
      */
     | "housing"
+    /** A pen coming into use, going on to wash, or being built. */
+    | "housing-pens"
     | "housing-shortage";
   label: string;
   count: number;
+  /**
+   * A stable name for what this line is about, where something else may have a
+   * better way of saying it.
+   *
+   * "3 weaners become growers" and "move 3 head into the grower house, pen 2"
+   * are the same fact, and the second is the more useful of the two — so where
+   * the housing can say it, the plain line stands down. It can only do that if
+   * it can be recognised by something other than its wording. Absent on the
+   * lines nothing supersedes, which is most of them.
+   */
+  key?: "moved-to-grower" | "moved-to-finisher";
 };
 
 /**
@@ -269,12 +282,14 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   const toGrower = sum((day) => day.movedToGrower);
   push({
     type: "growth",
+    key: "moved-to-grower",
     label: `${toGrower} ${toGrower === 1 ? "weaner becomes a grower" : "weaners become growers"}`,
     count: toGrower,
   });
   const toFinisher = sum((day) => day.movedToFinisher);
   push({
     type: "growth",
+    key: "moved-to-finisher",
     label: `${toFinisher} ${toFinisher === 1 ? "grower becomes a finisher" : "growers become finishers"}`,
     count: toFinisher,
   });

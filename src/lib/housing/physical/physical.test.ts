@@ -683,13 +683,18 @@ describe("the housing as a day's work", () => {
 
   it("says what moved, in the words a work list is written in", () => {
     expect(housingEventsFor(result, 13, 13)).toEqual([
-      { type: "housing", label: "Set down 1 head into the farrowing house to farrow", count: 1 },
+      {
+        type: "housing",
+        label: "Set down 1 head into the farrowing house to farrow · FARR-01-R01: P01",
+        count: 1,
+      },
     ]);
-    const weaning = housingEventsFor(result, 40, 40);
-    expect(weaning.map((entry) => entry.label)).toContain(
-      "Move 9 head into the weaner house at weaning",
-    );
-    expect(weaning.map((entry) => entry.label)).toContain("Wash down 1 pen in the farrowing house");
+    // The pen a batch went into and the pen it left behind to be washed, on the
+    // one morning both happened.
+    expect(housingEventsFor(result, 40, 40).map((entry) => entry.label)).toEqual([
+      "Move 9 head into the weaner house at weaning · WEAN-01-R01: P01",
+      "Wash down 1 pen in the farrowing house · FARR-01-R01: P01",
+    ]);
   });
 
   it("says out loud when there was nowhere to put them", () => {
@@ -702,6 +707,40 @@ describe("the housing as a day's work", () => {
         count: 1,
       },
     ]);
+  });
+
+  it("names the pens on a day, and counts them over a month", () => {
+    const [weaning] = housingEventsFor(result, 40, 40).filter((entry) =>
+      entry.label.includes("weaner house"),
+    );
+    expect(weaning.label).toBe(
+      "Move 9 head into the weaner house at weaning · WEAN-01-R01: P01",
+    );
+
+    // A month is not read to find a gate, and thirty days of pen ids is a
+    // paragraph where a line was wanted.
+    const month = housingEventsFor(result, 1, 45).filter((entry) =>
+      entry.label.includes("weaner house"),
+    );
+    expect(month[0].label).toBe("Move 9 head into the weaner house at weaning");
+  });
+
+  it("offers to say what the plain stage-change line says, and only then", () => {
+    const upstairs = farm(building("WEAN", [WEANER]), building("GROW", [GROWER]));
+    const moved = run(
+      upstairs,
+      (day) => batch(4, (index) => pig("P-" + index, day < 5 ? "weaner" : "grower", "W1")),
+      1,
+      8,
+    );
+    const move = housingEventsFor(moved, 5, 5).find((entry) =>
+      entry.label.includes("grower house"),
+    );
+    expect(move?.replaces).toEqual(["moved-to-grower"]);
+
+    // A sow set down to farrow is not what "3 weaners become growers" was
+    // saying, so it stands in for nothing.
+    expect(housingEventsFor(result, 13, 13)[0].replaces).toBeUndefined();
   });
 
   it("rolls a stretch of days into one line rather than thirty", () => {
@@ -839,6 +878,32 @@ describe("generating a farm from the plan", () => {
       entry.events.some((event) => event.type === "housing"),
     );
     expect(month).toBeDefined();
+
+    // The pens are named where a person went looking for a pen.
+    const named = timeline.days.some((entry) =>
+      entry.events.some((event) => event.type === "housing" && / · [A-Z]+-\d+-R\d+: /.test(event.label)),
+    );
+    expect(named).toBe(true);
+
+    // And where a move says a pig went up a house, the farm's own line about it
+    // has stood down rather than saying the same thing again in fewer words.
+    const movedUp = timeline.days.filter((entry) =>
+      entry.events.some(
+        (event) => event.type === "housing" && event.label.includes("into the grower house"),
+      ),
+    );
+    expect(movedUp.length).toBeGreaterThan(0);
+    for (const entry of movedUp) {
+      expect(entry.events.some((event) => event.label.includes("become growers"))).toBe(false);
+    }
+  });
+
+  it("keeps the plain stage-change line on a plan with no pens to move between", () => {
+    const timeline = simulatePlan(GENERATED_FROM, { snapshots: false }).timeline;
+    const grown = timeline.days.filter((entry) =>
+      entry.events.some((event) => event.type === "growth"),
+    );
+    expect(grown.length).toBeGreaterThan(0);
   });
 
   it("holds the herd it was generated for, with nobody left outside", () => {
