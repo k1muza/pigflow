@@ -385,11 +385,22 @@ export class MortalityScheduler {
   }
 
 /**
-   * Where in a stage this pig stands: how much of it is behind it and how much is
-   * still to run. Read off its own growth rather than the plan's average, so a
-   * thrifty pig — which is through the stage sooner — carries proportionately
-   * less of it, and so starting stock placed partway through a stage is charged
-   * and timed on the part of it still to come.
+   * Where in a stage this pig stands: how much of it is behind it and how much
+   * is still to run. Read off its own growth rather than the plan's average, so
+   * a thrifty pig — which is through the stage sooner — has proportionately less
+   * of it left to be killed in, and so starting stock placed partway through a
+   * stage is charged and timed on the part of it still to come.
+   *
+   * Behind it means behind it *here*. A pig that walked into this stage on the
+   * farm has stood in it since the day it walked in, whatever it weighed when it
+   * did — {@link GrowingPig.stageEntryWeightKg} is that weight, and on the day
+   * of the move it makes the elapsed part nothing. Measuring from the plan's
+   * stage floor instead credited a well-fed litter with time it had spent
+   * somewhere else entirely: weaned at 11 kg against a plan expecting 8, a
+   * piglet arrived in the weaner house already a fortnight through it on paper
+   * and was charged less than the whole of the weaner stage's mortality for the
+   * privilege of having been fed. What being heavy actually buys it is a shorter
+   * stay, which is the remaining half of this, and nothing else.
    */
   private spanFor(pig: GrowingPig, stage: PigStage, day: number): StageSpan {
     const { growth, herd, reproduction } = this.config;
@@ -397,8 +408,13 @@ export class MortalityScheduler {
       const age = Math.max(0, pig.ageDays(day));
       return { elapsed: age, remaining: Math.max(0, reproduction.weaningAgeDays - age) };
     }
+    // Opening stock is the one kind of pig with no entry weight: it was placed
+    // in the middle of a stage rather than grown into one, so where it stands is
+    // read off the plan's floor for that stage, which is what it did live
+    // through before day one.
     const from =
-      stage === "weaner"
+      pig.stageEntryWeightKg ??
+      (stage === "weaner"
         ? // Where the weaner house actually starts on this plan: what the
           // lactation ration will carry a litter to, not what the plan hoped for.
           expectedWeaningWeightKg(this.config)
@@ -406,7 +422,7 @@ export class MortalityScheduler {
           ? growth.growerStartWeightKg
           : stage === "finisher"
             ? growth.finisherStartWeightKg
-            : growth.saleWeightKg;
+            : growth.saleWeightKg);
     const to =
       stage === "weaner"
         ? growth.growerStartWeightKg

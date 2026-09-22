@@ -227,6 +227,23 @@ export class GrowingPig extends Animal {
   /** Set once this pig has been looked over for breeding, kept or not. */
   assessedForBreeding = false;
   /**
+   * What this pig weighed when it walked into the stage it is standing in, or
+   * null for opening stock, which was placed in the middle of a stage rather
+   * than grown into it.
+   *
+   * It is what says how far through a stage a pig is. Measuring that from the
+   * plan's stage floor instead read a heavy weaner as a pig that had already
+   * served part of its time in the weaner house: a litter weaned at 11 kg
+   * against a plan expecting 8 was credited with a fortnight it had spent on
+   * its dam, and charged less than the whole of the weaner stage's mortality
+   * for it. A pig that was suckling yesterday has spent no time in the weaner
+   * house, however heavy it is — it simply has less of the house to get
+   * through. Opening stock is the real version of the other case, and keeps it:
+   * it did live somewhere before day one, and is not charged for the part of
+   * the stage it lived through there.
+   */
+  stageEntryWeightKg: number | null = null;
+  /**
    * The day this pig first qualified to move up a stage and was refused a place
    * in the room it was moving into, or null when it is not waiting on one. A
    * batch that is held does not stop growing — it goes on filling the room it is
@@ -458,11 +475,11 @@ export class GrowingPig extends Animal {
     this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config));
     if (this.stage === "piglet" || this.stage === "gilt") return;
     if (this.destination === "breeding" && this.weightKg >= config.growth.saleWeightKg) {
-      this.stage = "gilt";
+      this.moveToStage("gilt");
       return;
     }
-    if (this.weightKg >= config.growth.finisherStartWeightKg) this.stage = "finisher";
-    else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
+    if (this.weightKg >= config.growth.finisherStartWeightKg) this.moveToStage("finisher");
+    else if (this.weightKg >= config.growth.growerStartWeightKg) this.moveToStage("grower");
   }
 
   /**
@@ -496,6 +513,20 @@ export class GrowingPig extends Animal {
   }
 
   /**
+   * Moves the pig into a stage and remembers the weight it walked in at.
+   *
+   * Every stage change in either engine goes through here, because the entry
+   * weight is the only record of how much of a stage a pig has actually stood
+   * through — see {@link stageEntryWeightKg}. Setting the stage without it
+   * leaves the mortality scheduler reading the pig's position off the plan's
+   * average instead of off the pig.
+   */
+  moveToStage(stage: PigStage): void {
+    this.stage = stage;
+    this.stageEntryWeightKg = this.weightKg;
+  }
+
+  /**
    * Takes the pig off the sow. The 1.x rule puts a heavy weaner straight into
    * whichever house its weight belongs in; the 2.0 engine lands every weaner in
    * the weaner house and lets the housing decide what happens next, so it asks
@@ -503,8 +534,8 @@ export class GrowingPig extends Animal {
    */
   wean(day: number, config: PlannerConfig): void {
     this.weanIntoNursery(day, config);
-    if (this.weightKg >= config.growth.finisherStartWeightKg) this.stage = "finisher";
-    else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
+    if (this.weightKg >= config.growth.finisherStartWeightKg) this.moveToStage("finisher");
+    else if (this.weightKg >= config.growth.growerStartWeightKg) this.moveToStage("grower");
   }
 
   /**
@@ -523,7 +554,7 @@ export class GrowingPig extends Animal {
   weanIntoNursery(day: number, config: PlannerConfig): void {
     void config;
     this.weanedOnDay = day;
-    this.stage = "weaner";
+    this.moveToStage("weaner");
   }
 
   /**
