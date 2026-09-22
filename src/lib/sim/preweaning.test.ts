@@ -574,6 +574,8 @@ describe("a plan saved before any of this", () => {
     const growth = { ...(stored.growth as Record<string, unknown>) };
     delete growth.pigletDailyGainKg;
     delete growth.referenceWeaningAgeDays;
+    delete growth.referenceWeaningWeightKg;
+    growth.weaningWeightKg = 9;
     stored.growth = growth;
     stored.reproduction = { ...(stored.reproduction as Record<string, unknown>), weaningAgeDays: 35 };
 
@@ -581,10 +583,28 @@ describe("a plan saved before any of this", () => {
     // The old rate was quoted at the age that plan weaned at, because that is
     // the only age it had.
     expect(loaded?.growth.referenceWeaningAgeDays).toBe(35);
-    expect(potentialPigletGainKg(loaded!)).toBeCloseTo(
-      (loaded!.growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / 35,
-      9,
-    );
+    expect(potentialPigletGainKg(loaded!)).toBeCloseTo((9 - BIRTH_WEIGHT_KG) / 35, 9);
+  });
+
+  it("does not take a rate off a target a plan already knew was a target", () => {
+    // The hole the old name could have left open. A plan written since the
+    // weaning weight became a target has the new name in it, and taking a
+    // growth rate off that weight would put the target back in the simulation
+    // by the side door: inert in the plan on the screen and live in the one on
+    // the disk, so that raising it grew the litters after all.
+    const saved = (referenceWeaningWeightKg: number) => {
+      const stored = cloneDefaultConfig() as unknown as Record<string, unknown>;
+      const growth = { ...(stored.growth as Record<string, unknown>) };
+      delete growth.pigletDailyGainKg;
+      growth.referenceWeaningWeightKg = referenceWeaningWeightKg;
+      stored.growth = growth;
+      return withConfigDefaults(stored)!;
+    };
+
+    const modest = saved(7);
+    const ambitious = saved(12);
+    expect(potentialPigletGainKg(ambitious)).toBe(potentialPigletGainKg(modest));
+    expect(expectedWeaningWeightKg(ambitious)).toBe(expectedWeaningWeightKg(modest));
   });
 
   it("leaves the rate alone on a plan that has one", () => {

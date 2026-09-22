@@ -1387,16 +1387,28 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
     merged.growth.referenceWeaningAgeDays = storedWeaningAge;
   }
 
-  // And the rate itself. A saved plan has no view on how fast a suckler grows,
-  // because until now nothing asked it: growth was the reference weight over the
-  // weaning age, and that is exactly the rate its owner's figures were built on.
-  // So it is carried across rather than replaced by the starter assumption, and
-  // the plan predicts what it predicted yesterday. Clamped because the field has
-  // a range and an old plan weaning very late off a very light reference can
-  // imply a rate outside it, which would otherwise throw the whole plan out.
-  if (storedGrowth !== undefined && storedGrowth.pigletDailyGainKg === undefined) {
+  // And the rate itself. A plan written under the old model has no view on how
+  // fast a suckler grows, because nothing asked it: growth was the weaning
+  // weight over the weaning age, and that is exactly the rate its owner's
+  // figures were built on. So it is carried across rather than replaced by the
+  // starter assumption, and the plan predicts what it predicted yesterday.
+  //
+  // Only for a plan written under the old model, which is what the old name on
+  // its own says. A plan carrying the new name was written since the weaning
+  // weight became a target, and deriving a rate from a target is how the target
+  // gets back into the simulation by the side door: the weight would be inert
+  // in the plan the farm is editing and live in the one on the disk, so raising
+  // it would grow the litters after all — the whole defect this replaced, back
+  // again and harder to see. Such a plan takes the starter rate, which is what
+  // the field it never had would have given it.
+  //
+  // Clamped because the field has a range, and an old plan weaning very late
+  // off a very light weaner can imply a rate outside it.
+  const writtenBeforeTheRate =
+    typeof legacyWeaning === "number" && storedGrowth?.referenceWeaningWeightKg === undefined;
+  if (writtenBeforeTheRate && storedGrowth?.pigletDailyGainKg === undefined) {
     const days = Math.max(1, Number(merged.growth.referenceWeaningAgeDays));
-    const implied = (Number(merged.growth.referenceWeaningWeightKg) - BIRTH_WEIGHT_KG) / days;
+    const implied = (legacyWeaning - BIRTH_WEIGHT_KG) / days;
     if (Number.isFinite(implied)) {
       merged.growth.pigletDailyGainKg = Math.min(0.6, Math.max(0.05, implied));
     }
