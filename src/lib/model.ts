@@ -9,6 +9,7 @@ import {
 } from "./accounts";
 import { ESTRUS_CYCLE_DAYS, openingCounts, type PlannerConfig } from "./config";
 import { growoutFeedConversion } from "./growth-curve";
+import { expectedWeaningWeightKg } from "./sim/lactation";
 import {
   netWorthAtCost,
   ZERO_BALANCES,
@@ -344,10 +345,10 @@ export function getModelMetrics(config: PlannerConfig) {
     weanedPerLitter,
     pigsWeanedPerSowYear: littersPerSowYear * weanedPerLitter,
     vaccinationCostPerPig,
-    feedConversion: growoutFeedConversion(config.growth),
+    feedConversion: growoutFeedConversion(config.growth, expectedWeaningWeightKg(config)),
     daysToSaleWeight:
       config.reproduction.weaningAgeDays +
-      (config.growth.growerStartWeightKg - config.growth.referenceWeaningWeightKg) /
+      (config.growth.growerStartWeightKg - expectedWeaningWeightKg(config)) /
         config.growth.weanerDailyGainKg +
       (config.growth.finisherStartWeightKg - config.growth.growerStartWeightKg) /
         config.growth.growerDailyGainKg +
@@ -760,7 +761,8 @@ export function buildWarnings(
         "Review farrowing supervision, colostrum intake, crushing risk, temperature and herd health with your veterinarian.",
     });
   }
-  const finisherFcr = growoutFeedConversion(config.growth).finisherFcr;
+  const finisherFcr = growoutFeedConversion(config.growth, expectedWeaningWeightKg(config))
+    .finisherFcr;
   if (finisherFcr < 2.2 || finisherFcr > 4) {
     warnings.push({
       level: "attention",

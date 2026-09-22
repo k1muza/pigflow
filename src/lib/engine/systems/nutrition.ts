@@ -96,21 +96,21 @@ export function runNutrition(world: World): void {
 
   // ---- what the herd asks for today ---------------------------------------
   const demand = zeroStores();
-  const breeders: { animal: { costs: GrowingPig["costs"] }; store: StoreId; kg: number }[] = [];
+  const breeders: {
+    animal: { costs: GrowingPig["costs"] };
+    store: StoreId;
+    kg: number;
+    /** Milking, so what she is actually handed is the weaner's side of the bill. */
+    lactating: boolean;
+  }[] = [];
   for (const sow of world.sows) {
     const { kg, ration } = sow.dailyFeed(config, day);
-    breeders.push({ animal: sow, store: ration, kg });
+    breeders.push({ animal: sow, store: ration, kg, lactating: sow.state === "lactating" });
     demand[ration] += kg;
-    // What the milking half of the herd is asking for, kept apart from the
-    // gestation ration so a plan can say what its weaner actually cost to make.
-    if (sow.state === "lactating") {
-      record.lactationFeedKg += kg;
-      world.lifetime.lactationFeedKg += kg;
-    }
   }
   for (const boar of world.boars) {
     const { kg, ration } = boar.dailyFeed(config);
-    breeders.push({ animal: boar, store: ration, kg });
+    breeders.push({ animal: boar, store: ration, kg, lactating: false });
     demand[ration] += kg;
   }
   for (const pig of world.pigs) {
@@ -178,9 +178,18 @@ export function runNutrition(world: World): void {
     return { kg: out.kg, cost: out.kg * out.costPerKg, haulage: out.kg * haulagePerKg };
   };
 
-  for (const { animal, store, kg } of breeders) {
+  for (const { animal, store, kg, lactating } of breeders) {
     const out = issue(store, kg * served[store]);
     sowFeedKg += out.kg;
+    // What the milking half of the herd was actually handed, kept apart from
+    // the gestation ration so a plan can say what its weaner cost to make. Taken
+    // off the issue and not off the demand: on a day the sow bin ran short the
+    // litter was milked on what was in it, and a diagnostic that reported the
+    // full ration would explain a light weaner by pointing at feed nobody fed.
+    if (lactating) {
+      record.lactationFeedKg += out.kg;
+      world.lifetime.lactationFeedKg += out.kg;
+    }
     if (store !== "gas" && store !== "bedding") {
       record.feedByRation[store] += out.kg;
       feedSpend[store] += out.cost;

@@ -6,8 +6,14 @@ import {
   withConfigDefaults,
   type PlannerConfig,
 } from "../config";
+import { runEngine } from "../engine/engine";
 import { simulatePlan } from "../simulation";
-import { lactationDemandOf, pigletSupportFactor, potentialPigletGainKg } from "./lactation";
+import {
+  expectedWeaningWeightKg,
+  lactationDemandOf,
+  pigletSupportFactor,
+  potentialPigletGainKg,
+} from "./lactation";
 
 /**
  * What a heavier weaner costs.
@@ -245,6 +251,87 @@ describe("a heavier weaner has to be fed for", () => {
     const first = run(config);
     const again = run(config);
     expect(again).toEqual(first);
+  }, 120_000);
+});
+
+// ------------------------------------------------------------ the diagnostic
+
+describe("what the plan says its weaner cost", () => {
+  it("counts the feed the sows were handed, not the feed they were owed", () => {
+    // A farm that cannot get the loads in. On the days its sow bin runs dry the
+    // lactating sows are milked on what was in it, and the weaning summary has
+    // to say so — a diagnostic that reported the full ration would explain a
+    // light weaner by pointing at feed nobody ever fed.
+    const config = plan((c) => {
+      c.project.engine = "2.0";
+      c.stock.sows = 20;
+      c.herd.maxSows = 20;
+      c.herd.startMode = "staggered";
+      c.feed.procurementMode = "operational";
+      c.feed.operationalPolicy = "balanced-load";
+      c.feed.truckCapacityKg = 200;
+      c.feed.maxSupplyTripsPerDay = 1;
+    });
+    // Read off the engine rather than the projection, because the shortfall is
+    // a 2.0 reading and the shared day record does not carry it.
+    const run = runEngine(config, 360);
+
+    let shortfallKg = 0;
+    let sowFeedKg = 0;
+    for (const day of run.history) {
+      shortfallKg += day.feedShortfallKg;
+      sowFeedKg += day.feedByRation.sow;
+    }
+
+    // The arm is only worth anything if the farm really did go short.
+    expect(shortfallKg).toBeGreaterThan(0);
+    expect(run.lifetime.lactationFeedKg).toBeGreaterThan(0);
+    // Lactation feed comes out of the sow bin, so it cannot be more than what
+    // came out of the sow bin. Recorded off the demand rather than the issue,
+    // this is exactly the assertion that breaks.
+    expect(run.lifetime.lactationFeedKg).toBeLessThanOrEqual(sowFeedKg + 1e-6);
+  }, 240_000);
+
+  it("reports the weaner it actually produced, and what went into it", () => {
+    const simulation = simulatePlan(plan(), { snapshots: false });
+    const { weaning } = simulation.projection.summary;
+    const config = plan();
+
+    expect(weaning.ageDays).toBe(config.reproduction.weaningAgeDays);
+    expect(weaning.referenceWeightKg).toBe(config.growth.referenceWeaningWeightKg);
+    expect(weaning.averageWeightKg).toBeGreaterThan(BIRTH_WEIGHT_KG);
+    // The whole point of the field: it is measured, so it is allowed to disagree
+    // with the plan — and on the default ration it does.
+    expect(weaning.averageWeightKg).toBeLessThan(weaning.referenceWeightKg);
+    expect(weaning.dailyGainKg).toBeCloseTo(
+      (weaning.averageWeightKg - BIRTH_WEIGHT_KG) / weaning.ageDays,
+      9,
+    );
+    expect(weaning.creepFeedKg).toBeGreaterThan(0);
+    expect(weaning.feedKgPerKgWeaned).toBeGreaterThan(0);
+  }, 120_000);
+
+  it("expects of a plan what that plan's own ration will carry", () => {
+    const config = plan();
+    // The planning figure the growout, the days-to-sale and the weaner stage
+    // length are drawn on. It is the reference only when the ration can reach
+    // it; on the default plan it cannot, and saying otherwise made every one of
+    // those figures quote a pig this farm never produces.
+    expect(expectedWeaningWeightKg(config)).toBeLessThan(
+      config.growth.referenceWeaningWeightKg,
+    );
+    expect(expectedWeaningWeightKg(config)).toBeGreaterThan(BIRTH_WEIGHT_KG);
+
+    const fed = plan((c) => (c.feed.lactationKgDay = 12));
+    expect(expectedWeaningWeightKg(fed)).toBeCloseTo(fed.growth.referenceWeaningWeightKg, 6);
+  });
+
+  it("lands where the farm lands", () => {
+    // The plan-level expectation and what twelve months of farm actually weans
+    // are two different calculations of the same thing, so they have to agree.
+    const config = plan();
+    const outcome = run(config);
+    expect(outcome.weaningWeightKg).toBeCloseTo(expectedWeaningWeightKg(config), 0);
   }, 120_000);
 });
 

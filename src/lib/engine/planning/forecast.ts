@@ -296,7 +296,12 @@ function expectedGainKg(walker: Walker, config: PlannerConfig): number {
   const { growth } = config;
   // The potential, which is what a forecast of demand wants: the sow has to be
   // offered the feed to milk it whether or not the store turns out to hold it.
-  if (walker.stage === "piglet") return potentialPigletGainKg(config) * walker.growthFactor;
+  //
+  // No thriftiness on a suckler, because there is none on a suckler in the
+  // engine either: what a piglet puts on before weaning is how much milk it got
+  // and not how well it converts. A factor here and not there would be the
+  // ordering policy buying sow feed for a litter the farm is not feeding.
+  if (walker.stage === "piglet") return potentialPigletGainKg(config);
   const maturity = maturityFactor(walker.weightKg, growth);
   if (walker.stage === "gilt") return GILT_DAILY_GAIN_KG * walker.growthFactor * maturity;
   const base =

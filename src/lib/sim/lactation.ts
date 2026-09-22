@@ -150,3 +150,47 @@ export function potentialPigletGainKg(config: PlannerConfig): number {
   const days = Math.max(1, config.reproduction.weaningAgeDays);
   return Math.max(0, config.growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / days;
 }
+
+/**
+ * What this plan's own ration will actually carry a litter to by weaning.
+ *
+ * {@link potentialPigletGainKg} reads the configured weaning weight as what the
+ * genotype is capable of. This reads what the farm will get: the same litter,
+ * the same lactation ration and the same creep feeder, worked forward to the
+ * day they come off. The two are the same number only on a plan that feeds its
+ * sows enough to reach the figure it typed, and a plan that does not should not
+ * be quoting a growout, a days-to-sale or a weaner-stage length off a weight
+ * its piglets will never be.
+ *
+ * It is a planning figure and not a measurement: one average dam at mature
+ * weight with the plan's own litter on her, which is the herd the rest of the
+ * plan's arithmetic is drawn on. What any particular litter managed is on the
+ * run, in `ProjectionSummary.weaning`.
+ */
+export function expectedWeaningWeightKg(config: PlannerConfig): number {
+  const days = Math.max(0, Math.round(config.reproduction.weaningAgeDays));
+  const sucklers = Math.max(0, config.reproduction.bornAlivePerLitter);
+  const gain = potentialPigletGainKg(config);
+  if (days === 0 || sucklers <= 0 || gain <= 0) return BIRTH_WEIGHT_KG;
+
+  // Two rates and not twenty-eight: the litter's demand is flat across the
+  // lactation and the creep feeder is the only thing that changes, so the whole
+  // walk is the days before it went in and the days after.
+  const shareOn = (creepOfferedKg: number) => {
+    const demand = lactationDemandOf(
+      {
+        weightKg: MATURE_SOW_WEIGHT_KG,
+        sucklers,
+        potentialGainKg: sucklers * gain,
+        creepOfferedKg,
+      },
+      config,
+    );
+    return pigletSupportFactor(demand, demand.offeredKg, creepOfferedKg, config);
+  };
+
+  const creepFrom = Math.min(days, Math.max(0, Math.round(config.feed.creepStartAgeDays)));
+  const onMilkAlone = shareOn(0);
+  const onCreep = shareOn(sucklers * config.feed.creepKgPerPigDay);
+  return BIRTH_WEIGHT_KG + gain * (creepFrom * onMilkAlone + (days - creepFrom) * onCreep);
+}

@@ -1,5 +1,6 @@
 import type { PlannerConfig } from "../config";
 import type { GrowingPig, PigStage } from "./animals";
+import { expectedWeaningWeightKg } from "./lactation";
 import { hashUnit } from "./rng";
 
 /**
@@ -129,7 +130,7 @@ export function stageDurationDays(stage: PigStage, config: PlannerConfig): numbe
       return config.reproduction.weaningAgeDays;
     case "weaner":
       return (
-        (config.growth.growerStartWeightKg - config.growth.referenceWeaningWeightKg) /
+        (config.growth.growerStartWeightKg - expectedWeaningWeightKg(config)) /
         config.growth.weanerDailyGainKg
       );
     case "grower":
@@ -398,7 +399,9 @@ export class MortalityScheduler {
     }
     const from =
       stage === "weaner"
-        ? growth.referenceWeaningWeightKg
+        ? // Where the weaner house actually starts on this plan: what the
+          // lactation ration will carry a litter to, not what the plan hoped for.
+          expectedWeaningWeightKg(this.config)
         : stage === "grower"
           ? growth.growerStartWeightKg
           : stage === "finisher"

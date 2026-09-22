@@ -3229,11 +3229,11 @@ export function FarmInputs({
             suffix="kg/sow/day"
           />
           <Field
-            label="Lactation intake"
+            label="Lactation intake, at most"
             value={config.feed.lactationKgDay}
             onChange={(v) => update("feed", "lactationKgDay", v)}
             suffix="kg/sow/day"
-            hint="Covers the sow and the milk her litter lives on."
+            hint="The top of the feed curve, not a flat ration. What a sow is actually offered is worked out from the litter under her — her own upkeep plus the milk her piglets are trying to grow on, less whatever the creep feeder covers — so she eats under this figure on a small litter and is held to it on a large one. A litter that wants more than this allows grows more slowly."
           />
           <Field
             label="Boar intake"
@@ -3266,6 +3266,43 @@ export function FarmInputs({
             onChange={(v) => update("feed", "creepFeedCostKg", v)}
             suffix={`${config.project.currency}/kg`}
             step={0.05}
+          />
+          <div className="hidden xl:block" />
+          {/*
+            The three numbers that turn a litter's growth into a feed bill. They
+            are here rather than buried in the engine because a unit that milks
+            better than the book says has to be able to say so — and because
+            every kilogram of weaner this plan produces is priced off them.
+          */}
+          <Field
+            label="Lactating sow upkeep"
+            value={config.feed.lactationMaintenanceKgDay}
+            onChange={(v) => update("feed", "lactationMaintenanceKgDay", v)}
+            suffix="kg/sow/day"
+            step={0.1}
+            min={0.5}
+            max={6}
+            hint="What she eats for herself before any milk, at mature weight. Everything above this is the litter's."
+          />
+          <Field
+            label="Sow feed per kg of litter gain"
+            value={config.feed.lactationFeedKgPerKgGain}
+            onChange={(v) => update("feed", "lactationFeedKgPerKgGain", v)}
+            suffix="kg feed/kg gain"
+            step={0.1}
+            min={0.5}
+            max={6}
+            hint="What it takes off her ration to milk a kilogram onto her litter. Raise it and the same weaner costs more sow feed."
+          />
+          <Field
+            label="Creep per kg of litter gain"
+            value={config.feed.creepFeedKgPerKgGain}
+            onChange={(v) => update("feed", "creepFeedKgPerKgGain", v)}
+            suffix="kg feed/kg gain"
+            step={0.1}
+            min={0.5}
+            max={6}
+            hint="What the piglets convert creep at. A kilogram they eat for themselves is one their dam does not have to milk."
           />
           <div className="hidden xl:block" />
           <Field

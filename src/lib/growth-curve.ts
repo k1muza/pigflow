@@ -142,10 +142,19 @@ export type GrowoutFeed = {
  * arithmetic, which a farmer can check by hand, not the simulation, which grows
  * every pig on its own.
  */
-export function growoutFeedConversion(growth: GrowthConfig): GrowoutFeed {
+export function growoutFeedConversion(
+  growth: GrowthConfig,
+  /**
+   * The weight the pig comes into the weaner house at. Defaulted to the plan's
+   * reference weaner for callers that have no feed configuration to hand; a
+   * caller that does should pass what its lactation ration will actually
+   * produce, because a lighter weaner has further to walk and eats on the way.
+   */
+  startWeightKg: number = growth.referenceWeaningWeightKg,
+): GrowoutFeed {
   const feed = { weaner: 0, grower: 0, finisher: 0 };
   const gained = { weaner: 0, grower: 0, finisher: 0 };
-  let weightKg = growth.referenceWeaningWeightKg;
+  let weightKg = startWeightKg;
   let days = 0;
 
   // The day cap is for configurations that would never arrive: a stage with no
