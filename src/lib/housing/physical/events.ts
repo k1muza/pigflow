@@ -67,7 +67,7 @@ const VERB: Record<MovementReason, string> = {
   INITIAL_PLACEMENT: "House",
   SERVICE: "Move",
   GESTATION: "Move",
-  PRE_FARROW: "Set down",
+  PRE_FARROW: "Move",
   WEANING: "Move",
   STAGE_TRANSITION: "Move",
   SALE: "Take out",
@@ -95,6 +95,36 @@ const SUPERSEDES: Partial<Record<HousingType, HousingPeriodEvent["replaces"]>> =
 
 /** The most pens a line names before it stops naming them and counts them. */
 const PENS_NAMED = 6;
+
+/** The most animals and batches a line names before it counts the rest. */
+const OCCUPANTS_NAMED = 4;
+
+/**
+ * Who moved, by name.
+ *
+ * A farm knows its animals by the number on the ear and its growing pigs by the
+ * batch they came up in, so that is what a work list says: "set down SOW-014",
+ * not "set down 1 head". A batch carries the head that moved with it, because a
+ * batch is a number of pigs and the name alone does not say how many.
+ */
+function occupantsPhrase(occupants: ReadonlyMap<string, { head: number; named: boolean }>): string {
+  const written: string[] = [];
+  let extraHead = 0;
+  for (const [name, entry] of occupants) {
+    if (written.length >= OCCUPANTS_NAMED) {
+      extraHead += entry.head;
+      continue;
+    }
+    // A sow is herself; a batch is a number of pigs travelling under one name.
+    written.push(entry.named ? name : `${name} (${plural(entry.head, "pig")})`);
+  }
+  if (written.length === 0) return "";
+  return written.join(", ") + (extraHead > 0 ? ` and ${head(extraHead)} more` : "");
+}
+
+function plural(count: number, noun: string): string {
+  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+}
 
 /** A pen's own number within its room: the "P02" of "GROW-01-R01-P02". */
 function penSuffix(roomId: string, penId: string): string {
@@ -158,31 +188,52 @@ function linesOf(
    * ids in place of a line, and nobody reads a month to find a gate.
    */
   withPens: boolean,
+  /** Whether this stretch includes the morning the farm opened. */
+  opening: boolean,
 ): HousingPeriodEvent[] {
   const events: HousingPeriodEvent[] = [];
 
-  const moves = new Map<string, { count: number; places: { roomId: string; penId: string }[] }>();
+  type Move = {
+    count: number;
+    places: { roomId: string; penId: string }[];
+    /** Who moved, in the order they moved, with a batch counted once. */
+    occupants: Map<string, { head: number; named: boolean }>;
+  };
+  const moves = new Map<string, Move>();
   for (const movement of slice.movements) {
     // Nowhere to go is a shortage, and the conflict says so in its own words.
     if (!movement.to) continue;
     const to = types.get(movement.to.penId) ?? movement.housingType;
     const key = movement.reason + "|" + to;
-    const count = movement.occupant.type === "animal" ? 1 : movement.occupant.head;
-    const entry = moves.get(key);
-    if (entry) {
-      entry.count += count;
-      entry.places.push(movement.to);
-    } else {
-      moves.set(key, { count, places: [movement.to] });
-    }
+    const occupant = movement.occupant;
+    const named = occupant.type === "animal";
+    const who = occupant.type === "animal" ? occupant.animalId : occupant.cohortId;
+    const count = occupant.type === "animal" ? 1 : occupant.head;
+    const entry: Move = moves.get(key) ?? { count: 0, places: [], occupants: new Map() };
+    entry.count += count;
+    entry.places.push(movement.to);
+    // A batch split between two pens is one batch, so its head is added up
+    // rather than written twice under the same name.
+    const already = entry.occupants.get(who);
+    if (already) already.head += count;
+    else entry.occupants.set(who, { head: count, named });
+    moves.set(key, entry);
   }
   for (const [key, entry] of moves) {
     const [reason, to] = key.split("|") as [MovementReason, HousingType];
+    // Named on a day and counted over a month, for the same reason the pens
+    // are: a month of names is a paragraph where a line was wanted.
+    const who = withPens ? occupantsPhrase(entry.occupants) : head(entry.count);
+    // The only group that appears in a farrowing pen from nowhere is a litter,
+    // and it got there by being born. Not on the opening day, though: a plan
+    // that starts with sows suckling starts with litters it did not farrow.
+    const born = !opening && reason === "INITIAL_PLACEMENT" && to === "farrowing";
     const line: HousingPeriodEvent = {
       type: "housing",
       label:
-        `${VERB[reason]} ${head(entry.count)} into ${HOUSE_PHRASE[to]}` +
-        (BECAUSE[reason] ?? "") +
+        (born
+          ? `${who} born into ${HOUSE_PHRASE[to]}`
+          : `${VERB[reason]} ${who} into ${HOUSE_PHRASE[to]}` + (BECAUSE[reason] ?? "")) +
         (withPens ? pensPhrase(entry.places) : ""),
       count: entry.count,
     };
@@ -236,15 +287,20 @@ function linesOf(
     });
   }
 
-  const short = new Map<HousingType, number>();
+  const short = new Map<HousingType, { wanted: number; first?: string }>();
   for (const conflict of slice.conflicts) {
-    short.set(conflict.housingType, (short.get(conflict.housingType) ?? 0) + conflict.requiredHead);
+    const entry = short.get(conflict.housingType) ?? { wanted: 0, first: conflict.occupantId };
+    entry.wanted += conflict.requiredHead;
+    short.set(conflict.housingType, entry);
   }
-  for (const [type, wanted] of short) {
+  for (const [type, entry] of short) {
+    // One animal turned away is named, because a name is what you would go and
+    // look for. Forty are counted, because forty names is not a line.
+    const who = entry.wanted === 1 && entry.first !== undefined ? entry.first : head(entry.wanted);
     events.push({
       type: "housing-shortage",
-      label: `${head(wanted)} wanted ${HOUSING_LABELS[type].toLowerCase()} and there were none free`,
-      count: wanted,
+      label: `${who} wanted ${HOUSING_LABELS[type].toLowerCase()} and there were none free`,
+      count: entry.wanted,
     });
   }
 
@@ -302,6 +358,7 @@ export function housingEventsFor(
     types,
     rooms,
     fromDay === throughDay,
+    fromDay <= housing.firstDay,
   );
 }
 
@@ -333,7 +390,7 @@ export function housingEventsByDay(
   const { types, rooms } = penIndex(housing.plan);
   const byDay = new Map<number, HousingPeriodEvent[]>();
   for (const [day, entries] of slices) {
-    const events = linesOf(entries, types, rooms, true);
+    const events = linesOf(entries, types, rooms, true, day <= housing.firstDay);
     if (events.length > 0) byDay.set(day, events);
   }
   return byDay;

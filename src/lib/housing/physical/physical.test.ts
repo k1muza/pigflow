@@ -685,14 +685,14 @@ describe("the housing as a day's work", () => {
     expect(housingEventsFor(result, 13, 13)).toEqual([
       {
         type: "housing",
-        label: "Set down 1 head into the farrowing house to farrow · FARR-01-R01: P01",
+        label: "Move SOW-1 into the farrowing house to farrow · FARR-01-R01: P01",
         count: 1,
       },
     ]);
     // The pen a batch went into and the pen it left behind to be washed, on the
     // one morning both happened.
     expect(housingEventsFor(result, 40, 40).map((entry) => entry.label)).toEqual([
-      "Move 9 head into the weaner house at weaning · WEAN-01-R01: P01",
+      "Move W40 (9 pigs) into the weaner house at weaning · WEAN-01-R01: P01",
       "Wash down 1 pen in the farrowing house · FARR-01-R01: P01",
     ]);
   });
@@ -703,7 +703,7 @@ describe("the housing as a day's work", () => {
     expect(shortage).toEqual([
       {
         type: "housing-shortage",
-        label: "1 head wanted farrowing places and there were none free",
+        label: "SOW-2 wanted farrowing places and there were none free",
         count: 1,
       },
     ]);
@@ -714,7 +714,7 @@ describe("the housing as a day's work", () => {
       entry.label.includes("weaner house"),
     );
     expect(weaning.label).toBe(
-      "Move 9 head into the weaner house at weaning · WEAN-01-R01: P01",
+      "Move W40 (9 pigs) into the weaner house at weaning · WEAN-01-R01: P01",
     );
 
     // A month is not read to find a gate, and thirty days of pen ids is a
@@ -723,6 +723,34 @@ describe("the housing as a day's work", () => {
       entry.label.includes("weaner house"),
     );
     expect(month[0].label).toBe("Move 9 head into the weaner house at weaning");
+  });
+
+  it("names the animals and the batches rather than counting heads", () => {
+    // A batch split between two pens is one batch under one name, with the head
+    // that actually moved — not the same name written twice.
+    const weaners = farm(building("WEAN", [WEANER]));
+    const split = run(
+      weaners,
+      () => batch(25, (index) => pig("W-" + String(index).padStart(2, "0"), "weaner", "W1")),
+      1,
+      2,
+    );
+    expect(housingEventsFor(split, 1, 1).find((entry) => entry.type === "housing")?.label).toBe(
+      "House W1 (25 pigs) into the weaner house · WEAN-01-R01: P01, P02",
+    );
+
+    // Past a few names a line stops being a line, so the rest are counted.
+    const gestation = farm(building("GEST", [GESTATION]));
+    const crowd = run(
+      gestation,
+      () => batch(6, (index) => sow("SOW-" + (index + 1), "gestating", { due: 200 })),
+      1,
+      2,
+    );
+    expect(housingEventsFor(crowd, 1, 1).find((entry) => entry.type === "housing")?.label).toBe(
+      "House SOW-1, SOW-2, SOW-3, SOW-4 and 2 head more into the gestation house · " +
+        "GEST-01-R01: P01, P02",
+    );
   });
 
   it("offers to say what the plain stage-change line says, and only then", () => {
