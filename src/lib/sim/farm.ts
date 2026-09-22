@@ -27,6 +27,8 @@ import {
   Sow,
   type CostStage,
   type CostType,
+  type AnimalDeparture,
+  type ExitReason,
   type FeedRation,
   type PigStage,
   FEED_RATIONS,
@@ -524,6 +526,16 @@ export class Farm {
   readonly ledger: Ledger;
   readonly history: DayRecord[] = [];
   readonly events: FarmEvent[] = [];
+  /**
+   * Who left the farm on the day just closed, and why.
+   *
+   * Written where the herd is pruned and replaced every morning, so it holds one
+   * day and never grows. It is the only way an observer watching the run from
+   * outside can tell a sale from a death: both take an animal off the board at
+   * the same moment, and the pen they empty is emptied for very different
+   * reasons. Nothing in the farm itself reads it.
+   */
+  departures: AnimalDeparture[] = [];
   /** How much of the log is kept. The whole of it, when it is to be read. */
   private readonly eventLimit: number;
   readonly lifetime: LifetimeTotals = {
@@ -1224,6 +1236,16 @@ export class Farm {
 
     if (chargedMonth !== null) this.runFinancing(chargedMonth, day, date);
 
+    // Noted on the way out, because after the next three lines there is nobody
+    // left to ask. One day's worth, replaced every morning.
+    const departures: AnimalDeparture[] = [];
+    const note = (animal: { id: string; alive: boolean; exitReason: ExitReason | null }) => {
+      if (!animal.alive) departures.push({ id: animal.id, day, reason: animal.exitReason });
+    };
+    for (const pig of this.pigs) note(pig);
+    for (const sow of this.sows) note(sow);
+    for (const boar of this.boars) note(boar);
+    this.departures = departures;
     this.pigs = this.pigs.filter((pig) => pig.alive);
     this.sows = this.sows.filter((sow) => sow.alive);
     this.boars = this.boars.filter((boar) => boar.alive);

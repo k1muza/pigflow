@@ -4,6 +4,8 @@ import { deadweightKg, plannerSchema, type PlannerConfig } from "../config";
 import {
   COST_STAGES,
   COST_TYPES,
+  type AnimalDeparture,
+  type ExitReason,
   type CostStage,
   type CostType,
   type PigStage,
@@ -204,6 +206,16 @@ export class Engine {
     );
     runFinancing(world);
 
+    // Noted on the way out, because after the next three lines there is nobody
+    // left to ask. One day's worth, replaced every morning.
+    const departures: AnimalDeparture[] = [];
+    const note = (animal: { id: string; alive: boolean; exitReason: ExitReason | null }) => {
+      if (!animal.alive) departures.push({ id: animal.id, day, reason: animal.exitReason });
+    };
+    for (const pig of world.pigs) note(pig);
+    for (const sow of world.sows) note(sow);
+    for (const boar of world.boars) note(boar);
+    world.departures = departures;
     world.pigs = world.pigs.filter((pig) => pig.alive);
     world.sows = world.sows.filter((sow) => sow.alive);
     world.boars = world.boars.filter((boar) => boar.alive);

@@ -13,7 +13,12 @@ import {
   type HousingConstructionPhase,
   type HousingUtilizationMetrics,
 } from "./capacity";
-import { housingDemandFor, type HousingHerdView } from "./demand";
+import {
+  housingDemandFor,
+  housingDemandOf,
+  type HousingAnimalSnapshot,
+  type HousingHerdView,
+} from "./demand";
 import {
   ARC_HOUSING_POLICY,
   HOUSING_LABELS,
@@ -336,6 +341,17 @@ export class HousingPlanner {
   /** One morning of the plan, as the engine left it. */
   observe(day: number, herd: HousingHerdView): void {
     this.allocator.step(housingDemandFor(day, herd, this.policy, this.weights));
+  }
+
+  /**
+   * The same morning, from the herd already read.
+   *
+   * For a caller that is showing the same animals to something else as well —
+   * the physical allocator, on a plan that has housing — so that the herd is
+   * walked once a day rather than twice.
+   */
+  observeSnapshots(day: number, animals: readonly HousingAnimalSnapshot[]): void {
+    this.allocator.step(housingDemandOf(day, animals, this.policy, this.weights));
   }
 
   /** The finished plan. Safe to call more than once; it recomputes from the run. */

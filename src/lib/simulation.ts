@@ -4,10 +4,17 @@ import { plannerSchema, type PlannerConfig } from "./config";
 import { Engine, engineHorizonDay } from "./engine/engine";
 import { engineEventLog, engineSnapshot, engineState } from "./engine/read";
 import {
+  ARC_HOUSING_POLICY,
   HousingPlanner,
+  housingSnapshots,
+  PhysicalHousingAllocator,
+  physicalFarmPlanOf,
+  stageExitWeights,
   type HousingHerdView,
   type HousingNeedsResult,
   type HousingPolicy,
+  type HousingSimulationResult,
+  type PhysicalFarmPlan,
 } from "./housing";
 import {
   buildWarnings,
@@ -160,6 +167,17 @@ export type SimulatePlanOptions = {
    * neither, and a full reading of a plan gets both.
    */
   housing?: boolean;
+  /**
+   * Put the herd into the plan's actual pens as it runs.
+   *
+   * On by default wherever the plan has physical housing saved on it, and
+   * nothing at all where it has not: a plan that has never been through the
+   * housing generator has no pens to be put in. It adds no pass over the farm —
+   * the allocator watches the same run everything else is read from, one
+   * morning at a time — and it never changes what the farm does. See
+   * `lib/housing/physical`.
+   */
+  physicalHousing?: boolean;
   /** The housing rules to plan against. The manual's profile by default. */
   housingPolicy?: HousingPolicy;
 };
@@ -197,6 +215,12 @@ export type PlanSimulation = {
    */
   readonly housing: HousingNeedsResult | null;
   /**
+   * Where every animal actually stood, in the plan's own pens, on every day of
+   * the run — as movements, conflicts and occupancy. Null when the plan has no
+   * physical housing, or the run was asked not to fill it.
+   */
+  readonly physicalHousing: HousingSimulationResult | null;
+  /**
    * The farm at a wall-clock moment, bar the rosters. Events resolve to whole
    * days, so a timestamp reads its own day, and a day outside the horizon reads
    * the nearest one inside it.
@@ -226,9 +250,14 @@ export function simulatePlan(
   const run = runFor(config, { keepEveryEvent: options.keepEveryEvent });
   const horizon = run.horizonDay;
   const keepSnapshots = options.snapshots !== false;
-  const planner =
-    (options.housing ?? keepSnapshots)
-      ? new HousingPlanner(config, options.housingPolicy)
+  const policy = options.housingPolicy ?? ARC_HOUSING_POLICY;
+  const planner = (options.housing ?? keepSnapshots) ? new HousingPlanner(config, policy) : null;
+  // The pens the plan actually has. A plan that has not generated any is run
+  // exactly as it was before this existed.
+  const saved = config.housing.physical;
+  const pens =
+    (options.physicalHousing ?? keepSnapshots) && saved !== undefined && saved.buildings.length > 0
+      ? new PhysicalHousingAllocator(saved, policy, stageExitWeights(config))
       : null;
 
   const stats: PlanSimulationStats = { days: 0, snapshots: 0, replays: 0 };
@@ -245,14 +274,21 @@ export function simulatePlan(
   const snapshots: FarmSnapshot[] = [];
   function toHorizon(): void {
     if (run.day >= horizon) return;
-    if (keepSnapshots || planner !== null) {
+    if (keepSnapshots || planner !== null || pens !== null) {
       if (keepSnapshots && snapshots.length === 0) snapshots.push(run.snapshot());
       for (let day = run.day + 1; day <= horizon; day += 1) {
         run.advanceTo(day);
         if (keepSnapshots) snapshots.push(run.snapshot());
-        // After the day has closed, so the housing planner sees the herd the
-        // day ended with rather than one that still has the morning's dead in it.
-        planner?.observe(day, run.herd());
+        // After the day has closed, so the housing work sees the herd the day
+        // ended with rather than one that still has the morning's dead in it.
+        if (planner !== null || pens !== null) {
+          const herd = run.herd();
+          // Read once and shown to both: the planner sizes the farm off these
+          // animals and the allocator puts those same animals in pens.
+          const animals = housingSnapshots(day, herd);
+          planner?.observeSnapshots(day, animals);
+          pens?.step(day, animals, herd.departures ?? []);
+        }
       }
     } else {
       run.advanceTo(horizon);
@@ -265,6 +301,7 @@ export function simulatePlan(
   let timeline: FarmTimeline | null = null;
   let terminal: FarmSnapshot | null = null;
   let housing: HousingNeedsResult | null = null;
+  let physicalHousing: HousingSimulationResult | null = null;
 
   /** The farm as it stood when the run finished. */
   const terminalSnapshot = () => (terminal ??= snapshots.at(-1) ?? run.snapshot());
@@ -369,6 +406,11 @@ export function simulatePlan(
       toHorizon();
       return (housing ??= planner.plan());
     },
+    get physicalHousing() {
+      if (pens === null) return null;
+      toHorizon();
+      return (physicalHousing ??= pens.finish());
+    },
     snapshotAt(timestamp: string): FarmSnapshot {
       const day = dayFor(timestamp);
       if (keepSnapshots) {
@@ -387,6 +429,45 @@ export function simulatePlan(
     },
     stats,
   };
+}
+
+/**
+ * The housing planning run: what this plan would have to be built, as a farm.
+ *
+ * This is the one place the circle is cut. Physical housing cannot be generated
+ * without knowing what the herd will demand, and the herd cannot be put into
+ * pens that do not exist yet — so there are two runs of different kinds, and
+ * only one of them is ordinary. This one is the planning run: it works out the
+ * biological demand and sizes a unit against it, with the pen allocator turned
+ * off so that nothing it produces depends on the answer it is producing.
+ *
+ * Everything after it is an ordinary run of a plan that now has housing on it.
+ * There is no recursion and there is no second biological model: both are the
+ * same `simulatePlan` over the same engine, and the only difference is whether
+ * the physical allocator is watching.
+ *
+ * The plan is passed in as it stands, housing and all. A regeneration should see
+ * the farm as it is actually run today — including the pens it already has —
+ * rather than a farm with the housing hidden from it, which would be a third
+ * thing that is neither the plan before nor the plan after.
+ *
+ * Nothing is saved here. The caller decides whether the answer replaces what is
+ * on the plan, because replacing it renames pens and is not something to do
+ * behind somebody's back.
+ */
+export function planPhysicalHousing(
+  input: PlannerConfig,
+  options: { policy?: HousingPolicy; generatedAt?: string } = {},
+): PhysicalFarmPlan {
+  const simulation = simulatePlan(input, {
+    snapshots: false,
+    housing: true,
+    physicalHousing: false,
+    housingPolicy: options.policy,
+  });
+  const needs = simulation.housing;
+  if (needs === null) return { buildings: [] };
+  return physicalFarmPlanOf(needs, simulation.config, options.generatedAt);
 }
 
 /**

@@ -359,7 +359,24 @@ export function compareFutureConfigs(
   };
 }
 
-const OMITTED_DIFFS = new Set(["project.name", "project.seed"]);
+/**
+ * Paths a comparison never reports.
+ *
+ * The name and the seed because comparison replaces them itself. The housing
+ * stamps because they are bookkeeping about when a layout was drawn rather than
+ * anything about the farm: two plans with the same buildings would otherwise
+ * differ on the minute somebody pressed the button, which is a difference
+ * nobody is comparing plans to find. The buildings themselves are still
+ * compared.
+ */
+const OMITTED_DIFFS = new Set([
+  "project.name",
+  "project.seed",
+  "housing.physical.generatedAt",
+  "housing.physical.generatedFromInputHash",
+  "housing.physical.generatorVersion",
+  "housing.physical.policySource",
+]);
 
 function displayLabel(key: string): string {
   return key

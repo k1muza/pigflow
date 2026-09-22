@@ -1,7 +1,7 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 
 import type { PlannerConfig } from "./config";
-import type { HousingNeedsResult } from "./housing";
+import type { HousingNeedsResult, HousingSimulationResult } from "./housing";
 import type { ProjectionResult } from "./model";
 import type { PlanSimulation } from "./simulation";
 import { farmValuation, ZERO_BALANCES, type StageValues } from "./sim/accounting";
@@ -89,6 +89,15 @@ export type PlanSimulationResult = {
    * Null when the run was asked not to work it out.
    */
   housing: HousingNeedsResult | null;
+  /**
+   * Where every animal stood in the plan's own pens, as movements and occupancy.
+   *
+   * Events rather than days: a reading of every pen on every morning of a
+   * five-year plan is tens of megabytes of saying that nothing moved, and this
+   * is a few thousand lines saying what did. Any day of it is rebuilt with
+   * `farmStateOnDay`. Null on a plan with no physical housing.
+   */
+  physicalHousing: HousingSimulationResult | null;
 };
 
 /**
@@ -110,6 +119,7 @@ export function planResultOf(simulation: PlanSimulation): PlanSimulationResult {
     timeline: simulation.timeline,
     days: packDays(days),
     housing: simulation.housing,
+    physicalHousing: simulation.physicalHousing,
   };
 }
 

@@ -1,7 +1,8 @@
 import type { PlannerConfig } from "./config";
+import type { PhysicalFarmPlan } from "./housing";
 import type { ProjectionResult } from "./model";
 import { planEventLog } from "./plan";
-import { simulatePlan } from "./simulation";
+import { planPhysicalHousing, simulatePlan } from "./simulation";
 import { planResultOf, type PlanSimulationResult } from "./simulation-result";
 import type { FarmEvent } from "./sim";
 
@@ -23,7 +24,7 @@ import type { FarmEvent } from "./sim";
 /**
  * A piece of work the farm can be asked for.
  *
- * Three, because three things in the product need a farm run and want different
+ * Four, because four things in the product need a farm run and want different
  * parts of one. The plan behind the pages is `simulate`. Planning cash
  * injections needs the monthly cashflow of a config that is not the open plan —
  * the same plan without its own generated funding rows — and nothing else.
@@ -35,7 +36,15 @@ import type { FarmEvent } from "./sim";
 export type SimulationJob =
   | { type: "simulate"; config: PlannerConfig }
   | { type: "project"; config: PlannerConfig }
-  | { type: "event-log"; config: PlannerConfig };
+  | { type: "event-log"; config: PlannerConfig }
+  /**
+   * Work out the buildings, rooms and pens this plan would be run in.
+   *
+   * Its own job because it is its own kind of run — the planning pass, with the
+   * pen allocator turned off — and because it happens when somebody presses a
+   * button rather than when an input changes. See `planPhysicalHousing`.
+   */
+  | { type: "generate-housing"; config: PlannerConfig };
 
 /** A job with the number that ties a reply to it. */
 export type SimulationRequest = SimulationJob & {
@@ -53,6 +62,7 @@ export type SimulationResponse =
     }
   | { type: "projection"; id: number; projection: ProjectionResult; runMs: number }
   | { type: "event-log"; id: number; events: FarmEvent[]; runMs: number }
+  | { type: "housing"; id: number; plan: PhysicalFarmPlan; runMs: number }
   | {
       type: "error";
       id: number;
@@ -92,6 +102,13 @@ export function answerSimulationRequest(request: SimulationRequest): SimulationR
           type: "event-log",
           id,
           events: planEventLog(request.config),
+          runMs: now() - startedAt,
+        };
+      case "generate-housing":
+        return {
+          type: "housing",
+          id,
+          plan: planPhysicalHousing(request.config),
           runMs: now() - startedAt,
         };
     }

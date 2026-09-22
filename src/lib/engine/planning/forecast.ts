@@ -20,6 +20,7 @@ import {
 } from "../../sim/animals";
 import { STORE_IDS, type StoreId } from "../../sim/haulage";
 import { stageDurationDays, stageMortalityRate } from "../../sim/mortality";
+import { placesOf } from "../housing";
 
 /**
  * What the farm standing here this morning is going to want out of its stores.
@@ -303,14 +304,10 @@ function crowdingGainFactor(
 ): number {
   if (!config.housing.enforceCapacity) return 1;
   if (stage !== "weaner" && stage !== "grower" && stage !== "finisher") return 1;
-  const places = Math.max(
-    1,
-    stage === "weaner"
-      ? config.housing.weanerPlaces
-      : stage === "grower"
-        ? config.housing.growerPlaces
-        : config.housing.finisherPlaces,
-  );
+  // Through `placesOf`, so the forecast sees the same rooms the farm does: a
+  // plan with physical housing is judged on the pens it has, not on the places
+  // somebody typed before it had any.
+  const places = Math.max(1, placesOf(config)[stage]);
   const excess = Math.max(0, occupancy[stage] / places - 1);
   return Math.max(0.2, 1 - (config.housing.crowdingGainPenaltyPct / 100) * excess);
 }
@@ -322,10 +319,11 @@ function crowdingGainFactor(
  */
 function advanceConstrainedHousing(walkers: Walker[], config: PlannerConfig): void {
   const occupancy = growingOccupancy(walkers);
+  const rooms = placesOf(config);
   const places: Record<GrowingRoom, number> = {
-    weaner: config.housing.weanerPlaces,
-    grower: config.housing.growerPlaces,
-    finisher: config.housing.finisherPlaces,
+    weaner: rooms.weaner,
+    grower: rooms.grower,
+    finisher: rooms.finisher,
   };
 
   // A selected replacement leaves the growing accommodation when she reaches

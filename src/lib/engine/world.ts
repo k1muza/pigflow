@@ -7,6 +7,7 @@ import {
   GrowingPig,
   Sow,
   type PigStage,
+  type AnimalDeparture,
 } from "../sim/animals";
 import { Books, emptyAccountingDay, type AccountingDay } from "../sim/accounting";
 import type { RationTally, Trip, HaulagePlan } from "../sim/haulage";
@@ -447,6 +448,16 @@ export class World {
   sows: Sow[] = [];
   boars: Boar[] = [];
   pigs: GrowingPig[] = [];
+  /**
+   * Who left the farm on the day just closed, and why.
+   *
+   * Written where the herd is pruned and replaced every morning, so it holds one
+   * day and never grows. It is the only way an observer watching the run from
+   * outside can tell a sale from a death: both take an animal off the board at
+   * the same moment, and the pen they empty is emptied for very different
+   * reasons. No system in the engine reads it.
+   */
+  departures: AnimalDeparture[] = [];
 
   // ---- the resources ------------------------------------------------------
   readonly ledger: Ledger;

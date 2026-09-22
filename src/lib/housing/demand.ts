@@ -1,4 +1,4 @@
-import type { Boar, GrowingPig, Sow } from "../sim/animals";
+import type { AnimalDeparture, Boar, GrowingPig, Sow } from "../sim/animals";
 import {
   areaPerHeadOf,
   type HousingPolicy,
@@ -24,6 +24,13 @@ import {
 /** What the planner needs to know about one animal on one day. */
 export type HousingAnimalSnapshot = {
   id: string;
+  /**
+   * The number on its ear, where it has one. Carried because a piglet names its
+   * dam by tag rather than by id, and a suckler is housed wherever she is.
+   */
+  tag?: string;
+  /** The dam's tag, for an animal that is still on her. */
+  damTag?: string | null;
   kind: "sow" | "boar" | "gilt" | "pig";
   stage?: "piglet" | "weaner" | "grower" | "finisher";
   reproductiveState?: "open" | "gestating" | "lactating";
@@ -36,11 +43,25 @@ export type HousingAnimalSnapshot = {
   sex?: "male" | "female";
 };
 
+/**
+ * An animal that left the farm at the close of the day just simulated.
+ *
+ * Both engines drop their dead, sold and culled animals at the end of the day
+ * they leave on, so an observer that only sees the herd afterwards knows that
+ * somebody has gone and not why. This is the engines saying why, and it is read
+ * by the physical housing allocator to tell a sale from a death: both empty a
+ * pen, and a plan that could not tell them apart would be no use to anybody
+ * reading it afterwards.
+ */
+export type HerdDeparture = AnimalDeparture;
+
 /** The herd as the planner reads it. Both engines hand over exactly this. */
 export type HousingHerdView = {
   readonly sows: readonly Sow[];
   readonly boars: readonly Boar[];
   readonly pigs: readonly GrowingPig[];
+  /** Who left the farm on the day just closed, and how. */
+  readonly departures?: readonly HerdDeparture[];
 };
 
 /**
@@ -69,6 +90,7 @@ export function housingSnapshots(day: number, herd: HousingHerdView): HousingAni
     if (!sow.alive) continue;
     animals.push({
       id: sow.id,
+      tag: sow.tag,
       kind: "sow",
       reproductiveState: sow.state,
       weightKg: sow.weightKg,
@@ -82,6 +104,7 @@ export function housingSnapshots(day: number, herd: HousingHerdView): HousingAni
     if (!boar.alive) continue;
     animals.push({
       id: boar.id,
+      tag: boar.tag,
       kind: "boar",
       weightKg: boar.weightKg,
       ageDays: boar.ageDays(day),
@@ -92,6 +115,8 @@ export function housingSnapshots(day: number, herd: HousingHerdView): HousingAni
     if (!pig.alive) continue;
     animals.push({
       id: pig.id,
+      tag: pig.tag,
+      damTag: pig.damTag,
       kind: pig.stage === "gilt" ? "gilt" : "pig",
       stage: pig.stage === "gilt" ? undefined : pig.stage,
       weightKg: pig.weightKg,

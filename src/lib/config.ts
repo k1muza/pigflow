@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { physicalFarmPlanSchema } from "./housing/physical/model";
+
 const nonNegative = z.number().finite().min(0);
 const percentage = z.number().finite().min(0).max(100);
 
@@ -372,6 +374,25 @@ export const plannerSchema = z.object({
     boarResidualValue: nonNegative.default(200),
   }),
   housing: z.object({
+    /**
+     * The farm as buildings, rooms and pens, once it has been generated.
+     *
+     * The source of truth for housing on any plan that has it. It is written by
+     * the Generate Housing button and by nothing else — never behind the user's
+     * back and never as a side effect of an edit — and while it is present the
+     * aggregate places below are ignored: see `placesOf` in `engine/housing`.
+     * A plan without it is a plan that has not been through the generator yet,
+     * and it goes on reading the legacy places until it has.
+     */
+    physical: physicalFarmPlanSchema.optional(),
+    /**
+     * Aggregate places, superseded by `physical` where that exists.
+     *
+     * Kept for plans saved before physical housing, and for a plan whose owner
+     * has not generated one yet. Two sources of truth is exactly what this
+     * phase is getting rid of, so nothing reads both: the physical layout wins
+     * outright wherever there is one.
+     */
     farrowingPlaces: z.number().int().min(1).max(100_000),
     weanerPlaces: z.number().int().min(1).max(100_000),
     growerPlaces: z.number().int().min(1).max(100_000),

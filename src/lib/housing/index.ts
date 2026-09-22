@@ -24,3 +24,4 @@ export * from "./geometry";
 export * from "./structures";
 export * from "./capacity";
 export * from "./result";
+export * from "./physical";
