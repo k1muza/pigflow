@@ -301,13 +301,20 @@ function crowdingGainFactor(
   stage: PigStage,
   occupancy: Readonly<Record<GrowingRoom, number>>,
   config: PlannerConfig,
+  /**
+   * The places each room has, read once by the caller.
+   *
+   * Passed in rather than looked up, because this is asked once a walker once a
+   * day over the whole forecast horizon — and the lookup is no longer a field
+   * read. A plan with physical housing has its places counted off its pens, and
+   * counting them a hundred thousand times to answer the same question is the
+   * whole cost of a forecast on a farm that enforces its capacity.
+   */
+  rooms: Readonly<Record<GrowingRoom, number>>,
 ): number {
   if (!config.housing.enforceCapacity) return 1;
   if (stage !== "weaner" && stage !== "grower" && stage !== "finisher") return 1;
-  // Through `placesOf`, so the forecast sees the same rooms the farm does: a
-  // plan with physical housing is judged on the pens it has, not on the places
-  // somebody typed before it had any.
-  const places = Math.max(1, placesOf(config)[stage]);
+  const places = Math.max(1, rooms[stage]);
   const excess = Math.max(0, occupancy[stage] / places - 1);
   return Math.max(0.2, 1 - (config.housing.crowdingGainPenaltyPct / 100) * excess);
 }
@@ -419,6 +426,8 @@ export function forecastDemand(
   };
 
   const { health, housing, feed, reproduction, herd } = config;
+  // The rooms, read once for the whole forecast rather than once a walker a day.
+  const places = placesOf(config);
   const perLamp = Math.max(health.pigletsPerHeater, 1);
   const heating = health.heatedUntilAgeDays > 0 && health.gasKgPerHeaterDay > 0;
   const conception = expectedConceptionRate(config);
@@ -672,7 +681,8 @@ export function forecastDemand(
       }
 
       const gain =
-        expectedGainKg(walker, config) * crowdingGainFactor(walker.stage, occupancy, config);
+        expectedGainKg(walker, config) *
+        crowdingGainFactor(walker.stage, occupancy, config, places);
       walker.weightKg += gain;
       walker.ageDays += 1;
       walker.head *= walker.survival;

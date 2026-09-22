@@ -60,6 +60,26 @@ export type RoomUtilizationSummary = {
   occupancyPct: number;
 };
 
+/**
+ * What the farm could not house, added up over the whole run.
+ *
+ * A conflict is written one house at a time on the morning it happens, which is
+ * the right unit for reading a day and the wrong one for deciding whether there
+ * is a problem. This is the same record asked the other question: over the
+ * whole plan, on how many mornings was there an animal with nowhere to go, how
+ * bad did it get, and in which house.
+ */
+export type HousingShortageSummary = {
+  /** Mornings on which at least one animal had nowhere to stand. */
+  days: number;
+  /** The most head turned away on any one morning, and which morning. */
+  peakHead: number;
+  peakDay: number;
+  /** The house that ran short on the most mornings, which is where to look. */
+  worstHousingType: HousingType | null;
+  byType: { housingType: HousingType; days: number; peakHead: number }[];
+};
+
 export type HousingSimulationTotals = {
   movements: number;
   conflicts: number;

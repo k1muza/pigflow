@@ -7,6 +7,8 @@ import {
   ARC_HOUSING_POLICY,
   HousingPlanner,
   housingEventsByDay,
+  housingShortageSummary,
+  type HousingShortageSummary,
   type HousingPeriodEvent,
   housingEventsFor,
   workplaceClause,
@@ -396,7 +398,15 @@ export function simulatePlan(
     },
     get projection() {
       toHorizon();
-      return (projection ??= projectionOf(config, run, terminalSnapshot()));
+      return (projection ??= projectionOf(
+        config,
+        run,
+        terminalSnapshot(),
+        // What the farm could not house, where it was housed at all. A plan
+        // that ran out of room has something wrong with it that no financial
+        // check would ever notice.
+        pens === null ? null : housingShortageSummary((physicalHousing ??= pens.finish())),
+      ));
     },
     get timeline() {
       toHorizon();
@@ -562,6 +572,7 @@ function projectionOf(
   config: PlannerConfig,
   run: PlanRun,
   terminal: FarmSnapshot,
+  shortage: HousingShortageSummary | null,
 ): ProjectionResult {
   const start = parseISO(config.project.startDate);
   const byDay = new Map(run.history.map((day) => [day.day, day]));
@@ -675,6 +686,6 @@ function projectionOf(
     farmWorth,
     generations: terminal.generations,
     costOfProduction: terminal.costOfProduction,
-    warnings: buildWarnings(config, summary, lifetime),
+    warnings: buildWarnings(config, summary, lifetime, shortage),
   };
 }

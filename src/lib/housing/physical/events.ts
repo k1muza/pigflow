@@ -8,7 +8,7 @@ import type {
   RoomCommissionedEvent,
 } from "./history";
 import { allPens, type PhysicalFarmPlan } from "./model";
-import type { HousingSimulationResult } from "./result";
+import type { HousingShortageSummary, HousingSimulationResult } from "./result";
 
 /**
  * What the housing did, in the words a day's work list is written in.
@@ -432,6 +432,60 @@ export function housingEventsFor(
     fromDay === throughDay,
     fromDay <= housing.firstDay,
   );
+}
+
+// -------------------------------------------------------------- the shortage
+
+/**
+ * Every morning the farm had an animal it could not house, added up.
+ *
+ * The conflicts themselves are written one house a morning, which is what a day
+ * wants and not what a plan wants. A plan wants to know whether this happened
+ * at all, how often, how badly and where — and those four answers are what
+ * decides whether somebody needs to go and build something.
+ */
+export function housingShortageSummary(
+  housing: HousingSimulationResult,
+): HousingShortageSummary {
+  const days = new Set<number>();
+  const byDay = new Map<number, number>();
+  const byType = new Map<HousingType, { days: Set<number>; peakHead: number }>();
+
+  for (const conflict of housing.conflicts) {
+    days.add(conflict.day);
+    byDay.set(conflict.day, (byDay.get(conflict.day) ?? 0) + conflict.requiredHead);
+    const entry = byType.get(conflict.housingType) ?? { days: new Set<number>(), peakHead: 0 };
+    entry.days.add(conflict.day);
+    entry.peakHead = Math.max(entry.peakHead, conflict.requiredHead);
+    byType.set(conflict.housingType, entry);
+  }
+
+  let peakHead = 0;
+  let peakDay = 0;
+  for (const [day, wanted] of byDay) {
+    if (wanted > peakHead) {
+      peakHead = wanted;
+      peakDay = day;
+    }
+  }
+
+  // The house that ran short on the most mornings, and the worst of those first
+  // where two are level: it is the one to go and look at.
+  const houses = [...byType]
+    .map(([housingType, entry]) => ({
+      housingType,
+      days: entry.days.size,
+      peakHead: entry.peakHead,
+    }))
+    .sort((a, b) => b.days - a.days || b.peakHead - a.peakHead);
+
+  return {
+    days: days.size,
+    peakHead,
+    peakDay,
+    worstHousingType: houses[0]?.housingType ?? null,
+    byType: houses,
+  };
 }
 
 // ------------------------------------------------------------- the whole log

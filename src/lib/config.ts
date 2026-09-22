@@ -433,6 +433,16 @@ export const plannerSchema = z.object({
   }),
   reproduction: z.object({
     gestationDays: z.number().min(110).max(122),
+    /**
+     * How long the litter stays on the sow.
+     *
+     * It decides three things at once and they pull against each other: how
+     * many litters a sow gets in a year, how heavy her piglets are when they
+     * leave her — see `growth.weaningWeightKg`, which is the other half of the
+     * pair — and how long she stands in a farrowing place, which is what the
+     * farrowing house is sized on. A farm weaning later gets fewer litters a
+     * year and needs more farrowing places, and both follow from this number.
+     */
     weaningAgeDays: z.number().min(18).max(56),
     weanToServiceDays: z.number().min(3).max(35),
     farrowingSuccessPct: percentage,
@@ -534,6 +544,18 @@ export const plannerSchema = z.object({
     aiStudPanelSize: z.number().int().min(1).max(20),
   }),
   growth: z.object({
+    /**
+     * What a piglet weighs on the morning it comes off the sow.
+     *
+     * Read together with `reproduction.weaningAgeDays`, because the two of them
+     * are what a suckler grows at: the model has no separate daily gain for a
+     * piglet, it has this weight reached over those days. Move the lactation
+     * without moving this and the piglet does not get heavier, it gets slower —
+     * which is not something a pig does. The ARC manual's housing chapter sizes
+     * farrowing places on a 35-day lactation and a weaner of about 8.5 kg; this
+     * plan starts at 28 days and 7.5 kg, and the housing is measured off
+     * whichever pair the plan actually carries rather than off either set.
+     */
     weaningWeightKg: z.number().min(2).max(20),
     growerStartWeightKg: z.number().min(15).max(60),
     finisherStartWeightKg: z.number().min(35).max(100),

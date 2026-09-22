@@ -7,7 +7,7 @@ import { planPhysicalHousing, simulatePlan } from "../../simulation";
 import type { HerdDeparture, HousingAnimalSnapshot } from "../demand";
 import { ARC_HOUSING_POLICY, stageExitWeights, type HousingType } from "../rules";
 import { allocatePhysicalHousing, PhysicalHousingAllocator } from "./allocator";
-import { housingEventsByDay, housingEventsFor } from "./events";
+import { housingEventsByDay, housingEventsFor, housingShortageSummary } from "./events";
 import {
   animalLocationOnDay,
   farmStateOnDay,
@@ -996,6 +996,38 @@ describe("generating a farm from the plan", () => {
 
     // And a plan with no pens exports exactly what it always did.
     expect(planEventLog(GENERATED_FROM).some((event) => event.type === "housing")).toBe(false);
+  });
+
+  it("puts a farm that ran out of room on the list of what needs attention", () => {
+    // The same farm with its finishing house taken away, which is the state a
+    // plan lands in when the herd has outgrown what was drawn for it.
+    const short = structuredClone(GENERATED_FROM);
+    const stripped = structuredClone(GENERATED);
+    stripped.buildings = stripped.buildings.filter((building) =>
+      building.rooms.every((room) => room.housingType !== "finisher"),
+    );
+    short.housing.physical = stripped;
+
+    const simulation = simulatePlan(short, { snapshots: false, physicalHousing: true });
+    const summary = housingShortageSummary(simulation.physicalHousing as HousingSimulationResult);
+    expect(summary.days).toBeGreaterThan(0);
+    expect(summary.worstHousingType).toBe("finisher");
+    expect(summary.peakHead).toBeGreaterThan(0);
+
+    // And it reaches the panel a person actually reads, ahead of the money.
+    const warning = simulation.projection.warnings.find((entry) =>
+      entry.title.includes("nowhere to stand"),
+    );
+    expect(warning?.level).toBe("attention");
+    expect(warning?.detail).toContain("finisher");
+
+    // A farm with room for its herd says nothing at all.
+    const housed = structuredClone(GENERATED_FROM);
+    housed.housing.physical = GENERATED;
+    const quiet = simulatePlan(housed, { snapshots: false, physicalHousing: true });
+    expect(quiet.projection.warnings.some((entry) => entry.title.includes("nowhere to stand"))).toBe(
+      false,
+    );
   });
 
   it("keeps the plain stage-change line on a plan with no pens to move between", () => {
