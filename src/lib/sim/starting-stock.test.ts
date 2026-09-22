@@ -12,6 +12,7 @@ import {
   type StartingStockEntry,
   type StartingStockType,
 } from "../config";
+import { expectedWeaningWeightKg } from "./lactation";
 import { simulatePlan } from "../simulation";
 import {
   boarDepreciationAtDay,
@@ -217,7 +218,10 @@ describe("starting piglets", () => {
     for (const pig of placed) {
       expect(pig.stage).toBe("weaner");
       expect(pig.weightKg).toBeGreaterThan(0);
-      expect(pig.weightKg).toBeLessThan(config.growth.referenceWeaningWeightKg);
+      // Lighter than a weaner off the sow, because it is younger than one —
+      // and measured against what this plan's ration actually produces rather
+      // than against the weight it is aiming at.
+      expect(pig.weightKg).toBeLessThan(expectedWeaningWeightKg(config));
       expect(pig.costs.total).toBeCloseTo(12, 6);
     }
 

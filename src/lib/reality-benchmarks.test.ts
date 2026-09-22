@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, getModelMetrics } from "./model";
 import { feedOf, runFarm } from "./sim";
+import { expectedWeaningWeightKg } from "./sim/lactation";
 
 /*
  * These are independent reality guardrails, not restatements of PigFlow's inputs.
@@ -126,8 +127,10 @@ describe("Published commercial-production guardrails", () => {
 
     const farm = runFarm(input, 400);
     const feedKg = farm.history.reduce((sum, day) => sum + day.growingFeedKg, 0);
-    // Founding weaners are deliberately spread through their starting stage.
-    const averageStartingWeightKg = (input.growth.referenceWeaningWeightKg + 30) / 2;
+    // Founding weaners are deliberately spread through their starting stage,
+    // from the weaner this plan's own lactation ration produces up to the
+    // grower door.
+    const averageStartingWeightKg = (expectedWeaningWeightKg(input) + 30) / 2;
     const gainKg = farm.lifetime.soldLiveweightKg - 600 * averageStartingWeightKg;
 
     expect(farm.lifetime.sold).toBe(600);
