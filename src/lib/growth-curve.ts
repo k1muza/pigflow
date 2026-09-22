@@ -94,22 +94,27 @@ export type GrowthAccount = {
  * of growth costs does not make it grow faster, it makes it a fat pig, and this
  * model does not pretend to know the difference beyond stopping there.
  */
-export function growthAccount(
+export function growthAccountOf(
   weightKg: number,
   potentialGainKg: number,
-  intakeFactor: number,
+  /** Kilograms actually issued to this pig today, off the store. */
+  intakeKg: number,
   growth: GrowthConfig,
 ): GrowthAccount {
   const upkeepKg = upkeepFeedKgDay(weightKg, growth);
   const feedKgPerKgGain = gainFeedKgPerKg(weightKg, growth);
-  const offeredKg = upkeepKg + Math.max(0, potentialGainKg) * feedKgPerKgGain;
-  const intakeKg = Math.max(0, Math.min(1, intakeFactor)) * offeredKg;
   const growthFeedKg = Math.max(0, intakeKg - upkeepKg);
   const fedGainKg = feedKgPerKgGain > 0 ? (intakeKg - upkeepKg) / feedKgPerKgGain : 0;
-  // A pig can lose condition, but not at a rate no animal loses it at.
+  // Two ceilings and not two multipliers. What the feed will carry is one of
+  // them and what the animal is capable of today — after the room it stands in
+  // and whatever it is being treated for — is the other, and a pig grows at the
+  // lower. Multiplying them made a pig on four fifths of its feed and six
+  // tenths of its health grow at forty-eight hundredths, which is a penalty
+  // charged twice: the feed it could not eat is the feed the illness took its
+  // appetite for.
   const gainKg = Math.max(-MAX_DAILY_LOSS_KG, Math.min(potentialGainKg, fedGainKg));
   return {
-    offeredKg,
+    offeredKg: upkeepKg + Math.max(0, potentialGainKg) * feedKgPerKgGain,
     intakeKg,
     upkeepKg,
     growthFeedKg,
@@ -118,6 +123,28 @@ export function growthAccount(
     potentialGainKg,
     gainKg,
   };
+}
+
+/**
+ * The same account for a caller that knows only what share of the day's ration
+ * a store could cover — the plan's own arithmetic, and the forecaster's, where
+ * there is no issue to read off.
+ */
+export function growthAccount(
+  weightKg: number,
+  potentialGainKg: number,
+  intakeFactor: number,
+  growth: GrowthConfig,
+): GrowthAccount {
+  const offeredKg =
+    upkeepFeedKgDay(weightKg, growth) +
+    Math.max(0, potentialGainKg) * gainFeedKgPerKg(weightKg, growth);
+  return growthAccountOf(
+    weightKg,
+    potentialGainKg,
+    Math.max(0, Math.min(1, intakeFactor)) * offeredKg,
+    growth,
+  );
 }
 
 /** The same day in a sentence, for a farm asking where the growth went. */

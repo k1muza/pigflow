@@ -6,9 +6,12 @@ import {
   withConfigDefaults,
   type PlannerConfig,
 } from "../config";
-import { runEngine } from "../engine/engine";
+import { Engine, runEngine } from "../engine/engine";
+import { GrowingPig } from "./animals";
+import { weaningTargetLabel } from "../model";
 import { simulatePlan } from "../simulation";
 import {
+  expectedPigletWeightAtAgeKg,
   expectedWeaningWeightKg,
   explainLitterGrowth,
   lactationDemandOf,
@@ -288,6 +291,89 @@ describe("a heavier weaner has to be fed for", () => {
     );
   }, 120_000);
 
+  it("holds a sick suckler to the lower of its milk and its health", () => {
+    // The milk a litter was fed is a ceiling in kilograms, and what an animal
+    // under treatment can do is another. Multiplying the two charged a sick
+    // piglet for the milk it could not have drunk anyway.
+    const config = plan();
+    const piglet = new GrowingPig({
+      id: "s",
+      tag: "s",
+      sex: "female",
+      birthDay: 0,
+      weightKg: 3,
+      stage: "piglet",
+    });
+    const ceiling = potentialPigletGainKg(config);
+    piglet.treatmentPenaltyDays = 4;
+    piglet.treatmentGrowthFactor = 0.6;
+
+    // Milk for four fifths of a day's growth, health for six tenths.
+    piglet.milkGainKg = 0.8 * ceiling;
+    expect(piglet.achievedGainKg(config)).toBeCloseTo(0.6 * ceiling, 12);
+
+    // And the other way round, milk is the binding one.
+    piglet.milkGainKg = 0.4 * ceiling;
+    expect(piglet.achievedGainKg(config)).toBeCloseTo(0.4 * ceiling, 12);
+  });
+
+  it("opens the plan with the piglets its own ration would have fed", () => {
+    // Opening stock is stock this farm is supposed to have produced. Backfilling
+    // a suckler's weight at the genotype's rate opened a thin-ration plan on day
+    // zero with piglets its own lactation could never have grown.
+    const opening = (c: PlannerConfig) => {
+      c.stock.sows = 20;
+      c.herd.maxSows = 20;
+      c.herd.startMode = "staggered";
+    };
+    const thin = plan((c) => {
+      opening(c);
+      c.feed.lactationKgDay = 4.5;
+    });
+    const generous = plan((c) => {
+      opening(c);
+      c.feed.lactationKgDay = 12;
+    });
+    const ceilingAt = (config: PlannerConfig, ageDays: number) =>
+      BIRTH_WEIGHT_KG + potentialPigletGainKg(config) * ageDays;
+
+    for (const ageDays of [7, 14, 21]) {
+      expect(expectedPigletWeightAtAgeKg(thin, ageDays)).toBeLessThan(ceilingAt(thin, ageDays));
+      expect(expectedPigletWeightAtAgeKg(thin, ageDays)).toBeLessThan(
+        expectedPigletWeightAtAgeKg(generous, ageDays),
+      );
+      expect(expectedPigletWeightAtAgeKg(thin, ageDays)).toBeGreaterThan(BIRTH_WEIGHT_KG);
+    }
+    // Fed enough and the expectation is the ceiling, because nothing is short.
+    expect(expectedPigletWeightAtAgeKg(generous, 21)).toBeCloseTo(ceilingAt(generous, 21), 6);
+
+    // And a farm actually opens on it. Each litter takes its dam's ration
+    // between however many of them there are, so the weights are not one
+    // number — but none of them is above what the genotype could have done, and
+    // a farm that feeds its sows opens heavier than one that does not.
+    const openingWeights = (config: PlannerConfig) => {
+      // Read before the first day is run, which is the herd the plan opens
+      // with rather than the herd after a day of feeding it.
+      const engine = new Engine(config);
+      const sucklers = engine.world.pigs.filter((pig) => pig.stage === "piglet");
+      expect(sucklers.length).toBeGreaterThan(0);
+      let ofAge = 0;
+      let kg = 0;
+      for (const piglet of sucklers) {
+        // The age the herd was opened at: the seed puts a piglet down at the
+        // weight its own days on the sow would have made, and the first day of
+        // the plan has not been run yet.
+        const ageDays = -piglet.birthDay;
+        expect(piglet.weightKg).toBeLessThanOrEqual(ceilingAt(config, ageDays) + 1e-9);
+        if (ageDays < 7) continue;
+        ofAge += 1;
+        kg += piglet.weightKg - BIRTH_WEIGHT_KG;
+      }
+      return kg / Math.max(1, ofAge);
+    };
+    expect(openingWeights(thin)).toBeLessThan(openingWeights(generous));
+  });
+
   it("comes out the same way twice", () => {
     const config = plan();
     const first = run(config);
@@ -406,6 +492,25 @@ describe("what the plan says its weaner cost", () => {
     );
     expect(weaning.creepFeedKg).toBeGreaterThan(0);
     expect(weaning.feedKgPerKgWeanedOverHorizon).toBeGreaterThan(0);
+  }, 120_000);
+
+  it("quotes the target with the age it was quoted at", () => {
+    // A target is a weight by a day. A farm weaning at 28 against a figure the
+    // breeding company quoted at 35 is not short of a ration, it is short of a
+    // week, and a read-out that prints the weight alone says the wrong thing.
+    const config = plan((c) => {
+      c.growth.referenceWeaningWeightKg = 11.5;
+      c.growth.referenceWeaningAgeDays = 35;
+      c.reproduction.weaningAgeDays = 28;
+    });
+    const { weaning } = simulatePlan(config, { snapshots: false }).projection.summary;
+
+    expect(weaning.referenceWeightKg).toBe(11.5);
+    expect(weaning.referenceAgeDays).toBe(35);
+    expect(weaning.ageDays).toBe(28);
+    expect(weaningTargetLabel(weaning.referenceWeightKg, weaning.referenceAgeDays)).toBe(
+      "11.5 kg by 35 days",
+    );
   }, 120_000);
 
   it("expects of a plan what that plan's own ration will carry", () => {

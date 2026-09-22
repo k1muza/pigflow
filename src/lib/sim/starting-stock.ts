@@ -1,5 +1,4 @@
 import {
-  BIRTH_WEIGHT_KG,
   DAYS_PER_MONTH,
   MATURE_SOW_WEIGHT_KG,
   STARTING_PIG_TYPES,
@@ -11,7 +10,7 @@ import {
   type StartingStockEntry,
 } from "../config";
 import { Boar, GrowingPig, Sow, type CostStage, type PigStage } from "./animals";
-import { expectedWeaningWeightKg, potentialPigletGainKg } from "./lactation";
+import { expectedPigletWeightAtAgeKg, expectedWeaningWeightKg } from "./lactation";
 import type { Variation } from "./variation";
 
 /**
@@ -479,13 +478,14 @@ function placePiglets(
   lactating: readonly LactatingSow[],
 ): void {
   const { config } = host;
-  const { growth, reproduction } = config;
-  const gainPerDay = potentialPigletGainKg(config);
+  const { reproduction } = config;
 
   const placed: GrowingPig[] = [];
   entries.forEach((entry, index) => {
     const ageDays = Math.min(Math.round(entry.ageDays), Math.round(reproduction.weaningAgeDays));
-    const weightKg = BIRTH_WEIGHT_KG + gainPerDay * ageDays;
+    // What this plan's own ration would have put on a suckler of that age, not
+    // what the genotype could have done on feed the farm has not got.
+    const weightKg = expectedPigletWeightAtAgeKg(config, ageDays);
     const nursing = lactating.length > 0 ? lactating[index % lactating.length] : null;
     const dam = nursing?.sow ?? null;
     const tag = host.nextPigTag();

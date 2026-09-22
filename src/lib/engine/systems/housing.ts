@@ -63,6 +63,12 @@ export function runHousingCensus(world: World): void {
     pig.crowdingFactor = world.housing.gainFactor(roomForStage(pig.stage));
     pig.maturityFactor = plateau ? maturityFactor(pig.weightKg, world.config.growth) : 1;
     pig.intakeFactor = 1;
+    // Nothing has been fed yet, so nothing has been eaten. What the nutrition
+    // system issues in a moment is what these become, and a pig that is never
+    // reached — one that dies before the round, or one with no ration of its
+    // own — grows on its plan rate rather than on yesterday's leavings.
+    pig.feedEatenKg = null;
+    pig.milkGainKg = null;
   }
 }
 

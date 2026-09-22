@@ -60,9 +60,9 @@ import { countFarmBuilt } from "./instrument";
 import { seedStartingStock, type StartingStockHost } from "./starting-stock";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
 import {
+  expectedPigletWeightAtAgeKg,
   expectedWeaningWeightKg,
-  pigletSupportFactor,
-  potentialPigletGainKg,
+  litterGrowthAccount,
 } from "./lactation";
 import { MortalityScheduler } from "./mortality";
 import { sowRosterOf, stockRosterOf } from "./roster";
@@ -1000,9 +1000,12 @@ export class Farm {
           sow.tag,
           "opening",
         ]);
-        const gain = potentialPigletGainKg(this.config);
+        // The weight this farm's own lactation ration would have put on them,
+        // not the weight the genotype is capable of. A thin ration cannot open
+        // the plan with piglets nobody could have fed.
+        const openingKg = expectedPigletWeightAtAgeKg(this.config, pigletAge, litterSize);
         for (let p = 0; p < litterSize; p += 1) {
-          const piglet = this.createPiglet(sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
+          const piglet = this.createPiglet(sow, -pigletAge, openingKg);
           this.catchUpVaccinations(piglet, 0);
           sow.litter.push(piglet);
           this.pigs.push(piglet);
@@ -1682,7 +1685,10 @@ export class Farm {
     // and slowed it for the rest of its life. The 2.0 engine resets the same
     // thing at the same point in the day, in `engine/systems/housing`.
     for (const pig of this.pigs) {
-      if (pig.alive) pig.intakeFactor = 1;
+      if (!pig.alive) continue;
+      pig.intakeFactor = 1;
+      pig.feedEatenKg = null;
+      pig.milkGainKg = null;
     }
     let sowFeedKg = 0;
     let growingFeedKg = 0;
@@ -1721,14 +1727,18 @@ export class Farm {
         record.lactationFeedKg += kg;
         this.lifetime.lactationFeedKg += kg;
         const demand = sow.lactationDemand(day, config);
-        const support = pigletSupportFactor(
+        const account = litterGrowthAccount(
           demand,
           demand.offeredKg,
           demand.creepOfferedKg,
           config,
         );
+        const support = demand.potentialGainKg > 0 ? account.gainKg / demand.potentialGainKg : 1;
+        const perPiglet = account.gainKg / Math.max(1, demand.sucklers);
         for (const piglet of sow.litter) {
-          if (piglet.alive && piglet.stage === "piglet") piglet.intakeFactor = support;
+          if (!piglet.alive || piglet.stage !== "piglet") continue;
+          piglet.milkGainKg = perPiglet;
+          piglet.intakeFactor = support;
         }
       }
       sowFeedKg += kg;
@@ -1770,6 +1780,10 @@ export class Farm {
       const ration = pig.dailyFeed(config);
       if (ration.kg > 0) {
         const cost = ration.kg * ration.costPerKg;
+        // This engine buys feed as the herd eats it, so the whole ration is
+        // issued — but it is issued through the same field the 2.0 engine uses,
+        // so both grow a pig off the kilograms it was actually handed.
+        pig.feedEatenKg = (pig.feedEatenKg ?? 0) + ration.kg;
         if (pig.stage === "gilt") sowFeedKg += ration.kg;
         else growingFeedKg += ration.kg;
         feedSpend[ration.ration] += cost;

@@ -1,6 +1,5 @@
 import {
   ANCESTRY_EXCLUSION_DEPTH,
-  BIRTH_WEIGHT_KG,
   GILT_ENTRY_AGE_DAYS,
   MATURE_SOW_WEIGHT_KG,
   expectedGiltServiceAgeDays,
@@ -8,7 +7,10 @@ import {
 } from "../config";
 import { readBalances, valueFoundingStock } from "../sim/accounting";
 import { Boar, GrowingPig, Sow, type PigStage } from "../sim/animals";
-import { expectedWeaningWeightKg, potentialPigletGainKg } from "../sim/lactation";
+import {
+  expectedPigletWeightAtAgeKg,
+  expectedWeaningWeightKg,
+} from "../sim/lactation";
 import { seedStartingStock, type StartingStockHost } from "../sim/starting-stock";
 import { roomForStage } from "./housing";
 import type { World } from "./world";
@@ -160,10 +162,12 @@ function seedCountedHerd(world: World): void {
         sow.tag,
         "opening",
       ]);
-      // The genotype's own rate, from the one place that knows it.
-      const gain = potentialPigletGainKg(world.config);
+      // The weight this farm's own lactation ration would have put on them, not
+      // the weight the genotype is capable of. A thin ration cannot open the
+      // plan with piglets nobody could have fed.
+      const openingKg = expectedPigletWeightAtAgeKg(world.config, pigletAge, litterSize);
       for (let p = 0; p < litterSize; p += 1) {
-        const piglet = createPiglet(world, sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
+        const piglet = createPiglet(world, sow, -pigletAge, openingKg);
         catchUpVaccinations(world, piglet, 0);
         sow.litter.push(piglet);
         world.pigs.push(piglet);

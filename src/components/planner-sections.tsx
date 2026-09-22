@@ -72,7 +72,9 @@ import {
   type PlannerConfig,
   type PlannerSection,
   type Vaccination,
+  weaningTargetLabel,
 } from "@/lib/model";
+import { expectedWeaningWeightKg } from "@/lib/sim/lactation";
 import {
   generatedTotal,
   isGenerated,
@@ -3106,7 +3108,16 @@ export function FarmInputs({
           number(metrics.feedConversion.finisherFcr, 2) +
           " in the finishing house — " +
           number(metrics.feedConversion.growoutFcr, 2) +
-          " across the whole growout."
+          " across the whole growout. On this plan's lactation ration a piglet reaches " +
+          number(expectedWeaningWeightKg(config), 1) +
+          " kg by " +
+          number(config.reproduction.weaningAgeDays, 0) +
+          " days, against a target of " +
+          weaningTargetLabel(
+            config.growth.referenceWeaningWeightKg,
+            config.growth.referenceWeaningAgeDays,
+          ) +
+          "."
         }
         icon={Gauge}
       >

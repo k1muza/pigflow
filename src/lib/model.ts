@@ -251,8 +251,17 @@ export type ProjectionSummary = {
 export type WeaningSummary = {
   /** The management decision: how long the litters were left on. */
   ageDays: number;
-  /** What the plan says a well-fed piglet of this genotype would reach. */
+  /** The weaner the plan is aiming at. */
   referenceWeightKg: number;
+  /**
+   * And the age it is quoted at, which has to be read with it.
+   *
+   * A target is a weight *by* a day. Quoting 11.5 kg beside a farm that weans
+   * at 28 days, without saying the 11.5 was a 35-day figure, is not a gap in
+   * the ration — it is a week of growth the comparison forgot to mention. Where
+   * this differs from {@link ageDays}, a read-out has to say both.
+   */
+  referenceAgeDays: number;
   /** What they actually weighed, weaned liveweight over head weaned. */
   averageWeightKg: number;
   /** Birth to weaning, per head per day: the growth the feed bought. */
@@ -279,6 +288,16 @@ export type WeaningSummary = {
    */
   feedKgPerKgWeanedOverHorizon: number;
 };
+
+/**
+ * The target written so that it cannot be read without its age — "11.5 kg by
+ * 35 days" — because the two are one statement and a read-out that drops the
+ * age invites a farm weaning at 28 to compare itself against a week it never
+ * had.
+ */
+export function weaningTargetLabel(weightKg: number, ageDays: number): string {
+  return weightKg.toFixed(1) + " kg by " + Math.round(ageDays) + " days";
+}
 
 export type ProjectionResult = {
   months: MonthlyProjection[];

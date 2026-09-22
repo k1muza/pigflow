@@ -11,7 +11,7 @@ import {
   SOW_WEIGHT_GAIN_PER_PARITY_KG,
   type PlannerConfig,
 } from "../config";
-import { achievedGainKg, dailyFeedKg } from "../growth-curve";
+import { achievedGainKg, dailyFeedKg, growthAccountOf } from "../growth-curve";
 import {
   lactationDemandOf,
   potentialPigletGainKg,
@@ -236,8 +236,33 @@ export class GrowingPig extends Animal {
   /**
    * Share of the feed this pig asked for that it was actually given today. 1 on
    * any day the stores covered the herd, and below it when one did not.
+   *
+   * A reading for the log and the read-outs. What the pig grows on is
+   * {@link feedEatenKg}, which is the issue itself.
    */
   intakeFactor = 1;
+  /**
+   * Kilograms of its own ration this pig was actually handed today, or null on a
+   * day it has not been fed yet.
+   *
+   * The issue off the store, not a share of a demand: growth is worked out from
+   * this number, so what the books say left the bin and what the pig grew on are
+   * the same kilogram. Reconstructing the intake from a percentage was close but
+   * not exact — the demand was priced off the pig's plan rate and the growth off
+   * its rate after crowding and treatment, so a short-fed pig in a full room
+   * could be grown on less feed than the farm had actually issued it.
+   */
+  feedEatenKg: number | null = null;
+  /**
+   * What its dam's milk and the creep feeder between them actually paid for
+   * today, in kilograms of this piglet's own gain, or null off the sow.
+   *
+   * A suckler eats no ration of its own, so this is its share of the litter's
+   * feed-supported gain — see `lib/sim/lactation`. It is an absolute gain and
+   * not a share, so it can be held up against what the animal is capable of
+   * rather than multiplied into it.
+   */
+  milkGainKg: number | null = null;
   /**
    * What the room this pig stood in last night did to its day's gain: 1 inside
    * its places, less when it is carrying an overflow.
@@ -375,25 +400,41 @@ export class GrowingPig extends Animal {
   }
 
   /**
-   * The gain this pig makes today: what it could have made, less what the room
-   * it is standing in and the feed it was given took off. Crowding comes off the
-   * potential — a pig with nowhere to lie eats less and fights more — and the
-   * ration is then worked out against what is left, upkeep first.
+   * The gain this pig makes today, which is the lower of two ceilings.
+   *
+   * One is the animal: what a pig of its stage, sex and thriftiness can put on,
+   * less what the room it is standing in and whatever it is being treated for
+   * take off it. The other is the feed: the kilograms it was actually handed,
+   * less its own upkeep, over what a kilogram of gain costs at this weight. A
+   * pig grows at whichever runs out first, and neither is allowed to stand in
+   * for the other — a shed with no room in it does not make feed go further,
+   * and a full trough does not cure anything.
    */
   achievedGainKg(config: PlannerConfig): number {
     const treatmentFactor = this.treatmentPenaltyDays > 0 ? this.treatmentGrowthFactor : 1;
     const potential = this.dailyGainKg(config) * this.crowdingFactor * treatmentFactor;
-    if (this.intakeFactor >= 1) return potential;
     if (this.stage === "piglet") {
-      // A suckler lives on milk, and milk follows what the sow was given.
-      return potential * Math.max(0, this.intakeFactor);
+      // A suckler lives on milk, and the milk is its dam's to give. What that
+      // milk and the creep feeder paid for is worked out over the whole litter
+      // in `lib/sim/lactation` and handed down to the piglet in kilograms.
+      if (this.milkGainKg === null) return potential;
+      return Math.min(potential, this.milkGainKg);
     }
     if (this.stage === "gilt") {
-      // She is on a restricted ration a feeder decides, and the upkeep share of
-      // it is the part that has to be covered before she puts anything on.
+      // She is on a restricted developer ration a feeder decides rather than an
+      // appetite, so what a short day costs her is worked off the ration and not
+      // off the growth curve: the upkeep share has to be covered before she puts
+      // anything on.
+      if (this.intakeFactor >= 1) return potential;
       const spare = (this.intakeFactor - MAINTENANCE_SHARE) / (1 - MAINTENANCE_SHARE);
       return potential * Math.max(0, spare);
     }
+    // The issue itself where there is one, so that what the books say left the
+    // bin is what the pig grew on.
+    if (this.feedEatenKg !== null) {
+      return growthAccountOf(this.weightKg, potential, this.feedEatenKg, config.growth).gainKg;
+    }
+    if (this.intakeFactor >= 1) return potential;
     return achievedGainKg(this.weightKg, potential, this.intakeFactor, config.growth);
   }
 

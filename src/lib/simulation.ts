@@ -415,6 +415,7 @@ function weaningSummaryOf(run: PlanRun, config: PlannerConfig): WeaningSummary {
   return {
     ageDays: config.reproduction.weaningAgeDays,
     referenceWeightKg: config.growth.referenceWeaningWeightKg,
+    referenceAgeDays: config.growth.referenceWeaningAgeDays,
     averageWeightKg,
     dailyGainKg: weaned > 0 ? (averageWeightKg - BIRTH_WEIGHT_KG) / ageDays : 0,
     lactationFeedKg,

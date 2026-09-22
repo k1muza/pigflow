@@ -228,7 +228,10 @@ export function runNutrition(world: World): void {
       feedSpend[ration.ration] += out.cost;
       charge("feed", out.cost);
       charge("transport", out.haulage);
-      // A pig grows on the ration it was given, not the one it was offered.
+      // A pig grows on the ration it was given, not the one it was offered —
+      // and on the kilograms that came out of the bin rather than on a share of
+      // what it asked for, so the growth and the books are the same issue.
+      pig.feedEatenKg = (pig.feedEatenKg ?? 0) + out.kg;
       pig.intakeFactor = Math.min(pig.intakeFactor, served[ration.ration]);
     }
 
@@ -302,8 +305,13 @@ export function runNutrition(world: World): void {
       shortLitters += 1;
       if (worstAccount === null || account.gainKg < worstAccount.gainKg) worstAccount = account;
     }
+    // The litter's gain is shared out over the litter, in kilograms. A share
+    // would have been multiplied into whatever else was already taking growth
+    // off the piglet; a kilogram can be held up against it instead.
+    const perPiglet = account.gainKg / Math.max(1, demandOf.sucklers);
     for (const piglet of sow.litter) {
       if (!piglet.alive || piglet.stage !== "piglet") continue;
+      piglet.milkGainKg = perPiglet;
       piglet.intakeFactor = Math.min(piglet.intakeFactor, support);
     }
   }

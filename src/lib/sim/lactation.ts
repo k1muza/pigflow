@@ -236,24 +236,33 @@ export function potentialPigletGainKg(config: PlannerConfig): number {
 }
 
 /**
- * What this plan's own ration will actually carry a litter to by weaning.
+ * What this plan's own ration will actually carry a suckler to by a given age.
  *
- * {@link potentialPigletGainKg} reads the configured weaning weight as what the
- * genotype is capable of. This reads what the farm will get: the same litter,
- * the same lactation ration and the same creep feeder, worked forward to the
- * day they come off. The two are the same number only on a plan that feeds its
- * sows enough to reach the figure it typed, and a plan that does not should not
- * be quoting a growout, a days-to-sale or a weaner-stage length off a weight
- * its piglets will never be.
+ * {@link potentialPigletGainKg} says what the genotype is capable of. This says
+ * what the farm will get: the same litter, the same lactation ration and the
+ * same creep feeder, worked forward day by day. The two agree only on a plan
+ * that feeds its sows enough to reach the ceiling, and a plan that does not
+ * should not be quoting a growout, a days-to-sale, a weaner-stage length or an
+ * opening piglet off a weight its litters will never be.
  *
  * It is a planning figure and not a measurement: one average dam at mature
  * weight with the plan's own litter on her, which is the herd the rest of the
  * plan's arithmetic is drawn on. What any particular litter managed is on the
  * run, in `ProjectionSummary.weaning`.
  */
-export function expectedWeaningWeightKg(config: PlannerConfig): number {
-  const days = Math.max(0, Math.round(config.reproduction.weaningAgeDays));
-  const sucklers = Math.max(0, config.reproduction.bornAlivePerLitter);
+export function expectedPigletWeightAtAgeKg(
+  config: PlannerConfig,
+  ageDays: number,
+  /**
+   * Litter mates it is sharing its dam with. The plan's own average where the
+   * caller has no particular litter in mind; the litter itself where it has
+   * one, because a sow's ration is divided by the number on her and an opening
+   * litter of nine is not the same weaner as an opening litter of fourteen.
+   */
+  litterSize: number = config.reproduction.bornAlivePerLitter,
+): number {
+  const days = Math.max(0, Math.round(ageDays));
+  const sucklers = Math.max(0, litterSize);
   const gain = potentialPigletGainKg(config);
   if (days === 0 || sucklers <= 0 || gain <= 0) return BIRTH_WEIGHT_KG;
 
@@ -277,4 +286,9 @@ export function expectedWeaningWeightKg(config: PlannerConfig): number {
   const onMilkAlone = shareOn(0);
   const onCreep = shareOn(sucklers * config.feed.creepKgPerPigDay);
   return BIRTH_WEIGHT_KG + gain * (creepFrom * onMilkAlone + (days - creepFrom) * onCreep);
+}
+
+/** The same walk, taken to the day the farm actually weans on. */
+export function expectedWeaningWeightKg(config: PlannerConfig): number {
+  return expectedPigletWeightAtAgeKg(config, config.reproduction.weaningAgeDays);
 }

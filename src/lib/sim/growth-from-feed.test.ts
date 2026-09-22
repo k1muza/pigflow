@@ -7,6 +7,7 @@ import {
   explainGrowth,
   gainFeedKgPerKg,
   growthAccount,
+  growthAccountOf,
   MAX_DAILY_LOSS_KG,
   upkeepFeedKgDay,
 } from "../growth-curve";
@@ -138,6 +139,46 @@ describe("a growing pig in a pen", () => {
       engine.advanceWeight(config);
       expect(legacy.weightKg).toBeCloseTo(engine.weightKg, 12);
     }
+  });
+
+  it("grows on the kilograms the store actually issued it", () => {
+    // Not on a share of what it asked for. The ration is priced off the pig's
+    // plan rate and the growth off its rate after the room and the vet have had
+    // their say, so reconstructing the intake from a percentage of the smaller
+    // number grew a crowded, short-fed pig on less feed than the farm had in
+    // fact handed it.
+    const config = plan();
+    const pig = pigAt(60, "grower");
+    pig.crowdingFactor = 0.8;
+    const issued = 1.6;
+    pig.feedEatenKg = issued;
+
+    const ceiling = pig.dailyGainKg(config) * 0.8;
+    expect(pig.achievedGainKg(config)).toBeCloseTo(
+      growthAccountOf(60, ceiling, issued, config.growth).gainKg,
+      12,
+    );
+    // And the feed it was grown on is the feed it was given.
+    expect(growthAccountOf(60, ceiling, issued, config.growth).intakeKg).toBe(issued);
+  });
+
+  it("stops at whichever runs out first, the feed or the animal", () => {
+    // Two ceilings, not two multipliers. A pig on four fifths of its feed and
+    // six tenths of its health does not grow at forty-eight hundredths: the
+    // illness has already taken the appetite the missing feed would have fed.
+    const config = plan();
+    const pig = pigAt(60, "grower");
+    const full = pigAt(60, "grower");
+    const offered = full.dailyFeed(config).kg;
+
+    pig.treatmentPenaltyDays = 3;
+    pig.treatmentGrowthFactor = 0.6;
+    pig.feedEatenKg = 0.8 * offered;
+
+    const healthCeiling = pig.dailyGainKg(config) * 0.6;
+    const feedCeiling = growthAccountOf(60, Infinity, 0.8 * offered, config.growth).fedGainKg;
+    expect(pig.achievedGainKg(config)).toBeCloseTo(Math.min(healthCeiling, feedCeiling), 12);
+    expect(pig.achievedGainKg(config)).toBeGreaterThan(healthCeiling * 0.8);
   });
 
   it("earns its next stage on weight and nothing else", () => {
