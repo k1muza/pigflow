@@ -17,6 +17,7 @@ import {
 } from "./rules";
 import {
   buildingsFor,
+  candidatesFor,
   chooseRoom,
   penGeometryFor,
   roomCandidates,
@@ -163,13 +164,17 @@ describe("rooms", () => {
     expect(candidates.every((c) => c.layout === "single_row")).toBe(true);
   });
 
-  it("would rather build another room than pay for pens nobody fills", () => {
-    // Thirty pens: six to a room is five rooms with nothing spare; four to a
-    // room is eight rooms and two pens of finishers that never exist.
-    const chosen = chooseRoom(pen, 30, POLICY);
-    expect(chosen?.sparePens).toBe(0);
-    expect(chosen?.pensPerRoom).toBe(6);
-    expect(chosen?.roomCount).toBe(5);
+  it("will not lay a room bigger than the batch that has to fill it", () => {
+    // A room is the unit a house is emptied, washed and refilled in. Whatever it
+    // would save, a room that takes two intakes to fill cannot be run all in,
+    // all out, so the batch is a ceiling and not a preference.
+    const free = chooseRoom(pen, 38, POLICY);
+    const batched = chooseRoom(pen, 38, POLICY, { batchPens: 4 });
+    expect(free!.pensPerRoom).toBeGreaterThan(4);
+    expect(batched!.pensPerRoom).toBeLessThanOrEqual(4);
+    for (const candidate of roomCandidates(pen, 38, POLICY, { batchPens: 4 })) {
+      expect(candidate.pensPerRoom).toBeLessThanOrEqual(4);
+    }
   });
 
   it("prefers a room inside the shape a shed is built in", () => {
@@ -278,5 +283,141 @@ describe("buildings", () => {
         0,
       );
     }
+  });
+
+  it("measures the strip left over where rooms of different depths stand together", () => {
+    // The breeding house, which is where this actually bites: three kinds of pen
+    // under one roof, three different depths, and a building is a rectangle.
+    const mixed = buildingsFor(
+      [
+        { ...room2(4.7, 2.75), housingType: "boar" },
+        { ...room2(3.2, 2.5), housingType: "service_sow" },
+      ],
+      POLICY,
+    );
+    expect(mixed).toHaveLength(1);
+    const building = mixed[0];
+    // 4.7 wide, because the deepest room in it is; 5.25 long, being both rooms.
+    expect(building.rectangle.areaM2).toBeCloseTo(4.7 * 5.25, 6);
+    expect(building.roomAreaM2).toBeCloseTo(4.7 * 2.75 + 3.2 * 2.5, 4);
+    expect(building.unusedAreaM2).toBeCloseTo(
+      building.rectangle.areaM2 - building.roomAreaM2,
+      4,
+    );
+    expect(building.unusedAreaM2).toBeGreaterThan(0);
+    // Reported to two places, like every other percentage on the plan.
+    expect(building.layoutEfficiencyPct).toBeCloseTo(
+      (building.roomAreaM2 / building.rectangle.areaM2) * 100,
+      2,
+    );
+    expect(building.layoutEfficiencyPct).toBeLessThan(100);
+    // And it cannot be extended by adding a room on the end, because there is no
+    // one width to add one at.
+    expect(building.expandable).toBe(false);
+  });
+
+  it("calls a house of matching rooms fully used, and extendable along its length", () => {
+    const building = buildingsFor([finisherRooms(4)], POLICY)[0];
+    expect(building.unusedAreaM2).toBe(0);
+    expect(building.layoutEfficiencyPct).toBe(100);
+    expect(building.expandable).toBe(true);
+    expect(building.expansionDirection).toBe("length");
+  });
+});
+
+/** A one-room structure of a given room size, for the packing tests. */
+function room2(widthM: number, lengthM: number): TypeStructure {
+  return {
+    housingType: "boar",
+    layout: "single_row",
+    roomCount: 1,
+    pensPerRoom: 1,
+    penCapacityHead: 1,
+    room: { widthM, lengthM, areaM2: widthM * lengthM },
+  };
+}
+
+describe("choosing between whole arrangements", () => {
+  const pen: Rectangle = { widthM: 3.25, lengthM: 4, areaM2: 13 };
+  const finisher = (targetPens: number, batchPens = 4) => ({
+    housingType: "finisher" as const,
+    pen,
+    penCapacityHead: 10,
+    targetPens,
+    batchPens,
+  });
+
+  it("buys two spare pens rather than nine more rooms and two more buildings", () => {
+    // The case this whole scoring change exists for. Thirty-eight finishing pens
+    // with nothing spare is two to a room: nineteen rooms, four buildings, and
+    // nineteen sets of partitions, doors, drains and fans — to save two pens.
+    const options = candidatesFor("finisher", [finisher(38)], POLICY);
+    const chosen = options[0];
+    expect(chosen.totalPens).toBe(40);
+    expect(chosen.sparePens).toBe(2);
+    expect(chosen.cost.roomCount).toBe(10);
+    expect(chosen.buildingCount).toBe(2);
+
+    const zeroSpare = options.find((option) => option.sparePens === 0);
+    expect(zeroSpare, "the tidy answer is still generated, and still costed").toBeDefined();
+    expect(zeroSpare!.cost.roomCount).toBe(19);
+    expect(zeroSpare!.buildingCount).toBe(4);
+    expect(zeroSpare!.estimatedCostScore).toBeGreaterThan(chosen.estimatedCostScore);
+  });
+
+  it("takes the cheapest of everything it generated, and never a dearer one", () => {
+    for (const target of [7, 19, 38]) {
+      const options = candidatesFor("finisher", [finisher(target)], POLICY);
+      expect(options.length).toBeGreaterThan(1);
+      for (const option of options) {
+        expect(option.estimatedCostScore).toBeGreaterThanOrEqual(options[0].estimatedCostScore);
+      }
+    }
+  });
+
+  it("never offers an arrangement that houses fewer pens than were required", () => {
+    // The hard constraint. Cost decides between arrangements; it never decides
+    // whether an arrangement is allowed, so a cheaper one is never a shorter one.
+    for (const target of [1, 5, 19, 38, 61]) {
+      for (const option of candidatesFor("finisher", [finisher(target)], POLICY)) {
+        expect(option.totalPens, `${target} wanted`).toBeGreaterThanOrEqual(target);
+        for (const room of option.rooms) expect(room.pensPerRoom).toBeLessThanOrEqual(4);
+      }
+    }
+  });
+
+  it("lets a bigger building limit cut the number of buildings", () => {
+    const tight = candidatesFor("finisher", [finisher(38)], POLICY)[0];
+    const roomy = candidatesFor(
+      "finisher",
+      [finisher(38)],
+      housingPolicy((policy) => (policy.structure.maxRoomsPerBuilding = 20)),
+    )[0];
+    expect(roomy.buildingCount).toBeLessThan(tight.buildingCount);
+  });
+
+  it("turns a room round when that packs the building better", () => {
+    // Two rooms of different depths. Laid out as they come, the shallower one
+    // pays for the difference down its whole length; turned, it does not.
+    const group = [
+      { housingType: "boar" as const, pen: { widthM: 2.75, lengthM: 3.5, areaM2: 9.625 }, penCapacityHead: 1, targetPens: 2, batchPens: 0 },
+      { housingType: "service_sow" as const, pen: { widthM: 1.25, lengthM: 2, areaM2: 2.5 }, penCapacityHead: 1, targetPens: 6, batchPens: 0 },
+    ];
+    const turning = housingPolicy((policy) => (policy.structure.allowRoomRotation = true));
+    const fixed = housingPolicy((policy) => (policy.structure.allowRoomRotation = false));
+    const withRotation = candidatesFor("breeding_service", group, turning)[0];
+    const without = candidatesFor("breeding_service", group, fixed)[0];
+    expect(withRotation.estimatedCostScore).toBeLessThanOrEqual(without.estimatedCostScore);
+    expect(withRotation.totalBuildingAreaM2).toBeLessThanOrEqual(without.totalBuildingAreaM2);
+    expect(withRotation.layoutEfficiencyPct).toBeGreaterThanOrEqual(without.layoutEfficiencyPct);
+  });
+
+  it("gives the same arrangement for the same question, every time", () => {
+    const once = candidatesFor("finisher", [finisher(38)], POLICY);
+    const twice = candidatesFor("finisher", [finisher(38)], POLICY);
+    expect(once.map((option) => option.description)).toEqual(
+      twice.map((option) => option.description),
+    );
+    expect(once[0]).toEqual(twice[0]);
   });
 });

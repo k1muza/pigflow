@@ -9,6 +9,8 @@ import {
   housingPolicy,
   type HousingType,
 } from "./rules";
+import { analyzeHousingCapacity } from "./capacity";
+import { housingShortfallOf } from "./result";
 import type { HousingNeedsResult, HousingTypeResult } from "./result";
 
 /**
@@ -280,6 +282,171 @@ describe("reconciliation with the herd plan", () => {
           typeOf(BASE, "farrowing")!.headCapacity,
       );
     }
+  });
+});
+
+describe("the minimum, the recommendation and the reserve", () => {
+  it("never recommends, rounds or reserves its way below what the run required", () => {
+    for (const type of BASE.types) {
+      const { capacity } = type;
+      expect(capacity.minimumPhysicalPens, type.housingType).toBe(type.minimumPens);
+      expect(capacity.recommendedPens, type.housingType).toBeGreaterThanOrEqual(
+        capacity.minimumPhysicalPens,
+      );
+      expect(capacity.moduleRoundedPens, type.housingType).toBe(capacity.recommendedPens);
+      expect(type.reserveDesignPens, type.housingType).toBeGreaterThanOrEqual(
+        capacity.minimumPhysicalPens,
+      );
+      // And the three parts of the peak still account for the peak.
+      expect(
+        capacity.peakOccupiedPens + capacity.peakReservedPens + capacity.peakCleaningPens,
+      ).toBe(capacity.minimumPhysicalPens);
+    }
+  });
+
+  it("adds nothing at all when the reserve is turned off", () => {
+    const bare = simulatePlan(BASE_CONFIG, {
+      snapshots: false,
+      housing: true,
+      housingPolicy: housingPolicy((policy) => (policy.structure.reserveMode = "none")),
+    }).housing!;
+    for (const type of bare.types) {
+      expect(type.capacity.optionalReservePens, type.housingType).toBe(0);
+      // Which leaves the rounding to the room module as the only thing between
+      // the simulated minimum and what gets built.
+      expect(type.recommendedPens - type.minimumPens, type.housingType).toBeLessThan(
+        Math.max(1, type.derivation.pensPerRoom),
+      );
+    }
+  });
+
+  it("still offers the flat percentage to anybody who wants to quote one", () => {
+    const flat = simulatePlan(BASE_CONFIG, {
+      snapshots: false,
+      housing: true,
+      housingPolicy: housingPolicy((policy) => {
+        policy.structure.reserveMode = "percentage";
+        policy.structure.reservePct = 0.1;
+      }),
+    }).housing!;
+    for (const type of flat.types) {
+      expect(type.capacity.optionalReservePens, type.housingType).toBe(
+        Math.ceil(type.minimumPens * 0.1),
+      );
+    }
+  });
+
+  it("only derives a reserve where the run shows a surge, and says which", () => {
+    for (const type of BASE.types) {
+      const derived = type.capacity.optionalReservePens;
+      expect(derived, type.housingType).toBeLessThanOrEqual(
+        Math.ceil(type.minimumPens * ARC_HOUSING_POLICY.structure.reserveMaxPct),
+      );
+      expect(type.reserveNote.length, type.housingType).toBeGreaterThan(0);
+      if (derived === 0) expect(type.reserveNote).toContain("No reserve");
+    }
+    // A boar house is the case that gave this rewrite its name: one pen wanted,
+    // one pen built, where a flat ten per cent used to make it two.
+    const boar = typeOf(BASE, "boar")!;
+    expect(boar.recommendedPens).toBe(boar.minimumPens);
+  });
+
+  it("still counts the pens that are standing empty under the hose", () => {
+    const noWash = simulatePlan(BASE_CONFIG, {
+      snapshots: false,
+      housing: true,
+      housingPolicy: housingPolicy((policy) => {
+        policy.weaner.cleaningDays = 0;
+        policy.grower.cleaningDays = 0;
+        policy.finisher.cleaningDays = 0;
+      }),
+    }).housing!;
+    expect(growingPens(BASE)).toBeGreaterThan(growingPens(noWash));
+    expect(
+      BASE.types.reduce((total, type) => total + type.capacity.peakCleaningPens, 0),
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe("what gets built, and when", () => {
+  it("phases every house so that nothing is wanted before it is standing", () => {
+    for (const type of BASE.types) {
+      if (type.phases.length === 0) continue;
+      expect(type.phases[0].buildByDay).toBeGreaterThanOrEqual(BASE.firstDay);
+      let capacity = 0;
+      for (const phase of type.phases) {
+        capacity += phase.pensAdded;
+        expect(phase.resultingCapacity, type.housingType).toBe(capacity);
+        // Nothing may be wanted before the phase that provides it falls due.
+        const shortfall = analyzeHousingCapacity(
+          { firstDay: BASE.firstDay, pensInUse: type.dailyPensInUse },
+          phase.resultingCapacity,
+        );
+        if (shortfall.firstShortageDay !== undefined) {
+          expect(shortfall.firstShortageDay, type.housingType).toBeGreaterThan(phase.buildByDay);
+        }
+      }
+      expect(capacity, type.housingType).toBe(type.recommendedPens);
+    }
+  });
+
+  it("lists every house's work in the order it falls due", () => {
+    const days = BASE.phases.map((phase) => phase.buildByDay);
+    expect([...days].sort((a, b) => a - b)).toEqual(days);
+    expect(BASE.phases.length).toBe(
+      BASE.types.reduce((total, type) => total + type.phases.length, 0),
+    );
+  });
+
+  it("shows what it turned down, and turned down nothing cheaper", () => {
+    expect(BASE.layoutOptions.length).toBeGreaterThan(0);
+    const byBuilding = new Map<string, typeof BASE.layoutOptions>();
+    for (const option of BASE.layoutOptions) {
+      const group = byBuilding.get(option.buildingType) ?? [];
+      group.push(option);
+      byBuilding.set(option.buildingType, group);
+    }
+    for (const [buildingType, group] of byBuilding) {
+      expect(group[0].chosen, buildingType).toBe(true);
+      expect(group[0].label).toBe("Recommended");
+      for (const option of group.slice(1)) {
+        expect(option.chosen).toBe(false);
+        expect(option.estimatedCostScore, buildingType).toBeGreaterThanOrEqual(
+          group[0].estimatedCostScore,
+        );
+      }
+    }
+  });
+
+  it("will say what building less than it recommends would have cost", () => {
+    const finisher = typeOf(BASE, "finisher")!;
+    // Exactly what it recommends is, by construction, enough.
+    expect(housingShortfallOf(BASE, "finisher", finisher.recommendedPens)).toEqual({
+      firstShortageDay: undefined,
+      shortageDays: 0,
+      maximumShortagePens: 0,
+    });
+    // One pen short of the simulated minimum is not, and it can say when.
+    const short = housingShortfallOf(BASE, "finisher", finisher.minimumPens - 1)!;
+    expect(short.shortageDays).toBeGreaterThan(0);
+    expect(short.maximumShortagePens).toBe(1);
+    expect(short.firstShortageDay).toBe(finisher.capacity.peakDay);
+    expect(housingShortfallOf(BASE, "boar", 0)!.maximumShortagePens).toBeGreaterThan(0);
+  });
+
+  it("uses most of every rectangle it draws, and says how much", () => {
+    expect(BASE.totals.layoutEfficiencyPct).toBeGreaterThan(80);
+    let unused = 0;
+    for (const building of BASE.buildings) {
+      expect(building.layoutEfficiencyPct).toBeGreaterThan(0);
+      expect(building.layoutEfficiencyPct).toBeLessThanOrEqual(100);
+      expect(building.unusedAreaM2).toBeCloseTo(
+        building.rectangle.areaM2 - building.roomAreaM2,
+        4,
+      );
+      unused += building.unusedAreaM2;
+    }
+    expect(BASE.totals.unusedAreaM2).toBeCloseTo(unused, 1);
   });
 });
 

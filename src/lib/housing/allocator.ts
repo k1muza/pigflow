@@ -89,6 +89,28 @@ export type HousingTypeAllocation = {
   peakHeadDay: number;
   /** Pens the allocator ever had to create. Equal to the peak when it reuses. */
   totalPensCreated: number;
+  /**
+   * The most pens one intake ever filled: pens opened inside a single fill
+   * window.
+   *
+   * This is what a batch is, measured rather than assumed, and it is the only
+   * thing the structure generator needs to know about the herd. A room is the
+   * unit a house is emptied, washed and refilled in, so a room larger than a
+   * batch cannot be run all in, all out however cheap it looks on paper. Zero
+   * for a type that is never turned over as a group, which is not a batch of
+   * nothing but an absence of batching.
+   */
+  batchPens: number;
+  /**
+   * Pens in use on every simulated day, in order from `firstDay`.
+   *
+   * The one thing the structure phases cannot work out for themselves. A peak is
+   * a single number and it cannot answer the three questions that decide what is
+   * actually worth building: when was this capacity first needed, how long was it
+   * needed for, and what would fall over if it were not there. All three are
+   * read off this series, and none of them can be read off a peak.
+   */
+  dailyPensInUse: number[];
   /** Pen-days standing in use and pen-days actually holding animals. */
   penDaysInUse: number;
   penDaysOccupied: number;
@@ -128,6 +150,8 @@ function emptyAllocation(type: HousingType): HousingTypeAllocation {
     peakHead: 0,
     peakHeadDay: 0,
     totalPensCreated: 0,
+    batchPens: 0,
+    dailyPensInUse: [],
     penDaysInUse: 0,
     penDaysOccupied: 0,
     headDays: 0,
@@ -150,6 +174,8 @@ export class VirtualPenAllocator {
   private readonly placement = new Map<string, VirtualPen>();
   private readonly totals: Record<HousingType, HousingTypeAllocation>;
   private readonly uncovered: Partial<Record<HousingType, number>> = {};
+  /** The day every pen of a type was last opened, in the order they happened. */
+  private readonly openings = new Map<HousingType, number[]>();
   private sequence = 0;
   private daysRun = 0;
   private firstDay = 0;
@@ -164,6 +190,7 @@ export class VirtualPenAllocator {
     ) as Record<HousingType, HousingTypeAllocation>;
     for (const type of HOUSING_TYPES) {
       this.pens.set(type, []);
+      this.openings.set(type, []);
       this.totals[type].penAreaM2 = penAreaOf(policy, type, weights);
       this.totals[type].penCapacityHead = this.fillLimit(type, this.stageWeightOf(type));
     }
@@ -218,8 +245,31 @@ export class VirtualPenAllocator {
     this.record(day, demand);
   }
 
+  /**
+   * How many pens one intake of this type filled at its biggest.
+   *
+   * The fill window is the gate: pens opened inside one of them belong to one
+   * batch, because that is the same rule that decides which pen an arriving pig
+   * may join. The widest run of openings that fits in a window is therefore the
+   * largest group the house ever took in one go — and it is the largest room
+   * that house can be run all in, all out with.
+   */
+  private batchPensOf(type: HousingType): number {
+    if (cleaningDaysOf(this.policy, type) <= 0) return 0;
+    const days = this.openings.get(type) ?? [];
+    const window = Math.max(0, this.policy.structure.penFillWindowDays);
+    let widest = 0;
+    let start = 0;
+    for (let end = 0; end < days.length; end += 1) {
+      while (days[end] - days[start] > window) start += 1;
+      widest = Math.max(widest, end - start + 1);
+    }
+    return widest;
+  }
+
   /** Everything the run asked for, once the last day has been stepped. */
   finish(): HousingAllocation {
+    for (const type of HOUSING_TYPES) this.totals[type].batchPens = this.batchPensOf(type);
     return {
       days: this.daysRun,
       firstDay: this.firstDay,
@@ -410,6 +460,9 @@ export class VirtualPenAllocator {
     pen.openedDay = day;
     pen.closesDay = this.fillWindowOf(occupant.housingType, day);
     pen.governingWeightKg = 0;
+    // Recorded in the order it happened, which is ascending by day, so the batch
+    // size can be read off it afterwards with one pass and no sorting.
+    this.openings.get(occupant.housingType)?.push(day);
     return pen;
   }
 
@@ -517,6 +570,7 @@ export class VirtualPenAllocator {
       }
       const inUse = occupied + reserved + cleaning;
       const totals = this.totals[type];
+      totals.dailyPensInUse.push(inUse);
       totals.penDaysInUse += inUse;
       totals.penDaysOccupied += occupied + reserved;
       totals.headDays += head;

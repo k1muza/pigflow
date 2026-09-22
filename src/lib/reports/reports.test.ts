@@ -543,8 +543,8 @@ describe("the housing needs plan", () => {
       }
       throw new Error(`no row labelled ${label}`);
     };
-    const minimum = rowOf("MINIMUM SIMULATED REQUIREMENT");
-    const recommended = rowOf("RECOMMENDED CAPACITY, ROUNDED TO THE ROOM MODULE");
+    const minimum = rowOf("MINIMUM REQUIRED BY SIMULATION");
+    const recommended = rowOf("RECOMMENDED DESIGN CAPACITY");
 
     report.types.forEach((type, index) => {
       const column = index + 2;
@@ -572,6 +572,34 @@ describe("the housing needs plan", () => {
       labels.push(label);
     }
     expect(labels).toEqual(report.buildings.map((building) => building.label));
+  }, 60_000);
+
+  it("prints the order the work falls due in, and what was turned down", async () => {
+    const bytes = await reportById("housing-needs").build(plan, GENERATED_AT);
+    const workbook = new Workbook();
+    await workbook.xlsx.load(Buffer.from(bytes) as never);
+
+    // A construction programme, with a date against every piece of work.
+    const phases = workbook.getWorksheet("Construction Phases")!;
+    const dates: string[] = [];
+    for (let row = 7; row < 7 + report.phases.length; row += 1) {
+      expect(String(phases.getCell(`A${row}`).value ?? "")).not.toBe("");
+      dates.push(String(phases.getCell(`C${row}`).value ?? ""));
+    }
+    expect(dates).toEqual(
+      report.phases.map((phase) => phase.buildByDate ?? `Day ${phase.buildByDay}`),
+    );
+
+    // And the arrangements that were costed, the chosen one first.
+    const options = workbook.getWorksheet("Layout Options")!;
+    expect(String(options.getCell("A7").value)).toBe("Recommended");
+    for (let index = 0; index < report.layoutOptions.length; index += 1) {
+      const row = 7 + index;
+      expect(String(options.getCell(`A${row}`).value)).toBe(report.layoutOptions[index].label);
+      expect(options.getCell(`I${row}`).value).toBe(
+        report.layoutOptions[index].estimatedCostScore,
+      );
+    }
   }, 60_000);
 });
 

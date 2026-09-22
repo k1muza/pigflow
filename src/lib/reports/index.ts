@@ -331,16 +331,16 @@ export const REPORTS: readonly ReportDefinition[] = [
     id: "housing-needs",
     name: "Housing Needs Plan",
     description:
-      "What this herd would have to be housed in: pens by type, the rooms they group into and the buildings those rooms come to — sized on the busiest morning of the plan rather than on a month end.",
+      "The smallest practical unit this herd can be run in: pens by type, the room module each house is built to, the buildings those rooms come to and the order the work falls due — sized on the busiest morning of the plan rather than on a month end, and chosen by costing the alternatives rather than by a rule of thumb.",
     format: "xlsx",
     slug: "housing-needs-plan",
     preview: (result) => {
       const report = housingNeedsReport(result);
       const currency = result.config.project.currency;
       const totals = report.housing?.totals;
-      const biggest = [...report.types].sort(
-        (a, b) => b.moduleCapacityPens - a.moduleCapacityPens,
-      )[0];
+      const minimum = report.types.reduce((sum, type) => sum + type.minimumPens, 0);
+      const laterPhases = report.phases.filter((phase) => phase.phase > 1);
+      const postponed = laterPhases.reduce((sum, phase) => sum + phase.pensAdded, 0);
       return {
         facts: [
           {
@@ -351,25 +351,25 @@ export const REPORTS: readonly ReportDefinition[] = [
           {
             label: "Pens and places",
             value: count(totals?.pens ?? 0, 0),
-            note: `In ${count(totals?.rooms ?? 0, 0)} rooms`,
+            note: `Simulated minimum ${count(minimum, 0)}, in ${count(totals?.rooms ?? 0, 0)} rooms`,
           },
           {
-            label: "Total head capacity",
-            value: count(totals?.headCapacity ?? 0, 0),
-            note: biggest
-              ? `Largest requirement: ${biggest.label.toLowerCase()}`
-              : undefined,
+            label: "Can be postponed",
+            value: count(postponed, 0),
+            note: postponed > 0
+              ? `${count(laterPhases.length, 0)} later phase${laterPhases.length === 1 ? "" : "s"}; the rest is wanted from the start`
+              : "Every house is wanted from the start",
           },
           {
             label: "Approximate footprint",
             value: count(totals?.estimatedStructureAreaM2 ?? 0, 0) + " m²",
-            note: `Pen floor ${count(totals?.animalFloorAreaM2 ?? 0, 0)} m², the rest passages`,
+            note: `${count(totals?.layoutEfficiencyPct ?? 0, 0)}% of it room, the rest passage and squaring off`,
           },
         ],
         columns: report.types.map((type) => type.label),
         lines: previewLines(HOUSING_ROWS, report.types, currency),
         note: report.housing
-          ? `Derived from ${count(report.housing.generatedFromSimulationDayCount, 0)} simulated days against the ${report.housing.policySource}. The workbook carries the building schedule and the working behind every figure.`
+          ? `Derived from ${count(report.housing.generatedFromSimulationDayCount, 0)} simulated days against the ${report.housing.policySource}. The workbook carries the building schedule, the construction phases, the layouts that were costed and turned down, and the working behind every figure.`
           : "This run was not asked to plan the housing.",
       };
     },

@@ -111,6 +111,51 @@ export type FloorAreaBand = { maxWeightKg: number; m2PerHead: number };
 
 export type RoomLayout = "single_row" | "double_row_central_passage";
 
+/**
+ * Where the margin over the simulated minimum comes from.
+ *
+ * `none` builds what the run required and nothing else. `percentage` is the flat
+ * margin, kept because a farmer who wants to quote one should be able to.
+ * `simulation-derived` is the default, and it is the only one of the three that
+ * looks at the farm: it asks what surge in demand this herd actually put through
+ * this house, and adds that and no more. A house whose requirement never moves
+ * gets nothing, because nothing in the simulation justifies anything.
+ */
+export type ReserveMode = "none" | "percentage" | "simulation-derived";
+
+/**
+ * What a layout is scored on, in equivalent square metres of construction.
+ *
+ * Not a bill of quantities and not a quotation. What it is for is comparing two
+ * layouts of the same house, and for that it only has to get the shape of the
+ * trade-off right: floor is bought by the square metre, a wall costs more per
+ * metre than a floor does, a room costs more than a partition and a building
+ * costs more than a room. Every weight is here rather than in the algorithm, so
+ * a unit built where walls are cheap and land is dear can say so.
+ */
+export type LayoutCostWeights = {
+  /** Per square metre of building footprint. */
+  floorAreaM2: number;
+  /** Per square metre of roof, which is the footprint times the pitch factor. */
+  roofAreaM2: number;
+  /** Per metre of external wall, which is the buildings' perimeters. */
+  externalWallM: number;
+  /** Per metre of internal partition: pen divisions, passage walls, room walls. */
+  internalPartitionM: number;
+  /** Per building, for everything a shell costs that is not its walls and floor. */
+  building: number;
+  /** Per room, for the door, the drain and its share of the ventilation. */
+  room: number;
+  /** Per square metre of footprint that is inside a building and not inside a room. */
+  unusedAreaM2: number;
+  /** Per square metre of pen that gets built and never filled: its fit-out. */
+  sparePenAreaM2: number;
+  /** Per unit of aspect ratio over the preferred maximum, per room. */
+  aspectRatio: number;
+  /** For a building another room cannot be added to without disturbing it. */
+  inexpandableBuilding: number;
+};
+
 export type HousingPolicy = {
   /** Where the numbers came from, printed wherever they are shown. */
   source: string;
@@ -196,16 +241,86 @@ export type HousingPolicy = {
   };
 
   structure: {
-    /** Operational reserve over the simulated minimum. */
+    /**
+     * Where the margin over the simulated minimum comes from.
+     *
+     * A blanket percentage added to every house before anything is rounded
+     * compounds with the room module and the building module, and the compound
+     * is invisible: on a single boar pen it is the whole reason a second one
+     * gets drawn. The default asks the run what margin it can justify instead.
+     */
+    reserveMode: ReserveMode;
+    /** The margin under `percentage`, and the only thing that mode looks at. */
     reservePct: number;
-    pensPerRoomOptions: readonly number[];
+    /** The most a derived reserve may come to, as a fraction of the minimum. */
+    reserveMaxPct: number;
+    /**
+     * The window a surge in demand is measured over for a derived reserve. One
+     * intake: the reserve is there to absorb the next batch being bigger than
+     * the last, not to cover five years of herd growth, which the peak covers.
+     */
+    reserveWindowDays: number;
+    /**
+     * How far up the run of daily surges a derived reserve reads. Short of 1, so
+     * that a surge which happened once in five years — a herd being stocked, a
+     * house being filled for the first time — does not set the margin for the
+     * other five years.
+     */
+    reservePercentile: number;
+    /**
+     * Pen counts a room may be laid out in, or null for every count between
+     * `minPensPerRoom` and `maxPensPerRoom`.
+     *
+     * Null is the default. A fixed list of modules is the second reason the old
+     * generator overbuilt: a house needing three pens and a list offering two,
+     * four and six has to buy four, and a house needing one has to buy two.
+     */
+    pensPerRoomOptions: readonly number[] | null;
+    minPensPerRoom: number;
+    maxPensPerRoom: number;
     centralPassageWidthM: number;
     /** The shape a pen is aimed at: a little longer than it is wide. */
     preferredPenAspectRatio: number;
     preferredRoomMaxAspectRatio: number;
     maxRoomsPerBuilding: number;
+    /** Roof area as a multiple of footprint: a pitched roof is bigger than its plan. */
+    roofPitchFactor: number;
+    /** What every feasible layout is scored on. */
+    costWeights: LayoutCostWeights;
     /** Room layouts the generator is allowed to draw. */
     layouts: readonly RoomLayout[];
+    /**
+     * Whether a room may be turned through a right angle when it is placed.
+     *
+     * A 5 × 8 room and an 8 × 5 room hold the same pens laid out the same way;
+     * which way it is turned only decides how it packs against its neighbours.
+     * Turning the narrow service rooms to run across a building instead of along
+     * it is often the whole difference between a tidy shed and a wide empty
+     * strip down one side of it.
+     */
+    allowRoomRotation: boolean;
+    /**
+     * Whether housing types that share a building may be given separate ones
+     * when sharing packs badly. The breeding house is the only place this
+     * arises, and it is a choice worth costing rather than assuming either way.
+     */
+    allowBuildingSplit: boolean;
+    /**
+     * Days between committing to a building and being able to put pigs in it.
+     * Construction phases are dated this far ahead of the day the capacity is
+     * first needed.
+     */
+    constructionLeadDays: number;
+    /**
+     * How far apart two pieces of building work have to fall due before they are
+     * worth treating as separate phases.
+     *
+     * Without it, a house that fills over its first two months comes out as five
+     * phases a fortnight apart, which is not a construction programme, it is the
+     * same programme written five times. Rooms falling due inside one of these
+     * windows are built together, at the earliest date any of them is needed.
+     */
+    minPhaseSpacingDays: number;
     /**
      * How long a pen goes on taking new arrivals after the first one lands in
      * it. A farm fills a pen over a few days and then shuts the gate; it does
@@ -299,16 +414,66 @@ export const ARC_HOUSING_POLICY: HousingPolicy = {
     cleaningDays: 0,
   },
   structure: {
+    reserveMode: "simulation-derived",
     reservePct: 0.1,
-    pensPerRoomOptions: [2, 4, 6],
+    reserveMaxPct: 0.25,
+    reserveWindowDays: 7,
+    reservePercentile: 0.95,
+    pensPerRoomOptions: null,
+    minPensPerRoom: 1,
+    maxPensPerRoom: 12,
     centralPassageWidthM: 1.2,
     preferredPenAspectRatio: 1.25,
     preferredRoomMaxAspectRatio: 3.5,
     maxRoomsPerBuilding: 6,
+    roofPitchFactor: 1.15,
+    costWeights: {
+      floorAreaM2: 1,
+      roofAreaM2: 0.6,
+      externalWallM: 6,
+      internalPartitionM: 1.5,
+      building: 40,
+      room: 8,
+      unusedAreaM2: 0.5,
+      sparePenAreaM2: 0.5,
+      aspectRatio: 25,
+      inexpandableBuilding: 30,
+    },
     layouts: ["single_row", "double_row_central_passage"],
+    allowRoomRotation: true,
+    allowBuildingSplit: true,
     penFillWindowDays: 7,
+    constructionLeadDays: 180,
+    minPhaseSpacingDays: 365,
   },
 };
+
+/**
+ * The pen counts a room of this type may be laid out in.
+ *
+ * `batchPens` is the largest number of pens one intake ever filled, and it is a
+ * ceiling rather than a preference: a room is the unit a house is emptied,
+ * washed and refilled in, so a room bigger than a batch is a room that can never
+ * be run all in, all out. Where a type is not batched — a gestation pen or a
+ * boar pen, held continuously and never turned over as a group — there is no
+ * batch to be bigger than, and the policy ceiling is the only one.
+ */
+export function pensPerRoomChoices(policy: HousingPolicy, batchPens = 0): number[] {
+  const { pensPerRoomOptions, minPensPerRoom, maxPensPerRoom } = policy.structure;
+  const ceiling = batchPens > 0 ? Math.min(maxPensPerRoom, batchPens) : maxPensPerRoom;
+  const floor = Math.max(1, minPensPerRoom);
+  const options: number[] = [];
+  if (pensPerRoomOptions !== null) {
+    for (const count of pensPerRoomOptions) if (count > 0) options.push(count);
+  } else {
+    for (let count = floor; count <= Math.max(ceiling, floor); count += 1) options.push(count);
+  }
+  const allowed = options.filter((count) => count <= ceiling);
+  // Never nothing: a ceiling below every configured module still has to produce
+  // a room, so the smallest module on offer is kept.
+  const pool = allowed.length > 0 ? allowed : [Math.min(...options)];
+  return [...new Set(pool)].sort((a, b) => a - b);
+}
 
 /** A policy of one's own, without editing the manual's. */
 export function housingPolicy(edit: (policy: HousingPolicy) => void = () => {}): HousingPolicy {
