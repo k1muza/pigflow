@@ -1,6 +1,7 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 
 import type { PlannerConfig } from "./config";
+import type { HousingNeedsResult } from "./housing";
 import type { ProjectionResult } from "./model";
 import type { PlanSimulation } from "./simulation";
 import { farmValuation, ZERO_BALANCES, type StageValues } from "./sim/accounting";
@@ -82,6 +83,12 @@ export type PlanSimulationResult = {
   timeline: FarmTimeline;
   /** Day 0 to the horizon, in columns. See {@link daySnapshotAt}. */
   days: DayColumns;
+  /**
+   * What this plan would have to be housed in: pens, rooms and buildings by
+   * housing type, worked out from the same daily state everything else here was.
+   * Null when the run was asked not to work it out.
+   */
+  housing: HousingNeedsResult | null;
 };
 
 /**
@@ -102,6 +109,7 @@ export function planResultOf(simulation: PlanSimulation): PlanSimulationResult {
     projection: simulation.projection,
     timeline: simulation.timeline,
     days: packDays(days),
+    housing: simulation.housing,
   };
 }
 

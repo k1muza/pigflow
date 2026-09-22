@@ -13,6 +13,11 @@ import {
   HERD_ROWS,
 } from "./herd-development";
 import {
+  addHousingNeedsSheets,
+  housingNeedsReport,
+  HOUSING_ROWS,
+} from "./housing-needs";
+import {
   addProfitAndLossSheets,
   profitAndLossReport,
   PROFIT_AND_LOSS_ROWS,
@@ -42,7 +47,8 @@ export type ReportId =
   | "profit-and-loss"
   | "balance-sheet"
   | "funding-plan"
-  | "herd-development";
+  | "herd-development"
+  | "housing-needs";
 
 /**
  * A report as the page shows it before anything is downloaded: the headline
@@ -318,6 +324,64 @@ export const REPORTS: readonly ReportDefinition[] = [
         generatedAt,
       );
       addHerdDevelopmentSheets(workbook, report, generatedAt);
+      return workbookBytes(workbook);
+    },
+  },
+  {
+    id: "housing-needs",
+    name: "Housing Needs Plan",
+    description:
+      "What this herd would have to be housed in: pens by type, the rooms they group into and the buildings those rooms come to — sized on the busiest morning of the plan rather than on a month end.",
+    format: "xlsx",
+    slug: "housing-needs-plan",
+    preview: (result) => {
+      const report = housingNeedsReport(result);
+      const currency = result.config.project.currency;
+      const totals = report.housing?.totals;
+      const biggest = [...report.types].sort(
+        (a, b) => b.moduleCapacityPens - a.moduleCapacityPens,
+      )[0];
+      return {
+        facts: [
+          {
+            label: "Buildings required",
+            value: count(totals?.buildings ?? 0, 0),
+            note: report.buildings.map((building) => building.label).join(", ") || undefined,
+          },
+          {
+            label: "Pens and places",
+            value: count(totals?.pens ?? 0, 0),
+            note: `In ${count(totals?.rooms ?? 0, 0)} rooms`,
+          },
+          {
+            label: "Total head capacity",
+            value: count(totals?.headCapacity ?? 0, 0),
+            note: biggest
+              ? `Largest requirement: ${biggest.label.toLowerCase()}`
+              : undefined,
+          },
+          {
+            label: "Approximate footprint",
+            value: count(totals?.estimatedStructureAreaM2 ?? 0, 0) + " m²",
+            note: `Pen floor ${count(totals?.animalFloorAreaM2 ?? 0, 0)} m², the rest passages`,
+          },
+        ],
+        columns: report.types.map((type) => type.label),
+        lines: previewLines(HOUSING_ROWS, report.types, currency),
+        note: report.housing
+          ? `Derived from ${count(report.housing.generatedFromSimulationDayCount, 0)} simulated days against the ${report.housing.policySource}. The workbook carries the building schedule and the working behind every figure.`
+          : "This run was not asked to plan the housing.",
+      };
+    },
+    build: async (result, generatedAt) => {
+      const report = housingNeedsReport(result);
+      const workbook = await workbookFor(
+        result.config,
+        "housing needs plan",
+        "Housing capacity and structure requirements derived from the PigFlow animal-level simulation.",
+        generatedAt,
+      );
+      addHousingNeedsSheets(workbook, report, generatedAt);
       return workbookBytes(workbook);
     },
   },

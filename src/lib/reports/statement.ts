@@ -5,6 +5,7 @@ import {
   applyBase,
   columnLetter,
   COLORS,
+  DECIMAL_FORMAT,
   FONT,
   forCells,
   LANDSCAPE_PAGE,
@@ -60,10 +61,13 @@ export type StatementRow<P> =
   /** A line that is not part of the statement, shown for reference. */
   | { kind: "memo"; label: string; format?: LineFormat; value: (period: P) => number };
 
-type LineFormat = "money" | "number";
+/** A line is money, a count, or a measurement — and a measurement keeps its decimals. */
+type LineFormat = "money" | "number" | "decimal";
 
 function numberFormatOf(format: LineFormat | undefined): string {
-  return format === "number" ? NUMBER_FORMAT : MONEY_FORMAT;
+  if (format === "number") return NUMBER_FORMAT;
+  if (format === "decimal") return DECIMAL_FORMAT;
+  return MONEY_FORMAT;
 }
 
 export type StatementSheet<P> = {
@@ -230,7 +234,9 @@ export function previewLines<P>(
           : periods.map((period) =>
               row.format === "number"
                 ? count(row.value(period), 0)
-                : money(row.value(period), currency),
+                : row.format === "decimal"
+                  ? count(row.value(period), 2)
+                  : money(row.value(period), currency),
             ),
     }));
 }

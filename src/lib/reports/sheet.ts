@@ -30,6 +30,8 @@ export const FONT = "Aptos";
 export const MONEY_FORMAT = '$#,##0;[Red]($#,##0);-';
 export const MONEY_FORMAT_DECIMAL = '$#,##0.00;[Red]($#,##0.00);-';
 export const NUMBER_FORMAT = '#,##0;[Red](#,##0);-';
+/** For a figure that is a measurement rather than a count: 3.25 m is not 3 m. */
+export const DECIMAL_FORMAT = '#,##0.00;[Red](#,##0.00);-';
 
 /** Page setup a plan's tables are printed with: wide, and as many pages tall. */
 export const LANDSCAPE_PAGE = {

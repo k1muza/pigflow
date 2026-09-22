@@ -9,6 +9,7 @@ import { planResultOf, type PlanSimulationResult } from "../simulation-result";
 import { balanceSheetReport } from "./balance-sheet";
 import { fundingPlanReport } from "./funding-plan";
 import { herdDevelopmentReport } from "./herd-development";
+import { housingNeedsReport } from "./housing-needs";
 import { monthPeriods, openingWorthOf, wholePlanPeriod, yearPeriods } from "./periods";
 import { profitAndLossReport, tradingStatement } from "./profit-and-loss";
 import { REPORTS, reportFilename, reportById } from "./index";
@@ -61,12 +62,13 @@ const byEngine = {
 const PLACES = 6;
 
 describe("the report catalogue", () => {
-  it("offers the four planning documents, each able to write its own file", () => {
+  it("offers the five planning documents, each able to write its own file", () => {
     expect(REPORTS.map((report) => report.id)).toEqual([
       "profit-and-loss",
       "balance-sheet",
       "funding-plan",
       "herd-development",
+      "housing-needs",
     ]);
     for (const report of REPORTS) {
       expect(report.name.length).toBeGreaterThan(0);
@@ -517,6 +519,60 @@ describe("the herd development plan", () => {
       Math.max(...plan.projection.months.map((month) => month.finishers)),
     );
   });
+});
+
+describe("the housing needs plan", () => {
+  const report = housingNeedsReport(plan);
+
+  it("lays out the housing the run already worked out, and works nothing out again", () => {
+    expect(report.housing).toBe(plan.housing);
+    expect(report.types).toBe(plan.housing?.types);
+    expect(report.buildings).toBe(plan.housing?.buildings);
+    expect(report.types.length).toBeGreaterThan(0);
+  });
+
+  it("prints the pens the plan says have to exist", async () => {
+    const bytes = await reportById("housing-needs").build(plan, GENERATED_AT);
+    const workbook = new Workbook();
+    await workbook.xlsx.load(Buffer.from(bytes) as never);
+    const sheet = workbook.getWorksheet("Housing Needs")!;
+
+    const rowOf = (label: string) => {
+      for (let row = 1; row <= sheet.rowCount; row += 1) {
+        if (String(sheet.getCell(`A${row}`).value ?? "").trim() === label) return row;
+      }
+      throw new Error(`no row labelled ${label}`);
+    };
+    const minimum = rowOf("MINIMUM SIMULATED REQUIREMENT");
+    const recommended = rowOf("RECOMMENDED CAPACITY, ROUNDED TO THE ROOM MODULE");
+
+    report.types.forEach((type, index) => {
+      const column = index + 2;
+      expect(String(sheet.getCell(6, column).value)).toBe(type.label);
+      // A total is written as a formula with the application's figure cached,
+      // so the sheet adds up and still states what the planner decided.
+      const cell = sheet.getCell(minimum, column).value as { result?: number } | number;
+      const stated = typeof cell === "number" ? cell : (cell?.result ?? Number.NaN);
+      expect(stated).toBe(type.minimumPens);
+      expect(sheet.getCell(recommended, column).value).toBe(type.moduleCapacityPens);
+    });
+  }, 60_000);
+
+  it("schedules every building, with a footprint that holds its rooms", async () => {
+    const bytes = await reportById("housing-needs").build(plan, GENERATED_AT);
+    const workbook = new Workbook();
+    await workbook.xlsx.load(Buffer.from(bytes) as never);
+    const sheet = workbook.getWorksheet("Building Schedule")!;
+
+    const labels: string[] = [];
+    for (let row = 7; row <= sheet.rowCount; row += 1) {
+      const label = String(sheet.getCell(`A${row}`).value ?? "").trim();
+      if (label === "" || label === "Total") continue;
+      if (label.startsWith("Pen floor across")) break;
+      labels.push(label);
+    }
+    expect(labels).toEqual(report.buildings.map((building) => building.label));
+  }, 60_000);
 });
 
 describe("AI that nobody asked for", () => {

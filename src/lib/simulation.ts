@@ -4,6 +4,12 @@ import { plannerSchema, type PlannerConfig } from "./config";
 import { Engine, engineHorizonDay } from "./engine/engine";
 import { engineEventLog, engineSnapshot, engineState } from "./engine/read";
 import {
+  HousingPlanner,
+  type HousingHerdView,
+  type HousingNeedsResult,
+  type HousingPolicy,
+} from "./housing";
+import {
   buildWarnings,
   summariseMonth,
   summariseYears,
@@ -64,6 +70,13 @@ type PlanRun = {
   /** The farm as it stands, rosters and all. */
   state(timestamp?: string): FarmState;
   events(): FarmEvent[];
+  /**
+   * The animals themselves, as they stand this morning. Read by the housing
+   * planner and by nothing else: it is the one question that cannot be answered
+   * from a day's record, because what a farm has to be built to hold depends on
+   * which animals they are and not only on how many.
+   */
+  herd(): HousingHerdView;
 };
 
 type RunOptions = { keepEveryEvent?: boolean };
@@ -91,6 +104,7 @@ function legacyRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
     snapshot: (timestamp) => farm.snapshot(timestamp),
     state: (timestamp) => farm.state(timestamp),
     events: () => farm.events,
+    herd: () => farm,
   };
 }
 
@@ -117,6 +131,7 @@ function engineRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
     snapshot: (timestamp) => engineSnapshot(engine, timestamp),
     state: (timestamp) => engineState(engine, timestamp),
     events: () => engineEventLog(world.log.events),
+    herd: () => world,
   };
 }
 
@@ -135,6 +150,18 @@ export type SimulatePlanOptions = {
   snapshots?: boolean;
   /** Keep the whole event log rather than the tail of it. */
   keepEveryEvent?: boolean;
+  /**
+   * Work out what the plan would have to be housed in as it runs.
+   *
+   * It has to happen during the run: the housing planner allocates pens one
+   * morning at a time and the whole point of it is the mornings a month end
+   * never sees. Defaulted to whatever the day readings are doing, so the
+   * projection-only callers — the cashflow, the comparison tool — pay for
+   * neither, and a full reading of a plan gets both.
+   */
+  housing?: boolean;
+  /** The housing rules to plan against. The manual's profile by default. */
+  housingPolicy?: HousingPolicy;
 };
 
 /** What the one run behind a plan cost, and what had to be run again. */
@@ -165,6 +192,11 @@ export type PlanSimulation = {
   /** Every line the plan wrote, capped unless the run was asked to keep it all. */
   readonly events: FarmEvent[];
   /**
+   * What this plan would have to be housed in: pens, rooms and buildings by
+   * housing type. Null when the run was not asked to work it out.
+   */
+  readonly housing: HousingNeedsResult | null;
+  /**
    * The farm at a wall-clock moment, bar the rosters. Events resolve to whole
    * days, so a timestamp reads its own day, and a day outside the horizon reads
    * the nearest one inside it.
@@ -194,6 +226,10 @@ export function simulatePlan(
   const run = runFor(config, { keepEveryEvent: options.keepEveryEvent });
   const horizon = run.horizonDay;
   const keepSnapshots = options.snapshots !== false;
+  const planner =
+    (options.housing ?? keepSnapshots)
+      ? new HousingPlanner(config, options.housingPolicy)
+      : null;
 
   const stats: PlanSimulationStats = { days: 0, snapshots: 0, replays: 0 };
 
@@ -209,11 +245,14 @@ export function simulatePlan(
   const snapshots: FarmSnapshot[] = [];
   function toHorizon(): void {
     if (run.day >= horizon) return;
-    if (keepSnapshots) {
-      if (snapshots.length === 0) snapshots.push(run.snapshot());
+    if (keepSnapshots || planner !== null) {
+      if (keepSnapshots && snapshots.length === 0) snapshots.push(run.snapshot());
       for (let day = run.day + 1; day <= horizon; day += 1) {
         run.advanceTo(day);
-        snapshots.push(run.snapshot());
+        if (keepSnapshots) snapshots.push(run.snapshot());
+        // After the day has closed, so the housing planner sees the herd the
+        // day ended with rather than one that still has the morning's dead in it.
+        planner?.observe(day, run.herd());
       }
     } else {
       run.advanceTo(horizon);
@@ -225,6 +264,7 @@ export function simulatePlan(
   let projection: ProjectionResult | null = null;
   let timeline: FarmTimeline | null = null;
   let terminal: FarmSnapshot | null = null;
+  let housing: HousingNeedsResult | null = null;
 
   /** The farm as it stood when the run finished. */
   const terminalSnapshot = () => (terminal ??= snapshots.at(-1) ?? run.snapshot());
@@ -323,6 +363,11 @@ export function simulatePlan(
     get events() {
       toHorizon();
       return run.events();
+    },
+    get housing() {
+      if (planner === null) return null;
+      toHorizon();
+      return (housing ??= planner.plan());
     },
     snapshotAt(timestamp: string): FarmSnapshot {
       const day = dayFor(timestamp);
