@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { cloneDefaultConfig, withConfigDefaults, type PlannerConfig } from "../../config";
 import { placesOf } from "../../engine/housing";
+import { planEventLog } from "../../plan";
 import { planPhysicalHousing, simulatePlan } from "../../simulation";
 import type { HerdDeparture, HousingAnimalSnapshot } from "../demand";
 import { ARC_HOUSING_POLICY, stageExitWeights, type HousingType } from "../rules";
@@ -961,6 +962,31 @@ describe("generating a farm from the plan", () => {
       .find((event) => event.type === "service");
     expect(month?.label).toContain(" · in the service house");
     expect(month?.label).not.toContain("(");
+  });
+
+  it("writes every pen an animal stood in into the exported log", () => {
+    const config = structuredClone(GENERATED_FROM);
+    config.housing.physical = GENERATED;
+    const log = planEventLog(config);
+
+    // A log is read in the order things happened, so the housing lines are in
+    // among the farm's own rather than in a block at the end of the file.
+    const days = log.map((event) => event.day);
+    expect([...days].sort((a, b) => a - b)).toEqual(days);
+
+    const housing = log.filter((event) => event.type === "housing");
+    expect(housing.length).toBeGreaterThan(0);
+    // One line an occupant, with both ends of the move on it: what an export is
+    // for is a question nobody thought of in advance, asked in a spreadsheet.
+    expect(
+      housing.some((event) => /^[A-Z]+-\d+ moved from \S+ to \S+ — to farrow$/.test(event.message)),
+    ).toBe(true);
+    expect(housing.some((event) => event.message.includes("commissioned in"))).toBe(true);
+    expect(housing.some((event) => event.message.includes("cleaning until day"))).toBe(true);
+    for (const event of housing) expect(event.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // And a plan with no pens exports exactly what it always did.
+    expect(planEventLog(GENERATED_FROM).some((event) => event.type === "housing")).toBe(false);
   });
 
   it("keeps the plain stage-change line on a plan with no pens to move between", () => {

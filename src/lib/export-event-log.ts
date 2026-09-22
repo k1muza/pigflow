@@ -22,6 +22,7 @@ const EVENT_LABELS: Record<FarmEvent["type"], string> = {
   health: "Health",
   processing: "Processing",
   capacity: "Capacity",
+  housing: "Housing",
 };
 
 /**

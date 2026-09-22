@@ -1,5 +1,8 @@
+import { addDays, format, parseISO } from "date-fns";
+
 import type { PlannerConfig } from "./config";
 import { engineHorizonDay } from "./engine/engine";
+import { housingLogEvents } from "./housing";
 import { simulatePlan } from "./simulation";
 import { Farm, horizonDay, type FarmEvent, type FarmState, type FarmTimeline } from "./sim";
 
@@ -47,7 +50,34 @@ export function planTimeline(config: PlannerConfig): FarmTimeline {
  * going to read.
  */
 export function planEventLog(config: PlannerConfig): FarmEvent[] {
-  return simulatePlan(config, { snapshots: false, keepEveryEvent: true }).events;
+  const simulation = simulatePlan(config, {
+    snapshots: false,
+    keepEveryEvent: true,
+    // A log is the one reading that is meant to be complete, so it is also the
+    // one place worth housing the herd for: every pen an animal stood in is a
+    // line somebody may want to trace a year later.
+    physicalHousing: true,
+  });
+  const events = simulation.events;
+  const housing = simulation.physicalHousing;
+  if (housing === null) return events;
+
+  const start = parseISO(config.project.startDate);
+  const dateOf = (day: number) =>
+    Number.isNaN(start.getTime()) ? "" : format(addDays(start, Math.max(0, day)), "yyyy-MM-dd");
+
+  // Merged by day rather than appended, because a log is read in the order
+  // things happened and a block of housing at the end of the file is not that.
+  // Both lists are already in day order, so this is one pass over each.
+  const housed = housingLogEvents(housing, dateOf);
+  const merged: FarmEvent[] = [];
+  let next = 0;
+  for (const event of events) {
+    while (next < housed.length && housed[next].day <= event.day) merged.push(housed[next++]);
+    merged.push(event);
+  }
+  while (next < housed.length) merged.push(housed[next++]);
+  return merged;
 }
 
 /**

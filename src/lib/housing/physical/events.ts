@@ -1,5 +1,5 @@
 import { HOUSING_LABELS, type HousingType } from "../rules";
-import type { FarmPeriodEvent, PigStage } from "../../sim";
+import type { FarmEvent, FarmPeriodEvent, PigStage } from "../../sim";
 import type {
   HousingConflict,
   HousingMovementEvent,
@@ -431,6 +431,94 @@ export function housingEventsFor(
     fromDay === throughDay,
     fromDay <= housing.firstDay,
   );
+}
+
+// ------------------------------------------------------------- the whole log
+
+/** How a movement reads in a log that is written one line an occupant. */
+const LOG_REASON: Record<MovementReason, string> = {
+  INITIAL_PLACEMENT: "housed",
+  SERVICE: "to be served",
+  GESTATION: "confirmed in pig",
+  PRE_FARROW: "to farrow",
+  WEANING: "weaned",
+  STAGE_TRANSITION: "up a stage",
+  SALE: "sold",
+  CULL: "culled",
+  MORTALITY: "died",
+  MANUAL: "moved",
+};
+
+function occupantName(occupant: HousingMovementEvent["occupant"]): string {
+  return occupant.type === "animal"
+    ? occupant.animalId
+    : `${occupant.cohortId} (${plural(occupant.head, "pig")})`;
+}
+
+/**
+ * Every line the housing wrote, one an occupant, for the log a person exports.
+ *
+ * The opposite trade from the day panel. A work list wants one line for a batch
+ * walking down a passage; an export wants the record itself — which animal,
+ * which pen it left, which pen it went into, on what day — because what an
+ * export is for is being asked a question nobody thought of in advance, in a
+ * spreadsheet, a year later.
+ *
+ * Shaped as the farm's own log lines so it can be sorted in among them, rather
+ * than being a second file somebody has to line up by hand against the first.
+ */
+export function housingLogEvents(
+  housing: HousingSimulationResult,
+  dateOf: (day: number) => string,
+): FarmEvent[] {
+  const { types } = penIndex(housing.plan);
+  const events: FarmEvent[] = [];
+  const write = (day: number, message: string) =>
+    events.push({ day, date: dateOf(day), type: "housing", message });
+
+  for (const movement of housing.movements) {
+    const who = occupantName(movement.occupant);
+    const why = LOG_REASON[movement.reason];
+    if (movement.from && movement.to) {
+      write(movement.day, `${who} moved from ${movement.from.penId} to ${movement.to.penId} — ${why}`);
+    } else if (movement.to) {
+      write(movement.day, `${who} into ${movement.to.penId} — ${why}`);
+    } else if (movement.from) {
+      write(movement.day, `${who} out of ${movement.from.penId} — ${why}`);
+    }
+  }
+
+  for (const entry of housing.commissionings) {
+    write(
+      entry.day,
+      `${entry.roomId} commissioned in ${HOUSE_PHRASE[entry.housingType]} — ` +
+        `${plural(entry.pens, "pen")}, ${plural(entry.headCapacity, "place")}`,
+    );
+  }
+
+  for (const change of housing.statusChanges) {
+    const house = types.get(change.penId);
+    if (house === undefined) continue;
+    // A pen coming into use for the first time is the room's commissioning line
+    // said again once a pen; the room is the piece of work, so this is the one
+    // status a pen keeps to itself.
+    if (change.status === "AVAILABLE" && change.untilDay === undefined) continue;
+    const until = change.untilDay === undefined ? "" : ` until day ${change.untilDay}`;
+    write(change.day, `${change.penId} ${change.status.toLowerCase().replace(/_/g, " ")}${until}`);
+  }
+
+  for (const conflict of housing.conflicts) {
+    write(
+      conflict.day,
+      `${head(conflict.requiredHead)} wanted ${HOUSING_LABELS[conflict.housingType].toLowerCase()} ` +
+        `and ${conflict.availableHeadCapacity} were free — ` +
+        conflict.reason.toLowerCase().replace(/_/g, " ") +
+        (conflict.occupantId === undefined ? "" : ` (first was ${conflict.occupantId})`),
+    );
+  }
+
+  // The record is written house by house above; a log is read day by day.
+  return events.sort((a, b) => a.day - b.day);
 }
 
 /**

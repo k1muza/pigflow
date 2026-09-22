@@ -83,7 +83,17 @@ export type FarmEventType =
   | "inventory"
   | "health"
   | "processing"
-  | "capacity";
+  | "capacity"
+  /**
+   * An animal moving between the farm's own pens, and the pens themselves
+   * coming into use, going on to wash and running short.
+   *
+   * Written by neither engine. Housing is allocated alongside the run by
+   * `lib/housing/physical`, and its record is folded into the log where the log
+   * is gathered for export — see `planEventLog`. A plan with no pens has none
+   * of these lines.
+   */
+  | "housing";
 
 export type FarmEvent = {
   day: number;
