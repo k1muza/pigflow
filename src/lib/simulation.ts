@@ -6,6 +6,8 @@ import { engineEventLog, engineSnapshot, engineState } from "./engine/read";
 import {
   ARC_HOUSING_POLICY,
   HousingPlanner,
+  housingEventsByDay,
+  housingEventsFor,
   housingSnapshots,
   PhysicalHousingAllocator,
   physicalFarmPlanOf,
@@ -395,7 +397,10 @@ export function simulatePlan(
     },
     get timeline() {
       toHorizon();
-      return (timeline ??= timelineOf(config, run.history, (date) => run.dayOf(date)));
+      return (timeline ??= withHousingEvents(
+        timelineOf(config, run.history, (date) => run.dayOf(date)),
+        pens === null ? null : (physicalHousing ??= pens.finish()),
+      ));
     },
     get events() {
       toHorizon();
@@ -429,6 +434,44 @@ export function simulatePlan(
     },
     stats,
   };
+}
+
+/**
+ * The timeline with what the housing did written into it.
+ *
+ * A move between pens is a thing that happened on a day, and the calendar is
+ * where a person looks to find out what happened on a day — so it belongs in
+ * the same list as the farrowings and the sales rather than in a panel of its
+ * own that has to be gone and looked for. A plan with no pens is handed back
+ * exactly as it came in.
+ *
+ * The months are folded from their own days rather than from the day lines,
+ * because "move 21 head into the weaner house" thirty times is not a month: the
+ * month wants one line with the month's head on it.
+ */
+function withHousingEvents(
+  timeline: FarmTimeline,
+  housing: HousingSimulationResult | null,
+): FarmTimeline {
+  if (housing === null) return timeline;
+  const byDay = housingEventsByDay(housing);
+  if (byDay.size === 0) return timeline;
+
+  const days = timeline.days.map((day) => {
+    const events = byDay.get(day.day);
+    return events === undefined ? day : { ...day, events: [...day.events, ...events] };
+  });
+
+  const dayOfDate = new Map(timeline.days.map((day) => [day.date, day.day]));
+  const months = timeline.months.map((month) => {
+    const from = dayOfDate.get(month.date);
+    const through = dayOfDate.get(month.endDate);
+    if (from === undefined || through === undefined) return month;
+    const events = housingEventsFor(housing, from, through);
+    return events.length === 0 ? month : { ...month, events: [...month.events, ...events] };
+  });
+
+  return { ...timeline, days, months };
 }
 
 /**

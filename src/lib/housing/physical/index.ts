@@ -24,5 +24,6 @@ export * from "./model";
 export * from "./state";
 export * from "./history";
 export * from "./result";
+export * from "./events";
 export * from "./allocator";
 export * from "./generate";

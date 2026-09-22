@@ -158,7 +158,17 @@ export type FarmPeriodEvent = {
     | "purchase"
     | "processing"
     | "scan"
-    | "feed";
+    | "feed"
+    /**
+     * Animals moving between the farm's own pens, and the pens themselves
+     * coming into use, going on to wash and running short.
+     *
+     * Not written by either engine: housing is allocated alongside the run by
+     * `lib/housing/physical`, and its lines are folded into the timeline where
+     * it is built. See `housingEventsFor`.
+     */
+    | "housing"
+    | "housing-shortage";
   label: string;
   count: number;
 };

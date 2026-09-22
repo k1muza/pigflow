@@ -74,10 +74,10 @@ import {
   type PlannerSection,
   type Vaccination,
 } from "@/lib/model";
-import { HousingDay } from "@/components/housing-day";
+import { HousingFarmDialog } from "@/components/housing-day";
 import { HousingSettings } from "@/components/housing-settings";
 import { placesOf } from "@/lib/engine/housing";
-import { hasPhysicalHousing } from "@/lib/housing";
+import { hasPhysicalHousing, type HousingSimulationResult } from "@/lib/housing";
 import {
   generatedTotal,
   isGenerated,
@@ -221,6 +221,8 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
   cull: "bg-critical-soft text-critical",
   purchase: "bg-warning-soft text-ink-muted",
   feed: "bg-warning-soft text-ink-muted",
+  housing: "bg-plane text-ink-muted",
+  "housing-shortage": "bg-critical-soft text-critical",
 };
 
 /**
@@ -229,8 +231,14 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
  * changing what they are, pigs leaving, feed arriving. Vaccinations and losses
  * are deliberately unmarked — they fall on so many days that a dot for them
  * would colour the whole calendar and say nothing.
+ *
+ * An ordinary move is unmarked for the same reason: a working farm moves
+ * something most mornings, and a dot on almost every square is a dot that says
+ * nothing. A morning with animals and nowhere to put them is the opposite of
+ * ordinary, so that one is marked.
  */
 const DAY_MARKS: Partial<Record<FarmPeriodEvent["type"], string>> = {
+  "housing-shortage": CHART.warning,
   service: CHART.stage.sows,
   scan: CHART.stage.sows,
   conception: CHART.stage.sows,
@@ -263,6 +271,8 @@ const EVENT_NAMES: Record<FarmPeriodEvent["type"], string> = {
   cull: "Cull",
   purchase: "Buy",
   feed: "Feed",
+  housing: "Move",
+  "housing-shortage": "No room",
 };
 
 /** Calendar or a list of months — the same plan, read at two zoom levels. */
@@ -1245,6 +1255,7 @@ export function Simulator({ simulation }: { simulation: PlanSimulationResult }) 
   const [picked, setPicked] = useState(() => config.project.startDate);
   const [yearIndex, setYearIndex] = useState(0);
   const [dayOpen, setDayOpen] = useState(false);
+  const [farmOpen, setFarmOpen] = useState(false);
   const [savingLog, setSavingLog] = useState(false);
 
   /**
@@ -1720,8 +1731,14 @@ export function Simulator({ simulation }: { simulation: PlanSimulationResult }) 
         </Card>
       </div>
 
-      {/* Where every animal actually stood on the day the panel is headed by. */}
-      <HousingDay
+      {/*
+        The farm itself, opened from the day panel rather than standing under
+        the charts: it is the answer to a question about one day, and the day
+        panel is where that question is asked.
+      */}
+      <HousingFarmDialog
+        open={farmOpen}
+        onOpenChange={setFarmOpen}
         housing={simulation.physicalHousing}
         day={panelState.day}
         date={panelDate}
@@ -1730,6 +1747,8 @@ export function Simulator({ simulation }: { simulation: PlanSimulationResult }) 
       <DetailPanel
         open={dayOpen}
         onOpenChange={setDayOpen}
+        housing={simulation.physicalHousing}
+        onSeeFarm={() => setFarmOpen(true)}
         view={view}
         day={selectedDay}
         month={selectedMonth}
@@ -1765,6 +1784,8 @@ function DetailPanel({
   monthEnd,
   state,
   config,
+  housing,
+  onSeeFarm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1774,6 +1795,10 @@ function DetailPanel({
   monthEnd: FarmCalendarDay | null;
   state: DaySnapshot;
   config: PlannerConfig;
+  /** The pens this plan was run in, or null on a plan that has none. */
+  housing: HousingSimulationResult | null;
+  /** Opens the whole farm as it stood on the day this panel is headed by. */
+  onSeeFarm: () => void;
 }) {
   const currency = config.project.currency;
   const months = view === "months";
@@ -1820,6 +1845,29 @@ function DetailPanel({
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-6 px-4 py-5">
+            {/*
+              The one thing a day panel could never answer before: not how many
+              head were on the farm, but where they were standing.
+            */}
+            <button
+              type="button"
+              onClick={onSeeFarm}
+              disabled={housing === null}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-hairline bg-surface px-3 py-2.5 text-left transition hover:bg-raised disabled:cursor-default disabled:opacity-60 disabled:hover:bg-surface"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-ink">See the whole farm</span>
+                <span className="block text-xs leading-5 text-ink-faint">
+                  {housing === null
+                    ? "No pens yet — generate housing in Farm inputs."
+                    : months
+                      ? "Every pen at the end of the month, and what moved."
+                      : "Every pen on this day, and what moved between them."}
+                </span>
+              </span>
+              <Building2 size={16} className="shrink-0 text-ink-faint" />
+            </button>
+
             {months && month ? (
               <section>
                 <h4 className="text-sm font-semibold text-ink">Income and expenditure</h4>

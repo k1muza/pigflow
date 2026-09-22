@@ -6,6 +6,7 @@ import { planPhysicalHousing, simulatePlan } from "../../simulation";
 import type { HerdDeparture, HousingAnimalSnapshot } from "../demand";
 import { ARC_HOUSING_POLICY, stageExitWeights, type HousingType } from "../rules";
 import { allocatePhysicalHousing, PhysicalHousingAllocator } from "./allocator";
+import { housingEventsByDay, housingEventsFor } from "./events";
 import {
   animalLocationOnDay,
   farmStateOnDay,
@@ -646,6 +647,68 @@ describe("reading a past day back out of the events", () => {
   });
 });
 
+// -------------------------------------------------- what the calendar is told
+
+describe("the housing as a day's work", () => {
+  const plan = farm(
+    building("GEST", [GESTATION]),
+    building("FARR", [{ ...FARROWING, pens: 1 }]),
+    building("WEAN", [WEANER]),
+  );
+  const scene: Scene = (day) => {
+    if (day < 20) {
+      return [sow("SOW-1", "gestating", { due: 20 }), sow("SOW-2", "gestating", { due: 21 })];
+    }
+    if (day < 40) {
+      return [
+        sow("SOW-1", "lactating"),
+        sow("SOW-2", "gestating", { due: 21 }),
+        ...batch(9, (index) => piglet("P-" + index, "SOW-1", "B20")),
+      ];
+    }
+    return batch(9, (index) => pig("P-" + index, "weaner", "W40", 8));
+  };
+  const result = run(plan, scene, 1, 45);
+
+  it("says what moved, in the words a work list is written in", () => {
+    expect(housingEventsFor(result, 13, 13)).toEqual([
+      { type: "housing", label: "Set down 1 head into the farrowing house to farrow", count: 1 },
+    ]);
+    const weaning = housingEventsFor(result, 40, 40);
+    expect(weaning.map((entry) => entry.label)).toContain(
+      "Move 9 head into the weaner house at weaning",
+    );
+    expect(weaning.map((entry) => entry.label)).toContain("Wash down 1 pen in the farrowing house");
+  });
+
+  it("says out loud when there was nowhere to put them", () => {
+    // One farrowing place and two sows due within a day of each other.
+    const shortage = housingEventsFor(result, 14, 14);
+    expect(shortage).toEqual([
+      {
+        type: "housing-shortage",
+        label: "1 head wanted farrowing places and there were none free",
+        count: 1,
+      },
+    ]);
+  });
+
+  it("rolls a stretch of days into one line rather than thirty", () => {
+    const month = housingEventsFor(result, 1, 45);
+    const moves = month.filter((entry) => entry.label.includes("into the weaner house"));
+    expect(moves).toHaveLength(1);
+    expect(moves[0].count).toBe(9);
+  });
+
+  it("indexes by day without walking the record once a day", () => {
+    const byDay = housingEventsByDay(result);
+    for (const [day, events] of byDay) {
+      expect(events).toEqual(housingEventsFor(result, day, day));
+    }
+    expect(byDay.get(13)).toBeDefined();
+  });
+});
+
 // ----------------------------------------------------- generating the housing
 
 /**
@@ -723,6 +786,26 @@ describe("generating a farm from the plan", () => {
     // The farm was actually filled: this is not a run that housed nobody.
     expect(HOUSED.movements.length).toBeGreaterThan(0);
     expect(Object.keys(HOUSED.finalState.entityLocations).length).toBeGreaterThan(0);
+  });
+
+  it("writes what the housing did into the calendar the plan is read from", () => {
+    const config = structuredClone(GENERATED_FROM);
+    config.housing.physical = GENERATED;
+    const timeline = simulatePlan(config, { snapshots: false, physicalHousing: true }).timeline;
+
+    // A move is a thing that happened on a day, so it is on the day beside the
+    // farrowings and the sales rather than in a panel of its own.
+    const days = timeline.days.filter((day) =>
+      day.events.some((event) => event.type === "housing"),
+    );
+    expect(days.length).toBeGreaterThan(0);
+    expect(days[0].events.some((event) => event.label.includes("into the"))).toBe(true);
+
+    // And the month says it once rather than thirty times.
+    const month = timeline.months.find((entry) =>
+      entry.events.some((event) => event.type === "housing"),
+    );
+    expect(month).toBeDefined();
   });
 
   it("holds the herd it was generated for, with nobody left outside", () => {
