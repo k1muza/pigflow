@@ -3113,9 +3113,10 @@ export function FarmInputs({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field
             label="Weaning weight"
-            value={config.growth.weaningWeightKg}
-            onChange={(v) => update("growth", "weaningWeightKg", v)}
-            suffix="kg"
+            value={config.growth.referenceWeaningWeightKg}
+            onChange={(v) => update("growth", "referenceWeaningWeightKg", v)}
+            suffix="kg expected"
+            hint="What a well-fed piglet is expected to leave the sow at. It sets what the litter tries to grow, and its dam is offered the feed to milk it — so a heavier weaner here is a bigger sow ration and a bigger feed bill, not free liveweight. What the piglets actually weigh is whatever the feed paid for."
           />
           <Field
             label="Grower starts"

@@ -103,7 +103,7 @@ describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
     const farm = runFarm(input, 400);
     const feedKg = farm.history.reduce((sum, day) => sum + day.growingFeedKg, 0);
     const gainKg =
-      farm.lifetime.soldLiveweightKg - 2000 * ((input.growth.weaningWeightKg + 30) / 2);
+      farm.lifetime.soldLiveweightKg - 2000 * ((input.growth.referenceWeaningWeightKg + 30) / 2);
     // Conversion depends on weight, so the expectation is what one average pig
     // eats walking the same curve from weaning to sale weight.
     const plannedFcr = growoutFeedConversion(input.growth).growoutFcr;

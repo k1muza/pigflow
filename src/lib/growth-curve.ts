@@ -145,7 +145,7 @@ export type GrowoutFeed = {
 export function growoutFeedConversion(growth: GrowthConfig): GrowoutFeed {
   const feed = { weaner: 0, grower: 0, finisher: 0 };
   const gained = { weaner: 0, grower: 0, finisher: 0 };
-  let weightKg = growth.weaningWeightKg;
+  let weightKg = growth.referenceWeaningWeightKg;
   let days = 0;
 
   // The day cap is for configurations that would never arrive: a stage with no

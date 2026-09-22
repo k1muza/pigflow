@@ -129,7 +129,7 @@ export function stageDurationDays(stage: PigStage, config: PlannerConfig): numbe
       return config.reproduction.weaningAgeDays;
     case "weaner":
       return (
-        (config.growth.growerStartWeightKg - config.growth.weaningWeightKg) /
+        (config.growth.growerStartWeightKg - config.growth.referenceWeaningWeightKg) /
         config.growth.weanerDailyGainKg
       );
     case "grower":
@@ -398,7 +398,7 @@ export class MortalityScheduler {
     }
     const from =
       stage === "weaner"
-        ? growth.weaningWeightKg
+        ? growth.referenceWeaningWeightKg
         : stage === "grower"
           ? growth.growerStartWeightKg
           : stage === "finisher"

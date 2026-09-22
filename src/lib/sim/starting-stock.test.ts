@@ -217,7 +217,7 @@ describe("starting piglets", () => {
     for (const pig of placed) {
       expect(pig.stage).toBe("weaner");
       expect(pig.weightKg).toBeGreaterThan(0);
-      expect(pig.weightKg).toBeLessThan(config.growth.weaningWeightKg);
+      expect(pig.weightKg).toBeLessThan(config.growth.referenceWeaningWeightKg);
       expect(pig.costs.total).toBeCloseTo(12, 6);
     }
 

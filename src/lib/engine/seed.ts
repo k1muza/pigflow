@@ -159,7 +159,7 @@ function seedCountedHerd(world: World): void {
         sow.tag,
         "opening",
       ]);
-      const gain = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+      const gain = (growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
       for (let p = 0; p < litterSize; p += 1) {
         const piglet = createPiglet(world, sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
         catchUpVaccinations(world, piglet, 0);
@@ -235,7 +235,7 @@ function seedGrowingStock(
   const { growth, reproduction } = world.config;
   const startWeight =
     stage === "weaner"
-      ? growth.weaningWeightKg
+      ? growth.referenceWeaningWeightKg
       : stage === "grower"
         ? growth.growerStartWeightKg
         : growth.finisherStartWeightKg;
@@ -259,7 +259,7 @@ function seedGrowingStock(
     const daysInStage = (weightKg - startWeight) / dailyGain;
     const ageDays =
       reproduction.weaningAgeDays +
-      (startWeight - growth.weaningWeightKg) / growth.weanerDailyGainKg +
+      (startWeight - growth.referenceWeaningWeightKg) / growth.weanerDailyGainKg +
       daysInStage;
     const tag = world.nextPigTag();
     const pig = new GrowingPig({

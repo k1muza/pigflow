@@ -127,7 +127,7 @@ describe("Published commercial-production guardrails", () => {
     const farm = runFarm(input, 400);
     const feedKg = farm.history.reduce((sum, day) => sum + day.growingFeedKg, 0);
     // Founding weaners are deliberately spread through their starting stage.
-    const averageStartingWeightKg = (input.growth.weaningWeightKg + 30) / 2;
+    const averageStartingWeightKg = (input.growth.referenceWeaningWeightKg + 30) / 2;
     const gainKg = farm.lifetime.soldLiveweightKg - 600 * averageStartingWeightKg;
 
     expect(farm.lifetime.sold).toBe(600);

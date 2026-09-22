@@ -231,6 +231,37 @@ export type ProjectionSummary = {
   marketLivestockValueAtEnd: number;
   breedingHerdValueAtEnd: number;
   feedInventoryValueAtEnd: number;
+
+  /** What the weaner off this farm weighed, and what it took to get there. */
+  weaning: WeaningSummary;
+};
+
+/**
+ * The weaner, explained.
+ *
+ * The configured weaning weight is a reference rate and not a promise, so a
+ * plan has to be able to say what its piglets actually came off the sow at and
+ * what paid for it. Every figure here is measured off the run rather than read
+ * back out of the plan — except {@link referenceWeightKg}, which is the plan's
+ * own number and is here to be compared against {@link averageWeightKg}. A gap
+ * between the two is the farm telling its owner that the lactation ration and
+ * the creep feeder did not carry what was asked of them.
+ */
+export type WeaningSummary = {
+  /** The management decision: how long the litters were left on. */
+  ageDays: number;
+  /** What the plan says a well-fed piglet of this genotype would reach. */
+  referenceWeightKg: number;
+  /** What they actually weighed, weaned liveweight over head weaned. */
+  averageWeightKg: number;
+  /** Birth to weaning, per head per day: the growth the feed bought. */
+  dailyGainKg: number;
+  /** Sow feed issued to lactating sows over the horizon. */
+  lactationFeedKg: number;
+  /** Creep put in front of the sucklers over the horizon. */
+  creepFeedKg: number;
+  /** Both of those over the liveweight weaned: what a kilo of weaner cost. */
+  feedKgPerKgWeaned: number;
 };
 
 export type ProjectionResult = {
@@ -316,7 +347,7 @@ export function getModelMetrics(config: PlannerConfig) {
     feedConversion: growoutFeedConversion(config.growth),
     daysToSaleWeight:
       config.reproduction.weaningAgeDays +
-      (config.growth.growerStartWeightKg - config.growth.weaningWeightKg) /
+      (config.growth.growerStartWeightKg - config.growth.referenceWeaningWeightKg) /
         config.growth.weanerDailyGainKg +
       (config.growth.finisherStartWeightKg - config.growth.growerStartWeightKg) /
         config.growth.growerDailyGainKg +

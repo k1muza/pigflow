@@ -148,6 +148,10 @@ export type EngineDayRecord = {
   pregnancyLosses: number;
   treatments: number;
   weaned: number;
+  /** What the piglets weaned today weighed, added up: the weaner this farm actually produced. */
+  weanedLiveweightKg: number;
+  /** Feed put in front of the lactating sows today: what paid for that weaner. */
+  lactationFeedKg: number;
   sold: number;
   soldLiveweightKg: number;
   soldDeadweightKg: number;
@@ -247,6 +251,10 @@ export type EngineLifetime = {
   pregnancyLosses: number;
   treatments: number;
   weaned: number;
+  /** Liveweight weaned over the run, for the average weaner off the sow. */
+  weanedLiveweightKg: number;
+  /** Feed put in front of the lactating sows today: what paid for that weaner. */
+  lactationFeedKg: number;
   sold: number;
   soldLiveweightKg: number;
   soldDeadweightKg: number;
@@ -326,6 +334,8 @@ export function emptyLifetime(): EngineLifetime {
     pregnancyLosses: 0,
     treatments: 0,
     weaned: 0,
+    weanedLiveweightKg: 0,
+    lactationFeedKg: 0,
     sold: 0,
     soldLiveweightKg: 0,
     soldDeadweightKg: 0,
@@ -380,6 +390,8 @@ export function emptyDayRecord(day: number, date: string): EngineDayRecord {
     pregnancyLosses: 0,
     treatments: 0,
     weaned: 0,
+    weanedLiveweightKg: 0,
+    lactationFeedKg: 0,
     sold: 0,
     soldLiveweightKg: 0,
     soldDeadweightKg: 0,

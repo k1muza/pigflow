@@ -267,8 +267,13 @@ function wean(world: World, sow: Sow, cause: string): number {
   const penned = weaned.filter((piglet) => piglet.alive);
   if (penned.length > 0) world.batches.open(penned, penned[0].stage, "weaner", day);
 
+  // What they actually weigh coming off her, which is no longer the number the
+  // plan asked for: it is whatever her milk and the creep feeder paid for.
+  const weanedKg = weaned.reduce((total, piglet) => total + piglet.weightKg, 0);
   record.weaned += weaned.length;
+  record.weanedLiveweightKg += weanedKg;
   world.lifetime.weaned += weaned.length;
+  world.lifetime.weanedLiveweightKg += weanedKg;
   world.emit("WeaningCompleted", sow.tag + " weaned " + weaned.length + " piglets", {
     entities: [sow.tag],
     cause,

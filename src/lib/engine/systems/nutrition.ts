@@ -1,6 +1,7 @@
 import type { Vaccination } from "../../config";
 import { FEED_RATIONS, type CostType, type GrowingPig } from "../../sim/animals";
 import { STORE_IDS, type StoreId } from "../../sim/haulage";
+import { pigletSupportFactor } from "../../sim/lactation";
 import { STORE_LABELS } from "../../sim/farm";
 import { emptyRations } from "../../sim/haulage";
 import { zeroStores, type StoreQuantities } from "../procurement";
@@ -97,9 +98,15 @@ export function runNutrition(world: World): void {
   const demand = zeroStores();
   const breeders: { animal: { costs: GrowingPig["costs"] }; store: StoreId; kg: number }[] = [];
   for (const sow of world.sows) {
-    const { kg, ration } = sow.dailyFeed(config);
+    const { kg, ration } = sow.dailyFeed(config, day);
     breeders.push({ animal: sow, store: ration, kg });
     demand[ration] += kg;
+    // What the milking half of the herd is asking for, kept apart from the
+    // gestation ration so a plan can say what its weaner actually cost to make.
+    if (sow.state === "lactating") {
+      record.lactationFeedKg += kg;
+      world.lifetime.lactationFeedKg += kg;
+    }
   }
   for (const boar of world.boars) {
     const { kg, ration } = boar.dailyFeed(config);
@@ -222,9 +229,9 @@ export function runNutrition(world: World): void {
       charge("transport", out.haulage);
     }
 
-    // A suckler lives on milk, and milk follows what its dam was given rather
-    // than what it picked at in the creep feeder.
-    if (pig.stage === "piglet") pig.intakeFactor = Math.min(pig.intakeFactor, served.sow);
+    // A suckler's own intake is settled with its dam's, below: what it grows on
+    // is her milk and the creep between them, and neither is a ration issued to
+    // the piglet itself.
 
     const ageDays = pig.ageDays(day);
     if (ageDays < config.health.heatedUntilAgeDays && gasPerPig > 0) {
@@ -254,6 +261,43 @@ export function runNutrition(world: World): void {
       charge("health", cost);
       record.vaccinations[pig.stage] += 1;
     }
+  }
+
+  // ---- what the litters were actually milked on ---------------------------
+  // A suckler does not eat a ration of its own: it grows on what its dam was
+  // served and what it picked out of the creep feeder, and both of those are
+  // known only now that the stores have said how much of the day's demand they
+  // could cover. One number comes back — the share of what the litter was
+  // trying to grow that the feed actually paid for — and the piglets grow on
+  // that. See `lib/sim/lactation`.
+  let milkedLitters = 0;
+  let shortLitters = 0;
+  for (const sow of world.sows) {
+    if (!sow.alive || sow.state !== "lactating") continue;
+    const demandOf = sow.lactationDemand(day, config);
+    if (demandOf.sucklers === 0) continue;
+    milkedLitters += 1;
+    const support = pigletSupportFactor(
+      demandOf,
+      demandOf.offeredKg * served.sow,
+      demandOf.creepOfferedKg * served.creep,
+      config,
+    );
+    if (support < 1) shortLitters += 1;
+    for (const piglet of sow.litter) {
+      if (!piglet.alive || piglet.stage !== "piglet") continue;
+      piglet.intakeFactor = Math.min(piglet.intakeFactor, support);
+    }
+  }
+  if (shortLitters > 0) {
+    world.emit(
+      "IntakeRestricted",
+      shortLitters + " of " + milkedLitters + " litters are growing on less milk than they want",
+      {
+        cause: "the lactation ration does not cover what the litter is trying to grow",
+        changes: { litters: shortLitters },
+      },
+    );
   }
 
   const bedding = issue("bedding", beddingWanted * served.bedding);

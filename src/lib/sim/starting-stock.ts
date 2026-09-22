@@ -317,7 +317,7 @@ function stageSpan(
   const { growth } = config;
   if (stage === "weaner") {
     return {
-      startWeight: growth.weaningWeightKg,
+      startWeight: growth.referenceWeaningWeightKg,
       endWeight: growth.growerStartWeightKg,
       dailyGain: growth.weanerDailyGainKg,
     };
@@ -343,7 +343,7 @@ function stageEntryAgeDays(
 ): number {
   const { growth, reproduction } = config;
   const weanerDays =
-    (growth.growerStartWeightKg - growth.weaningWeightKg) / growth.weanerDailyGainKg;
+    (growth.growerStartWeightKg - growth.referenceWeaningWeightKg) / growth.weanerDailyGainKg;
   const growerDays =
     (growth.finisherStartWeightKg - growth.growerStartWeightKg) / growth.growerDailyGainKg;
   if (stage === "weaner") return reproduction.weaningAgeDays;
@@ -479,7 +479,7 @@ function placePiglets(
 ): void {
   const { config } = host;
   const { growth, reproduction } = config;
-  const gainPerDay = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+  const gainPerDay = (growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
 
   const placed: GrowingPig[] = [];
   entries.forEach((entry, index) => {
