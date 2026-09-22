@@ -59,7 +59,11 @@ import {
 import { countFarmBuilt } from "./instrument";
 import { seedStartingStock, type StartingStockHost } from "./starting-stock";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
-import { pigletSupportFactor } from "./lactation";
+import {
+  expectedWeaningWeightKg,
+  pigletSupportFactor,
+  potentialPigletGainKg,
+} from "./lactation";
 import { MortalityScheduler } from "./mortality";
 import { sowRosterOf, stockRosterOf } from "./roster";
 import { variationFor, type Variation } from "./variation";
@@ -996,7 +1000,7 @@ export class Farm {
           sow.tag,
           "opening",
         ]);
-        const gain = (growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+        const gain = potentialPigletGainKg(this.config);
         for (let p = 0; p < litterSize; p += 1) {
           const piglet = this.createPiglet(sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
           this.catchUpVaccinations(piglet, 0);
@@ -1074,9 +1078,13 @@ export class Farm {
   private seedGrowingStock(stage: Exclude<PigStage, "piglet" | "gilt">, count: number): void {
     if (count <= 0) return;
     const { growth, reproduction } = this.config;
+    // Where a weaner starts is where this plan's own lactation ration leaves
+    // one, not the weaner the plan hopes for: opening stock that never existed
+    // still has to be the stock this farm produces.
+    const weanedAtKg = expectedWeaningWeightKg(this.config);
     const startWeight =
       stage === "weaner"
-        ? growth.referenceWeaningWeightKg
+        ? weanedAtKg
         : stage === "grower"
           ? growth.growerStartWeightKg
           : growth.finisherStartWeightKg;
@@ -1100,7 +1108,7 @@ export class Farm {
       const daysInStage = (weightKg - startWeight) / dailyGain;
       const ageDays =
         reproduction.weaningAgeDays +
-        (startWeight - growth.referenceWeaningWeightKg) / growth.weanerDailyGainKg +
+        (startWeight - weanedAtKg) / growth.weanerDailyGainKg +
         daysInStage;
       const tag = this.nextPigTag();
       const pig = new GrowingPig({
@@ -1668,6 +1676,14 @@ export class Farm {
 
   private runDailyCare(day: number, date: string, record: DayRecord): void {
     const { config } = this;
+    // Every animal starts the morning on a full ration, and today's feeding is
+    // what takes it off one. Yesterday's short milk day belongs to yesterday:
+    // leaving it on the pig carried a suckler's shortfall into the weaner house
+    // and slowed it for the rest of its life. The 2.0 engine resets the same
+    // thing at the same point in the day, in `engine/systems/housing`.
+    for (const pig of this.pigs) {
+      if (pig.alive) pig.intakeFactor = 1;
+    }
     let sowFeedKg = 0;
     let growingFeedKg = 0;
     const feedSpend = emptyRations();

@@ -3112,11 +3112,31 @@ export function FarmInputs({
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field
-            label="Weaning weight"
+            label="Suckling daily gain"
+            value={config.growth.pigletDailyGainKg}
+            onChange={(v) => update("growth", "pigletDailyGainKg", v)}
+            suffix="kg/day at most"
+            min={0.05}
+            max={0.6}
+            step={0.01}
+            hint="What a piglet of this genotype puts on in a day when its dam's milk and the creep feeder cover everything it is trying to grow. A ceiling, not a rate it is given: what each litter actually makes is worked out from the sow feed she was handed and the creep the piglets ate, so a thin lactation ration shows up as a lighter weaner rather than a bigger bill."
+          />
+          <Field
+            label="Weaning weight target"
             value={config.growth.referenceWeaningWeightKg}
             onChange={(v) => update("growth", "referenceWeaningWeightKg", v)}
-            suffix="kg expected"
-            hint="What a well-fed piglet is expected to leave the sow at. It sets what the litter tries to grow, and its dam is offered the feed to milk it — so a heavier weaner here is a bigger sow ration and a bigger feed bill, not free liveweight. What the piglets actually weigh is whatever the feed paid for."
+            suffix="kg at weaning"
+            hint="The weaner you are aiming at, for the report to hold the run up against. Nothing in the simulation reads it — raising it will not produce a heavier pig, only a wider gap between target and actual, which is the ration telling you what it can carry."
+          />
+          <Field
+            label="Target quoted at"
+            value={config.growth.referenceWeaningAgeDays}
+            onChange={(v) => update("growth", "referenceWeaningAgeDays", v)}
+            suffix="days"
+            min={18}
+            max={56}
+            step={1}
+            hint="The age the target weight beside it is quoted at — the breeding company's figure, not your weaning policy. Wean earlier than this and you should expect to come in under it."
           />
           <Field
             label="Grower starts"

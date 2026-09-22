@@ -261,8 +261,23 @@ export type WeaningSummary = {
   lactationFeedKg: number;
   /** Creep put in front of the sucklers over the horizon. */
   creepFeedKg: number;
-  /** Both of those over the liveweight weaned: what a kilo of weaner cost. */
-  feedKgPerKgWeaned: number;
+  /**
+   * Both of those over the liveweight weaned, across the whole plan.
+   *
+   * A horizon ratio and not a production efficiency, and the difference matters
+   * at both ends of the plan. The feed is every kilogram the lactating sows and
+   * the creep feeders were given between day one and the last day, including
+   * what went into litters still on the sow when the plan stops — and those
+   * litters are not in the liveweight, because they have not been weaned. A
+   * plan that opens with sows already suckling has the opposite error: their
+   * weaners count, and the feed they ate before day one was somebody else's.
+   *
+   * Over a plan of any length the two edges are small and they partly cancel.
+   * Over a short one, or one that ends mid-lactation, this reads a little high.
+   * For what a particular litter cost, the honest reading is
+   * {@link lactationFeedKg} and {@link creepFeedKg} themselves.
+   */
+  feedKgPerKgWeanedOverHorizon: number;
 };
 
 export type ProjectionResult = {

@@ -407,13 +407,14 @@ export class GrowingPig extends Animal {
    * places in it.
    */
   grow(config: PlannerConfig): void {
-    // A suckler grows on what its dam was actually milked for, which is the one
-    // thing this engine weighs feed against: every other stage here grows at its
-    // plan rate, as it always has. See `lib/sim/lactation`.
-    this.weightKg +=
-      this.stage === "piglet"
-        ? this.dailyGainKg(config) * Math.max(0, Math.min(1, this.intakeFactor))
-        : this.dailyGainKg(config);
+    // The same growth rule the 2.0 engine uses, and for the same reason there is
+    // only one of it: what the pig ate today, less what it took to keep it, over
+    // what a kilogram of gain costs at this weight. This engine buys feed as it
+    // is eaten and no store in it can run dry, so a growing pig here is always on
+    // a full ration and the rule hands back its plan rate, exactly as it always
+    // did. A suckler is the exception in both engines, because its feed is its
+    // dam's and hers can fall short of what her litter is trying to grow.
+    this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config));
     if (this.stage === "piglet" || this.stage === "gilt") return;
     if (this.destination === "breeding" && this.weightKg >= config.growth.saleWeightKg) {
       this.stage = "gilt";

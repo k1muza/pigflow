@@ -8,6 +8,7 @@ import {
 } from "../config";
 import { readBalances, valueFoundingStock } from "../sim/accounting";
 import { Boar, GrowingPig, Sow, type PigStage } from "../sim/animals";
+import { expectedWeaningWeightKg, potentialPigletGainKg } from "../sim/lactation";
 import { seedStartingStock, type StartingStockHost } from "../sim/starting-stock";
 import { roomForStage } from "./housing";
 import type { World } from "./world";
@@ -159,7 +160,8 @@ function seedCountedHerd(world: World): void {
         sow.tag,
         "opening",
       ]);
-      const gain = (growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+      // The genotype's own rate, from the one place that knows it.
+      const gain = potentialPigletGainKg(world.config);
       for (let p = 0; p < litterSize; p += 1) {
         const piglet = createPiglet(world, sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
         catchUpVaccinations(world, piglet, 0);
@@ -233,9 +235,13 @@ function seedGrowingStock(
 ): void {
   if (count <= 0) return;
   const { growth, reproduction } = world.config;
+  // Where a weaner starts is where this plan's own lactation ration leaves one,
+  // not the weaner the plan hopes for: opening stock that never existed still
+  // has to be the stock this farm produces.
+  const weanedAtKg = expectedWeaningWeightKg(world.config);
   const startWeight =
     stage === "weaner"
-      ? growth.referenceWeaningWeightKg
+      ? weanedAtKg
       : stage === "grower"
         ? growth.growerStartWeightKg
         : growth.finisherStartWeightKg;
@@ -259,7 +265,7 @@ function seedGrowingStock(
     const daysInStage = (weightKg - startWeight) / dailyGain;
     const ageDays =
       reproduction.weaningAgeDays +
-      (startWeight - growth.referenceWeaningWeightKg) / growth.weanerDailyGainKg +
+      (startWeight - weanedAtKg) / growth.weanerDailyGainKg +
       daysInStage;
     const tag = world.nextPigTag();
     const pig = new GrowingPig({

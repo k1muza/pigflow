@@ -1,7 +1,11 @@
 import type { Vaccination } from "../../config";
 import { FEED_RATIONS, type CostType, type GrowingPig } from "../../sim/animals";
 import { STORE_IDS, type StoreId } from "../../sim/haulage";
-import { pigletSupportFactor } from "../../sim/lactation";
+import {
+  explainLitterGrowth,
+  litterGrowthAccount,
+  type LitterGrowthAccount,
+} from "../../sim/lactation";
 import { STORE_LABELS } from "../../sim/farm";
 import { emptyRations } from "../../sim/haulage";
 import { zeroStores, type StoreQuantities } from "../procurement";
@@ -281,29 +285,38 @@ export function runNutrition(world: World): void {
   // that. See `lib/sim/lactation`.
   let milkedLitters = 0;
   let shortLitters = 0;
+  let worstAccount: LitterGrowthAccount | null = null;
   for (const sow of world.sows) {
     if (!sow.alive || sow.state !== "lactating") continue;
     const demandOf = sow.lactationDemand(day, config);
     if (demandOf.sucklers === 0) continue;
     milkedLitters += 1;
-    const support = pigletSupportFactor(
+    const account = litterGrowthAccount(
       demandOf,
       demandOf.offeredKg * served.sow,
       demandOf.creepOfferedKg * served.creep,
       config,
     );
-    if (support < 1) shortLitters += 1;
+    const support = demandOf.potentialGainKg > 0 ? account.gainKg / demandOf.potentialGainKg : 1;
+    if (support < 1) {
+      shortLitters += 1;
+      if (worstAccount === null || account.gainKg < worstAccount.gainKg) worstAccount = account;
+    }
     for (const piglet of sow.litter) {
       if (!piglet.alive || piglet.stage !== "piglet") continue;
       piglet.intakeFactor = Math.min(piglet.intakeFactor, support);
     }
   }
-  if (shortLitters > 0) {
+  if (shortLitters > 0 && worstAccount !== null) {
     world.emit(
       "IntakeRestricted",
       shortLitters + " of " + milkedLitters + " litters are growing on less milk than they want",
       {
-        cause: "the lactation ration does not cover what the litter is trying to grow",
+        // The worst litter of the day, in feed: what its dam was handed, what
+        // she kept, what the rest milked and what the creep feeder added. A
+        // light weaner is always one of those four numbers, so the event says
+        // which rather than leaving the farm to guess.
+        cause: explainLitterGrowth(worstAccount),
         changes: { litters: shortLitters },
       },
     );

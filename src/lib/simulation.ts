@@ -421,8 +421,10 @@ function weaningSummaryOf(run: PlanRun, config: PlannerConfig): WeaningSummary {
     creepFeedKg,
     // Against liveweight rather than against gain, because the sow's own upkeep
     // is in the numerator: this is what a kilogram of weaner cost to stand up,
-    // not a feed conversion ratio.
-    feedKgPerKgWeaned: weanedKg > 0 ? (lactationFeedKg + creepFeedKg) / weanedKg : 0,
+    // not a feed conversion ratio. Both sides are read over the whole plan and
+    // neither is trimmed to the litters that began and ended inside it, which is
+    // why the field says so in its name.
+    feedKgPerKgWeanedOverHorizon: weanedKg > 0 ? (lactationFeedKg + creepFeedKg) / weanedKg : 0,
   };
 }
 

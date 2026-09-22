@@ -11,6 +11,7 @@ import {
   type StartingStockEntry,
 } from "../config";
 import { Boar, GrowingPig, Sow, type CostStage, type PigStage } from "./animals";
+import { expectedWeaningWeightKg, potentialPigletGainKg } from "./lactation";
 import type { Variation } from "./variation";
 
 /**
@@ -317,7 +318,7 @@ function stageSpan(
   const { growth } = config;
   if (stage === "weaner") {
     return {
-      startWeight: growth.referenceWeaningWeightKg,
+      startWeight: expectedWeaningWeightKg(config),
       endWeight: growth.growerStartWeightKg,
       dailyGain: growth.weanerDailyGainKg,
     };
@@ -343,7 +344,7 @@ function stageEntryAgeDays(
 ): number {
   const { growth, reproduction } = config;
   const weanerDays =
-    (growth.growerStartWeightKg - growth.referenceWeaningWeightKg) / growth.weanerDailyGainKg;
+    (growth.growerStartWeightKg - expectedWeaningWeightKg(config)) / growth.weanerDailyGainKg;
   const growerDays =
     (growth.finisherStartWeightKg - growth.growerStartWeightKg) / growth.growerDailyGainKg;
   if (stage === "weaner") return reproduction.weaningAgeDays;
@@ -479,7 +480,7 @@ function placePiglets(
 ): void {
   const { config } = host;
   const { growth, reproduction } = config;
-  const gainPerDay = (growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+  const gainPerDay = potentialPigletGainKg(config);
 
   const placed: GrowingPig[] = [];
   entries.forEach((entry, index) => {

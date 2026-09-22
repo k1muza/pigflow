@@ -9,6 +9,7 @@ import {
 } from "../config";
 import { generatedTotal, isGenerated, planCashInjections, planCashWithdrawals } from "../funding";
 import { feedConversionAt, growoutFeedConversion, upkeepFeedKgDay } from "../growth-curve";
+import { expectedWeaningWeightKg } from "./lactation";
 import { calculateProjection } from "../model";
 import {
   expensesOf,
@@ -103,10 +104,12 @@ describe("Rule 1 — a pig's sex, weight and age drive what it eats", () => {
     const farm = runFarm(input, 400);
     const feedKg = farm.history.reduce((sum, day) => sum + day.growingFeedKg, 0);
     const gainKg =
-      farm.lifetime.soldLiveweightKg - 2000 * ((input.growth.referenceWeaningWeightKg + 30) / 2);
+      farm.lifetime.soldLiveweightKg - 2000 * ((expectedWeaningWeightKg(input) + 30) / 2);
     // Conversion depends on weight, so the expectation is what one average pig
-    // eats walking the same curve from weaning to sale weight.
-    const plannedFcr = growoutFeedConversion(input.growth).growoutFcr;
+    // eats walking the same curve from weaning to sale weight — starting where
+    // this plan's own lactation ration actually leaves a weaner.
+    const plannedFcr = growoutFeedConversion(input.growth, expectedWeaningWeightKg(input))
+      .growoutFcr;
     expect(feedKg / gainKg).toBeGreaterThan(plannedFcr * 0.9);
     expect(feedKg / gainKg).toBeLessThan(plannedFcr * 1.15);
   });

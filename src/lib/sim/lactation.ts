@@ -112,14 +112,96 @@ export function lactationDemandOf(sow: LactatingSow, config: PlannerConfig): Lac
   };
 }
 
+/** Where a litter's day of growth came from, in the feed that paid for it. */
+export type LitterGrowthAccount = {
+  /** Sow feed she was actually handed, above and below her own upkeep. */
+  servedSowKg: number;
+  maintenanceKg: number;
+  milkFeedKg: number;
+  /** Gain that milk paid for, at the plan's sow feed per kilogram of gain. */
+  milkGainKg: number;
+  /** Creep the litter actually ate, and the gain it paid for. */
+  servedCreepKg: number;
+  creepGainKg: number;
+  /** The two together, before the genotype has its say. */
+  fedGainKg: number;
+  /** What the litter could have made today however much it was given. */
+  potentialGainKg: number;
+  /** The lesser of the two: the gain the litter actually makes. */
+  gainKg: number;
+};
+
 /**
- * How much of what the litter wanted it actually got, as a share of 1.
+ * What a litter grew today and what bought it.
+ *
+ * Read the way the feed goes in: the sow eats for herself first, what is left of
+ * her ration is turned into milk at the plan's conversion, the creep feeder adds
+ * whatever the litter ate out of it, and the genotype caps the total — a litter
+ * cannot be fed into growing faster than a piglet grows.
  *
  * Fed with what the sow was served rather than what she was offered, and with
  * the creep the litter was served rather than what was put down for it, so a
  * store that ran dry reaches the piglet through the same arithmetic as a ration
- * that was never big enough. A litter wanting nothing is fully supported, which
- * keeps the day a litter is born and the day it is weaned from dividing by zero.
+ * that was never big enough.
+ */
+export function litterGrowthAccount(
+  demand: LactationDemand,
+  servedSowKg: number,
+  servedCreepKg: number,
+  config: PlannerConfig,
+): LitterGrowthAccount {
+  const milkFeedKg = Math.max(0, servedSowKg - demand.maintenanceKg);
+  const milkGainKg =
+    config.feed.lactationFeedKgPerKgGain > 0
+      ? milkFeedKg / config.feed.lactationFeedKgPerKgGain
+      : 0;
+  const creepGainKg =
+    config.feed.creepFeedKgPerKgGain > 0 ? servedCreepKg / config.feed.creepFeedKgPerKgGain : 0;
+  const fedGainKg = milkGainKg + creepGainKg;
+  return {
+    servedSowKg,
+    maintenanceKg: demand.maintenanceKg,
+    milkFeedKg,
+    milkGainKg,
+    servedCreepKg,
+    creepGainKg,
+    fedGainKg,
+    potentialGainKg: demand.potentialGainKg,
+    gainKg: Math.max(0, Math.min(demand.potentialGainKg, fedGainKg)),
+  };
+}
+
+/** The same day in a sentence, for a farm asking where the weaner went. */
+export function explainLitterGrowth(account: LitterGrowthAccount): string {
+  const kg = (value: number) => value.toFixed(2) + " kg";
+  const held = account.fedGainKg > account.potentialGainKg + 1e-9;
+  return (
+    "The sow was fed " +
+    kg(account.servedSowKg) +
+    ", of which " +
+    kg(account.maintenanceKg) +
+    " kept her; the remaining " +
+    kg(account.milkFeedKg) +
+    " milked " +
+    kg(account.milkGainKg) +
+    " of litter gain, and the creep feeder added " +
+    kg(account.creepGainKg) +
+    " on " +
+    kg(account.servedCreepKg) +
+    ". The litter gained " +
+    kg(account.gainKg) +
+    (held ? ", held at what a piglet can put on in a day." : ".")
+  );
+}
+
+/**
+ * How much of what the litter wanted it actually got, as a share of 1.
+ *
+ * The same account as {@link litterGrowthAccount}, divided through, because the
+ * engines carry the shortfall on the piglet rather than on the litter: every
+ * suckler on that dam grows at this share of what it could have done. A litter
+ * wanting nothing is fully supported, which keeps the day a litter is born and
+ * the day it is weaned from dividing by zero.
  */
 export function pigletSupportFactor(
   demand: LactationDemand,
@@ -128,27 +210,29 @@ export function pigletSupportFactor(
   config: PlannerConfig,
 ): number {
   if (demand.potentialGainKg <= 0) return 1;
-  const milkFeedKg = Math.max(0, servedSowKg - demand.maintenanceKg);
-  const milkedGainKg =
-    config.feed.lactationFeedKgPerKgGain > 0
-      ? milkFeedKg / config.feed.lactationFeedKgPerKgGain
-      : 0;
-  const creepGainKg =
-    config.feed.creepFeedKgPerKgGain > 0 ? servedCreepKg / config.feed.creepFeedKgPerKgGain : 0;
-  return Math.min(1, Math.max(0, (milkedGainKg + creepGainKg) / demand.potentialGainKg));
+  const account = litterGrowthAccount(demand, servedSowKg, servedCreepKg, config);
+  return account.gainKg / demand.potentialGainKg;
 }
 
 /**
- * The gain a suckler is aiming at: the reference weaning weight spread over the
- * reference lactation, and nothing to do with what it will be given.
+ * The most a suckler can put on in a day: the genotype's own figure, and
+ * nothing to do with what it will be given or with what the plan hopes it will
+ * weigh at weaning.
  *
- * This is the one place the configured weaning weight is allowed to speak, and
- * all it says is what a well-fed piglet of this genotype does. Whether this
- * piglet gets it is settled by {@link pigletSupportFactor}.
+ * It is a cap and not a rate the piglet is entitled to. What it actually makes
+ * is settled by {@link litterGrowthAccount} out of its dam's ration and the
+ * creep feeder, and how many days it gets is the farm's own weaning age.
+ *
+ * This used to be the configured weaning weight divided by the weaning age,
+ * which made the plan's target the thing that drove growth — type a heavier
+ * weaner and every litter on the farm grew faster, for nothing. Worse, the
+ * weaning age was in the divisor: a litter left on a week longer simply grew a
+ * seventh slower and arrived at the same weight, so time on the sow bought
+ * nothing either. The rule is that pre-weaning liveweight comes from feed or
+ * from days, and it has to hold for both.
  */
 export function potentialPigletGainKg(config: PlannerConfig): number {
-  const days = Math.max(1, config.reproduction.weaningAgeDays);
-  return Math.max(0, config.growth.referenceWeaningWeightKg - BIRTH_WEIGHT_KG) / days;
+  return Math.max(0, config.growth.pigletDailyGainKg);
 }
 
 /**
