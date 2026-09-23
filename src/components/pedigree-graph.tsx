@@ -17,7 +17,9 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   GitBranch,
+  LoaderCircle,
   Search,
   Users,
 } from "lucide-react";
@@ -28,10 +30,12 @@ import {
   useState,
 } from "react";
 
+import type { PlannerConfig } from "@/lib/config";
 import type { PedigreeRecord } from "@/lib/pedigree";
 
 type Props = {
   records: readonly PedigreeRecord[];
+  config: PlannerConfig;
   startDate: string;
   horizonDay: number;
 };
@@ -705,7 +709,7 @@ function descendantKeys(
   return { animals, litters };
 }
 
-export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
+export function PedigreeGraph({ records, config, startDate, horizonDay }: Props) {
   const index = useMemo(() => indexPedigree(records), [records]);
   const [expandedAnimals, setExpandedAnimals] = useState<Set<string>>(() => new Set());
   const [expandedLitters, setExpandedLitters] = useState<Set<string>>(() => new Set());
@@ -714,6 +718,7 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedLitterKey, setSelectedLitterKey] = useState<string | null>(null);
   const [selectedSiblingKey, setSelectedSiblingKey] = useState<string | null>(null);
+  const [downloadingTag, setDownloadingTag] = useState<string | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const flow = useRef<ReactFlowInstance<PedigreeFlowNode, Edge> | null>(null);
 
@@ -926,6 +931,46 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
       records.find((item) => item.tag.toLowerCase() === needle) ??
       records.find((item) => item.tag.toLowerCase().includes(needle));
     if (row) revealAnimal(row.tag);
+  }
+
+  async function downloadPigDatasheet(): Promise<void> {
+    if (!selectedRecord || selectedRecord.kind === "stud" || downloadingTag !== null) return;
+    const tag = selectedRecord.tag;
+    setDownloadingTag(tag);
+    try {
+      const [
+        { runSimulationJob },
+        { buildPigDatasheetWorkbook },
+        { downloadFile, XLSX_MIME },
+      ] = await Promise.all([
+        import("@/workers/simulation-client"),
+        import("@/lib/export-pig-datasheet"),
+        import("@/lib/download"),
+      ]);
+      const response = await runSimulationJob({
+        type: "pig-datasheet",
+        config,
+        tag,
+      });
+      if (response.type !== "pig-datasheet") {
+        throw new Error("The simulation worker returned the wrong result.");
+      }
+      const output = await buildPigDatasheetWorkbook(response.sheet);
+      const project = config.project.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      downloadFile(
+        output,
+        `${project || "pigflow"}-${tag.toLowerCase()}-datasheet.xlsx`,
+        XLSX_MIME,
+      );
+    } catch (error) {
+      console.error(error);
+      window.alert("The pig datasheet could not be created. Please try again.");
+    } finally {
+      setDownloadingTag(null);
+    }
   }
 
   const start = parseISO(startDate);
@@ -1188,6 +1233,23 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
               </dl>
 
               <div className="mt-5 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => void downloadPigDatasheet()}
+                  disabled={selectedRecord.kind === "stud" || downloadingTag !== null}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-ink px-3 py-2.5 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {downloadingTag === selectedRecord.tag ? (
+                    <LoaderCircle size={13} className="animate-spin" />
+                  ) : (
+                    <Download size={13} />
+                  )}
+                  {downloadingTag === selectedRecord.tag
+                    ? "Preparing datasheet…"
+                    : selectedRecord.kind === "stud"
+                      ? "No physical datasheet for AI stud"
+                      : "Download pig datasheet"}
+                </button>
                 {childSummary(index, selectedRecord.tag) ? (
                   <button
                     type="button"
