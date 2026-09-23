@@ -884,7 +884,7 @@ export function forecastDemand(
       // lines above; for everything else it is the pen it is standing in.
       const gain =
         expectedGainKg(walker, config) *
-        crowdingGainFactor(walker.stage, occupancy, config) *
+        crowdingGainFactor(walker.stage, occupancy, config, places) *
         (walker.stage === "piglet" ? supportUnder(walker.weanDay, support) : 1);
       walker.weightKg += gain;
       walker.ageDays += 1;
