@@ -137,6 +137,10 @@ export class Engine {
     });
 
     seedHerd(this.world);
+    this.world.pedigree.rememberMany(
+      [...this.world.sows, ...this.world.boars, ...this.world.pigs],
+      "starting",
+    );
     // A farm does not open its gates with empty bins. The opening order is sized
     // off what the stock actually standing here wants today, which is a thing
     // the farm can see by looking at it rather than a forecast of the horizon.

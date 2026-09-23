@@ -106,6 +106,7 @@ export function runHerd(world: World): void {
     world.books.buyBreedingStock(config.herd.giltPurchaseCost);
     world.breedingCosts.add("purchase", "breeding", config.herd.giltPurchaseCost);
     world.sows.push(gilt);
+    world.pedigree.remember(gilt, "purchased");
     world.ledger.accrue("breeding-stock", config.herd.giltPurchaseCost);
   }
   record.giltsPurchased = shortfall;
@@ -139,6 +140,7 @@ function buyBoar(world: World, what: string, cause: string): void {
   world.books.buyBreedingStock(config.herd.boarPurchaseCost);
   world.breedingCosts.add("purchase", "breeding", config.herd.boarPurchaseCost);
   world.boars.push(boar);
+  world.pedigree.remember(boar, "purchased");
   world.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
   world.emit("StockPurchased", what + " " + tag + " bought in: " + cause, {
     entities: [tag],

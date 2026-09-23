@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 
 import type { PlannerConfig } from "../config";
+import { PedigreeRegistry } from "../pedigree";
 import {
   Boar,
   CostRecord,
@@ -460,6 +461,8 @@ export class World {
   sows: Sow[] = [];
   boars: Boar[] = [];
   pigs: GrowingPig[] = [];
+  /** Every genetic individual that existed at any point in this run. */
+  readonly pedigree = new PedigreeRegistry();
   /**
    * Who left the farm on the day just closed, and why.
    *

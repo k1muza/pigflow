@@ -89,6 +89,7 @@ export function createPiglet(
     ...growthDraw(world, tag),
   });
   world.noteBirth(piglet.generation);
+  world.pedigree.remember(piglet, "born");
   return piglet;
 }
 

@@ -3,6 +3,7 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import type { PlannerConfig } from "./config";
 import type { HousingNeedsResult, HousingSimulationResult } from "./housing";
 import type { ProjectionResult } from "./model";
+import type { PedigreeRecord } from "./pedigree";
 import type { PlanSimulation } from "./simulation";
 import { farmValuation, ZERO_BALANCES, type StageValues } from "./sim/accounting";
 import type {
@@ -98,6 +99,8 @@ export type PlanSimulationResult = {
    * `farmStateOnDay`. Null on a plan with no physical housing.
    */
   physicalHousing: HousingSimulationResult | null;
+  /** Whole-run ancestry, including animals that left before the horizon. */
+  pedigree: PedigreeRecord[];
 };
 
 /**
@@ -120,6 +123,7 @@ export function planResultOf(simulation: PlanSimulation): PlanSimulationResult {
     days: packDays(days),
     housing: simulation.housing,
     physicalHousing: simulation.physicalHousing,
+    pedigree: simulation.pedigree,
   };
 }
 

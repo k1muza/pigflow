@@ -27,6 +27,7 @@ import {
   HeartPulse,
   LoaderCircle,
   LogOut,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   PencilLine,
@@ -97,6 +98,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "simulator", label: "Farm simulator", icon: CalendarClock },
+  { id: "pedigree", label: "Pedigree", icon: Network },
   { id: "money", label: "Financial planning", icon: WalletCards },
   { id: "method", label: "Method & sources", icon: BookOpen },
   { id: "cashflow", label: "Cashflow", icon: TableProperties },

@@ -58,6 +58,7 @@ import {
   type FarmValuation,
   type StageValues,
 } from "./accounting";
+import { PedigreeRegistry } from "../pedigree";
 import { countFarmBuilt } from "./instrument";
 import { seedStartingStock, type StartingStockHost } from "./starting-stock";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
@@ -606,6 +607,8 @@ export class Farm {
   sows: Sow[] = [];
   boars: Boar[] = [];
   pigs: GrowingPig[] = [];
+  /** Every genetic individual that existed at any point in this run. */
+  readonly pedigree = new PedigreeRegistry();
 
   /** Index of the last simulated day; -1 before the start date. */
   day = -1;
@@ -682,6 +685,8 @@ export class Farm {
     );
     this.mortality = new MortalityScheduler(this.config);
     this.seedHerd();
+    // The live arrays are later pruned; the pedigree is deliberately not.
+    this.pedigree.rememberMany([...this.sows, ...this.boars, ...this.pigs], "starting");
   }
 
   /** Calendar date for a simulation day index. */
@@ -952,6 +957,7 @@ export class Farm {
       ...this.growthDraw(tag),
     });
     this.noteBirth(piglet.generation);
+    this.pedigree.remember(piglet, "born");
     return piglet;
   }
 
@@ -2034,6 +2040,7 @@ export class Farm {
         sow.breedingValue = pig.costs.total;
         this.books.promoteGilt(pig.costs.total);
         this.sows.push(sow);
+        this.pedigree.remember(sow);
         pig.alive = false;
         pig.exitDay = day;
         freeSowPlaces -= 1;
@@ -2252,6 +2259,7 @@ export class Farm {
       boar.breedingValue = config.herd.boarPurchaseCost;
       this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
+      this.pedigree.remember(boar, "purchased");
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
       this.log(day, date, "purchase", "Replacement boar " + tag + " bought in");
     }
@@ -2273,6 +2281,7 @@ export class Farm {
       boar.breedingValue = config.herd.boarPurchaseCost;
       this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
+      this.pedigree.remember(boar, "purchased");
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
       this.log(
         day,
@@ -2304,6 +2313,7 @@ export class Farm {
       gilt.breedingValue = config.herd.giltPurchaseCost;
       this.books.buyBreedingStock(config.herd.giltPurchaseCost);
       this.sows.push(gilt);
+      this.pedigree.remember(gilt, "purchased");
       this.ledger.accrue("breeding-stock", config.herd.giltPurchaseCost);
     }
     record.giltsPurchased = shortfall;

@@ -48,6 +48,7 @@ import {
 import { inventoryTotal, type AccountingBalances } from "./sim/accounting";
 import { addTotals, emptyTotals } from "./sim/ledger";
 import { inventoryAdjustedProfit, mergeAccounting } from "./accounts";
+import type { PedigreeRecord } from "./pedigree";
 
 /**
  * One run of a plan, and every way the product reads it.
@@ -85,6 +86,7 @@ type PlanRun = {
   /** The farm as it stands, rosters and all. */
   state(timestamp?: string): FarmState;
   events(): FarmEvent[];
+  pedigree(): PedigreeRecord[];
   /**
    * The animals themselves, as they stand this morning. Read by the housing
    * planner and by nothing else: it is the one question that cannot be answered
@@ -119,6 +121,7 @@ function legacyRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
     snapshot: (timestamp) => farm.snapshot(timestamp),
     state: (timestamp) => farm.state(timestamp),
     events: () => farm.events,
+    pedigree: () => farm.pedigree.records(),
     herd: () => farm,
   };
 }
@@ -146,6 +149,7 @@ function engineRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
     snapshot: (timestamp) => engineSnapshot(engine, timestamp),
     state: (timestamp) => engineState(engine, timestamp),
     events: () => engineEventLog(world.log.events),
+    pedigree: () => world.pedigree.records(),
     herd: () => world,
   };
 }
@@ -228,6 +232,8 @@ export type PlanSimulation = {
    * physical housing, or the run was asked not to fill it.
    */
   readonly physicalHousing: HousingSimulationResult | null;
+  /** Every animal, parent link and generation seen anywhere in the run. */
+  readonly pedigree: PedigreeRecord[];
   /**
    * The farm at a wall-clock moment, bar the rosters. Events resolve to whole
    * days, so a timestamp reads its own day, and a day outside the horizon reads
@@ -429,6 +435,10 @@ export function simulatePlan(
       if (pens === null) return null;
       toHorizon();
       return (physicalHousing ??= pens.finish());
+    },
+    get pedigree() {
+      toHorizon();
+      return run.pedigree();
     },
     snapshotAt(timestamp: string): FarmSnapshot {
       const day = dayFor(timestamp);
