@@ -14,7 +14,7 @@ import { answerSimulationRequest, type SimulationRequest } from "@/lib/simulatio
 
 const worker = self as unknown as Worker;
 
-const JOBS = new Set(["simulate", "project", "event-log", "generate-housing"]);
+const JOBS = new Set(["simulate", "project", "event-log", "generate-housing", "pig-datasheet"]);
 
 worker.onmessage = (event: MessageEvent<SimulationRequest>) => {
   const request = event.data;
