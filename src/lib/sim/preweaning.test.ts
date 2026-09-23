@@ -483,9 +483,13 @@ describe("what the plan says its weaner cost", () => {
     expect(weaning.ageDays).toBe(config.reproduction.weaningAgeDays);
     expect(weaning.referenceWeightKg).toBe(config.growth.referenceWeaningWeightKg);
     expect(weaning.averageWeightKg).toBeGreaterThan(BIRTH_WEIGHT_KG);
-    // The whole point of the field: it is measured, so it is allowed to disagree
-    // with the plan — and on the default ration it does.
-    expect(weaning.averageWeightKg).toBeLessThan(weaning.referenceWeightKg);
+    // The whole point of the field: it is measured, so it is allowed to
+    // disagree with the plan, in either direction. On the starter assumptions
+    // it comes in above the target — the ration carries more than the target
+    // asks for — and the gap is the farm's to read rather than the model's to
+    // close.
+    expect(weaning.averageWeightKg).not.toBe(weaning.referenceWeightKg);
+    expect(weaning.averageWeightKg).toBeCloseTo(expectedWeaningWeightKg(config), 0);
     expect(weaning.dailyGainKg).toBeCloseTo(
       (weaning.averageWeightKg - BIRTH_WEIGHT_KG) / weaning.ageDays,
       9,

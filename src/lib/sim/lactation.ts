@@ -254,12 +254,18 @@ export function expectedPigletWeightAtAgeKg(
   config: PlannerConfig,
   ageDays: number,
   /**
-   * Litter mates it is sharing its dam with. The plan's own average where the
-   * caller has no particular litter in mind; the litter itself where it has
-   * one, because a sow's ration is divided by the number on her and an opening
-   * litter of nine is not the same weaner as an opening litter of fourteen.
+   * Litter mates it is sharing its dam with, because a sow's ration is divided
+   * by the number on her and a litter of nine is not the same weaner as a
+   * litter of fourteen. A caller with a particular litter passes it.
+   *
+   * Without one, the plan's own average — and the average over a lactation is
+   * not the number born alive. Pre-weaning losses fall across the four weeks,
+   * so the sow spends the second half of it milking fewer than she started
+   * with, and the ones left get a bigger share of the same ration. Quoting the
+   * born-alive figure instead made the plan's expected weaner lighter than the
+   * farm's actual one by more than half a kilogram on a ration that binds.
    */
-  litterSize: number = config.reproduction.bornAlivePerLitter,
+  litterSize: number = averageSucklers(config),
 ): number {
   const days = Math.max(0, Math.round(ageDays));
   const sucklers = Math.max(0, litterSize);
@@ -286,6 +292,17 @@ export function expectedPigletWeightAtAgeKg(
   const onMilkAlone = shareOn(0);
   const onCreep = shareOn(sucklers * config.feed.creepKgPerPigDay);
   return BIRTH_WEIGHT_KG + gain * (creepFrom * onMilkAlone + (days - creepFrom) * onCreep);
+}
+
+/**
+ * How many a sow is milking on an average day of her lactation: what she
+ * farrowed, less half of what she will lose, because the losses are spread
+ * across the weeks rather than taken on the first morning.
+ */
+function averageSucklers(config: PlannerConfig): number {
+  const bornAlive = Math.max(0, config.reproduction.bornAlivePerLitter);
+  const lost = Math.min(100, Math.max(0, config.reproduction.preWeanMortalityPct)) / 100;
+  return bornAlive * (1 - lost / 2);
 }
 
 /** The same walk, taken to the day the farm actually weans on. */

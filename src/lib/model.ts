@@ -35,6 +35,7 @@ import {
 } from "./sim";
 
 export {
+  applyProductionCalibration2026,
   BIRTH_WEIGHT_KG,
   cloneDefaultConfig,
   DEFAULT_CONFIG,
@@ -44,6 +45,7 @@ export {
   GILT_ENTRY_AGE_DAYS,
   newPlanConfig,
   plannerSchema,
+  PRODUCTION_CALIBRATION_2026,
   SERVICES_PER_BOAR_PER_WEEK,
   withConfigDefaults,
   type CashMovement,

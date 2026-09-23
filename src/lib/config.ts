@@ -834,6 +834,87 @@ export const plannerSchema = z.object({
 export type PlannerConfig = z.infer<typeof plannerSchema>;
 export type PlannerSection = keyof PlannerConfig;
 
+/**
+ * Evidence-based production coefficients for the 2026 benchmark profile.
+ *
+ * Deliberately excludes management and market assumptions that belong to the
+ * farmer rather than the animal: weaning age, housing, sale price, feed price,
+ * haulage and labour are left alone when this profile is applied.
+ *
+ * `lactationFeedKgPerKgGain` is an effective coefficient in the present model.
+ * Real sows mobilise body reserves during lactation; until PigFlow models body
+ * condition explicitly, 2.0 kg sow feed / kg litter gain is used rather than a
+ * stricter feed-only energy coefficient that would double-charge normal reserve
+ * mobilisation.
+ */
+export const PRODUCTION_CALIBRATION_2026 = {
+  herd: {
+    giltServiceAgeDays: 200,
+  },
+  reproduction: {
+    gestationDays: 115,
+    weanToServiceDays: 7,
+    farrowingSuccessPct: 85,
+    bornAlivePerLitter: 12.4,
+    preWeanMortalityPct: 12.5,
+  },
+  growth: {
+    pigletDailyGainKg: 0.28,
+    growerStartWeightKg: 30,
+    finisherStartWeightKg: 60,
+    saleWeightKg: 100,
+    weanerDailyGainKg: 0.45,
+    growerDailyGainKg: 0.7,
+    finisherDailyGainKg: 0.85,
+    upkeepFeedKgAt100Kg: 1.05,
+    gainFeedKgAt20Kg: 1.1,
+    gainFeedKgAt100Kg: 2.35,
+    weanerMortalityPct: 3.0,
+    growerMortalityPct: 1.5,
+    finisherMortalityPct: 1.5,
+  },
+  feed: {
+    gestationKgDay: 2.4,
+    lactationKgDay: 7.0,
+    lactationMaintenanceKgDay: 2.2,
+    lactationFeedKgPerKgGain: 2.0,
+    creepStartAgeDays: 14,
+    creepKgPerPigDay: 0.03,
+    creepFeedKgPerKgGain: 1.5,
+  },
+  finance: {
+    dressingPct: 70,
+  },
+} as const satisfies {
+  herd: Partial<PlannerConfig["herd"]>;
+  reproduction: Partial<PlannerConfig["reproduction"]>;
+  growth: Partial<PlannerConfig["growth"]>;
+  feed: Partial<PlannerConfig["feed"]>;
+  finance: Partial<PlannerConfig["finance"]>;
+};
+
+/**
+ * Applies the benchmark to one plan, explicitly.
+ *
+ * This is intentionally not a load-time migration. Firestore holds whole user
+ * configs, and changing a default must never rewrite a plan the farmer already
+ * saved. Existing plans change only when the user chooses to apply this profile;
+ * the normal workspace autosave then persists the result to Firestore.
+ */
+export function applyProductionCalibration2026(config: PlannerConfig): PlannerConfig {
+  return {
+    ...config,
+    herd: { ...config.herd, ...PRODUCTION_CALIBRATION_2026.herd },
+    reproduction: {
+      ...config.reproduction,
+      ...PRODUCTION_CALIBRATION_2026.reproduction,
+    },
+    growth: { ...config.growth, ...PRODUCTION_CALIBRATION_2026.growth },
+    feed: { ...config.feed, ...PRODUCTION_CALIBRATION_2026.feed },
+    finance: { ...config.finance, ...PRODUCTION_CALIBRATION_2026.finance },
+  };
+}
+
 /** How many of each kind of animal the plan opens with. */
 export type OpeningCounts = Record<StartingStockType, number>;
 
@@ -1137,7 +1218,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     aiStudPanelSize: 4,
   },
   growth: {
-    pigletDailyGainKg: 0.22,
+    pigletDailyGainKg: 0.28,
     referenceWeaningWeightKg: 7.5,
     referenceWeaningAgeDays: 28,
     growerStartWeightKg: 30,
@@ -1150,23 +1231,21 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     upkeepFeedKgAt100Kg: 1.05,
     gainFeedKgAt20Kg: 1.1,
     gainFeedKgAt100Kg: 2.35,
-    weanerMortalityPct: 2,
+    weanerMortalityPct: 3,
     growerMortalityPct: 1.5,
     finisherMortalityPct: 1.5,
   },
   feed: {
     gestationKgDay: 2.4,
-    lactationKgDay: 6,
-    // What she eats for herself, and what a kilogram on her litter costs her in
-    // feed above it. A sow rearing twelve to 7.5 kg over four weeks is milking
-    // about 73 kg of liveweight onto them: at 1.8 kg of feed a kilogram that is
-    // 131 kg of milk feed, and with 62 kg of upkeep it comes to 6.9 kg a day —
-    // which is the ration this plan has always given her, now with a reason.
+    lactationKgDay: 7,
+    // Effective coefficient while sow body-reserve mobilisation is not modelled
+    // explicitly. Keep it paired with the 7 kg/day lactation ceiling and check
+    // the resulting weaning weight rather than treating either as a guarantee.
     lactationMaintenanceKgDay: 2.2,
-    lactationFeedKgPerKgGain: 1.8,
+    lactationFeedKgPerKgGain: 2.0,
     boarKgDay: 2.5,
     creepStartAgeDays: 14,
-    creepKgPerPigDay: 0.05,
+    creepKgPerPigDay: 0.03,
     // Creep is eaten in mouthfuls and converted well; what little of it a
     // suckler eats is gain its dam does not have to milk.
     creepFeedKgPerKgGain: 1.5,
