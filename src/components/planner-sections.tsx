@@ -57,6 +57,7 @@ import {
   expectedGiltServiceAgeDays,
   openingCounts,
   type StartingBoarEntry,
+  type StartingPigEntry,
   type StartingSowEntry,
   type StartingStockEntry,
   type StartingStockType,
@@ -72,7 +73,9 @@ import {
   type PlannerConfig,
   type PlannerSection,
   type Vaccination,
+  weaningTargetLabel,
 } from "@/lib/model";
+import { expectedWeaningWeightKg } from "@/lib/sim/lactation";
 import {
   generatedTotal,
   isGenerated,
@@ -2043,7 +2046,9 @@ const CELL_SELECT = "h-9 rounded-md border-hairline bg-plane px-2 hover:border-r
  * shape: a box only ever appears on the kind whose field it edits.
  */
 type StartingStockPatch = Partial<
-  Omit<StartingSowEntry, "type"> & Omit<StartingBoarEntry, "type">
+  Omit<StartingSowEntry, "type"> &
+    Omit<StartingBoarEntry, "type"> &
+    Omit<StartingPigEntry, "type">
 >;
 
 /** A box on the history line, narrow and captioned. */
@@ -2078,6 +2083,27 @@ function StartingStockHistory({
 }) {
   const label = (what: string) => "Animal " + (index + 1) + " " + what;
   const line = "mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3";
+
+  if (entry.type !== "sow" && entry.type !== "boar") {
+    return (
+      <div className={line}>
+        <HistoryBox label="Weight">
+          <input
+            type="number"
+            min={0}
+            max={400}
+            step={0.5}
+            value={entry.weightKg ?? ""}
+            placeholder="from age"
+            aria-label={label("weight")}
+            title="What it weighs today, if it has been weighed. Left empty, the plan works it out from the animal's age and this plan's growth rates — which is a guess about a pig that was reared before the plan began, and the scale is not."
+            onChange={(event) => onPatch(index, { weightKg: optionalNumber(event.target.value) })}
+            className={CELL_NUMBER + " w-20"}
+          />
+        </HistoryBox>
+      </div>
+    );
+  }
 
   if (entry.type === "boar") {
     return (
@@ -3106,16 +3132,46 @@ export function FarmInputs({
           number(metrics.feedConversion.finisherFcr, 2) +
           " in the finishing house — " +
           number(metrics.feedConversion.growoutFcr, 2) +
-          " across the whole growout."
+          " across the whole growout. On this plan's lactation ration a piglet reaches " +
+          number(expectedWeaningWeightKg(config), 1) +
+          " kg by " +
+          number(config.reproduction.weaningAgeDays, 0) +
+          " days, against a target of " +
+          weaningTargetLabel(
+            config.growth.referenceWeaningWeightKg,
+            config.growth.referenceWeaningAgeDays,
+          ) +
+          "."
         }
         icon={Gauge}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field
-            label="Weaning weight"
-            value={config.growth.weaningWeightKg}
-            onChange={(v) => update("growth", "weaningWeightKg", v)}
-            suffix="kg"
+            label="Suckling daily gain"
+            value={config.growth.pigletDailyGainKg}
+            onChange={(v) => update("growth", "pigletDailyGainKg", v)}
+            suffix="kg/day at most"
+            min={0.05}
+            max={0.6}
+            step={0.01}
+            hint="What a piglet of this genotype puts on in a day when its dam's milk and the creep feeder cover everything it is trying to grow. A ceiling, not a rate it is given: what each litter actually makes is worked out from the sow feed she was handed and the creep the piglets ate, so a thin lactation ration shows up as a lighter weaner rather than a bigger bill."
+          />
+          <Field
+            label="Weaning weight target"
+            value={config.growth.referenceWeaningWeightKg}
+            onChange={(v) => update("growth", "referenceWeaningWeightKg", v)}
+            suffix="kg at weaning"
+            hint="The weaner you are aiming at, for the report to hold the run up against. Nothing in the simulation reads it — raising it will not produce a heavier pig, only a wider gap between target and actual, which is the ration telling you what it can carry."
+          />
+          <Field
+            label="Target quoted at"
+            value={config.growth.referenceWeaningAgeDays}
+            onChange={(v) => update("growth", "referenceWeaningAgeDays", v)}
+            suffix="days"
+            min={18}
+            max={56}
+            step={1}
+            hint="The age the target weight beside it is quoted at — the breeding company's figure, not your weaning policy. Wean earlier than this and you should expect to come in under it."
           />
           <Field
             label="Grower starts"
@@ -3228,11 +3284,11 @@ export function FarmInputs({
             suffix="kg/sow/day"
           />
           <Field
-            label="Lactation intake"
+            label="Lactation intake, at most"
             value={config.feed.lactationKgDay}
             onChange={(v) => update("feed", "lactationKgDay", v)}
             suffix="kg/sow/day"
-            hint="Covers the sow and the milk her litter lives on."
+            hint="The top of the feed curve, not a flat ration. What a sow is actually offered is worked out from the litter under her — her own upkeep plus the milk her piglets are trying to grow on, less whatever the creep feeder covers — so she eats under this figure on a small litter and is held to it on a large one. A litter that wants more than this allows grows more slowly."
           />
           <Field
             label="Boar intake"
@@ -3265,6 +3321,43 @@ export function FarmInputs({
             onChange={(v) => update("feed", "creepFeedCostKg", v)}
             suffix={`${config.project.currency}/kg`}
             step={0.05}
+          />
+          <div className="hidden xl:block" />
+          {/*
+            The three numbers that turn a litter's growth into a feed bill. They
+            are here rather than buried in the engine because a unit that milks
+            better than the book says has to be able to say so — and because
+            every kilogram of weaner this plan produces is priced off them.
+          */}
+          <Field
+            label="Lactating sow upkeep"
+            value={config.feed.lactationMaintenanceKgDay}
+            onChange={(v) => update("feed", "lactationMaintenanceKgDay", v)}
+            suffix="kg/sow/day"
+            step={0.1}
+            min={0.5}
+            max={6}
+            hint="What she eats for herself before any milk, at mature weight. Everything above this is the litter's."
+          />
+          <Field
+            label="Sow feed per kg of litter gain"
+            value={config.feed.lactationFeedKgPerKgGain}
+            onChange={(v) => update("feed", "lactationFeedKgPerKgGain", v)}
+            suffix="kg feed/kg gain"
+            step={0.1}
+            min={0.5}
+            max={6}
+            hint="What it takes off her ration to milk a kilogram onto her litter. Raise it and the same weaner costs more sow feed."
+          />
+          <Field
+            label="Creep per kg of litter gain"
+            value={config.feed.creepFeedKgPerKgGain}
+            onChange={(v) => update("feed", "creepFeedKgPerKgGain", v)}
+            suffix="kg feed/kg gain"
+            step={0.1}
+            min={0.5}
+            max={6}
+            hint="What the piglets convert creep at. A kilogram they eat for themselves is one their dam does not have to milk."
           />
           <div className="hidden xl:block" />
           <Field

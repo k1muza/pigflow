@@ -9,6 +9,7 @@ import {
 } from "./accounts";
 import { ESTRUS_CYCLE_DAYS, openingCounts, type PlannerConfig } from "./config";
 import { growoutFeedConversion } from "./growth-curve";
+import { expectedWeaningWeightKg } from "./sim/lactation";
 import {
   netWorthAtCost,
   ZERO_BALANCES,
@@ -34,6 +35,7 @@ import {
 } from "./sim";
 
 export {
+  applyProductionCalibration2026,
   BIRTH_WEIGHT_KG,
   cloneDefaultConfig,
   DEFAULT_CONFIG,
@@ -43,6 +45,7 @@ export {
   GILT_ENTRY_AGE_DAYS,
   newPlanConfig,
   plannerSchema,
+  PRODUCTION_CALIBRATION_2026,
   SERVICES_PER_BOAR_PER_WEEK,
   withConfigDefaults,
   type CashMovement,
@@ -231,7 +234,72 @@ export type ProjectionSummary = {
   marketLivestockValueAtEnd: number;
   breedingHerdValueAtEnd: number;
   feedInventoryValueAtEnd: number;
+
+  /** What the weaner off this farm weighed, and what it took to get there. */
+  weaning: WeaningSummary;
 };
+
+/**
+ * The weaner, explained.
+ *
+ * The configured weaning weight is a reference rate and not a promise, so a
+ * plan has to be able to say what its piglets actually came off the sow at and
+ * what paid for it. Every figure here is measured off the run rather than read
+ * back out of the plan — except {@link referenceWeightKg}, which is the plan's
+ * own number and is here to be compared against {@link averageWeightKg}. A gap
+ * between the two is the farm telling its owner that the lactation ration and
+ * the creep feeder did not carry what was asked of them.
+ */
+export type WeaningSummary = {
+  /** The management decision: how long the litters were left on. */
+  ageDays: number;
+  /** The weaner the plan is aiming at. */
+  referenceWeightKg: number;
+  /**
+   * And the age it is quoted at, which has to be read with it.
+   *
+   * A target is a weight *by* a day. Quoting 11.5 kg beside a farm that weans
+   * at 28 days, without saying the 11.5 was a 35-day figure, is not a gap in
+   * the ration — it is a week of growth the comparison forgot to mention. Where
+   * this differs from {@link ageDays}, a read-out has to say both.
+   */
+  referenceAgeDays: number;
+  /** What they actually weighed, weaned liveweight over head weaned. */
+  averageWeightKg: number;
+  /** Birth to weaning, per head per day: the growth the feed bought. */
+  dailyGainKg: number;
+  /** Sow feed issued to lactating sows over the horizon. */
+  lactationFeedKg: number;
+  /** Creep put in front of the sucklers over the horizon. */
+  creepFeedKg: number;
+  /**
+   * Both of those over the liveweight weaned, across the whole plan.
+   *
+   * A horizon ratio and not a production efficiency, and the difference matters
+   * at both ends of the plan. The feed is every kilogram the lactating sows and
+   * the creep feeders were given between day one and the last day, including
+   * what went into litters still on the sow when the plan stops — and those
+   * litters are not in the liveweight, because they have not been weaned. A
+   * plan that opens with sows already suckling has the opposite error: their
+   * weaners count, and the feed they ate before day one was somebody else's.
+   *
+   * Over a plan of any length the two edges are small and they partly cancel.
+   * Over a short one, or one that ends mid-lactation, this reads a little high.
+   * For what a particular litter cost, the honest reading is
+   * {@link lactationFeedKg} and {@link creepFeedKg} themselves.
+   */
+  feedKgPerKgWeanedOverHorizon: number;
+};
+
+/**
+ * The target written so that it cannot be read without its age — "11.5 kg by
+ * 35 days" — because the two are one statement and a read-out that drops the
+ * age invites a farm weaning at 28 to compare itself against a week it never
+ * had.
+ */
+export function weaningTargetLabel(weightKg: number, ageDays: number): string {
+  return weightKg.toFixed(1) + " kg by " + Math.round(ageDays) + " days";
+}
 
 export type ProjectionResult = {
   months: MonthlyProjection[];
@@ -313,10 +381,10 @@ export function getModelMetrics(config: PlannerConfig) {
     weanedPerLitter,
     pigsWeanedPerSowYear: littersPerSowYear * weanedPerLitter,
     vaccinationCostPerPig,
-    feedConversion: growoutFeedConversion(config.growth),
+    feedConversion: growoutFeedConversion(config.growth, expectedWeaningWeightKg(config)),
     daysToSaleWeight:
       config.reproduction.weaningAgeDays +
-      (config.growth.growerStartWeightKg - config.growth.weaningWeightKg) /
+      (config.growth.growerStartWeightKg - expectedWeaningWeightKg(config)) /
         config.growth.weanerDailyGainKg +
       (config.growth.finisherStartWeightKg - config.growth.growerStartWeightKg) /
         config.growth.growerDailyGainKg +
@@ -729,7 +797,8 @@ export function buildWarnings(
         "Review farrowing supervision, colostrum intake, crushing risk, temperature and herd health with your veterinarian.",
     });
   }
-  const finisherFcr = growoutFeedConversion(config.growth).finisherFcr;
+  const finisherFcr = growoutFeedConversion(config.growth, expectedWeaningWeightKg(config))
+    .finisherFcr;
   if (finisherFcr < 2.2 || finisherFcr > 4) {
     warnings.push({
       level: "attention",

@@ -1,6 +1,11 @@
 import type { Vaccination } from "../../config";
 import { FEED_RATIONS, type CostType, type GrowingPig } from "../../sim/animals";
 import { STORE_IDS, type StoreId } from "../../sim/haulage";
+import {
+  explainLitterGrowth,
+  litterGrowthAccount,
+  type LitterGrowthAccount,
+} from "../../sim/lactation";
 import { STORE_LABELS } from "../../sim/farm";
 import { emptyRations } from "../../sim/haulage";
 import { zeroStores, type StoreQuantities } from "../procurement";
@@ -95,15 +100,21 @@ export function runNutrition(world: World): void {
 
   // ---- what the herd asks for today ---------------------------------------
   const demand = zeroStores();
-  const breeders: { animal: { costs: GrowingPig["costs"] }; store: StoreId; kg: number }[] = [];
+  const breeders: {
+    animal: { costs: GrowingPig["costs"] };
+    store: StoreId;
+    kg: number;
+    /** Milking, so what she is actually handed is the weaner's side of the bill. */
+    lactating: boolean;
+  }[] = [];
   for (const sow of world.sows) {
-    const { kg, ration } = sow.dailyFeed(config);
-    breeders.push({ animal: sow, store: ration, kg });
+    const { kg, ration } = sow.dailyFeed(config, day);
+    breeders.push({ animal: sow, store: ration, kg, lactating: sow.state === "lactating" });
     demand[ration] += kg;
   }
   for (const boar of world.boars) {
     const { kg, ration } = boar.dailyFeed(config);
-    breeders.push({ animal: boar, store: ration, kg });
+    breeders.push({ animal: boar, store: ration, kg, lactating: false });
     demand[ration] += kg;
   }
   for (const pig of world.pigs) {
@@ -171,9 +182,18 @@ export function runNutrition(world: World): void {
     return { kg: out.kg, cost: out.kg * out.costPerKg, haulage: out.kg * haulagePerKg };
   };
 
-  for (const { animal, store, kg } of breeders) {
+  for (const { animal, store, kg, lactating } of breeders) {
     const out = issue(store, kg * served[store]);
     sowFeedKg += out.kg;
+    // What the milking half of the herd was actually handed, kept apart from
+    // the gestation ration so a plan can say what its weaner cost to make. Taken
+    // off the issue and not off the demand: on a day the sow bin ran short the
+    // litter was milked on what was in it, and a diagnostic that reported the
+    // full ration would explain a light weaner by pointing at feed nobody fed.
+    if (lactating) {
+      record.lactationFeedKg += out.kg;
+      world.lifetime.lactationFeedKg += out.kg;
+    }
     if (store !== "gas" && store !== "bedding") {
       record.feedByRation[store] += out.kg;
       feedSpend[store] += out.cost;
@@ -208,7 +228,10 @@ export function runNutrition(world: World): void {
       feedSpend[ration.ration] += out.cost;
       charge("feed", out.cost);
       charge("transport", out.haulage);
-      // A pig grows on the ration it was given, not the one it was offered.
+      // A pig grows on the ration it was given, not the one it was offered —
+      // and on the kilograms that came out of the bin rather than on a share of
+      // what it asked for, so the growth and the books are the same issue.
+      pig.feedEatenKg = (pig.feedEatenKg ?? 0) + out.kg;
       pig.intakeFactor = Math.min(pig.intakeFactor, served[ration.ration]);
     }
 
@@ -222,9 +245,9 @@ export function runNutrition(world: World): void {
       charge("transport", out.haulage);
     }
 
-    // A suckler lives on milk, and milk follows what its dam was given rather
-    // than what it picked at in the creep feeder.
-    if (pig.stage === "piglet") pig.intakeFactor = Math.min(pig.intakeFactor, served.sow);
+    // A suckler's own intake is settled with its dam's, below: what it grows on
+    // is her milk and the creep between them, and neither is a ration issued to
+    // the piglet itself.
 
     const ageDays = pig.ageDays(day);
     if (ageDays < config.health.heatedUntilAgeDays && gasPerPig > 0) {
@@ -254,6 +277,57 @@ export function runNutrition(world: World): void {
       charge("health", cost);
       record.vaccinations[pig.stage] += 1;
     }
+  }
+
+  // ---- what the litters were actually milked on ---------------------------
+  // A suckler does not eat a ration of its own: it grows on what its dam was
+  // served and what it picked out of the creep feeder, and both of those are
+  // known only now that the stores have said how much of the day's demand they
+  // could cover. One number comes back — the share of what the litter was
+  // trying to grow that the feed actually paid for — and the piglets grow on
+  // that. See `lib/sim/lactation`.
+  let milkedLitters = 0;
+  let shortLitters = 0;
+  let worstAccount: LitterGrowthAccount | null = null;
+  for (const sow of world.sows) {
+    if (!sow.alive || sow.state !== "lactating") continue;
+    const demandOf = sow.lactationDemand(day, config);
+    if (demandOf.sucklers === 0) continue;
+    milkedLitters += 1;
+    const account = litterGrowthAccount(
+      demandOf,
+      demandOf.offeredKg * served.sow,
+      demandOf.creepOfferedKg * served.creep,
+      config,
+    );
+    const support = demandOf.potentialGainKg > 0 ? account.gainKg / demandOf.potentialGainKg : 1;
+    if (support < 1) {
+      shortLitters += 1;
+      if (worstAccount === null || account.gainKg < worstAccount.gainKg) worstAccount = account;
+    }
+    // The litter's gain is shared out over the litter, in kilograms. A share
+    // would have been multiplied into whatever else was already taking growth
+    // off the piglet; a kilogram can be held up against it instead.
+    const perPiglet = account.gainKg / Math.max(1, demandOf.sucklers);
+    for (const piglet of sow.litter) {
+      if (!piglet.alive || piglet.stage !== "piglet") continue;
+      piglet.milkGainKg = perPiglet;
+      piglet.intakeFactor = Math.min(piglet.intakeFactor, support);
+    }
+  }
+  if (shortLitters > 0 && worstAccount !== null) {
+    world.emit(
+      "IntakeRestricted",
+      shortLitters + " of " + milkedLitters + " litters are growing on less milk than they want",
+      {
+        // The worst litter of the day, in feed: what its dam was handed, what
+        // she kept, what the rest milked and what the creep feeder added. A
+        // light weaner is always one of those four numbers, so the event says
+        // which rather than leaving the farm to guess.
+        cause: explainLitterGrowth(worstAccount),
+        changes: { litters: shortLitters },
+      },
+    );
   }
 
   const bedding = issue("bedding", beddingWanted * served.bedding);

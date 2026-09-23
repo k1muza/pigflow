@@ -61,14 +61,117 @@ export function feedConversionAt(
   return dailyFeedKg(weightKg, dailyGainKg, growth) / dailyGainKg;
 }
 
+/** Where one pig's day of growth came from, in the feed that paid for it. */
+export type GrowthAccount = {
+  /** What it was offered: upkeep plus what a full day's gain would cost. */
+  offeredKg: number;
+  /** What it actually ate, after whatever the stores could cover. */
+  intakeKg: number;
+  /** Feed spent on carrying the body it already has. */
+  upkeepKg: number;
+  /** What was left of the intake once upkeep was paid. */
+  growthFeedKg: number;
+  /** Feed a kilogram of gain costs at this weight. */
+  feedKgPerKgGain: number;
+  /** The gain that feed bought, before the genotype has its say. */
+  fedGainKg: number;
+  /** What the pig could have made today, however much it was given. */
+  potentialGainKg: number;
+  /** The lesser of the two, floored at the most an animal sheds in a day. */
+  gainKg: number;
+};
+
 /**
- * The gain a pig actually makes on the feed it actually got.
+ * What a pig ate today and what it got for it.
  *
  * A day's ration is upkeep first and gain second: a pig that is given four
  * fifths of what it wanted does not grow four fifths as fast, because the upkeep
  * comes out of the four fifths whole and only what is left over goes on its
  * back. Below upkeep it loses weight, which is what a store running dry really
  * costs a farm — not the emergency premium, the fortnight of growth.
+ *
+ * The potential is a ceiling and not a promise: feeding a pig more than its day
+ * of growth costs does not make it grow faster, it makes it a fat pig, and this
+ * model does not pretend to know the difference beyond stopping there.
+ */
+export function growthAccountOf(
+  weightKg: number,
+  potentialGainKg: number,
+  /** Kilograms actually issued to this pig today, off the store. */
+  intakeKg: number,
+  growth: GrowthConfig,
+): GrowthAccount {
+  const upkeepKg = upkeepFeedKgDay(weightKg, growth);
+  const feedKgPerKgGain = gainFeedKgPerKg(weightKg, growth);
+  const growthFeedKg = Math.max(0, intakeKg - upkeepKg);
+  const fedGainKg = feedKgPerKgGain > 0 ? (intakeKg - upkeepKg) / feedKgPerKgGain : 0;
+  // Two ceilings and not two multipliers. What the feed will carry is one of
+  // them and what the animal is capable of today — after the room it stands in
+  // and whatever it is being treated for — is the other, and a pig grows at the
+  // lower. Multiplying them made a pig on four fifths of its feed and six
+  // tenths of its health grow at forty-eight hundredths, which is a penalty
+  // charged twice: the feed it could not eat is the feed the illness took its
+  // appetite for.
+  const gainKg = Math.max(-MAX_DAILY_LOSS_KG, Math.min(potentialGainKg, fedGainKg));
+  return {
+    offeredKg: upkeepKg + Math.max(0, potentialGainKg) * feedKgPerKgGain,
+    intakeKg,
+    upkeepKg,
+    growthFeedKg,
+    feedKgPerKgGain,
+    fedGainKg,
+    potentialGainKg,
+    gainKg,
+  };
+}
+
+/**
+ * The same account for a caller that knows only what share of the day's ration
+ * a store could cover — the plan's own arithmetic, and the forecaster's, where
+ * there is no issue to read off.
+ */
+export function growthAccount(
+  weightKg: number,
+  potentialGainKg: number,
+  intakeFactor: number,
+  growth: GrowthConfig,
+): GrowthAccount {
+  const offeredKg =
+    upkeepFeedKgDay(weightKg, growth) +
+    Math.max(0, potentialGainKg) * gainFeedKgPerKg(weightKg, growth);
+  return growthAccountOf(
+    weightKg,
+    potentialGainKg,
+    Math.max(0, Math.min(1, intakeFactor)) * offeredKg,
+    growth,
+  );
+}
+
+/** The same day in a sentence, for a farm asking where the growth went. */
+export function explainGrowth(account: GrowthAccount): string {
+  const kg = (value: number) => value.toFixed(2) + " kg";
+  return (
+    "The pig ate " +
+    kg(account.intakeKg) +
+    " today. " +
+    kg(account.upkeepKg) +
+    " kept it where it was. The remaining " +
+    kg(account.growthFeedKg) +
+    " bought " +
+    kg(account.gainKg) +
+    " of liveweight at " +
+    account.feedKgPerKgGain.toFixed(2) +
+    " kg of feed a kilogram" +
+    (account.fedGainKg > account.potentialGainKg + 1e-9
+      ? ", held at what a pig this size can put on in a day."
+      : ".")
+  );
+}
+
+/**
+ * The gain a pig actually makes on the feed it actually got: the account above,
+ * read for its one number. Fully fed is the common case and short-circuits, so
+ * the curve is only walked when a store could not cover the day.
  */
 export function achievedGainKg(
   weightKg: number,
@@ -77,13 +180,7 @@ export function achievedGainKg(
   growth: GrowthConfig,
 ): number {
   if (intakeFactor >= 1 || potentialGainKg <= 0) return potentialGainKg;
-  const upkeep = upkeepFeedKgDay(weightKg, growth);
-  const perKg = gainFeedKgPerKg(weightKg, growth);
-  if (perKg <= 0) return 0;
-  const served = Math.max(0, intakeFactor) * (upkeep + potentialGainKg * perKg);
-  const gain = (served - upkeep) / perKg;
-  // A pig can lose condition, but not at a rate no animal loses it at.
-  return Math.max(-MAX_DAILY_LOSS_KG, Math.min(potentialGainKg, gain));
+  return growthAccount(weightKg, potentialGainKg, intakeFactor, growth).gainKg;
 }
 
 /** Most weight a pig is allowed to shed in one day, however short the feed is. */
@@ -142,10 +239,20 @@ export type GrowoutFeed = {
  * arithmetic, which a farmer can check by hand, not the simulation, which grows
  * every pig on its own.
  */
-export function growoutFeedConversion(growth: GrowthConfig): GrowoutFeed {
+export function growoutFeedConversion(
+  growth: GrowthConfig,
+  /**
+   * The weight the pig comes into the weaner house at — what this plan's own
+   * lactation ration will actually produce, from `lib/sim/lactation`, and not
+   * the weaner the plan hopes for. A lighter weaner has further to walk and eats
+   * on the way, which is the whole reason a thin farrowing house shows up in a
+   * finishing bill.
+   */
+  startWeightKg: number,
+): GrowoutFeed {
   const feed = { weaner: 0, grower: 0, finisher: 0 };
   const gained = { weaner: 0, grower: 0, finisher: 0 };
-  let weightKg = growth.weaningWeightKg;
+  let weightKg = startWeightKg;
   let days = 0;
 
   // The day cap is for configurations that would never arrive: a stage with no

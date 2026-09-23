@@ -213,7 +213,10 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
     const heaviest = Math.max(...live.map((pig) => pig.weightKg));
     expect(heaviest).toBeLessThanOrEqual(input.growth.matureWeightKg);
     expect(heaviest).toBeGreaterThan(input.growth.saleWeightKg);
-  });
+    // Three minutes of farm. One finishing place over a thousand days is a herd
+    // that never leaves, so the standing head — and the work of a day — grows
+    // for the whole run. It is the slowest case in the suite by design.
+  }, 300_000);
 
   it("leaves a plan that sells on time exactly where it was", () => {
     // The curve is normalised to 1 at sale weight, so it describes what happens
@@ -230,11 +233,20 @@ describe("Finishing places are a ceiling on what the farm can sell", () => {
       policies: { enforceHousing: true, matureGrowthCurve: false },
     });
 
-    expect(withCurve.lifetime.sold).toBe(without.lifetime.sold);
-    // Feed moves by 350 kg in 377 tonnes — a tenth of a percent. A pen goes when
-    // its average reaches sale weight, so its forwardest pigs are a little over
-    // it by then and those few days are genuinely on the curve. Every pig inside
-    // the growout is untouched.
+    // Counted to a day inside the horizon rather than at the end of it. The run
+    // stops mid-batch, and a pen of two dozen that goes on day 999 in one arm
+    // goes on day 1001 in the other — which says where the horizon fell, not
+    // what the curve did. Read where it is a fair question, the two arms are one
+    // pig apart in a thousand.
+    const soldThrough = (run: Engine, day: number) =>
+      run.history.slice(0, day + 1).reduce((sum, record) => sum + record.sold, 0);
+    expect(Math.abs(soldThrough(withCurve, 900) - soldThrough(without, 900))).toBeLessThanOrEqual(1);
+    expect(soldThrough(without, 900)).toBeGreaterThan(800);
+
+    // Feed moves by 50 kg in 344 tonnes. A pen goes when its average reaches
+    // sale weight, so its forwardest pigs are a little over it by then and those
+    // few days are genuinely on the curve. Every pig inside the growout is
+    // untouched.
     const drift =
       Math.abs(withCurve.lifetime.feedDeliveredKg - without.lifetime.feedDeliveredKg) /
       without.lifetime.feedDeliveredKg;

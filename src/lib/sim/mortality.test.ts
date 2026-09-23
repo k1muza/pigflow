@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { cloneDefaultConfig, type PlannerConfig } from "../config";
 import { GrowingPig } from "./animals";
 import { runFarm } from "./index";
+import { expectedWeaningWeightKg } from "./lactation";
 import {
   frailty,
   MORTALITY_PROFILES,
@@ -286,6 +287,78 @@ describe("An animal is taken where it actually stands", () => {
     const newborn = deathAges(0);
     expect(Math.min(...newborn)).toBe(0);
     expect(Math.max(...newborn)).toBeGreaterThan(21);
+  });
+
+  it("does not credit a heavy weaner with time it spent on the sow", () => {
+    // A well-fed litter comes off the sow above the weight the plan expects. It
+    // has not therefore served part of the weaner stage: it was suckling
+    // yesterday. Reading its position off the plan's stage floor charged it less
+    // than the whole of the weaner house's mortality for having been fed well,
+    // which is a discount nothing earned.
+    const config = cloneDefaultConfig();
+    config.growth.weanerMortalityPct = 4;
+
+    const weaner = (weightKg: number, entered: boolean) => {
+      const tag = "PIG-" + weightKg + (entered ? "-W" : "-O");
+      const pig = new GrowingPig({
+        id: tag,
+        tag,
+        sex: "female",
+        birthDay: -config.reproduction.weaningAgeDays,
+        weightKg,
+        stage: "piglet",
+      });
+      if (entered) pig.weanIntoNursery(0, config);
+      else pig.stage = "weaner";
+      return pig;
+    };
+
+    const charged = (pig: GrowingPig) => {
+      const scheduler = new MortalityScheduler(config);
+      const opening = scheduler.debt("weaner");
+      scheduler.enterStage([pig], "weaner", 0);
+      return scheduler.debt("weaner") - opening;
+    };
+
+    // Two litters weaned on the same day, one of them 3 kg heavier than the
+    // plan's expectation. Both have the whole weaner house ahead of them.
+    const expected = expectedWeaningWeightKg(config);
+    const plain = charged(weaner(expected, true));
+    const heavy = charged(weaner(expected + 3, true));
+    expect(heavy).toBeCloseTo(plain, 9);
+    expect(plain).toBeCloseTo(0.04, 9);
+
+    // Opening stock placed at that weight is the other case, and keeps its
+    // credit: it did live through part of the stage, somewhere else.
+    expect(charged(weaner(expected + 3, false))).toBeLessThan(plain);
+  });
+
+  it("gives a heavy weaner a shorter stay rather than a smaller risk", () => {
+    const config = cloneDefaultConfig();
+    const light = new GrowingPig({
+      id: "L",
+      tag: "PIG-L",
+      sex: "female",
+      birthDay: -config.reproduction.weaningAgeDays,
+      weightKg: 6,
+      stage: "piglet",
+    });
+    const heavy = new GrowingPig({
+      id: "H",
+      tag: "PIG-H",
+      sex: "female",
+      birthDay: -config.reproduction.weaningAgeDays,
+      weightKg: 11,
+      stage: "piglet",
+    });
+    light.weanIntoNursery(0, config);
+    heavy.weanIntoNursery(0, config);
+
+    // What being heavy buys is the door at the far end coming sooner.
+    expect(heavy.stageEntryWeightKg).toBe(11);
+    const daysLeft = (pig: GrowingPig) =>
+      (config.growth.growerStartWeightKg - pig.weightKg) / pig.dailyGainKg(config);
+    expect(daysLeft(heavy)).toBeLessThan(daysLeft(light));
   });
 
   it("charges what is left of the curve, not what is left of the calendar", () => {

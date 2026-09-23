@@ -19,6 +19,12 @@ import {
   type SowState,
 } from "../../sim/animals";
 import { STORE_IDS, type StoreId } from "../../sim/haulage";
+import {
+  lactationDemandOf,
+  pigletSupportFactor,
+  potentialPigletGainKg,
+  type LactationDemand,
+} from "../../sim/lactation";
 import { stageDurationDays, stageMortalityRate } from "../../sim/mortality";
 
 /**
@@ -197,10 +203,54 @@ function giltRationKg(weightKg: number, config: PlannerConfig): number {
   return config.feed.gestationKgDay * scale;
 }
 
-/** What a breeding female of this weight eats in the state she is in. */
-function sowRationKg(weightKg: number, state: SowState, config: PlannerConfig): number {
-  const base = state === "lactating" ? config.feed.lactationKgDay : config.feed.gestationKgDay;
-  return base * Math.pow(weightKg / MATURE_SOW_WEIGHT_KG, 0.75);
+/** The litter an expected lactating sow is carrying, as the ration needs it. */
+type ExpectedLitter = { sucklers: number; creepKg: number };
+
+/**
+ * What a breeding female of this weight eats in the state she is in.
+ *
+ * A lactating sow is fed for her litter and not for herself, so her ration is
+ * asked of the same calculation the engine uses — `lib/sim/lactation` — rather
+ * than of a flat figure. A forecast that went on predicting the flat ration
+ * would under-order sow feed on exactly the farms this change is about: the
+ * ones whose litters are trying to grow faster than the old number fed them.
+ */
+function sowRationKg(
+  weightKg: number,
+  state: SowState,
+  config: PlannerConfig,
+  litter: ExpectedLitter,
+): number {
+  if (state !== "lactating") {
+    return config.feed.gestationKgDay * Math.pow(weightKg / MATURE_SOW_WEIGHT_KG, 0.75);
+  }
+  return expectedLactation(weightKg, litter, config).offeredKg;
+}
+
+/**
+ * What the litter under a forecast sow is asking of her, and what she is
+ * allowed to answer with.
+ *
+ * Both halves of that matter, and they are not the same number. The ration is
+ * what the store has to hold; the gap between what she was asked for and what
+ * the ration lets her give is what the litter does not grow. Reading them off
+ * one calculation is what keeps the forecast's piglets the same size as the
+ * engine's.
+ */
+function expectedLactation(
+  weightKg: number,
+  litter: ExpectedLitter,
+  config: PlannerConfig,
+): LactationDemand {
+  return lactationDemandOf(
+    {
+      weightKg,
+      sucklers: litter.sucklers,
+      potentialGainKg: litter.sucklers * potentialPigletGainKg(config),
+      creepOfferedKg: litter.creepKg,
+    },
+    config,
+  );
 }
 
 /**
@@ -221,12 +271,37 @@ type Walker = {
   survival: number;
 };
 
+/**
+ * The share of its potential a litter coming off on this day can be milked to.
+ *
+ * Mass-weighted across the weight bands the forecaster carries the herd in,
+ * because a gilt and a fourth-parity sow suckling litters that wean on the same
+ * morning are allowed different amounts of feed. A litter whose dam is not in
+ * the tracks — one already on the farm when the forecast opens, weaning before
+ * any of the modelled sows farrow — is left at its potential, which is what the
+ * observed farm handed over.
+ */
+function supportUnder(
+  weanDay: number | null,
+  support: ReadonlyMap<number, { weighted: number; mass: number }>,
+): number {
+  if (weanDay === null) return 1;
+  const entry = support.get(weanDay);
+  if (entry === undefined || entry.mass <= CRUMB_KG) return 1;
+  return entry.weighted / entry.mass;
+}
+
 /** The day's potential gain for a growing cohort, on the plan's own rates. */
 function expectedGainKg(walker: Walker, config: PlannerConfig): number {
-  const { growth, reproduction } = config;
-  if (walker.stage === "piglet") {
-    return (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / Math.max(reproduction.weaningAgeDays, 1);
-  }
+  const { growth } = config;
+  // The potential, which is what a forecast of demand wants: the sow has to be
+  // offered the feed to milk it whether or not the store turns out to hold it.
+  //
+  // No thriftiness on a suckler, because there is none on a suckler in the
+  // engine either: what a piglet puts on before weaning is how much milk it got
+  // and not how well it converts. A factor here and not there would be the
+  // ordering policy buying sow feed for a litter the farm is not feeding.
+  if (walker.stage === "piglet") return potentialPigletGainKg(config);
   const maturity = maturityFactor(walker.weightKg, growth);
   if (walker.stage === "gilt") return GILT_DAILY_GAIN_KG * walker.growthFactor * maturity;
   const base =
@@ -238,13 +313,51 @@ function expectedGainKg(walker: Walker, config: PlannerConfig): number {
   return base * walker.sexFactor * walker.growthFactor * maturity;
 }
 
+/**
+ * The mean weight of each market cohort, by the age it is standing at.
+ *
+ * The farm does not sell a pig, it sells a pen: the draw goes when the group's
+ * average is at weight, and until it does every pig in it is still being fed —
+ * including the ones that got there first. Walkers are slices of those pens,
+ * split by sex and by the thriftiness the farm has already observed, so asking
+ * a slice whether it is heavy enough would retire the good half of a pen a
+ * fortnight before the lorry comes and leave the forecast ordering for a
+ * finishing house emptier than the one being fed.
+ */
+function marketCohortWeights(walkers: readonly Walker[]): Map<number, number> {
+  const totals = new Map<number, { kg: number; head: number }>();
+  for (const walker of walkers) {
+    if (walker.head <= CRUMB_KG || walker.destination !== "market") continue;
+    if (walker.stage === "piglet") continue;
+    const entry = totals.get(walker.ageDays) ?? { kg: 0, head: 0 };
+    entry.kg += walker.weightKg * walker.head;
+    entry.head += walker.head;
+    totals.set(walker.ageDays, entry);
+  }
+  const mean = new Map<number, number>();
+  for (const [age, total] of totals) {
+    if (total.head > CRUMB_KG) mean.set(age, total.kg / total.head);
+  }
+  return mean;
+}
+
+/** What the pen this walker is a slice of weighs, or its own weight alone. */
+function cohortWeightKg(walker: Walker, cohorts: ReadonlyMap<number, number>): number {
+  return cohorts.get(walker.ageDays) ?? walker.weightKg;
+}
+
 /** The legacy, unconstrained stage walk retained for 1.x projections. */
-function advanceLegacyStage(walker: Walker, config: PlannerConfig, day: number): void {
+function advanceLegacyStage(
+  walker: Walker,
+  config: PlannerConfig,
+  day: number,
+  cohorts: ReadonlyMap<number, number>,
+): void {
   const { growth } = config;
   if (walker.stage === "piglet") {
     if (walker.weanDay !== null && day >= walker.weanDay) {
+      // Off at the weight it reached on its dam, not lifted to the reference.
       walker.stage = "weaner";
-      walker.weightKg = Math.max(walker.weightKg, growth.weaningWeightKg);
       walker.litters = 0;
       walker.weanDay = null;
       walker.survival = dailySurvival("weaner", config);
@@ -253,16 +366,20 @@ function advanceLegacyStage(walker: Walker, config: PlannerConfig, day: number):
   }
   if (walker.stage === "gilt") return;
   if (walker.destination === "breeding") {
+    // She leaves the growing herd at selection weight and goes onto the
+    // developer ration. Until she gets there she is a growing pig like the ones
+    // she was picked out of, standing in the same houses and eating out of the
+    // same bins — a replacement at 70 kg is on finisher feed, because that is
+    // what the farm has in front of her.
     if (walker.weightKg >= growth.saleWeightKg) {
       walker.stage = "gilt";
       walker.survival = dailySurvival("gilt", config);
+      return;
     }
-    return;
-  }
-  // A market pig leaves on the day its cohort reaches sale weight. What the farm
-  // does about a full finishing house is the farm's business; the demand this
-  // cohort stands for stops either way.
-  if (walker.weightKg >= growth.saleWeightKg) {
+  } else if (cohortWeightKg(walker, cohorts) >= growth.saleWeightKg) {
+    // A market pig leaves on the day its cohort reaches sale weight. What the
+    // farm does about a full finishing house is the farm's business; the demand
+    // this cohort stands for stops either way.
     walker.head = 0;
     return;
   }
@@ -375,12 +492,15 @@ function advanceConstrainedHousing(walkers: Walker[], config: PlannerConfig): vo
     }
   }
 
+  // The draw goes when the pen's average is at weight, not when the best pig in
+  // it is, so the cohort is weighed after the day's moves and released whole.
+  const cohorts = marketCohortWeights(walkers);
   for (const walker of walkers) {
     if (
       walker.head > CRUMB_KG &&
       walker.stage === "finisher" &&
       walker.destination === "market" &&
-      walker.weightKg >= config.growth.saleWeightKg
+      cohortWeightKg(walker, cohorts) >= config.growth.saleWeightKg
     ) {
       walker.head = 0;
     }
@@ -430,6 +550,41 @@ export function forecastDemand(
   const returnDays = Math.round(expectedReturnDays(config));
   const gestationDays = Math.round(reproduction.gestationDays);
   const weaningAgeDays = Math.round(reproduction.weaningAgeDays);
+  const pigletSurvival = dailySurvival("piglet", config);
+
+  /**
+   * The litter under a lactating sow, from her own calendar rather than from
+   * the growing groups.
+   *
+   * Her ration is worked out from what her litter is trying to grow, so the
+   * forecast has to know what is under her on the morning she is fed — and on
+   * the morning she farrows her litter does not yet exist as a group. Her
+   * weaning date says how far through lactation she is, which is all this
+   * needs: how many are still on her, and whether they are old enough to be
+   * picking at the creep feeder.
+   */
+  const litterUnder = (
+    weanDay: number,
+    day: number,
+    standing: ReadonlyMap<number, ExpectedLitter>,
+  ): ExpectedLitter => {
+    // The litter actually on her, where the farm can see one. A forecast that
+    // decayed a litter smoothly while the farm lost whole piglets would order
+    // sow feed for a herd slightly different from the one being fed, and the
+    // difference lands in the largest store on the place.
+    const known = standing.get(weanDay);
+    if (known !== undefined) return known;
+
+    // Nothing to see yet: she farrows this morning, and the litter joins the
+    // growing groups behind her. What she will be nursing is the plan's own
+    // litter, which is what the rest of this forecaster runs on.
+    const ageDays = Math.min(weaningAgeDays, Math.max(0, weaningAgeDays - (weanDay - day)));
+    const sucklers = reproduction.bornAlivePerLitter * Math.pow(pigletSurvival, ageDays);
+    return {
+      sucklers,
+      creepKg: ageDays >= feed.creepStartAgeDays ? sucklers * feed.creepKgPerPigDay : 0,
+    };
+  };
   const weanToServiceDays = Math.max(1, Math.round(reproduction.weanToServiceDays));
   const sowDailySurvival = Math.pow(Math.max(0, 1 - herd.sowAnnualMortalityPct / 100), 1 / 365);
 
@@ -519,6 +674,31 @@ export function forecastDemand(
     let crateLamps = 0;
     let heatedInPens = 0;
 
+    // ---- the litters standing on the farm this morning ----------------------
+    // Gathered by the day they come off, which is the one thing a sow and her
+    // litter agree on: it is on her card and on theirs. A sow's ration follows
+    // the litter under her, so the litters have to be counted before the sows
+    // are fed — the same order the engine runs the two in.
+    const standing = new Map<number, ExpectedLitter>();
+    for (const walker of walkers) {
+      if (walker.stage !== "piglet" || walker.weanDay === null || walker.head <= CRUMB_KG) continue;
+      const already = standing.get(walker.weanDay) ?? { sucklers: 0, creepKg: 0 };
+      const litters = Math.max(1, walker.litters);
+      already.sucklers += walker.head / litters;
+      if (walker.ageDays >= feed.creepStartAgeDays) {
+        already.creepKg += (walker.head / litters) * feed.creepKgPerPigDay;
+      }
+      standing.set(walker.weanDay, already);
+    }
+
+    // What share of what those litters wanted their dams will be able to milk,
+    // filled in as the sows are fed and read back when the litters grow. A
+    // litter on a sow whose ration is capped below what it asked for grows by
+    // that share and no more, which is the whole point of this change — and a
+    // forecast that skipped it would walk heavier pigs forward than the farm
+    // will have, order for them, and be short of the feed the real ones want.
+    const support = new Map<number, { weighted: number; mass: number }>();
+
     // ---- the breeding herd -------------------------------------------------
     for (const track of tracks) {
       const next = new Map<string, SowMass>();
@@ -591,7 +771,24 @@ export function forecastDemand(
           carry({ ...entry, mass: alive });
         }
 
-        const kg = entry.mass * sowRationKg(track.weightKg, state, config);
+        // A sow that farrowed this morning is nursing today's litter, and her
+        // new weaning date is a day old; one already lactating carries hers on
+        // the entry. Either way the ration follows the litter under her.
+        const weanDay = entry.state === "lactating" ? entry.keyDay : day + weaningAgeDays;
+        let kg: number;
+        if (state === "lactating") {
+          const demand = expectedLactation(track.weightKg, litterUnder(weanDay, day, standing), config);
+          kg = entry.mass * demand.offeredKg;
+          // The forecast is of a farm whose stores hold what it ordered, so the
+          // only thing that can hold her litter back here is the ration itself.
+          const share = pigletSupportFactor(demand, demand.offeredKg, demand.creepOfferedKg, config);
+          const already = support.get(weanDay) ?? { weighted: 0, mass: 0 };
+          already.weighted += share * entry.mass;
+          already.mass += entry.mass;
+          support.set(weanDay, already);
+        } else {
+          kg = entry.mass * sowRationKg(track.weightKg, state, config, { sucklers: 0, creepKg: 0 });
+        }
         demandKg.sow[index] += kg;
         note("sow", "breeding", kg, "the breeding females standing on the farm");
       }
@@ -629,8 +826,8 @@ export function forecastDemand(
           walker.weanDay !== null &&
           day >= walker.weanDay
         ) {
+          // Off at the weight it reached on its dam, not lifted to the reference.
           walker.stage = "weaner";
-          walker.weightKg = Math.max(walker.weightKg, config.growth.weaningWeightKg);
           walker.litters = 0;
           walker.weanDay = null;
           walker.survival = dailySurvival("weaner", config);
@@ -638,9 +835,10 @@ export function forecastDemand(
       }
     }
     const occupancy = growingOccupancy(walkers);
+    const cohorts = marketCohortWeights(walkers);
     for (const walker of walkers) {
       if (walker.head <= CRUMB_KG) continue;
-      if (!housing.enforceCapacity) advanceLegacyStage(walker, config, day);
+      if (!housing.enforceCapacity) advanceLegacyStage(walker, config, day, cohorts);
       if (walker.head <= CRUMB_KG) continue;
 
       headOnFarm += walker.head;
@@ -673,8 +871,14 @@ export function forecastDemand(
         }
       }
 
+      // Potential is what the stores were asked to cover; what the animal
+      // actually puts on is potential less whatever it went without. For a
+      // suckler that is its dam's ration, worked out when she was fed a few
+      // lines above; for everything else it is the pen it is standing in.
       const gain =
-        expectedGainKg(walker, config) * crowdingGainFactor(walker.stage, occupancy, config);
+        expectedGainKg(walker, config) *
+        crowdingGainFactor(walker.stage, occupancy, config) *
+        (walker.stage === "piglet" ? supportUnder(walker.weanDay, support) : 1);
       walker.weightKg += gain;
       walker.ageDays += 1;
       walker.head *= walker.survival;

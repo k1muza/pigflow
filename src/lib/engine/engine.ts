@@ -456,7 +456,7 @@ function openingDemand(world: World): Partial<Record<string, number>> {
     demand[store] = (demand[store] ?? 0) + kg;
   };
   for (const sow of world.sows) {
-    const feed = sow.dailyFeed(config);
+    const feed = sow.dailyFeed(config, world.day);
     add(feed.ration, feed.kg);
   }
   for (const boar of world.boars) {

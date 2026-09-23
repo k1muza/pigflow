@@ -1,5 +1,4 @@
 import {
-  BIRTH_WEIGHT_KG,
   DAYS_PER_MONTH,
   MATURE_SOW_WEIGHT_KG,
   STARTING_PIG_TYPES,
@@ -11,6 +10,10 @@ import {
   type StartingStockEntry,
 } from "../config";
 import { Boar, GrowingPig, Sow, type CostStage, type PigStage } from "./animals";
+import {
+  expectedPigletWeightAtAgeKg,
+  openingWeanerWeightKg,
+} from "./lactation";
 import type { Variation } from "./variation";
 
 /**
@@ -309,6 +312,18 @@ function openAt(pig: GrowingPig, entry: StartingStockEntry): void {
   pig.costs.add("purchase", costStageOf(entry.type as StartingPigType), entry.openingValue);
 }
 
+/**
+ * What the farmer weighed this animal at, where they weighed it.
+ *
+ * Only a growing pig or a gilt is asked: a sow's weight is her own business in
+ * this model, which feeds her off her state and her mature size rather than off
+ * a scale.
+ */
+function weighedKgOf(entry: StartingStockEntry): number | undefined {
+  if (entry.type === "sow" || entry.type === "boar") return undefined;
+  return entry.weightKg !== undefined && entry.weightKg > 0 ? entry.weightKg : undefined;
+}
+
 /** The weight range and daily gain of one growing stage. */
 function stageSpan(
   config: PlannerConfig,
@@ -317,7 +332,10 @@ function stageSpan(
   const { growth } = config;
   if (stage === "weaner") {
     return {
-      startWeight: growth.weaningWeightKg,
+      // Where the weaner house starts for a pig that was weaned before the plan
+      // did: on its genotype's own rate rather than on this plan's future sow
+      // ration, which had nothing to do with it. See `lib/sim/lactation`.
+      startWeight: openingWeanerWeightKg(config),
       endWeight: growth.growerStartWeightKg,
       dailyGain: growth.weanerDailyGainKg,
     };
@@ -343,7 +361,7 @@ function stageEntryAgeDays(
 ): number {
   const { growth, reproduction } = config;
   const weanerDays =
-    (growth.growerStartWeightKg - growth.weaningWeightKg) / growth.weanerDailyGainKg;
+    (growth.growerStartWeightKg - openingWeanerWeightKg(config)) / growth.weanerDailyGainKg;
   const growerDays =
     (growth.finisherStartWeightKg - growth.growerStartWeightKg) / growth.growerDailyGainKg;
   if (stage === "weaner") return reproduction.weaningAgeDays;
@@ -358,12 +376,18 @@ function stageEntryAgeDays(
  * where those two disagree the house is believed: a pig entered as a finisher
  * at sixty days is a small finisher rather than a weaner filed in the wrong
  * place. Age then says how far up the stage it has grown.
+ *
+ * All of which is a guess, and the entry's own `weightKg` is not: an animal
+ * that has been over a weighbridge is the only true answer to this question,
+ * and where a farmer has given one it is taken as it stands.
  */
 function weightAtAge(
   config: PlannerConfig,
   stage: "weaner" | "grower" | "finisher",
   ageDays: number,
+  weighedKg?: number,
 ): number {
+  if (weighedKg !== undefined && weighedKg > 0) return weighedKg;
   const { startWeight, endWeight, dailyGain } = stageSpan(config, stage);
   const stageDays = dailyGain > 0 ? (endWeight - startWeight) / dailyGain : 0;
   const grown = Math.min(Math.max(ageDays - stageEntryAgeDays(config, stage), 0), stageDays);
@@ -387,7 +411,7 @@ function placeGrowingPigs(
   const placed: GrowingPig[] = [];
   for (const entry of entries) {
     const ageDays = Math.round(entry.ageDays);
-    const weightKg = weightAtAge(config, stage, ageDays);
+    const weightKg = weightAtAge(config, stage, ageDays, weighedKgOf(entry));
     const tag = host.nextPigTag();
     const pig = new GrowingPig({
       id: tag,
@@ -426,10 +450,10 @@ function placeGilts(host: StartingStockHost, entries: readonly StartingStockEntr
     // condition rather than grown through it while she waits for her heat.
     const grown = weightAtAge(config, "finisher", ageOnDayZero);
     const beyondSale = Math.max(0, ageOnDayZero - saleAgeDays(config));
-    const weightKg = Math.min(
-      grown + beyondSale * growth.finisherDailyGainKg,
-      herd.giltServiceWeightKg,
-    );
+    const weighedKg = weighedKgOf(entry);
+    const weightKg =
+      weighedKg ??
+      Math.min(grown + beyondSale * growth.finisherDailyGainKg, herd.giltServiceWeightKg);
     const tag = host.nextPigTag();
     const gilt = new GrowingPig({
       id: tag,
@@ -478,15 +502,35 @@ function placePiglets(
   lactating: readonly LactatingSow[],
 ): void {
   const { config } = host;
-  const { growth, reproduction } = config;
-  const gainPerDay = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+  const { reproduction } = config;
+
+  // Who goes on which sow, settled before any of them is weighed. A litter's
+  // milk is its dam's ration divided between however many are on her, so six
+  // piglets on one sow are six well-fed piglets and fourteen are not — and this
+  // is the one place the plan knows the real number rather than the average.
+  const damOf = (index: number) =>
+    lactating.length > 0 ? lactating[index % lactating.length] : null;
+  const litterSizes = new Array(Math.max(1, lactating.length)).fill(0);
+  if (lactating.length > 0) {
+    entries.forEach((_, index) => (litterSizes[index % lactating.length] += 1));
+  }
 
   const placed: GrowingPig[] = [];
   entries.forEach((entry, index) => {
     const ageDays = Math.min(Math.round(entry.ageDays), Math.round(reproduction.weaningAgeDays));
-    const weightKg = BIRTH_WEIGHT_KG + gainPerDay * ageDays;
-    const nursing = lactating.length > 0 ? lactating[index % lactating.length] : null;
+    const nursing = damOf(index);
     const dam = nursing?.sow ?? null;
+    // What this plan's ration would have put on a suckler of that age on the sow
+    // it is actually on — she is feeding it today and will go on feeding it, so
+    // unlike a weaner weaned weeks ago it is this plan's litter. An orphan has
+    // no dam to divide a ration by and falls back to the plan's own litter.
+    const weightKg =
+      weighedKgOf(entry) ??
+      expectedPigletWeightAtAgeKg(
+        config,
+        ageDays,
+        dam === null ? undefined : litterSizes[index % lactating.length],
+      );
     const tag = host.nextPigTag();
     const piglet = new GrowingPig({
       id: tag,

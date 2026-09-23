@@ -352,3 +352,149 @@ describe("The information boundary", () => {
     expect(sources.every((line) => line.kg > 0 && line.note.length > 0)).toBe(true);
   });
 });
+
+/**
+ * Where the forecaster and the engine have to agree about a growing pig.
+ *
+ * A demand forecast is only worth the deliveries it books, and a deliverable is
+ * booked against a bin. So every rule the engine uses to decide which bin an
+ * animal eats out of — and on which day it stops eating altogether — has to be
+ * the rule in here as well. Each of these was a real divergence that starved a
+ * store: not by much, and not often, but a herd that goes short at all is one
+ * the ordering policy failed.
+ */
+describe("what the forecast thinks a growing pig is doing", () => {
+  function growing(
+    groups: readonly Partial<ExpectedFarmState["growing"][number]>[],
+  ): ExpectedFarmState {
+    return {
+      ...NOBODY,
+      growing: groups.map((group) => ({
+        head: 1,
+        stage: "finisher" as const,
+        destination: "market" as const,
+        sex: "male" as const,
+        weightKg: 90,
+        ageDays: 160,
+        litters: 0,
+        weanDay: null,
+        ...group,
+      })),
+    };
+  }
+
+  it("goes on feeding a pen until the pen is ready, not until its best pig is", () => {
+    const config = plan();
+    // One cohort, one pig over sale weight and one well under it. The farm sells
+    // the pair when their average gets there, and feeds both until it does.
+    const farm = growing([
+      { weightKg: config.growth.saleWeightKg + 8, ageDays: 170 },
+      { weightKg: config.growth.saleWeightKg - 20, ageDays: 170 },
+    ]);
+    const forecast = forecastDemand(farm, config, 10);
+
+    // Read against the same pen with its forward pig on its own: if the walker's
+    // own weight decided, that pig would already have gone and taken its feed
+    // with it, and today's finisher demand would be the lighter one's alone.
+    const alone = forecastDemand(
+      growing([{ weightKg: config.growth.saleWeightKg - 20, ageDays: 170 }]),
+      config,
+      10,
+    );
+    expect(forecast.demandKg.finisher[0]).toBeGreaterThan(alone.demandKg.finisher[0] * 1.5);
+  });
+
+  it("lets a pen go once the average gets there, and stops buying for it", () => {
+    const config = plan();
+    const ready = growing([
+      { weightKg: config.growth.saleWeightKg + 8, ageDays: 170 },
+      { weightKg: config.growth.saleWeightKg + 2, ageDays: 170 },
+    ]);
+    // Nothing else is standing on the farm, so the finisher bin goes quiet.
+    expect(forecastDemand(ready, config, 10).demandKg.finisher[0]).toBeCloseTo(0, 9);
+  });
+
+  it("feeds a replacement gilt out of the bin she is standing at", () => {
+    const config = plan();
+    // Picked out to breed, and past the weight that puts a pig in the finishing
+    // house but not yet at the weight that takes her out of the growing herd.
+    // The engine moves her with the pigs she was picked out of; a forecast that
+    // left her on grower feed buys nothing for the farm's first finisher draw.
+    const heavy = config.growth.finisherStartWeightKg + 5;
+    expect(heavy).toBeLessThan(config.growth.saleWeightKg);
+    const farm = growing([
+      { stage: "grower", destination: "breeding", sex: "female", weightKg: heavy, ageDays: 120 },
+    ]);
+    const forecast = forecastDemand(farm, config, 5);
+
+    expect(forecast.demandKg.finisher[0]).toBeGreaterThan(0);
+    expect(forecast.demandKg.grower[0]).toBeCloseTo(0, 9);
+  });
+
+  it("puts her on the developer ration once she is selected out", () => {
+    const config = plan();
+    const farm = growing([
+      {
+        stage: "finisher",
+        destination: "breeding",
+        sex: "female",
+        weightKg: config.growth.saleWeightKg + 1,
+        ageDays: 175,
+      },
+    ]);
+    const forecast = forecastDemand(farm, config, 5);
+
+    // Off the growing bins and onto sow feed — and not sold, which is what
+    // happens to the market pigs she was standing with.
+    expect(forecast.demandKg.finisher[0]).toBeCloseTo(0, 9);
+    expect(forecast.demandKg.sow[0]).toBeGreaterThan(0);
+  });
+
+  it("grows a suckler at the rate the engine grows it at", () => {
+    const config = plan();
+    // A litter the farm has already seen is thrifty or it is not, and that shows
+    // in what it weighs. It must not also show in what it is forecast to grow:
+    // a suckler's gain is its dam's milk, and she is fed for the litter and not
+    // for its conversion. A factor here and not in the engine would have the
+    // ordering policy buying sow feed for a herd nobody is feeding.
+    const litter = (growthFactor: number): ExpectedFarmState => ({
+      ...NOBODY,
+      sows: [
+        {
+          head: 1,
+          weightKg: 210,
+          state: "lactating",
+          parity: 2,
+          dueDay: null,
+          weanDay: 20,
+          nextServiceDay: 27,
+        },
+      ],
+      growing: [
+        {
+          head: 10,
+          stage: "piglet",
+          destination: "market",
+          sex: "male",
+          growthFactor,
+          weightKg: 4,
+          ageDays: 12,
+          litters: 1,
+          weanDay: 20,
+        },
+      ],
+    });
+
+    const poor = forecastDemand(litter(0.85), config, 40);
+    const thrifty = forecastDemand(litter(1.15), config, 40);
+
+    // Her ration is the litter's, to the kilogram, however well they convert.
+    expect(thrifty.demandKg.sow).toEqual(poor.demandKg.sow);
+    expect(thrifty.demandKg.creep).toEqual(poor.demandKg.creep);
+
+    // And once they are off her and eating for themselves it does count, in the
+    // forecast as in the engine. That is where the spread between litter mates
+    // starts, and a forecast that flattened it would be wrong the other way.
+    expect(thrifty.demandKg.weaner).not.toEqual(poor.demandKg.weaner);
+  });
+});

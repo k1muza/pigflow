@@ -1,6 +1,6 @@
 import { addMonths, parseISO } from "date-fns";
 
-import { plannerSchema, type PlannerConfig } from "./config";
+import { BIRTH_WEIGHT_KG, plannerSchema, type PlannerConfig } from "./config";
 import { Engine, engineHorizonDay } from "./engine/engine";
 import { engineEventLog, engineSnapshot, engineState } from "./engine/read";
 import {
@@ -17,6 +17,7 @@ import {
   type ProjectionResult,
   type ProjectionSummary,
   type WarnableRun,
+  type WeaningSummary,
 } from "./model";
 import {
   Farm,
@@ -390,6 +391,45 @@ export function simulatePlan(
 }
 
 /**
+ * What the farm's weaner weighed, and what was put into it.
+ *
+ * Read off the run and not out of the plan. The configured weaning weight is a
+ * rate this genotype is capable of, which a farm reaches by feeding its sows
+ * and filling its creep feeders; a plan that does neither weans a lighter pig.
+ * Both halves of that are here so the gap can be seen and accounted for rather
+ * than discovered later as a hole in the cashflow.
+ */
+function weaningSummaryOf(run: PlanRun, config: PlannerConfig): WeaningSummary {
+  let weaned = 0;
+  let weanedKg = 0;
+  let lactationFeedKg = 0;
+  let creepFeedKg = 0;
+  for (const day of run.history) {
+    weaned += day.weaned;
+    weanedKg += day.weanedLiveweightKg;
+    lactationFeedKg += day.lactationFeedKg;
+    creepFeedKg += day.feedByRation.creep;
+  }
+  const averageWeightKg = weaned > 0 ? weanedKg / weaned : 0;
+  const ageDays = Math.max(1, config.reproduction.weaningAgeDays);
+  return {
+    ageDays: config.reproduction.weaningAgeDays,
+    referenceWeightKg: config.growth.referenceWeaningWeightKg,
+    referenceAgeDays: config.growth.referenceWeaningAgeDays,
+    averageWeightKg,
+    dailyGainKg: weaned > 0 ? (averageWeightKg - BIRTH_WEIGHT_KG) / ageDays : 0,
+    lactationFeedKg,
+    creepFeedKg,
+    // Against liveweight rather than against gain, because the sow's own upkeep
+    // is in the numerator: this is what a kilogram of weaner cost to stand up,
+    // not a feed conversion ratio. Both sides are read over the whole plan and
+    // neither is trimmed to the litters that began and ended inside it, which is
+    // why the field says so in its name.
+    feedKgPerKgWeanedOverHorizon: weanedKg > 0 ? (lactationFeedKg + creepFeedKg) / weanedKg : 0,
+  };
+}
+
+/**
  * The run rolled up into the monthly cashflow the plan is read from.
  *
  * One roll-up for both engines. The daily record 2.0 writes is a superset of
@@ -497,6 +537,7 @@ function projectionOf(
     inventoryAdjustedProfit: inventoryAdjustedProfit(horizonTotals, horizonAccounting),
     farmWorthAtEnd: farmWorth.netWorth,
     changeInFarmWorth: farmWorth.netWorth - openingWorth,
+    weaning: weaningSummaryOf(run, config),
     marketLivestockValueAtEnd: farmWorth.inventory.marketLivestock,
     breedingHerdValueAtEnd:
       farmWorth.breedingAssets.sows +
