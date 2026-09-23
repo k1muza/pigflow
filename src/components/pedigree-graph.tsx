@@ -14,7 +14,13 @@ import {
   type ReactFlowInstance,
   type Viewport,
 } from "@xyflow/react";
-import { GitBranch, Search, Users } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  GitBranch,
+  Search,
+  Users,
+} from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -42,6 +48,9 @@ type DisplayNode = {
   sireTag: string | null;
   firstSeenDay: number;
   litterKey: string | null;
+  expandable: boolean;
+  expanded: boolean;
+  childSummary: string | null;
 };
 
 type PedigreeNodeData = Record<string, unknown> & DisplayNode;
@@ -51,120 +60,325 @@ type LineageEdge = {
   id: string;
   from: string;
   to: string;
-  parentTag: string;
+  kind: "parent" | "member";
+  parentTag: string | null;
   childTags: string[];
 };
 
+type PedigreeIndex = {
+  byTag: Map<string, PedigreeRecord>;
+  litters: Map<string, PedigreeRecord[]>;
+  litterParents: Map<string, { damTag: string | null; sireTag: string | null }>;
+  littersByParent: Map<string, Set<string>>;
+  directChildrenByParent: Map<string, PedigreeRecord[]>;
+  roots: PedigreeRecord[];
+};
+
+type VisibleGraph = {
+  nodes: DisplayNode[];
+  edges: LineageEdge[];
+  tagToNode: Map<string, string>;
+  visibleAnimalTags: Set<string>;
+  visibleLitterKeys: Set<string>;
+};
+
 const NODE_W = 190;
-const NODE_H = 58;
+const NODE_H = 62;
 const LEFT_PAD = 220;
 const LANE_GAP = 20;
-const VERTICAL_STEP = 82;
-const GENERATION_GAP = 52;
+const VERTICAL_STEP = 86;
+const GENERATION_GAP = 54;
 
 function litterKey(row: PedigreeRecord): string | null {
   if (row.damTag === null || row.birthDay === null) return null;
   return [row.damTag, row.sireTag ?? "unknown", row.birthDay, row.generation ?? 0].join("|");
 }
 
-function compactGraph(
-  records: readonly PedigreeRecord[],
-  collapseLitters: boolean,
-  expanded: ReadonlySet<string>,
-): {
-  nodes: DisplayNode[];
-  edges: LineageEdge[];
-  tagToNode: Map<string, string>;
-} {
-  const parentTags = new Set<string>();
+function addToSetMap(map: Map<string, Set<string>>, key: string, value: string): void {
+  const values = map.get(key);
+  if (values) values.add(value);
+  else map.set(key, new Set([value]));
+}
+
+function addToRowMap(
+  map: Map<string, PedigreeRecord[]>,
+  key: string,
+  value: PedigreeRecord,
+): void {
+  const values = map.get(key);
+  if (values) values.push(value);
+  else map.set(key, [value]);
+}
+
+function indexPedigree(records: readonly PedigreeRecord[]): PedigreeIndex {
+  const byTag = new Map(records.map((row) => [row.tag, row]));
+  const litters = new Map<string, PedigreeRecord[]>();
+  const litterParents = new Map<string, { damTag: string | null; sireTag: string | null }>();
+  const littersByParent = new Map<string, Set<string>>();
+  const directChildrenByParent = new Map<string, PedigreeRecord[]>();
+
   for (const row of records) {
-    if (row.damTag) parentTags.add(row.damTag);
-    if (row.sireTag) parentTags.add(row.sireTag);
+    const key = litterKey(row);
+    if (key) {
+      addToRowMap(litters, key, row);
+      litterParents.set(key, { damTag: row.damTag, sireTag: row.sireTag });
+      if (row.damTag) addToSetMap(littersByParent, row.damTag, key);
+      if (row.sireTag) addToSetMap(littersByParent, row.sireTag, key);
+      continue;
+    }
+
+    for (const parentTag of [row.damTag, row.sireTag]) {
+      if (parentTag) addToRowMap(directChildrenByParent, parentTag, row);
+    }
+  }
+
+  const roots = records.filter(
+    (row) =>
+      row.damTag === null &&
+      row.sireTag === null &&
+      row.kind !== "stud" &&
+      (row.kind === "sow" || row.kind === "boar"),
+  );
+
+  // A malformed/imported pedigree can have no breeding root. In that case,
+  // show the parentless animals rather than opening an empty canvas.
+  if (roots.length === 0) {
+    roots.push(
+      ...records.filter(
+        (row) => row.damTag === null && row.sireTag === null && row.kind !== "stud",
+      ),
+    );
+  }
+
+  return {
+    byTag,
+    litters,
+    litterParents,
+    littersByParent,
+    directChildrenByParent,
+    roots,
+  };
+}
+
+function childSummary(index: PedigreeIndex, tag: string): string | null {
+  const litterCount = index.littersByParent.get(tag)?.size ?? 0;
+  const directCount = index.directChildrenByParent.get(tag)?.length ?? 0;
+  if (litterCount === 0 && directCount === 0) return null;
+  const parts: string[] = [];
+  if (litterCount > 0) parts.push(litterCount + (litterCount === 1 ? " litter" : " litters"));
+  if (directCount > 0) parts.push(directCount + (directCount === 1 ? " child" : " children"));
+  return parts.join(" · ");
+}
+
+function animalDisplayNode(
+  row: PedigreeRecord,
+  index: PedigreeIndex,
+  expandedAnimals: ReadonlySet<string>,
+): DisplayNode {
+  const summary = childSummary(index, row.tag);
+  return {
+    id: "animal:" + row.tag,
+    label: row.tag,
+    subtitle:
+      row.kind === "stud"
+        ? "AI stud"
+        : row.kind === "sow"
+          ? "breeding sow"
+          : row.kind === "boar"
+            ? "boar"
+            : row.origin === "purchased"
+              ? "bought in"
+              : "pig",
+    generation: row.generation,
+    kind: row.kind,
+    count: 1,
+    members: [row.tag],
+    damTag: row.damTag,
+    sireTag: row.sireTag,
+    firstSeenDay: row.firstSeenDay,
+    litterKey: litterKey(row),
+    expandable: summary !== null,
+    expanded: expandedAnimals.has(row.tag),
+    childSummary: summary,
+  };
+}
+
+function litterDisplayNode(
+  key: string,
+  rows: readonly PedigreeRecord[],
+  expandedLitters: ReadonlySet<string>,
+): DisplayNode {
+  const first = rows[0];
+  return {
+    id: "litter:" + key,
+    label: "Litter · " + rows.length + (rows.length === 1 ? " pig" : " pigs"),
+    subtitle: [first.damTag, first.sireTag].filter(Boolean).join(" × ") || "parentage unknown",
+    generation: first.generation,
+    kind: "litter",
+    count: rows.length,
+    members: rows.map((row) => row.tag),
+    damTag: first.damTag,
+    sireTag: first.sireTag,
+    firstSeenDay: Math.min(...rows.map((row) => row.firstSeenDay)),
+    litterKey: key,
+    expandable: rows.length > 0,
+    expanded: expandedLitters.has(key),
+    childSummary: rows.length + (rows.length === 1 ? " pig" : " pigs"),
+  };
+}
+
+/**
+ * Progressive whole-run pedigree.
+ *
+ * Only root breeding stock is visible initially. Expanding an animal reveals
+ * its litters; expanding a litter reveals its pigs. A pig that becomes a
+ * breeder can then be expanded into the next generation. The complete pedigree
+ * remains in memory, but React Flow only receives the part the user has opened.
+ */
+function visibleGraph(
+  index: PedigreeIndex,
+  expandedAnimals: ReadonlySet<string>,
+  expandedLitters: ReadonlySet<string>,
+): VisibleGraph {
+  const visibleAnimalTags = new Set(index.roots.map((row) => row.tag));
+  const visibleLitterKeys = new Set<string>();
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+
+    for (const tag of [...visibleAnimalTags]) {
+      if (!expandedAnimals.has(tag)) continue;
+
+      for (const key of index.littersByParent.get(tag) ?? []) {
+        if (!visibleLitterKeys.has(key)) {
+          visibleLitterKeys.add(key);
+          changed = true;
+        }
+
+        // A litter is the product of both parents. Once the litter is visible,
+        // keep the co-parent visible too without opening any of its other
+        // descendants.
+        const parents = index.litterParents.get(key);
+        for (const parentTag of [parents?.damTag, parents?.sireTag]) {
+          if (parentTag && index.byTag.has(parentTag) && !visibleAnimalTags.has(parentTag)) {
+            visibleAnimalTags.add(parentTag);
+            changed = true;
+          }
+        }
+      }
+
+      for (const child of index.directChildrenByParent.get(tag) ?? []) {
+        if (!visibleAnimalTags.has(child.tag)) {
+          visibleAnimalTags.add(child.tag);
+          changed = true;
+        }
+      }
+    }
+
+    for (const key of [...visibleLitterKeys]) {
+      if (!expandedLitters.has(key)) continue;
+      for (const member of index.litters.get(key) ?? []) {
+        if (!visibleAnimalTags.has(member.tag)) {
+          visibleAnimalTags.add(member.tag);
+          changed = true;
+        }
+      }
+    }
   }
 
   const nodes: DisplayNode[] = [];
   const tagToNode = new Map<string, string>();
-  const grouped = new Map<string, PedigreeRecord[]>();
 
-  for (const row of records) {
-    const key = litterKey(row);
-    const canCollapse =
-      collapseLitters &&
-      key !== null &&
-      !expanded.has(key) &&
-      row.kind === "pig" &&
-      !parentTags.has(row.tag);
+  for (const tag of visibleAnimalTags) {
+    const row = index.byTag.get(tag);
+    if (!row) continue;
+    const node = animalDisplayNode(row, index, expandedAnimals);
+    nodes.push(node);
+    tagToNode.set(tag, node.id);
+  }
 
-    if (canCollapse) {
-      const rows = grouped.get(key);
-      if (rows) rows.push(row);
-      else grouped.set(key, [row]);
-      continue;
+  for (const key of visibleLitterKeys) {
+    const rows = index.litters.get(key);
+    if (!rows?.length) continue;
+    const node = litterDisplayNode(key, rows, expandedLitters);
+    nodes.push(node);
+    // When the litter is collapsed, its members resolve to the litter node.
+    // Once expanded, the individual animal mapping below wins.
+    for (const row of rows) {
+      if (!tagToNode.has(row.tag)) tagToNode.set(row.tag, node.id);
     }
-
-    const id = "animal:" + row.tag;
-    nodes.push({
-      id,
-      label: row.tag,
-      subtitle:
-        row.kind === "stud"
-          ? "AI stud"
-          : row.kind === "sow"
-            ? "breeding sow"
-            : row.kind === "boar"
-              ? "boar"
-              : row.origin === "purchased"
-                ? "bought in"
-                : "pig",
-      generation: row.generation,
-      kind: row.kind,
-      count: 1,
-      members: [row.tag],
-      damTag: row.damTag,
-      sireTag: row.sireTag,
-      firstSeenDay: row.firstSeenDay,
-      litterKey: key,
-    });
-    tagToNode.set(row.tag, id);
   }
 
-  for (const [key, rows] of grouped) {
-    const first = rows[0];
-    const id = "litter:" + key;
-    nodes.push({
-      id,
-      label: rows.length + (rows.length === 1 ? " pig" : " pigs"),
-      subtitle: first.damTag ? "litter of " + first.damTag : "litter",
-      generation: first.generation,
-      kind: "litter",
-      count: rows.length,
-      members: rows.map((row) => row.tag),
-      damTag: first.damTag,
-      sireTag: first.sireTag,
-      firstSeenDay: Math.min(...rows.map((row) => row.firstSeenDay)),
-      litterKey: key,
-    });
-    for (const row of rows) tagToNode.set(row.tag, id);
-  }
-
-  const seen = new Set<string>();
   const edges: LineageEdge[] = [];
-  for (const row of records) {
-    const to = tagToNode.get(row.tag);
-    if (!to) continue;
-    for (const parentTag of [row.damTag, row.sireTag]) {
+  const seen = new Set<string>();
+
+  for (const key of visibleLitterKeys) {
+    const litterId = "litter:" + key;
+    const parents = index.litterParents.get(key);
+    for (const parentTag of [parents?.damTag, parents?.sireTag]) {
       if (!parentTag) continue;
       const from = tagToNode.get(parentTag);
-      if (!from || from === to) continue;
+      if (!from) continue;
+      const id = from + ">" + litterId;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      edges.push({
+        id,
+        from,
+        to: litterId,
+        kind: "parent",
+        parentTag,
+        childTags: index.litters.get(key)?.map((row) => row.tag) ?? [],
+      });
+    }
+
+    if (expandedLitters.has(key)) {
+      for (const member of index.litters.get(key) ?? []) {
+        const to = "animal:" + member.tag;
+        if (!visibleAnimalTags.has(member.tag)) continue;
+        const id = litterId + ">" + to;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        edges.push({
+          id,
+          from: litterId,
+          to,
+          kind: "member",
+          parentTag: null,
+          childTags: [member.tag],
+        });
+      }
+    }
+  }
+
+  for (const parentTag of visibleAnimalTags) {
+    if (!expandedAnimals.has(parentTag)) continue;
+    const from = "animal:" + parentTag;
+    for (const child of index.directChildrenByParent.get(parentTag) ?? []) {
+      if (!visibleAnimalTags.has(child.tag)) continue;
+      const to = "animal:" + child.tag;
       const id = from + ">" + to;
       if (seen.has(id)) continue;
       seen.add(id);
-      const childTags = nodes.find((node) => node.id === to)?.members ?? [row.tag];
-      edges.push({ id, from, to, parentTag, childTags });
+      edges.push({
+        id,
+        from,
+        to,
+        kind: "parent",
+        parentTag,
+        childTags: [child.tag],
+      });
     }
   }
 
-  return { nodes, edges, tagToNode };
+  return {
+    nodes,
+    edges,
+    tagToNode,
+    visibleAnimalTags,
+    visibleLitterKeys,
+  };
 }
 
 function pixelsPerDay(horizonDay: number): number {
@@ -181,12 +395,14 @@ function timeX(day: number, scale: number, horizonDay: number): number {
 /**
  * X is chronology and may never be changed by dragging. Y is only packing:
  * nodes in one generation reuse a lane once the previous node is far enough
- * left, keeping a five-year simulation much shorter than "one litter per row".
+ * left. Expanded litter members share their litter's date and therefore stack
+ * vertically rather than pretending time elapsed between them.
  */
 function flowNodes(
   nodes: readonly DisplayNode[],
   horizonDay: number,
   selectedTag: string | null,
+  selectedLitterKey: string | null,
 ): PedigreeFlowNode[] {
   const scale = pixelsPerDay(horizonDay);
   const groups = new Map<number, DisplayNode[]>();
@@ -201,11 +417,14 @@ function flowNodes(
   const result: PedigreeFlowNode[] = [];
   for (const generation of [...groups.keys()].sort((a, b) => a - b)) {
     const rows = groups.get(generation) ?? [];
-    rows.sort(
-      (a, b) =>
-        a.firstSeenDay - b.firstSeenDay ||
-        a.label.localeCompare(b.label),
-    );
+    rows.sort((a, b) => {
+      const time = a.firstSeenDay - b.firstSeenDay;
+      if (time !== 0) return time;
+      const aLitter = a.kind === "litter" ? 0 : 1;
+      const bLitter = b.kind === "litter" ? 0 : 1;
+      if (aLitter !== bLitter) return aLitter - bLitter;
+      return (a.litterKey ?? a.id).localeCompare(b.litterKey ?? b.id) || a.label.localeCompare(b.label);
+    });
 
     const laneEnds: number[] = [];
     for (const node of rows) {
@@ -226,7 +445,10 @@ function flowNodes(
         targetPosition: Position.Left,
         draggable: false,
         selectable: true,
-        selected: selectedTag !== null && node.members.includes(selectedTag),
+        selected:
+          node.kind === "litter"
+            ? node.litterKey === selectedLitterKey
+            : selectedTag !== null && node.members.includes(selectedTag),
         data: node,
       });
     }
@@ -239,29 +461,58 @@ function flowNodes(
 
 function PedigreeNode({ data, selected }: NodeProps<PedigreeFlowNode>) {
   const generation = data.generation === null ? "External" : "Gen " + data.generation;
+  const memberEdge = data.kind === "litter";
+
   return (
     <div
       className={[
         "w-[190px] rounded-xl border bg-surface px-3 py-2.5 shadow-sm transition",
         selected ? "border-brand ring-2 ring-brand/20" : "border-hairline",
-        data.kind === "litter" ? "border-dashed" : "",
+        memberEdge ? "border-dashed" : "",
       ].join(" ")}
     >
       <Handle
+        id="ancestry"
         type="target"
         position={Position.Left}
         className="!h-2 !w-2 !border-0 !bg-ink-faint"
       />
+      {data.kind !== "litter" ? (
+        <Handle
+          id="litter-member"
+          type="target"
+          position={Position.Top}
+          className="!h-2 !w-2 !border-0 !bg-ink-faint"
+        />
+      ) : null}
+
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-xs font-semibold text-ink">{data.label}</span>
         <span className="shrink-0 text-[10px] text-ink-faint">{generation}</span>
       </div>
       <div className="mt-1 truncate text-[10px] text-ink-muted">{data.subtitle}</div>
+
+      {data.expandable ? (
+        <div className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-brand">
+          {data.expanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+          <span>{data.expanded ? "Hide " : "Show "}{data.childSummary}</span>
+        </div>
+      ) : null}
+
       <Handle
+        id="descendants"
         type="source"
         position={Position.Right}
         className="!h-2 !w-2 !border-0 !bg-ink-faint"
       />
+      {data.kind === "litter" ? (
+        <Handle
+          id="members"
+          type="source"
+          position={Position.Bottom}
+          className="!h-2 !w-2 !border-0 !bg-ink-faint"
+        />
+      ) : null}
     </div>
   );
 }
@@ -322,61 +573,104 @@ function TimelineOverlay({
   );
 }
 
+function descendantKeys(
+  index: PedigreeIndex,
+  animalTags: readonly string[],
+): { animals: Set<string>; litters: Set<string> } {
+  const animals = new Set<string>();
+  const litters = new Set<string>();
+  const queue = [...animalTags];
+
+  while (queue.length > 0) {
+    const tag = queue.shift()!;
+    if (animals.has(tag)) continue;
+    animals.add(tag);
+
+    for (const key of index.littersByParent.get(tag) ?? []) {
+      if (litters.has(key)) continue;
+      litters.add(key);
+      for (const child of index.litters.get(key) ?? []) queue.push(child.tag);
+    }
+
+    for (const child of index.directChildrenByParent.get(tag) ?? []) queue.push(child.tag);
+  }
+
+  return { animals, litters };
+}
+
 export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
-  const [collapseLitters, setCollapseLitters] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const index = useMemo(() => indexPedigree(records), [records]);
+  const [expandedAnimals, setExpandedAnimals] = useState<Set<string>>(() => new Set());
+  const [expandedLitters, setExpandedLitters] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedLitterKey, setSelectedLitterKey] = useState<string | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const flow = useRef<ReactFlowInstance<PedigreeFlowNode, Edge> | null>(null);
 
   const graph = useMemo(
-    () => compactGraph(records, collapseLitters, expanded),
-    [records, collapseLitters, expanded],
+    () => visibleGraph(index, expandedAnimals, expandedLitters),
+    [index, expandedAnimals, expandedLitters],
   );
   const nodes = useMemo(
-    () => flowNodes(graph.nodes, horizonDay, selectedTag),
-    [graph.nodes, horizonDay, selectedTag],
+    () => flowNodes(graph.nodes, horizonDay, selectedTag, selectedLitterKey),
+    [graph.nodes, horizonDay, selectedTag, selectedLitterKey],
   );
 
-  const byTag = useMemo(() => new Map(records.map((row) => [row.tag, row])), [records]);
   const childrenByTag = useMemo(() => {
     const map = new Map<string, PedigreeRecord[]>();
     for (const row of records) {
       for (const parent of [row.damTag, row.sireTag]) {
         if (!parent) continue;
-        const children = map.get(parent);
-        if (children) children.push(row);
-        else map.set(parent, [row]);
+        addToRowMap(map, parent, row);
       }
     }
     return map;
   }, [records]);
 
-  const selectedNodeId = selectedTag ? graph.tagToNode.get(selectedTag) ?? null : null;
-  const selectedRecord = selectedTag ? byTag.get(selectedTag) ?? null : null;
+  const selectedNodeId =
+    selectedLitterKey !== null
+      ? "litter:" + selectedLitterKey
+      : selectedTag
+        ? graph.tagToNode.get(selectedTag) ?? null
+        : null;
+  const selectedRecord = selectedTag ? index.byTag.get(selectedTag) ?? null : null;
+  const selectedLitter = selectedLitterKey ? index.litters.get(selectedLitterKey) ?? null : null;
+
   const related = useMemo(() => {
     const tags = new Set<string>();
-    if (!selectedTag) return tags;
-    tags.add(selectedTag);
-    const row = byTag.get(selectedTag);
-    if (row?.damTag) tags.add(row.damTag);
-    if (row?.sireTag) tags.add(row.sireTag);
-    for (const child of childrenByTag.get(selectedTag) ?? []) tags.add(child.tag);
+    if (selectedTag) {
+      tags.add(selectedTag);
+      const row = index.byTag.get(selectedTag);
+      if (row?.damTag) tags.add(row.damTag);
+      if (row?.sireTag) tags.add(row.sireTag);
+      for (const child of childrenByTag.get(selectedTag) ?? []) tags.add(child.tag);
+    }
+    if (selectedLitter) {
+      for (const member of selectedLitter) tags.add(member.tag);
+      if (selectedLitter[0]?.damTag) tags.add(selectedLitter[0].damTag);
+      if (selectedLitter[0]?.sireTag) tags.add(selectedLitter[0].sireTag);
+    }
     return tags;
-  }, [selectedTag, byTag, childrenByTag]);
+  }, [selectedTag, selectedLitter, index.byTag, childrenByTag]);
 
   const edges = useMemo<Edge[]>(
     () =>
       graph.edges.map((edge) => {
         const highlighted =
-          related.has(edge.parentTag) &&
-          edge.childTags.some((tag) => related.has(tag));
+          edge.kind === "member"
+            ? edge.childTags.some((tag) => related.has(tag))
+            : edge.parentTag !== null &&
+              related.has(edge.parentTag) &&
+              edge.childTags.some((tag) => related.has(tag));
+
         return {
           id: edge.id,
           source: edge.from,
           target: edge.to,
-          type: "smoothstep",
+          sourceHandle: edge.kind === "member" ? "members" : "descendants",
+          targetHandle: edge.kind === "member" ? "litter-member" : "ancestry",
+          type: edge.kind === "member" ? "smoothstep" : "smoothstep",
           animated: highlighted,
           style: {
             stroke: highlighted ? "var(--color-brand)" : "var(--color-rule)",
@@ -399,18 +693,88 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
     );
   }, [selectedNodeId, nodes]);
 
-  function findAnimal() {
+  function collapseAnimal(tag: string): void {
+    const descendants = descendantKeys(index, [tag]);
+    setExpandedAnimals((current) => {
+      const next = new Set(current);
+      for (const descendant of descendants.animals) next.delete(descendant);
+      return next;
+    });
+    setExpandedLitters((current) => {
+      const next = new Set(current);
+      for (const key of descendants.litters) next.delete(key);
+      return next;
+    });
+  }
+
+  function collapseLitter(key: string): void {
+    const members = index.litters.get(key) ?? [];
+    const descendants = descendantKeys(index, members.map((row) => row.tag));
+    setExpandedLitters((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      for (const nested of descendants.litters) next.delete(nested);
+      return next;
+    });
+    setExpandedAnimals((current) => {
+      const next = new Set(current);
+      for (const tag of descendants.animals) next.delete(tag);
+      return next;
+    });
+  }
+
+  function toggleAnimal(tag: string): void {
+    if (expandedAnimals.has(tag)) {
+      collapseAnimal(tag);
+      return;
+    }
+    if (childSummary(index, tag) === null) return;
+    setExpandedAnimals((current) => new Set(current).add(tag));
+  }
+
+  function toggleLitter(key: string): void {
+    if (expandedLitters.has(key)) {
+      collapseLitter(key);
+      return;
+    }
+    setExpandedLitters((current) => new Set(current).add(key));
+  }
+
+  function revealAnimal(tag: string): void {
+    const animals = new Set(expandedAnimals);
+    const litters = new Set(expandedLitters);
+    const visited = new Set<string>();
+
+    function revealPath(currentTag: string): void {
+      if (visited.has(currentTag)) return;
+      visited.add(currentTag);
+      const row = index.byTag.get(currentTag);
+      if (!row) return;
+
+      const key = litterKey(row);
+      if (key) litters.add(key);
+
+      for (const parentTag of [row.damTag, row.sireTag]) {
+        if (!parentTag) continue;
+        animals.add(parentTag);
+        revealPath(parentTag);
+      }
+    }
+
+    revealPath(tag);
+    setExpandedAnimals(animals);
+    setExpandedLitters(litters);
+    setSelectedLitterKey(null);
+    setSelectedTag(tag);
+  }
+
+  function findAnimal(): void {
     const needle = query.trim().toLowerCase();
     if (!needle) return;
     const row =
       records.find((item) => item.tag.toLowerCase() === needle) ??
       records.find((item) => item.tag.toLowerCase().includes(needle));
-    if (!row) return;
-    const key = litterKey(row);
-    if (collapseLitters && key) {
-      setExpanded((current) => new Set(current).add(key));
-    }
-    setSelectedTag(row.tag);
+    if (row) revealAnimal(row.tag);
   }
 
   const start = parseISO(startDate);
@@ -440,21 +804,28 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
             Find
           </button>
         </div>
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs text-ink-muted">
-          <input
-            type="checkbox"
-            checked={collapseLitters}
-            onChange={(event) => setCollapseLitters(event.target.checked)}
-          />
-          Collapse non-breeding littermates
-        </label>
+        <button
+          type="button"
+          onClick={() => {
+            setExpandedAnimals(new Set());
+            setExpandedLitters(new Set());
+            setSelectedTag(null);
+            setSelectedLitterKey(null);
+            requestAnimationFrame(() => {
+              void flow.current?.fitView({ padding: 0.16, duration: 300 });
+            });
+          }}
+          className="rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink"
+        >
+          Collapse all
+        </button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
         <div className="relative min-h-[620px] overflow-hidden rounded-xl border border-hairline bg-plane">
           <TimelineOverlay startDate={startDate} horizonDay={horizonDay} viewport={viewport} />
           <div className="absolute left-3 top-[62px] z-20 rounded-lg border border-hairline bg-surface/90 px-2.5 py-1.5 text-[10px] text-ink-muted shadow-sm backdrop-blur">
-            Horizontal distance = elapsed simulation time
+            Horizontal distance = elapsed simulation time · click a node to expand
           </div>
           <ReactFlow<PedigreeFlowNode, Edge>
             nodes={nodes}
@@ -467,14 +838,21 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
             onNodeClick={(_, node) => {
               const data = node.data;
               if (data.kind === "litter" && data.litterKey) {
-                setExpanded((current) => new Set(current).add(data.litterKey!));
+                setSelectedTag(null);
+                setSelectedLitterKey(data.litterKey);
+                toggleLitter(data.litterKey);
+                return;
               }
-              setSelectedTag(data.members[0] ?? null);
+
+              const tag = data.members[0] ?? null;
+              setSelectedLitterKey(null);
+              setSelectedTag(tag);
+              if (tag) toggleAnimal(tag);
             }}
             nodesDraggable={false}
             nodesConnectable={false}
             fitView
-            fitViewOptions={{ padding: 0.12, minZoom: 0.12, maxZoom: 1.1 }}
+            fitViewOptions={{ padding: 0.16, minZoom: 0.18, maxZoom: 1.1 }}
             minZoom={0.08}
             maxZoom={2.2}
             className="h-[72vh] min-h-[620px]"
@@ -489,12 +867,55 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
             <Controls />
           </ReactFlow>
           <div className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-lg border border-hairline bg-surface/90 px-3 py-2 text-[10px] text-ink-muted shadow-sm backdrop-blur">
-            {records.length.toLocaleString()} animals · {graph.nodes.length.toLocaleString()} visible nodes · {generations} generations
+            {records.length.toLocaleString()} animals in simulation · {graph.nodes.length.toLocaleString()} nodes currently rendered · {generations} generations
           </div>
         </div>
 
         <aside className="rounded-xl border border-hairline bg-surface p-4">
-          {selectedRecord ? (
+          {selectedLitter ? (
+            <>
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-brand-soft p-2 text-brand">
+                  <GitBranch size={17} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-ink">
+                    Litter · {selectedLitter.length} pigs
+                  </h3>
+                  <p className="text-xs text-ink-faint">
+                    {selectedLitter[0]?.damTag ?? "Unknown dam"} × {selectedLitter[0]?.sireTag ?? "Unknown sire"}
+                  </p>
+                </div>
+              </div>
+
+              <dl className="mt-5 space-y-3 text-xs">
+                <div>
+                  <dt className="text-ink-faint">Born / entered</dt>
+                  <dd className="mt-0.5 font-medium text-ink">
+                    {format(addDays(start, Math.min(...selectedLitter.map((row) => row.firstSeenDay))), "dd MMM yyyy")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Members</dt>
+                  <dd className="mt-0.5 font-medium text-ink">{selectedLitter.length}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Breeders retained</dt>
+                  <dd className="mt-0.5 font-medium text-ink">
+                    {selectedLitter.filter((row) => row.kind === "sow" || row.kind === "boar").length}
+                  </dd>
+                </div>
+              </dl>
+
+              <button
+                type="button"
+                onClick={() => toggleLitter(selectedLitterKey!)}
+                className="mt-5 w-full rounded-lg border border-hairline px-3 py-2 text-left text-xs font-medium text-ink-muted hover:bg-raised"
+              >
+                {expandedLitters.has(selectedLitterKey!) ? "Collapse litter" : "Show individual pigs"}
+              </button>
+            </>
+          ) : selectedRecord ? (
             <>
               <div className="flex items-start gap-3">
                 <div className="rounded-lg bg-brand-soft p-2 text-brand">
@@ -550,19 +971,31 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
               </dl>
 
               <div className="mt-5 space-y-2">
-                {selectedRecord.damTag && byTag.has(selectedRecord.damTag) ? (
+                {childSummary(index, selectedRecord.tag) ? (
                   <button
                     type="button"
-                    onClick={() => setSelectedTag(selectedRecord.damTag)}
+                    onClick={() => toggleAnimal(selectedRecord.tag)}
+                    className="w-full rounded-lg border border-hairline px-3 py-2 text-left text-xs font-medium text-ink-muted hover:bg-raised"
+                  >
+                    {expandedAnimals.has(selectedRecord.tag)
+                      ? "Collapse descendants"
+                      : "Show " + childSummary(index, selectedRecord.tag)}
+                  </button>
+                ) : null}
+
+                {selectedRecord.damTag && index.byTag.has(selectedRecord.damTag) ? (
+                  <button
+                    type="button"
+                    onClick={() => revealAnimal(selectedRecord.damTag!)}
                     className="w-full rounded-lg border border-hairline px-3 py-2 text-left text-xs text-ink-muted hover:bg-raised"
                   >
                     Go to dam · {selectedRecord.damTag}
                   </button>
                 ) : null}
-                {selectedRecord.sireTag && byTag.has(selectedRecord.sireTag) ? (
+                {selectedRecord.sireTag && index.byTag.has(selectedRecord.sireTag) ? (
                   <button
                     type="button"
-                    onClick={() => setSelectedTag(selectedRecord.sireTag)}
+                    onClick={() => revealAnimal(selectedRecord.sireTag!)}
                     className="w-full rounded-lg border border-hairline px-3 py-2 text-left text-xs text-ink-muted hover:bg-raised"
                   >
                     Go to sire · {selectedRecord.sireTag}
@@ -573,9 +1006,9 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
           ) : (
             <div className="py-8 text-center">
               <Users size={22} className="mx-auto text-ink-faint" />
-              <p className="mt-3 text-sm font-medium text-ink">Select an animal</p>
+              <p className="mt-3 text-sm font-medium text-ink">Open the pedigree progressively</p>
               <p className="mt-1 text-xs leading-5 text-ink-faint">
-                Click a pig, sow, boar or litter. The horizontal ruler shows when it entered the simulated farm.
+                Start with the founding breeders. Click one to show its litters, then a litter to show its pigs, and a retained breeder to continue into the next generation.
               </p>
             </div>
           )}
