@@ -40,7 +40,7 @@ describe("whole-run pedigree", () => {
 
   it("materialises AI studs as parents even though no boar object exists for them", () => {
     const config = cloneDefaultConfig();
-    config.project.months = 8;
+    config.project.months = 12;
     config.project.variation = "settled";
     config.project.engine = "2.0";
     config.service.useAi = true;
