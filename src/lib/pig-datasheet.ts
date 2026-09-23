@@ -165,7 +165,8 @@ function anyAnimal(run: TraceRun, tag: string): Animal | null {
 function kindOf(animal: Animal): StockKind {
   if (animal instanceof Sow) return "sow";
   if (animal instanceof Boar) return "boar";
-  return animal.stage;
+  if (animal instanceof GrowingPig) return animal.stage;
+  throw new Error("Unknown animal kind.");
 }
 
 function statusOf(animal: Animal): string {
@@ -177,7 +178,10 @@ function statusOf(animal: Animal): string {
         : "Awaiting service";
   }
   if (animal instanceof Boar) return "Working boar";
-  return animal.destination === "breeding" ? "Replacement" : "Market";
+  if (animal instanceof GrowingPig) {
+    return animal.destination === "breeding" ? "Replacement" : "Market";
+  }
+  return "On farm";
 }
 
 function scheduleApplies(job: Vaccination, sex: "female" | "male"): boolean {
