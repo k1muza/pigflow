@@ -30,7 +30,7 @@ const WEIGHTS = stageExitWeights(cloneDefaultConfig());
 function sow(
   id: string,
   state: "open" | "gestating" | "lactating",
-  extra: { due?: number; wean?: number } = {},
+  extra: { due?: number; wean?: number; scan?: number } = {},
 ): HousingAnimalSnapshot {
   return {
     id,
@@ -41,6 +41,7 @@ function sow(
     sex: "female",
     expectedFarrowDay: extra.due,
     expectedWeanDay: extra.wean,
+    expectedScanDay: extra.scan,
   };
 }
 
@@ -85,6 +86,46 @@ function runDays(
 function pensOf(allocation: HousingAllocation, type: HousingType): number {
   return allocation.byType[type].minimumPens;
 }
+
+describe("a sow between service and gestation", () => {
+  it("keeps a served sow in the service house until the scan says she is in pig", () => {
+    const policy = ARC_HOUSING_POLICY;
+    const served = [sow("S1", "gestating", { due: 115, scan: 28 })];
+
+    // Served on day 0 and carrying, but nobody yet knows it. She returns inside
+    // the first three weeks if she is going to, and she returns where the boar
+    // is, so she stays where she was served.
+    const served27 = housingDemandOf(27, served, policy, WEIGHTS);
+    expect(served27.head.service_sow).toBe(1);
+    expect(served27.head.gestation).toBe(0);
+
+    // Scanned, and now a sow in pig: she goes into the gestation house.
+    const scanned = housingDemandOf(28, [sow("S1", "gestating", { due: 115 })], policy, WEIGHTS);
+    expect(scanned.head.gestation).toBe(1);
+    expect(scanned.head.service_sow).toBe(0);
+  });
+
+  it("wants a service place for every sow held between service and scanning", () => {
+    // Four sows served a week apart and scanned four weeks after service, so at
+    // any moment the service house is holding the last four weeks of services
+    // rather than emptying the morning each one is served.
+    const scan = 28;
+    const herd = [0, 7, 14, 21].map((served, index) =>
+      sow("S" + index, "gestating", { due: served + 115, scan: served + scan }),
+    );
+    const allocation = runDays(() => herd, 21, 27);
+
+    expect(pensOf(allocation, "service_sow")).toBe(4);
+    expect(pensOf(allocation, "gestation")).toBe(0);
+  });
+
+  it("puts her straight into gestation when the farm does not scan her", () => {
+    // Opening stock the plan was told is in pig has nothing to confirm, so she
+    // starts where a confirmed sow belongs.
+    const opening = housingDemandOf(0, [sow("S1", "gestating", { due: 80 })], ARC_HOUSING_POLICY, WEIGHTS);
+    expect(opening.head.gestation).toBe(1);
+  });
+});
 
 describe("farrowing places", () => {
   it("holds a place from a week before the sow is due", () => {

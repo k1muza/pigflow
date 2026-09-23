@@ -63,6 +63,17 @@ async function connect(): Promise<FirebaseHandles | null> {
       localCache: firestore.persistentLocalCache({
         tabManager: firestore.persistentMultipleTabManager(),
       }),
+      /**
+       * A field set to undefined is a field the plan does not have.
+       *
+       * Firestore's default is to refuse the whole write, and it refuses it by
+       * throwing out of `batch.set` — so one optional field left empty anywhere
+       * in one plan would stop every plan in the workspace from being saved,
+       * and the only sign of it would be a badge saying "Not syncing". A plan
+       * is JSON everywhere else in this app, where an absent field and an
+       * undefined one are the same thing; this makes Firestore agree.
+       */
+      ignoreUndefinedProperties: true,
     });
     const auth = getAuth(app);
 

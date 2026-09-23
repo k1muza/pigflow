@@ -220,9 +220,15 @@ describe("Losses land when a herd really loses them", () => {
   it("spreads them flat when the plan asks for even timing", () => {
     const days = deathDaysOver(200, "even");
     const [early] = bandShares(days);
-    // Four days out of a 28-day suckling stage is about a seventh of it.
-    expect(early).toBeGreaterThan(0.1);
-    expect(early).toBeLessThan(0.2);
+    // The first band is the first four days of life, so a flat spread puts
+    // four days' worth of the stage in it. Measured against the stage the plan
+    // actually has rather than against a number: a farm weaning at 35 days has
+    // a longer stage to spread the same losses over, and "flat" is a shape
+    // rather than a share.
+    const stageDays = cloneDefaultConfig().reproduction.weaningAgeDays;
+    const flat = 4 / stageDays;
+    expect(early).toBeGreaterThan(flat * 0.6);
+    expect(early).toBeLessThan(flat * 1.5);
     expect(new Set(days).size).toBeGreaterThan(20);
   });
 

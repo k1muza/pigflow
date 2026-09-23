@@ -38,6 +38,7 @@ import {
   Landmark,
   Minus,
   PiggyBank,
+  Building2,
   Rows3,
   Scale,
   Plus,
@@ -75,6 +76,10 @@ import {
   type Vaccination,
   weaningTargetLabel,
 } from "@/lib/model";
+import { HousingFarmDialog } from "@/components/housing-day";
+import { HousingSettings } from "@/components/housing-settings";
+import { placesOf } from "@/lib/engine/housing";
+import { hasPhysicalHousing, type HousingSimulationResult } from "@/lib/housing";
 import { expectedWeaningWeightKg } from "@/lib/sim/lactation";
 import {
   generatedTotal,
@@ -219,6 +224,9 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
   cull: "bg-critical-soft text-critical",
   purchase: "bg-warning-soft text-ink-muted",
   feed: "bg-warning-soft text-ink-muted",
+  housing: "bg-plane text-ink-muted",
+  "housing-pens": "bg-plane text-ink-muted",
+  "housing-shortage": "bg-critical-soft text-critical",
 };
 
 /**
@@ -227,8 +235,14 @@ const EVENT_TONES: Record<FarmPeriodEvent["type"], string> = {
  * changing what they are, pigs leaving, feed arriving. Vaccinations and losses
  * are deliberately unmarked — they fall on so many days that a dot for them
  * would colour the whole calendar and say nothing.
+ *
+ * An ordinary move is unmarked for the same reason: a working farm moves
+ * something most mornings, and a dot on almost every square is a dot that says
+ * nothing. A morning with animals and nowhere to put them is the opposite of
+ * ordinary, so that one is marked.
  */
 const DAY_MARKS: Partial<Record<FarmPeriodEvent["type"], string>> = {
+  "housing-shortage": CHART.warning,
   service: CHART.stage.sows,
   scan: CHART.stage.sows,
   conception: CHART.stage.sows,
@@ -261,6 +275,9 @@ const EVENT_NAMES: Record<FarmPeriodEvent["type"], string> = {
   cull: "Cull",
   purchase: "Buy",
   feed: "Feed",
+  housing: "Move",
+  "housing-pens": "Pens",
+  "housing-shortage": "No room",
 };
 
 /** Calendar or a list of months — the same plan, read at two zoom levels. */
@@ -544,13 +561,17 @@ export function Overview({
     total: row.piglets + row.weaners + row.growers + row.finishers + row.gilts + row.breedingStock,
   }));
 
+  // The places the farm actually has: the generated pens where the plan has
+  // been through the housing generator, and the old typed figures until then.
+  const rooms = placesOf(config);
   const housingCapacity = {
-    farrowing: config.housing.farrowingPlaces,
-    weaners: config.housing.weanerPlaces,
-    growers: config.housing.growerPlaces,
-    finishers: config.housing.finisherPlaces,
+    farrowing: rooms.farrowing,
+    weaners: rooms.weaner,
+    growers: rooms.grower,
+    finishers: rooms.finisher,
     sows: config.herd.maxSows,
   };
+  const housingIsPhysical = hasPhysicalHousing(config);
   const housingPct = (occupants: number, places: number) =>
     places > 0 ? Math.round((occupants / places) * 100) : 0;
   const usesRecordedHousing = config.project.engine === "2.0";
@@ -951,8 +972,8 @@ export function Overview({
           title="Housing pressure"
           description={
             usesRecordedHousing
-              ? "Peak daily room occupancy against entered capacity. Capacity is shown for planning and is not currently enforced."
-              : "Estimated places used against entered capacity. Switch to the 2.0 engine for recorded daily room occupancy."
+              ? `Peak daily room occupancy against ${housingIsPhysical ? "the pens this farm has" : "entered capacity"}. Capacity is shown for planning and is not currently enforced.`
+              : `Estimated places used against ${housingIsPhysical ? "the pens this farm has" : "entered capacity"}. Switch to the 2.0 engine for recorded daily room occupancy.`
           }
         >
           <div className="h-[300px]">
@@ -1008,8 +1029,12 @@ export function Overview({
             </ResponsiveContainer>
           </div>
           <p className="mt-3 text-[11px] leading-5 text-ink-faint">
-            Entered capacity: {housingCapacity.farrowing} farrowing, {housingCapacity.weaners} weaner,
-            {" "}{housingCapacity.growers} grower, {housingCapacity.finishers} finisher and {housingCapacity.sows} sow places.
+            {housingIsPhysical ? "Built capacity" : "Entered capacity"}: {housingCapacity.farrowing}{" "}
+            farrowing, {housingCapacity.weaners} weaner, {housingCapacity.growers} grower,{" "}
+            {housingCapacity.finishers} finisher and {housingCapacity.sows} sow places.
+            {housingIsPhysical
+              ? " Read off the generated buildings, rooms and pens on the Housing tab."
+              : null}
           </p>
         </Panel>
 
@@ -1235,6 +1260,7 @@ export function Simulator({ simulation }: { simulation: PlanSimulationResult }) 
   const [picked, setPicked] = useState(() => config.project.startDate);
   const [yearIndex, setYearIndex] = useState(0);
   const [dayOpen, setDayOpen] = useState(false);
+  const [farmOpen, setFarmOpen] = useState(false);
   const [savingLog, setSavingLog] = useState(false);
 
   /**
@@ -1710,9 +1736,24 @@ export function Simulator({ simulation }: { simulation: PlanSimulationResult }) 
         </Card>
       </div>
 
+      {/*
+        The farm itself, opened from the day panel rather than standing under
+        the charts: it is the answer to a question about one day, and the day
+        panel is where that question is asked.
+      */}
+      <HousingFarmDialog
+        open={farmOpen}
+        onOpenChange={setFarmOpen}
+        housing={simulation.physicalHousing}
+        day={panelState.day}
+        date={panelDate}
+      />
+
       <DetailPanel
         open={dayOpen}
         onOpenChange={setDayOpen}
+        housing={simulation.physicalHousing}
+        onSeeFarm={() => setFarmOpen(true)}
         view={view}
         day={selectedDay}
         month={selectedMonth}
@@ -1748,6 +1789,8 @@ function DetailPanel({
   monthEnd,
   state,
   config,
+  housing,
+  onSeeFarm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -1757,6 +1800,10 @@ function DetailPanel({
   monthEnd: FarmCalendarDay | null;
   state: DaySnapshot;
   config: PlannerConfig;
+  /** The pens this plan was run in, or null on a plan that has none. */
+  housing: HousingSimulationResult | null;
+  /** Opens the whole farm as it stood on the day this panel is headed by. */
+  onSeeFarm: () => void;
 }) {
   const currency = config.project.currency;
   const months = view === "months";
@@ -1803,6 +1850,29 @@ function DetailPanel({
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-6 px-4 py-5">
+            {/*
+              The one thing a day panel could never answer before: not how many
+              head were on the farm, but where they were standing.
+            */}
+            <button
+              type="button"
+              onClick={onSeeFarm}
+              disabled={housing === null}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-hairline bg-surface px-3 py-2.5 text-left transition hover:bg-raised disabled:cursor-default disabled:opacity-60 disabled:hover:bg-surface"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-ink">See the whole farm</span>
+                <span className="block text-xs leading-5 text-ink-faint">
+                  {housing === null
+                    ? "No pens yet — generate housing in Farm inputs."
+                    : months
+                      ? "Every pen at the end of the month, and what moved."
+                      : "Every pen on this day, and what moved between them."}
+                </span>
+              </span>
+              <Building2 size={16} className="shrink-0 text-ink-faint" />
+            </button>
+
             {months && month ? (
               <section>
                 <h4 className="text-sm font-semibold text-ink">Income and expenditure</h4>
@@ -2404,7 +2474,7 @@ export function FarmInputs({
   ) => void;
   metrics: ReturnType<typeof getModelMetrics>;
 }) {
-  type InputTab = "plan" | "flock" | "breeding" | "growth" | "costs";
+  type InputTab = "plan" | "flock" | "housing" | "breeding" | "growth" | "costs";
   const [activeTab, setActiveTab] = useState<InputTab>("plan");
   const cardClass = (tab: InputTab) => (activeTab !== tab ? "hidden" : undefined);
 
@@ -2532,11 +2602,11 @@ export function FarmInputs({
           <TabsList variant="line" className="h-auto w-full items-stretch gap-1">
             <TabsTrigger
               value="plan"
-              aria-label="Plan and housing"
-              title="Plan and housing"
+              aria-label="Plan"
+              title="Plan"
               className="min-h-10 px-0 group-data-vertical/tabs:justify-center sm:px-3 sm:group-data-vertical/tabs:justify-start"
             >
-              <WalletCards /> <span className="hidden sm:inline">Plan &amp; housing</span>
+              <WalletCards /> <span className="hidden sm:inline">Plan</span>
             </TabsTrigger>
             <TabsTrigger
               value="flock"
@@ -2545,6 +2615,14 @@ export function FarmInputs({
               className="min-h-10 px-0 group-data-vertical/tabs:justify-center sm:px-3 sm:group-data-vertical/tabs:justify-start"
             >
               <PiggyBank /> <span className="hidden sm:inline">Starting flock</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="housing"
+              aria-label="Housing"
+              title="Housing"
+              className="min-h-10 px-0 group-data-vertical/tabs:justify-center sm:px-3 sm:group-data-vertical/tabs:justify-start"
+            >
+              <Building2 /> <span className="hidden sm:inline">Housing</span>
             </TabsTrigger>
             <TabsTrigger
               value="breeding"
@@ -2703,92 +2781,7 @@ export function FarmInputs({
         className={cardClass("flock")}
       />
 
-      <SectionCard
-        className={cardClass("plan")}
-        title="Housing capacity"
-        description="Enter usable animal places, not the number of pens. These values drive the dashboard capacity lines."
-        icon={Rows3}
-      >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <Field
-            label="Sow places"
-            value={config.herd.maxSows}
-            onChange={(v) => update("herd", "maxSows", Math.round(v))}
-            suffix="places"
-            min={1}
-            max={5000}
-            step={1}
-            hint="The breeding herd grows towards this limit and never past it."
-          />
-          <Field
-            label="Farrowing places"
-            value={config.housing.farrowingPlaces}
-            onChange={(v) => update("housing", "farrowingPlaces", Math.round(v))}
-            suffix="places"
-            min={1}
-            max={100000}
-            step={1}
-            hint="Usable crates or pens available at the same time."
-          />
-          <Field
-            label="Weaner places"
-            value={config.housing.weanerPlaces}
-            onChange={(v) => update("housing", "weanerPlaces", Math.round(v))}
-            suffix="places"
-            min={1}
-            max={100000}
-            step={1}
-          />
-          <Field
-            label="Grower places"
-            value={config.housing.growerPlaces}
-            onChange={(v) => update("housing", "growerPlaces", Math.round(v))}
-            suffix="places"
-            min={1}
-            max={100000}
-            step={1}
-          />
-          <Field
-            label="Bedding per head"
-            value={config.housing.beddingKgPerHeadDay}
-            onChange={(v) => update("housing", "beddingKgPerHeadDay", v)}
-            suffix="kg/head/day"
-            step={0.01}
-            hint="Straw or shavings under every animal housed. It used to be a flat monthly figure, which did not move with the herd at all."
-          />
-          <Field
-            label="Bedding price"
-            value={config.housing.beddingCostPerKg}
-            onChange={(v) => update("housing", "beddingCostPerKg", v)}
-            suffix={`${config.project.currency}/kg`}
-            step={0.01}
-          />
-          <Field
-            label="Bedding load"
-            value={config.housing.beddingLoadKg}
-            onChange={(v) => update("housing", "beddingLoadKg", v)}
-            suffix="kg a load brings"
-            min={10}
-            step={100}
-          />
-          <Field
-            label="Bedding delivery"
-            value={config.housing.beddingDeliveryCost}
-            onChange={(v) => update("housing", "beddingDeliveryCost", v)}
-            suffix={`${config.project.currency}/trip`}
-            step={5}
-          />
-          <Field
-            label="Finisher places"
-            value={config.housing.finisherPlaces}
-            onChange={(v) => update("housing", "finisherPlaces", Math.round(v))}
-            suffix="places"
-            min={1}
-            max={100000}
-            step={1}
-          />
-        </div>
-      </SectionCard>
+      <HousingSettings className={cardClass("housing")} config={config} update={update} />
 
       <SectionCard
         className={cardClass("breeding")}
@@ -2797,6 +2790,16 @@ export function FarmInputs({
         icon={Landmark}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <Field
+            label="Sow places"
+            value={config.herd.maxSows}
+            onChange={(v) => update("herd", "maxSows", Math.round(v))}
+            suffix="places"
+            min={1}
+            max={5000}
+            step={1}
+            hint="The breeding herd grows towards this limit and never past it. It is a breeding policy rather than a building: the sow housing itself is generated from it on the Housing tab."
+          />
           <SelectField
             label="Herd at the start date"
             value={config.herd.startMode}

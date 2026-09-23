@@ -1,4 +1,4 @@
-import { addMonths, format } from "date-fns";
+import { addDays, addMonths, format, parseISO } from "date-fns";
 
 import {
   addFlows,
@@ -8,6 +8,8 @@ import {
   type PeriodAccounting,
 } from "./accounts";
 import { ESTRUS_CYCLE_DAYS, openingCounts, type PlannerConfig } from "./config";
+import { plural } from "./format";
+import { HOUSING_LABELS, type HousingShortageSummary } from "./housing";
 import { growoutFeedConversion } from "./growth-curve";
 import { expectedWeaningWeightKg } from "./sim/lactation";
 import {
@@ -627,10 +629,19 @@ export type WarnableRun = {
   emergencyOrders?: number;
 };
 
+/** The date a day index falls on, for a warning that names a morning. */
+function dayDate(config: PlannerConfig, day: number): string {
+  const start = parseISO(config.project.startDate);
+  if (Number.isNaN(start.getTime())) return "day " + day;
+  return format(addDays(start, Math.max(0, day)), "d MMM yyyy");
+}
+
 export function buildWarnings(
   config: PlannerConfig,
   summary: ProjectionSummary,
   run: WarnableRun,
+  /** What the farm could not house, on a plan that has pens to run short of. */
+  shortage?: HousingShortageSummary | null,
 ): ModelWarning[] {
   const warnings: ModelWarning[] = [];
 
@@ -640,6 +651,27 @@ export function buildWarnings(
       title: "Additional funding is required",
       detail:
         "The lowest projected cash balance is below zero. Plan at least the calculated funding gap plus a liquidity buffer.",
+    });
+  }
+  // Ahead of the rest because it is the one thing on this list the farm could
+  // not do rather than something about the numbers it did it with: an animal
+  // stood on the place with nowhere to go.
+  if (shortage && shortage.days > 0) {
+    const worst = shortage.byType[0];
+    const others = shortage.byType.length - 1;
+    warnings.push({
+      level: "attention",
+      title: `Pigs had nowhere to stand on ${plural(shortage.days, "day")}`,
+      detail:
+        `The generated housing ran out of room. Worst was ${plural(shortage.peakHead, "head")} ` +
+        `on ${dayDate(config, shortage.peakDay)}` +
+        (worst === undefined
+          ? ""
+          : `, and ${HOUSING_LABELS[worst.housingType].toLowerCase()} were short on ` +
+            `${plural(worst.days, "day")}` +
+            (others > 0 ? ` (${others} other ${others === 1 ? "house" : "houses"} too)` : "")) +
+        ". Open the day in the simulator to see which pens were full, and regenerate the housing " +
+        "if the herd has outgrown what was drawn for it.",
     });
   }
   if (config.finance.initialCapitalCosts === 0) {

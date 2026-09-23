@@ -158,9 +158,42 @@ export type FarmPeriodEvent = {
     | "purchase"
     | "processing"
     | "scan"
-    | "feed";
+    | "feed"
+    /**
+     * Animals moving between the farm's own pens, and the pens themselves
+     * coming into use, going on to wash and running short.
+     *
+     * Not written by either engine: housing is allocated alongside the run by
+     * `lib/housing/physical`, and its lines are folded into the timeline where
+     * it is built. See `housingEventsFor`.
+     */
+    | "housing"
+    /** A pen coming into use, going on to wash, or being built. */
+    | "housing-pens"
+    | "housing-shortage";
   label: string;
   count: number;
+  /**
+   * A stable name for what this line is about, where something else may have a
+   * better way of saying it.
+   *
+   * "3 weaners become growers" and "move 3 head into the grower house, pen 2"
+   * are the same fact, and the second is the more useful of the two — so where
+   * the housing can say it, the plain line stands down. It can only do that if
+   * it can be recognised by something other than its wording. Absent on the
+   * lines nothing supersedes, which is most of them.
+   */
+  key?: "moved-to-grower" | "moved-to-finisher";
+  /**
+   * The kind of pig the work was done to, where the line is about one kind.
+   *
+   * Carried so that something which knows the farm's buildings can say where
+   * the work happens — a piglet is vaccinated in the farrowing house and a
+   * finisher in the finishing house, and the line itself has no way to know
+   * that. Absent on the lines that are about the whole herd or about no
+   * animals at all.
+   */
+  stage?: PigStage;
 };
 
 /**
@@ -210,7 +243,7 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
 
   for (const stage of Object.keys(STAGE_NAMES) as PigStage[]) {
     const count = sum((day) => day.vaccinations[stage]);
-    push({ type: "vaccination", label: `Vaccinate ${head(count, STAGE_NAMES[stage])}`, count });
+    push({ type: "vaccination", stage, label: `Vaccinate ${head(count, STAGE_NAMES[stage])}`, count });
   }
 
   const services = sum((day) => day.services);
@@ -259,12 +292,14 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   const toGrower = sum((day) => day.movedToGrower);
   push({
     type: "growth",
+    key: "moved-to-grower",
     label: `${toGrower} ${toGrower === 1 ? "weaner becomes a grower" : "weaners become growers"}`,
     count: toGrower,
   });
   const toFinisher = sum((day) => day.movedToFinisher);
   push({
     type: "growth",
+    key: "moved-to-finisher",
     label: `${toFinisher} ${toFinisher === 1 ? "grower becomes a finisher" : "growers become finishers"}`,
     count: toFinisher,
   });
@@ -312,7 +347,9 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
     }
   }
   for (const [job, count] of jobs) {
-    push({ type: "processing", label: `${job} · ${head(count, "piglets")}`, count });
+    // Processing is what is done to a litter in the days after it is born, so
+    // it happens where the litter is: on the sow, in the farrowing house.
+    push({ type: "processing", stage: "piglet", label: `${job} · ${head(count, "piglets")}`, count });
   }
 
   const losses = sum((day) => day.pigletDeaths + day.growingDeaths + day.breedingDeaths);

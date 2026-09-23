@@ -1,5 +1,6 @@
 import type { PlannerConfig } from "../config";
 import type { PigStage } from "../sim/animals";
+import { planTotals } from "../housing/physical/model";
 
 /**
  * Housing as a resource rather than a read-out.
@@ -57,7 +58,33 @@ export function roomForStage(stage: PigStage): RoomId | null {
   }
 }
 
+/**
+ * The places each room has, from the physical housing where there is any.
+ *
+ * One source of truth, and this is where the two of them are reconciled. A plan
+ * that has been through the housing generator has actual pens with actual head
+ * capacities, and those are what the farm is run against; the aggregate places
+ * typed into the old panel are what a plan has until then. Nothing adds the two
+ * together and nothing prefers the typed figure to the built one — a farm with
+ * eleven farrowing pens has eleven farrowing places whatever the old box says.
+ *
+ * Design capacity is used rather than capacity commissioned so far, because
+ * these places are a proxy for stocking pressure and not a gate on movement:
+ * housing does not yet reschedule the biology, and phasing a room in mid-run
+ * would change how fast pigs grow rather than when they move. That is the next
+ * phase, deliberately.
+ */
 export function placesOf(config: PlannerConfig): Record<RoomId, number> {
+  const physical = config.housing.physical;
+  if (physical !== undefined && physical.buildings.length > 0) {
+    const capacity = planTotals(physical).headCapacityByType;
+    return {
+      farrowing: Math.max(1, capacity.farrowing ?? 0),
+      weaner: Math.max(1, capacity.weaner ?? 0),
+      grower: Math.max(1, capacity.grower ?? 0),
+      finisher: Math.max(1, capacity.finisher ?? 0),
+    };
+  }
   return {
     farrowing: config.housing.farrowingPlaces,
     weaner: config.housing.weanerPlaces,

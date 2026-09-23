@@ -1,4 +1,4 @@
-import type { Boar, GrowingPig, Sow } from "../sim/animals";
+import type { AnimalDeparture, Boar, GrowingPig, Sow } from "../sim/animals";
 import {
   areaPerHeadOf,
   type HousingPolicy,
@@ -24,6 +24,13 @@ import {
 /** What the planner needs to know about one animal on one day. */
 export type HousingAnimalSnapshot = {
   id: string;
+  /**
+   * The number on its ear, where it has one. Carried because a piglet names its
+   * dam by tag rather than by id, and a suckler is housed wherever she is.
+   */
+  tag?: string;
+  /** The dam's tag, for an animal that is still on her. */
+  damTag?: string | null;
   kind: "sow" | "boar" | "gilt" | "pig";
   stage?: "piglet" | "weaner" | "grower" | "finisher";
   reproductiveState?: "open" | "gestating" | "lactating";
@@ -33,14 +40,37 @@ export type HousingAnimalSnapshot = {
   cohortId?: string;
   expectedFarrowDay?: number;
   expectedWeanDay?: number;
+  /**
+   * The day she is due to be scanned, or absent once she has been.
+   *
+   * What tells a served sow from a confirmed one, which is a housing question
+   * and not only a veterinary one: until the scan says she is in pig she stays
+   * where she was served. The farm's own date rather than a housing rule of
+   * thumb, so a unit that scans at three weeks moves her at three weeks.
+   */
+  expectedScanDay?: number;
   sex?: "male" | "female";
 };
+
+/**
+ * An animal that left the farm at the close of the day just simulated.
+ *
+ * Both engines drop their dead, sold and culled animals at the end of the day
+ * they leave on, so an observer that only sees the herd afterwards knows that
+ * somebody has gone and not why. This is the engines saying why, and it is read
+ * by the physical housing allocator to tell a sale from a death: both empty a
+ * pen, and a plan that could not tell them apart would be no use to anybody
+ * reading it afterwards.
+ */
+export type HerdDeparture = AnimalDeparture;
 
 /** The herd as the planner reads it. Both engines hand over exactly this. */
 export type HousingHerdView = {
   readonly sows: readonly Sow[];
   readonly boars: readonly Boar[];
   readonly pigs: readonly GrowingPig[];
+  /** Who left the farm on the day just closed, and how. */
+  readonly departures?: readonly HerdDeparture[];
 };
 
 /**
@@ -69,6 +99,7 @@ export function housingSnapshots(day: number, herd: HousingHerdView): HousingAni
     if (!sow.alive) continue;
     animals.push({
       id: sow.id,
+      tag: sow.tag,
       kind: "sow",
       reproductiveState: sow.state,
       weightKg: sow.weightKg,
@@ -76,12 +107,14 @@ export function housingSnapshots(day: number, herd: HousingHerdView): HousingAni
       sex: "female",
       expectedFarrowDay: sow.dueDay ?? undefined,
       expectedWeanDay: sow.weanDay ?? undefined,
+      expectedScanDay: sow.scanDay ?? undefined,
     });
   }
   for (const boar of herd.boars) {
     if (!boar.alive) continue;
     animals.push({
       id: boar.id,
+      tag: boar.tag,
       kind: "boar",
       weightKg: boar.weightKg,
       ageDays: boar.ageDays(day),
@@ -92,6 +125,8 @@ export function housingSnapshots(day: number, herd: HousingHerdView): HousingAni
     if (!pig.alive) continue;
     animals.push({
       id: pig.id,
+      tag: pig.tag,
+      damTag: pig.damTag,
       kind: pig.stage === "gilt" ? "gilt" : "pig",
       stage: pig.stage === "gilt" ? undefined : pig.stage,
       weightKg: pig.weightKg,
@@ -165,6 +200,17 @@ function zeroHead(): Record<HousingType, number> {
  * her. Before that she is in gestation if she is carrying and in the service
  * house if she is not, which covers a sow waiting for her first heat after
  * weaning, one that returned, and one being served.
+ *
+ * A served sow is not a sow in pig. She stays in the service house until the
+ * scan says she is carrying, which is the manual's own practice and the farm's
+ * too: a sow that returns does it inside the first three weeks, and she returns
+ * where the boar is and where somebody is watching for it. Moving her into the
+ * gestation house on the day she is served would fill that house with sows who
+ * are not in pig, and empty the service house of the ones most worth watching.
+ *
+ * The date comes off her own card rather than out of a housing rule, so a unit
+ * that scans at three weeks moves her at three weeks and one that scans at five
+ * moves her at five.
  */
 function sowHousing(
   animal: HousingAnimalSnapshot,
@@ -177,6 +223,9 @@ function sowHousing(
     if (due !== undefined && day >= due - policy.farrowing.preFarrowDays) {
       return { type: "farrowing", reserved: true };
     }
+    // Carrying, but not yet confirmed to be: still in the service house.
+    const scan = animal.expectedScanDay;
+    if (scan !== undefined && day < scan) return { type: "service_sow", reserved: false };
     return { type: "gestation", reserved: false };
   }
   return { type: "service_sow", reserved: false };
