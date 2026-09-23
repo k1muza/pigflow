@@ -2259,7 +2259,7 @@ export class Farm {
       boar.breedingValue = config.herd.boarPurchaseCost;
       this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
-      this.pedigree.remember(boar, "purchased");
+      this.pedigree.remember(boar, "purchased", day);
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
       this.log(day, date, "purchase", "Replacement boar " + tag + " bought in");
     }
@@ -2281,7 +2281,7 @@ export class Farm {
       boar.breedingValue = config.herd.boarPurchaseCost;
       this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
-      this.pedigree.remember(boar, "purchased");
+      this.pedigree.remember(boar, "purchased", day);
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
       this.log(
         day,
@@ -2313,7 +2313,7 @@ export class Farm {
       gilt.breedingValue = config.herd.giltPurchaseCost;
       this.books.buyBreedingStock(config.herd.giltPurchaseCost);
       this.sows.push(gilt);
-      this.pedigree.remember(gilt, "purchased");
+      this.pedigree.remember(gilt, "purchased", day);
       this.ledger.accrue("breeding-stock", config.herd.giltPurchaseCost);
     }
     record.giltsPurchased = shortfall;

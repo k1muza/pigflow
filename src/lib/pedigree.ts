@@ -18,6 +18,8 @@ export type PedigreeRecord = {
   sex: Sex;
   generation: number | null;
   birthDay: number | null;
+  /** Simulation day this individual first becomes part of the pedigree. */
+  firstSeenDay: number;
   damTag: string | null;
   sireTag: string | null;
   origin: PedigreeOrigin;
@@ -47,7 +49,11 @@ function strongerKind(
 export class PedigreeRegistry {
   private readonly animals = new Map<string, PedigreeRecord>();
 
-  remember(animal: Animal, origin?: PedigreeOrigin): void {
+  remember(
+    animal: Animal,
+    origin?: PedigreeOrigin,
+    firstSeenDay: number = Math.max(0, animal.birthDay),
+  ): void {
     const before = this.animals.get(animal.tag);
     const nextKind = kindOf(animal);
     if (before) {
@@ -60,6 +66,7 @@ export class PedigreeRegistry {
         // Seeding can first create an opening litter through the normal birth
         // path and then identify the whole opening herd as starting stock.
         origin: origin ?? before.origin,
+        firstSeenDay: origin === undefined ? before.firstSeenDay : firstSeenDay,
       });
       return;
     }
@@ -70,14 +77,19 @@ export class PedigreeRegistry {
       sex: animal.sex,
       generation: animal.generation,
       birthDay: animal.birthDay,
+      firstSeenDay,
       damTag: animal.damTag,
       sireTag: animal.sireTag,
       origin: origin ?? "born",
     });
   }
 
-  rememberMany(animals: readonly Animal[], origin?: PedigreeOrigin): void {
-    for (const animal of animals) this.remember(animal, origin);
+  rememberMany(
+    animals: readonly Animal[],
+    origin?: PedigreeOrigin,
+    firstSeenDay = 0,
+  ): void {
+    for (const animal of animals) this.remember(animal, origin, firstSeenDay);
   }
 
   /**
@@ -90,17 +102,23 @@ export class PedigreeRegistry {
   records(): PedigreeRecord[] {
     const rows = [...this.animals.values()].map((row) => ({ ...row }));
     const known = new Set(rows.map((row) => row.tag));
-    const studs = new Set<string>();
+    const studs = new Map<string, number>();
     for (const row of rows) {
-      if (row.sireTag?.startsWith("AI-") && !known.has(row.sireTag)) studs.add(row.sireTag);
+      if (!row.sireTag?.startsWith("AI-") || known.has(row.sireTag)) continue;
+      const seen = studs.get(row.sireTag);
+      studs.set(row.sireTag, seen === undefined ? row.firstSeenDay : Math.min(seen, row.firstSeenDay));
     }
-    for (const tag of studs) {
+    for (const [tag, childDay] of studs) {
       rows.push({
         tag,
         kind: "stud",
         sex: "male",
         generation: null,
         birthDay: null,
+        // Put a virtual sire slightly before the first litter it produced. The
+        // exact collection day is unknown, so this is a display anchor rather
+        // than invented biological history.
+        firstSeenDay: Math.max(0, childDay - 30),
         damTag: null,
         sireTag: null,
         origin: "ai",

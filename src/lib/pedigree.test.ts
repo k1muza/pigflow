@@ -24,6 +24,8 @@ describe("whole-run pedigree", () => {
     const born = rows.filter((row) => row.origin === "born");
     expect(born.length).toBeGreaterThan(0);
     expect(born.some((row) => row.generation === 1)).toBe(true);
+    expect(rows.filter((row) => row.origin === "starting").every((row) => row.firstSeenDay === 0)).toBe(true);
+    expect(born.every((row) => row.firstSeenDay === Math.max(0, row.birthDay ?? 0))).toBe(true);
 
     for (const child of born) {
       if (child.damTag) expect(byTag.has(child.damTag)).toBe(true);
@@ -55,6 +57,10 @@ describe("whole-run pedigree", () => {
     const stud = rows.find((row) => row.kind === "stud");
 
     expect(stud).toBeDefined();
-    expect(rows.some((row) => row.sireTag === stud?.tag)).toBe(true);
+    const children = rows.filter((row) => row.sireTag === stud?.tag);
+    expect(children.length).toBeGreaterThan(0);
+    expect(stud!.firstSeenDay).toBeLessThanOrEqual(
+      Math.min(...children.map((row) => row.firstSeenDay)),
+    );
   });
 });
