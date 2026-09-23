@@ -41,7 +41,7 @@ type DisplayNode = {
   label: string;
   subtitle: string;
   generation: number | null;
-  kind: PedigreeRecord["kind"] | "litter";
+  kind: PedigreeRecord["kind"] | "litter" | "siblings";
   count: number;
   members: string[];
   damTag: string | null;
@@ -60,7 +60,7 @@ type LineageEdge = {
   id: string;
   from: string;
   to: string;
-  kind: "parent" | "member";
+  kind: "parent" | "member" | "sibling-member";
   parentTag: string | null;
   childTags: string[];
 };
@@ -140,8 +140,6 @@ function indexPedigree(records: readonly PedigreeRecord[]): PedigreeIndex {
       (row.kind === "sow" || row.kind === "boar"),
   );
 
-  // A malformed/imported pedigree can have no breeding root. In that case,
-  // show the parentless animals rather than opening an empty canvas.
   if (roots.length === 0) {
     roots.push(
       ...records.filter(
@@ -168,6 +166,28 @@ function childSummary(index: PedigreeIndex, tag: string): string | null {
   if (litterCount > 0) parts.push(litterCount + (litterCount === 1 ? " litter" : " litters"));
   if (directCount > 0) parts.push(directCount + (directCount === 1 ? " child" : " children"));
   return parts.join(" · ");
+}
+
+function continuesPedigree(index: PedigreeIndex, row: PedigreeRecord): boolean {
+  return (
+    row.kind === "sow" ||
+    row.kind === "boar" ||
+    (index.littersByParent.get(row.tag)?.size ?? 0) > 0 ||
+    (index.directChildrenByParent.get(row.tag)?.length ?? 0) > 0
+  );
+}
+
+function litterMembers(index: PedigreeIndex, key: string): {
+  breeding: PedigreeRecord[];
+  nonBreeding: PedigreeRecord[];
+} {
+  const breeding: PedigreeRecord[] = [];
+  const nonBreeding: PedigreeRecord[] = [];
+  for (const row of index.litters.get(key) ?? []) {
+    if (continuesPedigree(index, row)) breeding.push(row);
+    else nonBreeding.push(row);
+  }
+  return { breeding, nonBreeding };
 }
 
 function animalDisplayNode(
@@ -227,18 +247,42 @@ function litterDisplayNode(
   };
 }
 
+function siblingDisplayNode(
+  key: string,
+  rows: readonly PedigreeRecord[],
+  expandedSiblingGroups: ReadonlySet<string>,
+): DisplayNode {
+  const first = rows[0];
+  return {
+    id: "siblings:" + key,
+    label: rows.length + " non-breeding siblings",
+    subtitle: "combined market / non-breeding pigs",
+    generation: first.generation,
+    kind: "siblings",
+    count: rows.length,
+    members: rows.map((row) => row.tag),
+    damTag: first.damTag,
+    sireTag: first.sireTag,
+    firstSeenDay: Math.min(...rows.map((row) => row.firstSeenDay)),
+    litterKey: key,
+    expandable: true,
+    expanded: expandedSiblingGroups.has(key),
+    childSummary: rows.length + " pigs",
+  };
+}
+
 /**
  * Progressive whole-run pedigree.
  *
- * Only root breeding stock is visible initially. Expanding an animal reveals
- * its litters; expanding a litter reveals its pigs. A pig that becomes a
- * breeder can then be expanded into the next generation. The complete pedigree
- * remains in memory, but React Flow only receives the part the user has opened.
+ * A litter opens into the animals that actually continue the pedigree plus one
+ * compact node for all non-breeding siblings. That sibling node only fans out
+ * into individual market pigs when explicitly clicked.
  */
 function visibleGraph(
   index: PedigreeIndex,
   expandedAnimals: ReadonlySet<string>,
   expandedLitters: ReadonlySet<string>,
+  expandedSiblingGroups: ReadonlySet<string>,
 ): VisibleGraph {
   const visibleAnimalTags = new Set(index.roots.map((row) => row.tag));
   const visibleLitterKeys = new Set<string>();
@@ -256,9 +300,6 @@ function visibleGraph(
           changed = true;
         }
 
-        // A litter is the product of both parents. Once the litter is visible,
-        // keep the co-parent visible too without opening any of its other
-        // descendants.
         const parents = index.litterParents.get(key);
         for (const parentTag of [parents?.damTag, parents?.sireTag]) {
           if (parentTag && index.byTag.has(parentTag) && !visibleAnimalTags.has(parentTag)) {
@@ -278,10 +319,23 @@ function visibleGraph(
 
     for (const key of [...visibleLitterKeys]) {
       if (!expandedLitters.has(key)) continue;
-      for (const member of index.litters.get(key) ?? []) {
+      const { breeding, nonBreeding } = litterMembers(index, key);
+
+      // Breeding-line siblings stay individual because they can continue to
+      // another generation. Market/non-breeding siblings stay as one node.
+      for (const member of breeding) {
         if (!visibleAnimalTags.has(member.tag)) {
           visibleAnimalTags.add(member.tag);
           changed = true;
+        }
+      }
+
+      if (nonBreeding.length === 1 || expandedSiblingGroups.has(key)) {
+        for (const member of nonBreeding) {
+          if (!visibleAnimalTags.has(member.tag)) {
+            visibleAnimalTags.add(member.tag);
+            changed = true;
+          }
         }
       }
     }
@@ -301,12 +355,22 @@ function visibleGraph(
   for (const key of visibleLitterKeys) {
     const rows = index.litters.get(key);
     if (!rows?.length) continue;
-    const node = litterDisplayNode(key, rows, expandedLitters);
-    nodes.push(node);
-    // When the litter is collapsed, its members resolve to the litter node.
-    // Once expanded, the individual animal mapping below wins.
+    const litterNode = litterDisplayNode(key, rows, expandedLitters);
+    nodes.push(litterNode);
+
+    if (expandedLitters.has(key)) {
+      const { nonBreeding } = litterMembers(index, key);
+      if (nonBreeding.length > 1) {
+        const siblingNode = siblingDisplayNode(key, nonBreeding, expandedSiblingGroups);
+        nodes.push(siblingNode);
+        for (const row of nonBreeding) {
+          if (!tagToNode.has(row.tag)) tagToNode.set(row.tag, siblingNode.id);
+        }
+      }
+    }
+
     for (const row of rows) {
-      if (!tagToNode.has(row.tag)) tagToNode.set(row.tag, node.id);
+      if (!tagToNode.has(row.tag)) tagToNode.set(row.tag, litterNode.id);
     }
   }
 
@@ -333,21 +397,73 @@ function visibleGraph(
       });
     }
 
-    if (expandedLitters.has(key)) {
-      for (const member of index.litters.get(key) ?? []) {
-        const to = "animal:" + member.tag;
-        if (!visibleAnimalTags.has(member.tag)) continue;
+    if (!expandedLitters.has(key)) continue;
+
+    const { breeding, nonBreeding } = litterMembers(index, key);
+    for (const member of breeding) {
+      const to = "animal:" + member.tag;
+      if (!visibleAnimalTags.has(member.tag)) continue;
+      const id = litterId + ">" + to;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      edges.push({
+        id,
+        from: litterId,
+        to,
+        kind: "member",
+        parentTag: null,
+        childTags: [member.tag],
+      });
+    }
+
+    if (nonBreeding.length === 1) {
+      const member = nonBreeding[0];
+      const to = "animal:" + member.tag;
+      if (visibleAnimalTags.has(member.tag)) {
         const id = litterId + ">" + to;
-        if (seen.has(id)) continue;
+        if (!seen.has(id)) {
+          seen.add(id);
+          edges.push({
+            id,
+            from: litterId,
+            to,
+            kind: "member",
+            parentTag: null,
+            childTags: [member.tag],
+          });
+        }
+      }
+    } else if (nonBreeding.length > 1) {
+      const siblingsId = "siblings:" + key;
+      const id = litterId + ">" + siblingsId;
+      if (!seen.has(id)) {
         seen.add(id);
         edges.push({
           id,
           from: litterId,
-          to,
+          to: siblingsId,
           kind: "member",
           parentTag: null,
-          childTags: [member.tag],
+          childTags: nonBreeding.map((row) => row.tag),
         });
+      }
+
+      if (expandedSiblingGroups.has(key)) {
+        for (const member of nonBreeding) {
+          const to = "animal:" + member.tag;
+          if (!visibleAnimalTags.has(member.tag)) continue;
+          const memberId = siblingsId + ">" + to;
+          if (seen.has(memberId)) continue;
+          seen.add(memberId);
+          edges.push({
+            id: memberId,
+            from: siblingsId,
+            to,
+            kind: "sibling-member",
+            parentTag: null,
+            childTags: [member.tag],
+          });
+        }
       }
     }
   }
@@ -392,17 +508,10 @@ function timeX(day: number, scale: number, horizonDay: number): number {
   return LEFT_PAD + Math.min(Math.max(day, 0), horizonDay) * scale;
 }
 
-/**
- * X is chronology and may never be changed by dragging. Y is only packing:
- * nodes in one generation reuse a lane once the previous node is far enough
- * left. Expanded litter members share their litter's date and therefore stack
- * vertically rather than pretending time elapsed between them.
- */
 function flowNodes(
   nodes: readonly DisplayNode[],
   horizonDay: number,
-  selectedTag: string | null,
-  selectedLitterKey: string | null,
+  selectedNodeId: string | null,
 ): PedigreeFlowNode[] {
   const scale = pixelsPerDay(horizonDay);
   const groups = new Map<number, DisplayNode[]>();
@@ -420,9 +529,10 @@ function flowNodes(
     rows.sort((a, b) => {
       const time = a.firstSeenDay - b.firstSeenDay;
       if (time !== 0) return time;
-      const aLitter = a.kind === "litter" ? 0 : 1;
-      const bLitter = b.kind === "litter" ? 0 : 1;
-      if (aLitter !== bLitter) return aLitter - bLitter;
+      const rank = (node: DisplayNode) =>
+        node.kind === "litter" ? 0 : node.kind === "siblings" ? 1 : 2;
+      const kind = rank(a) - rank(b);
+      if (kind !== 0) return kind;
       return (a.litterKey ?? a.id).localeCompare(b.litterKey ?? b.id) || a.label.localeCompare(b.label);
     });
 
@@ -445,10 +555,7 @@ function flowNodes(
         targetPosition: Position.Left,
         draggable: false,
         selectable: true,
-        selected:
-          node.kind === "litter"
-            ? node.litterKey === selectedLitterKey
-            : selectedTag !== null && node.members.includes(selectedTag),
+        selected: node.id === selectedNodeId,
         data: node,
       });
     }
@@ -461,14 +568,14 @@ function flowNodes(
 
 function PedigreeNode({ data, selected }: NodeProps<PedigreeFlowNode>) {
   const generation = data.generation === null ? "External" : "Gen " + data.generation;
-  const memberEdge = data.kind === "litter";
+  const grouped = data.kind === "litter" || data.kind === "siblings";
 
   return (
     <div
       className={[
         "w-[190px] rounded-xl border bg-surface px-3 py-2.5 shadow-sm transition",
         selected ? "border-brand ring-2 ring-brand/20" : "border-hairline",
-        memberEdge ? "border-dashed" : "",
+        grouped ? "border-dashed" : "",
       ].join(" ")}
     >
       <Handle
@@ -505,7 +612,7 @@ function PedigreeNode({ data, selected }: NodeProps<PedigreeFlowNode>) {
         position={Position.Right}
         className="!h-2 !w-2 !border-0 !bg-ink-faint"
       />
-      {data.kind === "litter" ? (
+      {grouped ? (
         <Handle
           id="members"
           type="source"
@@ -602,19 +709,31 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
   const index = useMemo(() => indexPedigree(records), [records]);
   const [expandedAnimals, setExpandedAnimals] = useState<Set<string>>(() => new Set());
   const [expandedLitters, setExpandedLitters] = useState<Set<string>>(() => new Set());
+  const [expandedSiblingGroups, setExpandedSiblingGroups] = useState<Set<string>>(() => new Set());
   const [query, setQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedLitterKey, setSelectedLitterKey] = useState<string | null>(null);
+  const [selectedSiblingKey, setSelectedSiblingKey] = useState<string | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const flow = useRef<ReactFlowInstance<PedigreeFlowNode, Edge> | null>(null);
 
   const graph = useMemo(
-    () => visibleGraph(index, expandedAnimals, expandedLitters),
-    [index, expandedAnimals, expandedLitters],
+    () => visibleGraph(index, expandedAnimals, expandedLitters, expandedSiblingGroups),
+    [index, expandedAnimals, expandedLitters, expandedSiblingGroups],
   );
+
+  const selectedNodeId =
+    selectedSiblingKey !== null
+      ? "siblings:" + selectedSiblingKey
+      : selectedLitterKey !== null
+        ? "litter:" + selectedLitterKey
+        : selectedTag
+          ? graph.tagToNode.get(selectedTag) ?? null
+          : null;
+
   const nodes = useMemo(
-    () => flowNodes(graph.nodes, horizonDay, selectedTag, selectedLitterKey),
-    [graph.nodes, horizonDay, selectedTag, selectedLitterKey],
+    () => flowNodes(graph.nodes, horizonDay, selectedNodeId),
+    [graph.nodes, horizonDay, selectedNodeId],
   );
 
   const childrenByTag = useMemo(() => {
@@ -628,14 +747,11 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
     return map;
   }, [records]);
 
-  const selectedNodeId =
-    selectedLitterKey !== null
-      ? "litter:" + selectedLitterKey
-      : selectedTag
-        ? graph.tagToNode.get(selectedTag) ?? null
-        : null;
   const selectedRecord = selectedTag ? index.byTag.get(selectedTag) ?? null : null;
   const selectedLitter = selectedLitterKey ? index.litters.get(selectedLitterKey) ?? null : null;
+  const selectedSiblingGroup = selectedSiblingKey
+    ? litterMembers(index, selectedSiblingKey).nonBreeding
+    : null;
 
   const related = useMemo(() => {
     const tags = new Set<string>();
@@ -651,26 +767,29 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
       if (selectedLitter[0]?.damTag) tags.add(selectedLitter[0].damTag);
       if (selectedLitter[0]?.sireTag) tags.add(selectedLitter[0].sireTag);
     }
+    if (selectedSiblingGroup) {
+      for (const member of selectedSiblingGroup) tags.add(member.tag);
+    }
     return tags;
-  }, [selectedTag, selectedLitter, index.byTag, childrenByTag]);
+  }, [selectedTag, selectedLitter, selectedSiblingGroup, index.byTag, childrenByTag]);
 
   const edges = useMemo<Edge[]>(
     () =>
       graph.edges.map((edge) => {
         const highlighted =
-          edge.kind === "member"
-            ? edge.childTags.some((tag) => related.has(tag))
-            : edge.parentTag !== null &&
+          edge.kind === "parent"
+            ? edge.parentTag !== null &&
               related.has(edge.parentTag) &&
-              edge.childTags.some((tag) => related.has(tag));
+              edge.childTags.some((tag) => related.has(tag))
+            : edge.childTags.some((tag) => related.has(tag));
 
         return {
           id: edge.id,
           source: edge.from,
           target: edge.to,
-          sourceHandle: edge.kind === "member" ? "members" : "descendants",
-          targetHandle: edge.kind === "member" ? "litter-member" : "ancestry",
-          type: edge.kind === "member" ? "smoothstep" : "smoothstep",
+          sourceHandle: edge.kind === "parent" ? "descendants" : "members",
+          targetHandle: edge.kind === "parent" ? "ancestry" : "litter-member",
+          type: "smoothstep",
           animated: highlighted,
           style: {
             stroke: highlighted ? "var(--color-brand)" : "var(--color-rule)",
@@ -705,12 +824,23 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
       for (const key of descendants.litters) next.delete(key);
       return next;
     });
+    setExpandedSiblingGroups((current) => {
+      const next = new Set(current);
+      for (const key of descendants.litters) next.delete(key);
+      return next;
+    });
   }
 
   function collapseLitter(key: string): void {
     const members = index.litters.get(key) ?? [];
     const descendants = descendantKeys(index, members.map((row) => row.tag));
     setExpandedLitters((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      for (const nested of descendants.litters) next.delete(nested);
+      return next;
+    });
+    setExpandedSiblingGroups((current) => {
       const next = new Set(current);
       next.delete(key);
       for (const nested of descendants.litters) next.delete(nested);
@@ -740,9 +870,19 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
     setExpandedLitters((current) => new Set(current).add(key));
   }
 
+  function toggleSiblingGroup(key: string): void {
+    setExpandedSiblingGroups((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
   function revealAnimal(tag: string): void {
     const animals = new Set(expandedAnimals);
     const litters = new Set(expandedLitters);
+    const siblingGroups = new Set(expandedSiblingGroups);
     const visited = new Set<string>();
 
     function revealPath(currentTag: string): void {
@@ -752,7 +892,16 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
       if (!row) return;
 
       const key = litterKey(row);
-      if (key) litters.add(key);
+      if (key) {
+        litters.add(key);
+        const { nonBreeding } = litterMembers(index, key);
+        if (
+          nonBreeding.length > 1 &&
+          nonBreeding.some((member) => member.tag === currentTag)
+        ) {
+          siblingGroups.add(key);
+        }
+      }
 
       for (const parentTag of [row.damTag, row.sireTag]) {
         if (!parentTag) continue;
@@ -764,7 +913,9 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
     revealPath(tag);
     setExpandedAnimals(animals);
     setExpandedLitters(litters);
+    setExpandedSiblingGroups(siblingGroups);
     setSelectedLitterKey(null);
+    setSelectedSiblingKey(null);
     setSelectedTag(tag);
   }
 
@@ -809,8 +960,10 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
           onClick={() => {
             setExpandedAnimals(new Set());
             setExpandedLitters(new Set());
+            setExpandedSiblingGroups(new Set());
             setSelectedTag(null);
             setSelectedLitterKey(null);
+            setSelectedSiblingKey(null);
             requestAnimationFrame(() => {
               void flow.current?.fitView({ padding: 0.16, duration: 300 });
             });
@@ -825,7 +978,7 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
         <div className="relative min-h-[620px] overflow-hidden rounded-xl border border-hairline bg-plane">
           <TimelineOverlay startDate={startDate} horizonDay={horizonDay} viewport={viewport} />
           <div className="absolute left-3 top-[62px] z-20 rounded-lg border border-hairline bg-surface/90 px-2.5 py-1.5 text-[10px] text-ink-muted shadow-sm backdrop-blur">
-            Horizontal distance = elapsed simulation time · click a node to expand
+            Horizontal distance = elapsed simulation time · non-breeding siblings stay grouped
           </div>
           <ReactFlow<PedigreeFlowNode, Edge>
             nodes={nodes}
@@ -837,15 +990,26 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
             onMove={(_, next) => setViewport(next)}
             onNodeClick={(_, node) => {
               const data = node.data;
+
               if (data.kind === "litter" && data.litterKey) {
                 setSelectedTag(null);
+                setSelectedSiblingKey(null);
                 setSelectedLitterKey(data.litterKey);
                 toggleLitter(data.litterKey);
                 return;
               }
 
+              if (data.kind === "siblings" && data.litterKey) {
+                setSelectedTag(null);
+                setSelectedLitterKey(null);
+                setSelectedSiblingKey(data.litterKey);
+                toggleSiblingGroup(data.litterKey);
+                return;
+              }
+
               const tag = data.members[0] ?? null;
               setSelectedLitterKey(null);
+              setSelectedSiblingKey(null);
               setSelectedTag(tag);
               if (tag) toggleAnimal(tag);
             }}
@@ -872,7 +1036,54 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
         </div>
 
         <aside className="rounded-xl border border-hairline bg-surface p-4">
-          {selectedLitter ? (
+          {selectedSiblingGroup ? (
+            <>
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-brand-soft p-2 text-brand">
+                  <Users size={17} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-ink">
+                    {selectedSiblingGroup.length} non-breeding siblings
+                  </h3>
+                  <p className="text-xs text-ink-faint">
+                    Combined to keep this generation compact
+                  </p>
+                </div>
+              </div>
+
+              <dl className="mt-5 space-y-3 text-xs">
+                <div>
+                  <dt className="text-ink-faint">Born / entered</dt>
+                  <dd className="mt-0.5 font-medium text-ink">
+                    {format(addDays(start, Math.min(...selectedSiblingGroup.map((row) => row.firstSeenDay))), "dd MMM yyyy")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Dam</dt>
+                  <dd className="mt-0.5 font-medium text-ink">
+                    {selectedSiblingGroup[0]?.damTag ?? "Unknown"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Sire</dt>
+                  <dd className="mt-0.5 font-medium text-ink">
+                    {selectedSiblingGroup[0]?.sireTag ?? "Unknown"}
+                  </dd>
+                </div>
+              </dl>
+
+              <button
+                type="button"
+                onClick={() => toggleSiblingGroup(selectedSiblingKey!)}
+                className="mt-5 w-full rounded-lg border border-hairline px-3 py-2 text-left text-xs font-medium text-ink-muted hover:bg-raised"
+              >
+                {expandedSiblingGroups.has(selectedSiblingKey!)
+                  ? "Collapse individual siblings"
+                  : "Show individual siblings"}
+              </button>
+            </>
+          ) : selectedLitter ? (
             <>
               <div className="flex items-start gap-3">
                 <div className="rounded-lg bg-brand-soft p-2 text-brand">
@@ -900,9 +1111,15 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
                   <dd className="mt-0.5 font-medium text-ink">{selectedLitter.length}</dd>
                 </div>
                 <div>
-                  <dt className="text-ink-faint">Breeders retained</dt>
+                  <dt className="text-ink-faint">Breeding-line siblings</dt>
                   <dd className="mt-0.5 font-medium text-ink">
-                    {selectedLitter.filter((row) => row.kind === "sow" || row.kind === "boar").length}
+                    {litterMembers(index, selectedLitterKey!).breeding.length}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Grouped non-breeders</dt>
+                  <dd className="mt-0.5 font-medium text-ink">
+                    {litterMembers(index, selectedLitterKey!).nonBreeding.length}
                   </dd>
                 </div>
               </dl>
@@ -912,7 +1129,7 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
                 onClick={() => toggleLitter(selectedLitterKey!)}
                 className="mt-5 w-full rounded-lg border border-hairline px-3 py-2 text-left text-xs font-medium text-ink-muted hover:bg-raised"
               >
-                {expandedLitters.has(selectedLitterKey!) ? "Collapse litter" : "Show individual pigs"}
+                {expandedLitters.has(selectedLitterKey!) ? "Collapse litter" : "Show litter branches"}
               </button>
             </>
           ) : selectedRecord ? (
@@ -1008,7 +1225,7 @@ export function PedigreeGraph({ records, startDate, horizonDay }: Props) {
               <Users size={22} className="mx-auto text-ink-faint" />
               <p className="mt-3 text-sm font-medium text-ink">Open the pedigree progressively</p>
               <p className="mt-1 text-xs leading-5 text-ink-faint">
-                Start with the founding breeders. Click one to show its litters, then a litter to show its pigs, and a retained breeder to continue into the next generation.
+                Breeding-line pigs stay individual. Non-breeding siblings are kept in one compact node until you click that group.
               </p>
             </div>
           )}
