@@ -61,6 +61,11 @@ import {
 import { countFarmBuilt } from "./instrument";
 import { seedStartingStock, type StartingStockHost } from "./starting-stock";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
+import {
+  expectedPigletWeightAtAgeKg,
+  litterGrowthAccount,
+  openingWeanerWeightKg,
+} from "./lactation";
 import { MortalityScheduler } from "./mortality";
 import { sowRosterOf, stockRosterOf } from "./roster";
 import { variationFor, type Variation } from "./variation";
@@ -136,6 +141,16 @@ export type DayRecord = {
   farrowings: number;
   bornAlive: number;
   weaned: number;
+  /**
+   * What the piglets weaned today weighed, added up.
+   *
+   * Kept so that a plan can say what its weaners actually came off the sow at,
+   * which is no longer the number that was typed into it: divided by the head
+   * weaned it is the average weaning weight the feed actually produced.
+   */
+  weanedLiveweightKg: number;
+  /** Feed put in front of the lactating sows today: what paid for that weaner. */
+  lactationFeedKg: number;
   sold: number;
   soldLiveweightKg: number;
   soldDeadweightKg: number;
@@ -195,6 +210,10 @@ export type LifetimeTotals = {
   litters: number;
   bornAlive: number;
   weaned: number;
+  /** Liveweight weaned over the whole run: the average weaner, times the head. */
+  weanedLiveweightKg: number;
+  /** Feed put in front of the lactating sows today: what paid for that weaner. */
+  lactationFeedKg: number;
   sold: number;
   soldLiveweightKg: number;
   soldDeadweightKg: number;
@@ -552,6 +571,8 @@ export class Farm {
     litters: 0,
     bornAlive: 0,
     weaned: 0,
+    weanedLiveweightKg: 0,
+    lactationFeedKg: 0,
     sold: 0,
     soldLiveweightKg: 0,
     soldDeadweightKg: 0,
@@ -1001,9 +1022,12 @@ export class Farm {
           sow.tag,
           "opening",
         ]);
-        const gain = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+        // The weight this farm's own lactation ration would have put on them,
+        // not the weight the genotype is capable of. A thin ration cannot open
+        // the plan with piglets nobody could have fed.
+        const openingKg = expectedPigletWeightAtAgeKg(this.config, pigletAge, litterSize);
         for (let p = 0; p < litterSize; p += 1) {
-          const piglet = this.createPiglet(sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
+          const piglet = this.createPiglet(sow, -pigletAge, openingKg);
           this.catchUpVaccinations(piglet, 0);
           sow.litter.push(piglet);
           this.pigs.push(piglet);
@@ -1079,9 +1103,13 @@ export class Farm {
   private seedGrowingStock(stage: Exclude<PigStage, "piglet" | "gilt">, count: number): void {
     if (count <= 0) return;
     const { growth, reproduction } = this.config;
+    // Where a weaner starts, for an animal that was weaned before the plan
+    // began: its genotype's own rate, and not this plan's lactation ration,
+    // which was never fed to it. See `lib/sim/lactation`.
+    const weanedAtKg = openingWeanerWeightKg(this.config);
     const startWeight =
       stage === "weaner"
-        ? growth.weaningWeightKg
+        ? weanedAtKg
         : stage === "grower"
           ? growth.growerStartWeightKg
           : growth.finisherStartWeightKg;
@@ -1105,7 +1133,7 @@ export class Farm {
       const daysInStage = (weightKg - startWeight) / dailyGain;
       const ageDays =
         reproduction.weaningAgeDays +
-        (startWeight - growth.weaningWeightKg) / growth.weanerDailyGainKg +
+        (startWeight - weanedAtKg) / growth.weanerDailyGainKg +
         daysInStage;
       const tag = this.nextPigTag();
       const pig = new GrowingPig({
@@ -1141,6 +1169,8 @@ export class Farm {
       farrowings: 0,
       bornAlive: 0,
       weaned: 0,
+      weanedLiveweightKg: 0,
+      lactationFeedKg: 0,
       sold: 0,
       soldLiveweightKg: 0,
       soldDeadweightKg: 0,
@@ -1382,8 +1412,11 @@ export class Farm {
         // past the weaner house, so they are re-booked by the stage they land in.
         for (const piglet of weaned) this.mortality.release(piglet);
         this.bookByStage(weaned, day);
+        const weanedKg = weaned.reduce((total, piglet) => total + piglet.weightKg, 0);
         record.weaned += weaned.length;
+        record.weanedLiveweightKg += weanedKg;
         this.lifetime.weaned += weaned.length;
+        this.lifetime.weanedLiveweightKg += weanedKg;
         this.log(day, date, "weaning", sow.tag + " weaned " + weaned.length + " piglets");
       }
     }
@@ -1678,6 +1711,17 @@ export class Farm {
 
   private runDailyCare(day: number, date: string, record: DayRecord): void {
     const { config } = this;
+    // Every animal starts the morning on a full ration, and today's feeding is
+    // what takes it off one. Yesterday's short milk day belongs to yesterday:
+    // leaving it on the pig carried a suckler's shortfall into the weaner house
+    // and slowed it for the rest of its life. The 2.0 engine resets the same
+    // thing at the same point in the day, in `engine/systems/housing`.
+    for (const pig of this.pigs) {
+      if (!pig.alive) continue;
+      pig.intakeFactor = 1;
+      pig.feedEatenKg = null;
+      pig.milkGainKg = null;
+    }
     let sowFeedKg = 0;
     let growingFeedKg = 0;
     const feedSpend = emptyRations();
@@ -1706,7 +1750,29 @@ export class Farm {
     };
 
     for (const sow of this.sows) {
-      const { kg, costPerKg, ration } = sow.dailyFeed(config);
+      const { kg, costPerKg, ration } = sow.dailyFeed(config, day);
+      // What she was given is what her litter has to grow on. This engine buys
+      // feed as it eats it, so what is offered is what is served — but the
+      // lactation ration is still a ceiling, and a litter asking for more milk
+      // than it allows grows more slowly rather than being fed on paper.
+      if (sow.state === "lactating") {
+        record.lactationFeedKg += kg;
+        this.lifetime.lactationFeedKg += kg;
+        const demand = sow.lactationDemand(day, config);
+        const account = litterGrowthAccount(
+          demand,
+          demand.offeredKg,
+          demand.creepOfferedKg,
+          config,
+        );
+        const support = demand.potentialGainKg > 0 ? account.gainKg / demand.potentialGainKg : 1;
+        const perPiglet = account.gainKg / Math.max(1, demand.sucklers);
+        for (const piglet of sow.litter) {
+          if (!piglet.alive || piglet.stage !== "piglet") continue;
+          piglet.milkGainKg = perPiglet;
+          piglet.intakeFactor = support;
+        }
+      }
       sowFeedKg += kg;
       const cost = kg * costPerKg;
       const haulage = haul(ration, kg);
@@ -1746,6 +1812,10 @@ export class Farm {
       const ration = pig.dailyFeed(config);
       if (ration.kg > 0) {
         const cost = ration.kg * ration.costPerKg;
+        // This engine buys feed as the herd eats it, so the whole ration is
+        // issued — but it is issued through the same field the 2.0 engine uses,
+        // so both grow a pig off the kilograms it was actually handed.
+        pig.feedEatenKg = (pig.feedEatenKg ?? 0) + ration.kg;
         if (pig.stage === "gilt") sowFeedKg += ration.kg;
         else growingFeedKg += ration.kg;
         feedSpend[ration.ration] += cost;

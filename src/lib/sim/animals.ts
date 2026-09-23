@@ -11,7 +11,12 @@ import {
   SOW_WEIGHT_GAIN_PER_PARITY_KG,
   type PlannerConfig,
 } from "../config";
-import { achievedGainKg, dailyFeedKg } from "../growth-curve";
+import { achievedGainKg, dailyFeedKg, growthAccountOf } from "../growth-curve";
+import {
+  lactationDemandOf,
+  potentialPigletGainKg,
+  type LactationDemand,
+} from "./lactation";
 
 export type Sex = "female" | "male";
 /** Where a pig sits on its way to the abattoir or the farrowing house. */
@@ -191,8 +196,15 @@ export abstract class Animal {
     this.exitReason = reason;
   }
 
-  /** Feed eaten on one day, with the price of the ration that animal is on. */
-  abstract dailyFeed(config: PlannerConfig): FeedDemand;
+  /**
+   * Feed eaten on one day, with the price of the ration that animal is on.
+   *
+   * The day is passed because one animal's ration depends on it: a lactating
+   * sow is fed for the litter under her, and what that litter is offered out of
+   * the creep feeder — which its age decides — is feed she does not have to
+   * make into milk. Everything else on the farm ignores it.
+   */
+  abstract dailyFeed(config: PlannerConfig, day: number): FeedDemand;
 
   /** Which bucket this animal's costs land in today. */
   abstract get costStage(): CostStage;
@@ -225,6 +237,23 @@ export class GrowingPig extends Animal {
   /** Set once this pig has been looked over for breeding, kept or not. */
   assessedForBreeding = false;
   /**
+   * What this pig weighed when it walked into the stage it is standing in, or
+   * null for opening stock, which was placed in the middle of a stage rather
+   * than grown into it.
+   *
+   * It is what says how far through a stage a pig is. Measuring that from the
+   * plan's stage floor instead read a heavy weaner as a pig that had already
+   * served part of its time in the weaner house: a litter weaned at 11 kg
+   * against a plan expecting 8 was credited with a fortnight it had spent on
+   * its dam, and charged less than the whole of the weaner stage's mortality
+   * for it. A pig that was suckling yesterday has spent no time in the weaner
+   * house, however heavy it is — it simply has less of the house to get
+   * through. Opening stock is the real version of the other case, and keeps it:
+   * it did live somewhere before day one, and is not charged for the part of
+   * the stage it lived through there.
+   */
+  stageEntryWeightKg: number | null = null;
+  /**
    * The day this pig first qualified to move up a stage and was refused a place
    * in the room it was moving into, or null when it is not waiting on one. A
    * batch that is held does not stop growing — it goes on filling the room it is
@@ -234,8 +263,33 @@ export class GrowingPig extends Animal {
   /**
    * Share of the feed this pig asked for that it was actually given today. 1 on
    * any day the stores covered the herd, and below it when one did not.
+   *
+   * A reading for the log and the read-outs. What the pig grows on is
+   * {@link feedEatenKg}, which is the issue itself.
    */
   intakeFactor = 1;
+  /**
+   * Kilograms of its own ration this pig was actually handed today, or null on a
+   * day it has not been fed yet.
+   *
+   * The issue off the store, not a share of a demand: growth is worked out from
+   * this number, so what the books say left the bin and what the pig grew on are
+   * the same kilogram. Reconstructing the intake from a percentage was close but
+   * not exact — the demand was priced off the pig's plan rate and the growth off
+   * its rate after crowding and treatment, so a short-fed pig in a full room
+   * could be grown on less feed than the farm had actually issued it.
+   */
+  feedEatenKg: number | null = null;
+  /**
+   * What its dam's milk and the creep feeder between them actually paid for
+   * today, in kilograms of this piglet's own gain, or null off the sow.
+   *
+   * A suckler eats no ration of its own, so this is its share of the litter's
+   * feed-supported gain — see `lib/sim/lactation`. It is an absolute gain and
+   * not a share, so it can be held up against what the animal is capable of
+   * rather than multiplied into it.
+   */
+  milkGainKg: number | null = null;
   /**
    * What the room this pig stood in last night did to its day's gain: 1 inside
    * its places, less when it is carrying an overflow.
@@ -293,11 +347,19 @@ export class GrowingPig extends Animal {
   }
 
   dailyGainKg(config: PlannerConfig): number {
-    if (this.stage === "piglet") {
-      return (
-        (config.growth.weaningWeightKg - BIRTH_WEIGHT_KG) / config.reproduction.weaningAgeDays
-      );
-    }
+    // What a fully milked, fully creep-fed suckler of this genotype would do —
+    // and only that. Whether this one gets it is settled by what its dam was
+    // actually given: see `lib/sim/lactation` and {@link achievedGainKg}. This
+    // used to be the whole rule, which made the configured weaning weight a
+    // promise nothing on the farm had to feed.
+    // No thriftiness factor on a suckler. What a piglet puts on before weaning
+    // is set by how much milk it gets rather than by how well it converts, and
+    // the milk is its dam's to give — so the spread that makes litter mates
+    // reach sale weight on different days starts when they start eating.
+    // Keeping it here would also make a litter's milk demand unforecastable:
+    // the ordering policy would be buying sow feed for an average litter and
+    // the farm would be feeding a particular one.
+    if (this.stage === "piglet") return potentialPigletGainKg(config);
     if (this.stage === "gilt") return GILT_DAILY_GAIN_KG * this.growthFactor * this.maturityFactor;
     const base =
       this.stage === "weaner"
@@ -365,25 +427,41 @@ export class GrowingPig extends Animal {
   }
 
   /**
-   * The gain this pig makes today: what it could have made, less what the room
-   * it is standing in and the feed it was given took off. Crowding comes off the
-   * potential — a pig with nowhere to lie eats less and fights more — and the
-   * ration is then worked out against what is left, upkeep first.
+   * The gain this pig makes today, which is the lower of two ceilings.
+   *
+   * One is the animal: what a pig of its stage, sex and thriftiness can put on,
+   * less what the room it is standing in and whatever it is being treated for
+   * take off it. The other is the feed: the kilograms it was actually handed,
+   * less its own upkeep, over what a kilogram of gain costs at this weight. A
+   * pig grows at whichever runs out first, and neither is allowed to stand in
+   * for the other — a shed with no room in it does not make feed go further,
+   * and a full trough does not cure anything.
    */
   achievedGainKg(config: PlannerConfig): number {
     const treatmentFactor = this.treatmentPenaltyDays > 0 ? this.treatmentGrowthFactor : 1;
     const potential = this.dailyGainKg(config) * this.crowdingFactor * treatmentFactor;
-    if (this.intakeFactor >= 1) return potential;
     if (this.stage === "piglet") {
-      // A suckler lives on milk, and milk follows what the sow was given.
-      return potential * Math.max(0, this.intakeFactor);
+      // A suckler lives on milk, and the milk is its dam's to give. What that
+      // milk and the creep feeder paid for is worked out over the whole litter
+      // in `lib/sim/lactation` and handed down to the piglet in kilograms.
+      if (this.milkGainKg === null) return potential;
+      return Math.min(potential, this.milkGainKg);
     }
     if (this.stage === "gilt") {
-      // She is on a restricted ration a feeder decides, and the upkeep share of
-      // it is the part that has to be covered before she puts anything on.
+      // She is on a restricted developer ration a feeder decides rather than an
+      // appetite, so what a short day costs her is worked off the ration and not
+      // off the growth curve: the upkeep share has to be covered before she puts
+      // anything on.
+      if (this.intakeFactor >= 1) return potential;
       const spare = (this.intakeFactor - MAINTENANCE_SHARE) / (1 - MAINTENANCE_SHARE);
       return potential * Math.max(0, spare);
     }
+    // The issue itself where there is one, so that what the books say left the
+    // bin is what the pig grew on.
+    if (this.feedEatenKg !== null) {
+      return growthAccountOf(this.weightKg, potential, this.feedEatenKg, config.growth).gainKg;
+    }
+    if (this.intakeFactor >= 1) return potential;
     return achievedGainKg(this.weightKg, potential, this.intakeFactor, config.growth);
   }
 
@@ -397,14 +475,21 @@ export class GrowingPig extends Animal {
    * places in it.
    */
   grow(config: PlannerConfig): void {
-    this.weightKg += this.dailyGainKg(config);
+    // The same growth rule the 2.0 engine uses, and for the same reason there is
+    // only one of it: what the pig ate today, less what it took to keep it, over
+    // what a kilogram of gain costs at this weight. This engine buys feed as it
+    // is eaten and no store in it can run dry, so a growing pig here is always on
+    // a full ration and the rule hands back its plan rate, exactly as it always
+    // did. A suckler is the exception in both engines, because its feed is its
+    // dam's and hers can fall short of what her litter is trying to grow.
+    this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config));
     if (this.stage === "piglet" || this.stage === "gilt") return;
     if (this.destination === "breeding" && this.weightKg >= config.growth.saleWeightKg) {
-      this.stage = "gilt";
+      this.moveToStage("gilt");
       return;
     }
-    if (this.weightKg >= config.growth.finisherStartWeightKg) this.stage = "finisher";
-    else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
+    if (this.weightKg >= config.growth.finisherStartWeightKg) this.moveToStage("finisher");
+    else if (this.weightKg >= config.growth.growerStartWeightKg) this.moveToStage("grower");
   }
 
   /**
@@ -438,6 +523,20 @@ export class GrowingPig extends Animal {
   }
 
   /**
+   * Moves the pig into a stage and remembers the weight it walked in at.
+   *
+   * Every stage change in either engine goes through here, because the entry
+   * weight is the only record of how much of a stage a pig has actually stood
+   * through — see {@link stageEntryWeightKg}. Setting the stage without it
+   * leaves the mortality scheduler reading the pig's position off the plan's
+   * average instead of off the pig.
+   */
+  moveToStage(stage: PigStage): void {
+    this.stage = stage;
+    this.stageEntryWeightKg = this.weightKg;
+  }
+
+  /**
    * Takes the pig off the sow. The 1.x rule puts a heavy weaner straight into
    * whichever house its weight belongs in; the 2.0 engine lands every weaner in
    * the weaner house and lets the housing decide what happens next, so it asks
@@ -445,15 +544,27 @@ export class GrowingPig extends Animal {
    */
   wean(day: number, config: PlannerConfig): void {
     this.weanIntoNursery(day, config);
-    if (this.weightKg >= config.growth.finisherStartWeightKg) this.stage = "finisher";
-    else if (this.weightKg >= config.growth.growerStartWeightKg) this.stage = "grower";
+    if (this.weightKg >= config.growth.finisherStartWeightKg) this.moveToStage("finisher");
+    else if (this.weightKg >= config.growth.growerStartWeightKg) this.moveToStage("grower");
   }
 
-  /** Off the sow and into the weaner house, wherever its weight might allow. */
+  /**
+   * Off the sow and into the weaner house, at the weight it actually reached.
+   *
+   * Nothing is added here. It used to leave the sow at
+   * `max(weight, referenceWeaningWeight)`, which handed a kilogram to every
+   * piglet whose dam had not been fed enough to grow it — and did it at the one
+   * moment the shortfall would otherwise have shown. A piglet leaves its dam
+   * weighing what she and the creep feeder made it weigh.
+   *
+   * Opening stock is the one place a weaner is placed at a weight rather than
+   * growing to it, and it is placed there when the plan opens rather than
+   * weaned into it: see `startingWeaner` in `lib/sim/starting-stock`.
+   */
   weanIntoNursery(day: number, config: PlannerConfig): void {
+    void config;
     this.weanedOnDay = day;
-    this.weightKg = Math.max(this.weightKg, config.growth.weaningWeightKg);
-    this.stage = "weaner";
+    this.moveToStage("weaner");
   }
 
   /**
@@ -588,12 +699,48 @@ export class Sow extends Animal {
     return "breeding";
   }
 
-  dailyFeed(config: PlannerConfig): FeedDemand {
-    const ration =
-      this.state === "lactating" ? config.feed.lactationKgDay : config.feed.gestationKgDay;
+  /**
+   * The live litter under her, and what it is asking of her today.
+   *
+   * The one calculation that has to see two animals at once: what the piglets
+   * are trying to grow decides what their dam is given, and what she is given
+   * decides what they actually grow. Both halves are in `lib/sim/lactation` so
+   * that the two engines, the forecaster and her ration cannot drift apart.
+   */
+  lactationDemand(day: number, config: PlannerConfig): LactationDemand {
+    let sucklers = 0;
+    let potentialGainKg = 0;
+    let creepOfferedKg = 0;
+    for (const piglet of this.litter) {
+      if (!piglet.alive || piglet.stage !== "piglet") continue;
+      sucklers += 1;
+      potentialGainKg += piglet.dailyGainKg(config);
+      creepOfferedKg += piglet.creepFeed(day, config).kg;
+    }
+    return lactationDemandOf(
+      { weightKg: this.weightKg, sucklers, potentialGainKg, creepOfferedKg },
+      config,
+    );
+  }
+
+  dailyFeed(config: PlannerConfig, day: number): FeedDemand {
+    // Fed for her litter: the milk it is asking for, plus her own upkeep, up to
+    // the lactation ration the plan allows. A flat figure here was what let a
+    // sow suckling six and a sow suckling fourteen cost the same to keep.
+    if (this.state === "lactating") {
+      return {
+        kg: this.lactationDemand(day, config).offeredKg,
+        costPerKg: config.feed.sowFeedCostKg,
+        ration: "sow",
+      };
+    }
     // A lighter young sow on the same ration plan eats less than a mature one.
     const scale = Math.pow(this.weightKg / MATURE_SOW_WEIGHT_KG, 0.75);
-    return { kg: ration * scale, costPerKg: config.feed.sowFeedCostKg, ration: "sow" };
+    return {
+      kg: config.feed.gestationKgDay * scale,
+      costPerKg: config.feed.sowFeedCostKg,
+      ration: "sow",
+    };
   }
 
   /**

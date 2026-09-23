@@ -270,7 +270,7 @@ export function runGrowthAndSales(world: World): void {
       world.housing.request(roomForStage(next), day);
       world.housing.release(roomForStage(pig.stage));
       pig.heldSinceDay = null;
-      pig.stage = next;
+      pig.moveToStage(next);
       if (next === "grower") record.movedToGrower += 1;
       else if (next === "finisher") record.movedToFinisher += 1;
       // It left the old stage on its feet, so that stage takes its loss back.
@@ -297,7 +297,7 @@ export function runGrowthAndSales(world: World): void {
       world.housing.release(roomForStage(pig.stage));
       world.batches.remove(pig);
       pig.heldSinceDay = null;
-      pig.stage = "gilt";
+      pig.moveToStage("gilt");
       world.mortality.release(pig);
       movedOn.push(pig);
     }
@@ -376,7 +376,7 @@ export function runGrowthAndSales(world: World): void {
     for (const pig of moving) {
       world.housing.release(from);
       pig.heldSinceDay = null;
-      pig.stage = next;
+      pig.moveToStage(next);
       // It left the old stage on its feet, so that stage takes its loss back.
       world.mortality.release(pig);
       movedOn.push(pig);

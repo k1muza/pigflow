@@ -23,6 +23,7 @@ import {
   Download,
   FileText,
   GitCompareArrows,
+  Gauge,
   HeartPulse,
   LoaderCircle,
   LogOut,
@@ -42,6 +43,7 @@ import {
 } from "lucide-react";
 
 import {
+  applyProductionCalibration2026,
   newPlanConfig,
   getModelMetrics,
   plannerSchema,
@@ -576,6 +578,17 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     }
   }
 
+  function applyProductionCalibration() {
+    const confirmed = window.confirm(
+      "Apply the 2026 production calibration to this plan? " +
+        "This updates biological/feed coefficients only. It does not change " +
+        "your weaning age, sale price, feed prices, housing, stock or other costs. " +
+        "Duplicate the plan first if you want to keep the current assumptions for comparison.",
+    );
+    if (!confirmed) return;
+    setConfig((current) => applyProductionCalibration2026(current));
+  }
+
   function exportInputsJson() {
     if (!open) return;
     downloadFile(
@@ -811,6 +824,14 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-3 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:opacity-40"
               >
                 <Download size={13} /> Export inputs as JSON
+              </button>
+              <button
+                type="button"
+                onClick={applyProductionCalibration}
+                disabled={!open}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
+              >
+                <Gauge size={13} /> Apply 2026 production calibration
               </button>
               <button
                 type="button"

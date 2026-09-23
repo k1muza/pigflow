@@ -1,6 +1,5 @@
 import {
   ANCESTRY_EXCLUSION_DEPTH,
-  BIRTH_WEIGHT_KG,
   GILT_ENTRY_AGE_DAYS,
   MATURE_SOW_WEIGHT_KG,
   expectedGiltServiceAgeDays,
@@ -8,6 +7,10 @@ import {
 } from "../config";
 import { readBalances, valueFoundingStock } from "../sim/accounting";
 import { Boar, GrowingPig, Sow, type PigStage } from "../sim/animals";
+import {
+  expectedPigletWeightAtAgeKg,
+  openingWeanerWeightKg,
+} from "../sim/lactation";
 import { seedStartingStock, type StartingStockHost } from "../sim/starting-stock";
 import { roomForStage } from "./housing";
 import type { World } from "./world";
@@ -159,9 +162,12 @@ function seedCountedHerd(world: World): void {
         sow.tag,
         "opening",
       ]);
-      const gain = (growth.weaningWeightKg - BIRTH_WEIGHT_KG) / reproduction.weaningAgeDays;
+      // The weight this farm's own lactation ration would have put on them, not
+      // the weight the genotype is capable of. A thin ration cannot open the
+      // plan with piglets nobody could have fed.
+      const openingKg = expectedPigletWeightAtAgeKg(world.config, pigletAge, litterSize);
       for (let p = 0; p < litterSize; p += 1) {
-        const piglet = createPiglet(world, sow, -pigletAge, BIRTH_WEIGHT_KG + gain * pigletAge);
+        const piglet = createPiglet(world, sow, -pigletAge, openingKg);
         catchUpVaccinations(world, piglet, 0);
         sow.litter.push(piglet);
         world.pigs.push(piglet);
@@ -233,9 +239,13 @@ function seedGrowingStock(
 ): void {
   if (count <= 0) return;
   const { growth, reproduction } = world.config;
+  // Where a weaner starts, for an animal that was weaned before the plan began:
+  // its genotype's own rate, and not this plan's lactation ration, which was
+  // never fed to it. See `lib/sim/lactation`.
+  const weanedAtKg = openingWeanerWeightKg(world.config);
   const startWeight =
     stage === "weaner"
-      ? growth.weaningWeightKg
+      ? weanedAtKg
       : stage === "grower"
         ? growth.growerStartWeightKg
         : growth.finisherStartWeightKg;
@@ -259,7 +269,7 @@ function seedGrowingStock(
     const daysInStage = (weightKg - startWeight) / dailyGain;
     const ageDays =
       reproduction.weaningAgeDays +
-      (startWeight - growth.weaningWeightKg) / growth.weanerDailyGainKg +
+      (startWeight - weanedAtKg) / growth.weanerDailyGainKg +
       daysInStage;
     const tag = world.nextPigTag();
     const pig = new GrowingPig({

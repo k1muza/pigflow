@@ -111,12 +111,28 @@ const startingAnimal = {
 /**
  * A growing pig or a maiden gilt the farm already has.
  *
- * Nothing beyond the three: a pig's age places it in its stage and prices its
- * keep, and it has no working history to record.
+ * Little beyond the three: a pig's age places it in its stage and prices its
+ * keep, and it has no working history to record. What it weighs is asked for
+ * where the farmer knows it, because it is the one fact about an animal on the
+ * farm today that the plan cannot work out and the weighbridge can.
  */
 const startingPigSchema = z.object({
   ...startingAnimal,
   type: z.enum(STARTING_PIG_TYPES),
+  /**
+   * What it weighs today, if it has been weighed.
+   *
+   * Left out, the plan infers it from the age: how far up its stage an animal
+   * growing at this plan's rates would have come by now. That inference has to
+   * start somewhere, and the thing it must not start from is this plan's own
+   * lactation ration — a pig standing in the weaner house on day zero was
+   * weaned by whatever fed it, weeks before the plan begins, and raising the
+   * sow ration for the litters to come cannot reach back and make it heavier.
+   * So the assumption is the genotype's own rate, fully fed, which is what a
+   * farm with nothing else to go on would say. A weighbridge beats it, which is
+   * why this is here.
+   */
+  weightKg: z.number().min(0.5).max(400).optional(),
 });
 
 /**
@@ -545,18 +561,45 @@ export const plannerSchema = z.object({
   }),
   growth: z.object({
     /**
-     * What a piglet weighs on the morning it comes off the sow.
+     * What a suckling piglet puts on in a day when its dam's milk and the creep
+     * feeder between them cover everything it is trying to grow.
      *
-     * Read together with `reproduction.weaningAgeDays`, because the two of them
-     * are what a suckler grows at: the model has no separate daily gain for a
-     * piglet, it has this weight reached over those days. Move the lactation
-     * without moving this and the piglet does not get heavier, it gets slower —
-     * which is not something a pig does. The ARC manual's housing chapter sizes
-     * farrowing places on a 35-day lactation and a weaner of about 8.5 kg; this
-     * plan starts at 28 days and 7.5 kg, and the housing is measured off
-     * whichever pair the plan actually carries rather than off either set.
+     * The genotype's ceiling and nothing else, quoted the way the tabled gains
+     * for the weaner, grower and finisher stages are. What a piglet actually
+     * puts on is read off the feed — the gain the sow's ration paid for in milk
+     * plus the gain the creep bought, held to this — so a litter reaches it only
+     * on a farm that fed it. See `lib/sim/lactation`.
+     *
+     * It used to be read off {@link referenceWeaningWeightKg} and the weaning
+     * age, which made the weight in the box the thing that drove growth: raise
+     * the target and every litter grew faster because a number moved. A weaning
+     * weight is an outcome, so the potential it used to imply is stated here,
+     * where a farmer can see it and argue with it.
      */
-    weaningWeightKg: z.number().min(2).max(20),
+    pigletDailyGainKg: z.number().min(0.05).max(0.6).default(0.22),
+    /**
+     * What a piglet is expected to weigh off the sow: the target, for reporting.
+     *
+     * Nothing in the simulation reads it. Weaning weight is whatever the animal
+     * reached on the milk and the creep it was actually given, and this is the
+     * line that run is held up against — target 11.5 kg, actual 10.3 kg — so the
+     * farm can see the gap and go and look at the ration that made it.
+     *
+     * It was `weaningWeightKg` and it was a guarantee: the day's gain was this
+     * weight divided by the weaning age, so a heavier weaner cost nothing and
+     * arrived by arithmetic. Plans saved under the old name are read into this
+     * one, and the rate they used to imply is carried into
+     * {@link pigletDailyGainKg}, so nothing they predict moves.
+     */
+    referenceWeaningWeightKg: z.number().min(2).max(20),
+    /**
+     * The age {@link referenceWeaningWeightKg} is quoted at, so a farm weaning
+     * earlier than the breeding company's figure knows it is not being held to
+     * like for like. Reporting only; the farm's own weaning age is
+     * {@link PlannerConfig.reproduction.weaningAgeDays} and the two are free to
+     * differ.
+     */
+    referenceWeaningAgeDays: z.number().min(18).max(56).default(28),
     growerStartWeightKg: z.number().min(15).max(60),
     finisherStartWeightKg: z.number().min(35).max(100),
     saleWeightKg: z.number().min(50).max(180),
@@ -597,10 +640,49 @@ export const plannerSchema = z.object({
   }),
   feed: z.object({
     gestationKgDay: z.number().min(0.5).max(8),
+    /**
+     * The most a lactating sow is given in a day: the top of the feed curve she
+     * is walked up after farrowing, and the ceiling on what her litter can be
+     * milked on.
+     *
+     * A ceiling rather than a ration. What she is actually offered is worked out
+     * from what her litter is trying to grow — see `lib/sim/lactation` — because
+     * a sow suckling six and a sow suckling fourteen are not the same animal to
+     * feed. This is what the feeder will not go past however big the litter is,
+     * and a litter that wants more than it allows grows more slowly instead of
+     * being fed on paper.
+     */
     lactationKgDay: z.number().min(1).max(15),
+    /**
+     * What a lactating sow eats for herself before any of it becomes milk,
+     * scaled by her own bodyweight the same way her gestation ration is.
+     *
+     * Below this she is milking off her own back, which she does on a real farm
+     * and which this model does not yet follow her into: what it does is let the
+     * litter go short instead.
+     */
+    lactationMaintenanceKgDay: z.number().min(0.5).max(6).default(2.2),
+    /**
+     * Sow feed above maintenance for each kilogram the litter puts on.
+     *
+     * The milk conversion of the whole chain, bundled into one figure: feed into
+     * the sow, milk out of her, liveweight onto the litter. About 1.8 kg of feed
+     * a kilogram of piglet is what the tables come to at ordinary yields, and it
+     * is the number that makes a heavier weaner cost something.
+     */
+    lactationFeedKgPerKgGain: z.number().min(0.5).max(6).default(1.8),
     boarKgDay: z.number().min(0.5).max(8),
     creepStartAgeDays: z.number().min(0).max(56),
     creepKgPerPigDay: z.number().min(0).max(1),
+    /**
+     * Creep eaten for each kilogram of pre-weaning gain it supports.
+     *
+     * Creep is eaten in small amounts and converted well, and every kilogram of
+     * gain it pays for is a kilogram the sow does not have to milk. Without a
+     * figure here creep would go on being a cost with no animal at the end of
+     * it, which is what it was.
+     */
+    creepFeedKgPerKgGain: z.number().min(0.5).max(6).default(1.5),
     sowFeedCostKg: nonNegative,
     creepFeedCostKg: nonNegative,
     weanerFeedCostKg: nonNegative,
@@ -782,6 +864,87 @@ export const plannerSchema = z.object({
 
 export type PlannerConfig = z.infer<typeof plannerSchema>;
 export type PlannerSection = keyof PlannerConfig;
+
+/**
+ * Evidence-based production coefficients for the 2026 benchmark profile.
+ *
+ * Deliberately excludes management and market assumptions that belong to the
+ * farmer rather than the animal: weaning age, housing, sale price, feed price,
+ * haulage and labour are left alone when this profile is applied.
+ *
+ * `lactationFeedKgPerKgGain` is an effective coefficient in the present model.
+ * Real sows mobilise body reserves during lactation; until PigFlow models body
+ * condition explicitly, 2.0 kg sow feed / kg litter gain is used rather than a
+ * stricter feed-only energy coefficient that would double-charge normal reserve
+ * mobilisation.
+ */
+export const PRODUCTION_CALIBRATION_2026 = {
+  herd: {
+    giltServiceAgeDays: 200,
+  },
+  reproduction: {
+    gestationDays: 115,
+    weanToServiceDays: 7,
+    farrowingSuccessPct: 85,
+    bornAlivePerLitter: 12.4,
+    preWeanMortalityPct: 12.5,
+  },
+  growth: {
+    pigletDailyGainKg: 0.28,
+    growerStartWeightKg: 30,
+    finisherStartWeightKg: 60,
+    saleWeightKg: 100,
+    weanerDailyGainKg: 0.45,
+    growerDailyGainKg: 0.7,
+    finisherDailyGainKg: 0.85,
+    upkeepFeedKgAt100Kg: 1.05,
+    gainFeedKgAt20Kg: 1.1,
+    gainFeedKgAt100Kg: 2.35,
+    weanerMortalityPct: 3.0,
+    growerMortalityPct: 1.5,
+    finisherMortalityPct: 1.5,
+  },
+  feed: {
+    gestationKgDay: 2.4,
+    lactationKgDay: 7.0,
+    lactationMaintenanceKgDay: 2.2,
+    lactationFeedKgPerKgGain: 2.0,
+    creepStartAgeDays: 14,
+    creepKgPerPigDay: 0.03,
+    creepFeedKgPerKgGain: 1.5,
+  },
+  finance: {
+    dressingPct: 70,
+  },
+} as const satisfies {
+  herd: Partial<PlannerConfig["herd"]>;
+  reproduction: Partial<PlannerConfig["reproduction"]>;
+  growth: Partial<PlannerConfig["growth"]>;
+  feed: Partial<PlannerConfig["feed"]>;
+  finance: Partial<PlannerConfig["finance"]>;
+};
+
+/**
+ * Applies the benchmark to one plan, explicitly.
+ *
+ * This is intentionally not a load-time migration. Firestore holds whole user
+ * configs, and changing a default must never rewrite a plan the farmer already
+ * saved. Existing plans change only when the user chooses to apply this profile;
+ * the normal workspace autosave then persists the result to Firestore.
+ */
+export function applyProductionCalibration2026(config: PlannerConfig): PlannerConfig {
+  return {
+    ...config,
+    herd: { ...config.herd, ...PRODUCTION_CALIBRATION_2026.herd },
+    reproduction: {
+      ...config.reproduction,
+      ...PRODUCTION_CALIBRATION_2026.reproduction,
+    },
+    growth: { ...config.growth, ...PRODUCTION_CALIBRATION_2026.growth },
+    feed: { ...config.feed, ...PRODUCTION_CALIBRATION_2026.feed },
+    finance: { ...config.finance, ...PRODUCTION_CALIBRATION_2026.finance },
+  };
+}
 
 /** How many of each kind of animal the plan opens with. */
 export type OpeningCounts = Record<StartingStockType, number>;
@@ -1086,7 +1249,9 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     aiStudPanelSize: 4,
   },
   growth: {
-    weaningWeightKg: 7.5,
+    pigletDailyGainKg: 0.28,
+    referenceWeaningWeightKg: 7.5,
+    referenceWeaningAgeDays: 28,
     growerStartWeightKg: 30,
     finisherStartWeightKg: 60,
     saleWeightKg: 100,
@@ -1097,16 +1262,24 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     upkeepFeedKgAt100Kg: 1.05,
     gainFeedKgAt20Kg: 1.1,
     gainFeedKgAt100Kg: 2.35,
-    weanerMortalityPct: 2,
+    weanerMortalityPct: 3,
     growerMortalityPct: 1.5,
     finisherMortalityPct: 1.5,
   },
   feed: {
     gestationKgDay: 2.4,
-    lactationKgDay: 6,
+    lactationKgDay: 7,
+    // Effective coefficient while sow body-reserve mobilisation is not modelled
+    // explicitly. Keep it paired with the 7 kg/day lactation ceiling and check
+    // the resulting weaning weight rather than treating either as a guarantee.
+    lactationMaintenanceKgDay: 2.2,
+    lactationFeedKgPerKgGain: 2.0,
     boarKgDay: 2.5,
     creepStartAgeDays: 14,
-    creepKgPerPigDay: 0.05,
+    creepKgPerPigDay: 0.03,
+    // Creep is eaten in mouthfuls and converted well; what little of it a
+    // suckler eats is gain its dam does not have to milk.
+    creepFeedKgPerKgGain: 1.5,
     sowFeedCostKg: 0.56,
     creepFeedCostKg: 1.2,
     weanerFeedCostKg: 0.68,
@@ -1304,6 +1477,68 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
   // the former experimental switch set to true; do not silently reactivate the
   // upstream queue when those plans are opened under the observation-only model.
   merged.housing.enforceCapacity = false;
+
+  // `weaningWeightKg` was a guaranteed weaning weight: the day's gain was it,
+  // divided by the weaning age, so a heavier weaner arrived by arithmetic and
+  // cost nothing to produce. It is now the weight a piglet is expected to reach
+  // when it is fully milked and fully creep-fed, and what it actually reaches
+  // is whatever the feed paid for.
+  //
+  // The number carries across because it means the same thing to the farmer who
+  // typed it — this is the weaner I expect — and only the model behind it has
+  // changed. Nothing is manufactured by moving it: a plan that could not feed
+  // that weaner before could not feed it now, and now says so.
+  //
+  // Read off what was stored rather than off the merge: the merge has already
+  // laid the starter assumption over the top, so by this point the new field is
+  // never missing and never the farmer's own number.
+  const storedGrowth = stored.growth as Record<string, unknown> | undefined;
+  const legacyWeaning = storedGrowth?.weaningWeightKg;
+  if (typeof legacyWeaning === "number" && storedGrowth?.referenceWeaningWeightKg === undefined) {
+    merged.growth.referenceWeaningWeightKg = legacyWeaning;
+  }
+
+  // The age that weight was quoted at. A plan written before the two were told
+  // apart quoted it at its own weaning age — that is where the rate came from —
+  // so taking the age off the stored plan leaves every figure it predicts
+  // exactly where its owner last saw it. Defaulting to the starter assumption
+  // instead would hand a farm weaning at 35 days a rate meant for 28 and make
+  // its weaners heavier overnight for no reason it could see.
+  const storedWeaningAge = (stored.reproduction as Record<string, unknown> | undefined)
+    ?.weaningAgeDays;
+  if (
+    typeof storedWeaningAge === "number" &&
+    storedGrowth?.referenceWeaningAgeDays === undefined
+  ) {
+    merged.growth.referenceWeaningAgeDays = storedWeaningAge;
+  }
+
+  // And the rate itself. A plan written under the old model has no view on how
+  // fast a suckler grows, because nothing asked it: growth was the weaning
+  // weight over the weaning age, and that is exactly the rate its owner's
+  // figures were built on. So it is carried across rather than replaced by the
+  // starter assumption, and the plan predicts what it predicted yesterday.
+  //
+  // Only for a plan written under the old model, which is what the old name on
+  // its own says. A plan carrying the new name was written since the weaning
+  // weight became a target, and deriving a rate from a target is how the target
+  // gets back into the simulation by the side door: the weight would be inert
+  // in the plan the farm is editing and live in the one on the disk, so raising
+  // it would grow the litters after all — the whole defect this replaced, back
+  // again and harder to see. Such a plan takes the starter rate, which is what
+  // the field it never had would have given it.
+  //
+  // Clamped because the field has a range, and an old plan weaning very late
+  // off a very light weaner can imply a rate outside it.
+  const writtenBeforeTheRate =
+    typeof legacyWeaning === "number" && storedGrowth?.referenceWeaningWeightKg === undefined;
+  if (writtenBeforeTheRate && storedGrowth?.pigletDailyGainKg === undefined) {
+    const days = Math.max(1, Number(merged.growth.referenceWeaningAgeDays));
+    const implied = (legacyWeaning - BIRTH_WEIGHT_KG) / days;
+    if (Number.isFinite(implied)) {
+      merged.growth.pigletDailyGainKg = Math.min(0.6, Math.max(0.05, implied));
+    }
+  }
   const parsed = plannerSchema.safeParse(merged);
   return parsed.success ? parsed.data : null;
 }
