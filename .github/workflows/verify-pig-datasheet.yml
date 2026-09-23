@@ -1,0 +1,20 @@
+name: Verify pig datasheet
+
+on:
+  push:
+    branches:
+      - interactive-pedigree-graph
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- src/lib/pig-datasheet.test.ts src/lib/pedigree.test.ts src/lib/simulation-result.test.ts src/lib/simulation-worker.test.ts src/lib/routes.test.ts
