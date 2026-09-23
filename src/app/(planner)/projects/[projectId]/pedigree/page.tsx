@@ -19,6 +19,7 @@ export default function PedigreePage() {
       </div>
       <PedigreeGraph
         records={simulation.pedigree}
+        config={simulation.config}
         startDate={simulation.config.project.startDate}
         horizonDay={simulation.horizonDay}
       />
