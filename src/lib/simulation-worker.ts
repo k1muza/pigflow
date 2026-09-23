@@ -1,6 +1,7 @@
 import type { PlannerConfig } from "./config";
 import type { PhysicalFarmPlan } from "./housing";
 import type { ProjectionResult } from "./model";
+import { pigDatasheetFor, type PigDatasheet } from "./pig-datasheet";
 import { planEventLog } from "./plan";
 import { planPhysicalHousing, simulatePlan } from "./simulation";
 import { planResultOf, type PlanSimulationResult } from "./simulation-result";
@@ -37,6 +38,7 @@ export type SimulationJob =
   | { type: "simulate"; config: PlannerConfig }
   | { type: "project"; config: PlannerConfig }
   | { type: "event-log"; config: PlannerConfig }
+  | { type: "pig-datasheet"; config: PlannerConfig; tag: string }
   /**
    * Work out the buildings, rooms and pens this plan would be run in.
    *
@@ -62,6 +64,7 @@ export type SimulationResponse =
     }
   | { type: "projection"; id: number; projection: ProjectionResult; runMs: number }
   | { type: "event-log"; id: number; events: FarmEvent[]; runMs: number }
+  | { type: "pig-datasheet"; id: number; sheet: PigDatasheet; runMs: number }
   | { type: "housing"; id: number; plan: PhysicalFarmPlan; runMs: number }
   | {
       type: "error";
@@ -102,6 +105,13 @@ export function answerSimulationRequest(request: SimulationRequest): SimulationR
           type: "event-log",
           id,
           events: planEventLog(request.config),
+          runMs: now() - startedAt,
+        };
+      case "pig-datasheet":
+        return {
+          type: "pig-datasheet",
+          id,
+          sheet: pigDatasheetFor(request.config, request.tag),
           runMs: now() - startedAt,
         };
       case "generate-housing":
