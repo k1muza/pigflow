@@ -169,7 +169,13 @@ function pngChunk(type: string, payload: Uint8Array): Uint8Array {
 }
 
 async function compressForPng(raw: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate"));
+  const source = raw.buffer.slice(
+    raw.byteOffset,
+    raw.byteOffset + raw.byteLength,
+  ) as ArrayBuffer;
+  const stream = new Blob([source])
+    .stream()
+    .pipeThrough(new CompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
