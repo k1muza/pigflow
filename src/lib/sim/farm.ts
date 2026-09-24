@@ -14,6 +14,7 @@ import {
   hasDetailedStartingStock,
   openingCounts,
   plannerSchema,
+  requiredBoarTeamSize,
   workersNeeded,
   type PlannerConfig,
   type Vaccination,
@@ -2257,9 +2258,10 @@ export class Farm {
     }
     this.lifetime.boarsRotated += record.boarsRotated;
 
-    // Boars cannot be bred out of the market pigs, so the team is always kept up
-    // to the planned number — without one, the whole herd stops breeding.
-    const boarsWanted = openingCounts(config).boar;
+    // Scale natural-service capacity with the live breeding herd rather than
+    // freezing the boar team at the opening-stock count.
+    const breedingFemales = this.sows.filter((sow) => sow.alive).length;
+    const boarsWanted = requiredBoarTeamSize(config, breedingFemales);
     const boarsAlive = this.boars.filter((boar) => boar.alive).length;
     for (let i = boarsAlive; i < boarsWanted; i += 1) {
       const tag = this.nextBoarTag();
@@ -2277,7 +2279,12 @@ export class Farm {
       this.boars.push(boar);
       this.pedigree.remember(boar, "purchased", day);
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
-      this.log(day, date, "purchase", "Replacement boar " + tag + " bought in");
+      this.log(
+        day,
+        date,
+        "purchase",
+        "Capacity boar " + tag + " bought in: breeding herd now needs " + boarsWanted + " boars",
+      );
     }
 
     // Once a boar's own daughters are coming to service, one boar is no longer a
