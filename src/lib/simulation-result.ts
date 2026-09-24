@@ -4,6 +4,7 @@ import type { PlannerConfig } from "./config";
 import type { HousingNeedsResult, HousingSimulationResult } from "./housing";
 import type { ProjectionResult } from "./model";
 import type { PedigreeRecord } from "./pedigree";
+import type { GrowthSimulationSummary } from "./growth-observer";
 import type { PlanSimulation } from "./simulation";
 import { farmValuation, ZERO_BALANCES, type StageValues } from "./sim/accounting";
 import type {
@@ -116,6 +117,8 @@ export type PlanSimulationResult = {
   physicalHousing: HousingSimulationResult | null;
   /** Production-stage mortality, using actual stage-at-death records from this run. */
   mortality: MortalityResult;
+  /** Observed growth checkpoints, completed-stage performance and market distribution. */
+  growth: GrowthSimulationSummary | null;
   /** Whole-run ancestry, including animals that left before the horizon. */
   pedigree: PedigreeRecord[];
 };
@@ -141,6 +144,7 @@ export function planResultOf(simulation: PlanSimulation): PlanSimulationResult {
     housing: simulation.housing,
     physicalHousing: simulation.physicalHousing,
     mortality: mortalityResultOf(simulation),
+    growth: simulation.growth,
     pedigree: simulation.pedigree,
   };
 }
