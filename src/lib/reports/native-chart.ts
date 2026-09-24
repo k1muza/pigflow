@@ -90,58 +90,30 @@ function normaliseWorkbookTarget(target: string): string {
     : "xl/" + withoutLeadingSlash;
 }
 
-function seriesCache(values: readonly number[]): string {
-  const points = values
-    .map(
-      (value, index) =>
-        '<c:pt idx="' +
-        index +
-        '"><c:v>' +
-        (Number.isFinite(value) ? value : 0) +
-        "</c:v></c:pt>",
-    )
-    .join("");
+function chartTitle(text: string): string {
   return (
-    '<c:numCache><c:formatCode>0.0</c:formatCode><c:ptCount val="' +
-    values.length +
+    "<c:title><c:tx><c:rich>" +
+    '<a:bodyPr xmlns:a="' +
+    DRAWING_MAIN_NS +
     '"/>' +
-    points +
-    "</c:numCache>"
-  );
-}
-
-function numericReference(formula: string, values: readonly number[]): string {
-  return (
-    "<c:numRef><c:f>" +
-    escapeXml(formula) +
-    "</c:f>" +
-    seriesCache(values) +
-    "</c:numRef>"
-  );
-}
-
-function richText(text: string, size = 1100, bold = false): string {
-  return (
-    "<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r>" +
-    '<a:rPr lang="en-US" sz="' +
-    size +
-    '"' +
-    (bold ? ' b="1"' : "") +
-    "/><a:t>" +
+    '<a:p xmlns:a="' +
+    DRAWING_MAIN_NS +
+    '"><a:pPr><a:defRPr/></a:pPr><a:r><a:t>' +
     escapeXml(text) +
-    "</a:t></a:r></a:p></c:rich></c:tx>"
+    "</a:t></a:r></a:p></c:rich></c:tx></c:title>"
   );
+}
+
+function seriesReference(formula: string): string {
+  return "<c:numRef><c:f>" + escapeXml(formula) + "</c:f></c:numRef>";
 }
 
 function chartSeries(options: {
   index: number;
-  name: string;
   column: string;
   colour: string;
   marker: "circle" | "diamond" | "square" | "triangle";
   dashed?: boolean;
-  ages: readonly number[];
-  values: readonly number[];
   firstRow: number;
   lastRow: number;
 }): string {
@@ -156,7 +128,9 @@ function chartSeries(options: {
     options.column +
     "$" +
     options.lastRow;
-  const dash = options.dashed ? '<a:prstDash val="dash"/>' : "";
+  const headerFormula = "'Weight by age'!" + options.column + "6";
+  const dash = options.dashed ? "dash" : "solid";
+
   return (
     "<c:ser>" +
     '<c:idx val="' +
@@ -164,84 +138,85 @@ function chartSeries(options: {
     '"/><c:order val="' +
     options.index +
     '"/>' +
-    "<c:tx><c:v>" +
-    escapeXml(options.name) +
-    "</c:v></c:tx>" +
-    '<c:spPr><a:ln w="28575"><a:solidFill><a:srgbClr val="' +
+    "<c:tx><c:strRef><c:f>" +
+    escapeXml(headerFormula) +
+    "</c:f></c:strRef></c:tx>" +
+    '<c:spPr><a:ln xmlns:a="' +
+    DRAWING_MAIN_NS +
+    '" w="25000"><a:solidFill><a:srgbClr val="' +
+    options.colour +
+    '"/></a:solidFill><a:prstDash val="' +
+    dash +
+    '"/></a:ln></c:spPr>' +
+    '<c:marker><c:symbol val="' +
+    options.marker +
+    '"/><c:size val="6"/><c:spPr>' +
+    '<a:solidFill xmlns:a="' +
+    DRAWING_MAIN_NS +
+    '"><a:srgbClr val="' +
     options.colour +
     '"/></a:solidFill>' +
-    dash +
-    "</a:ln></c:spPr>" +
-    "<c:marker><c:symbol val=\"" +
-    options.marker +
-    '\"/><c:size val="6"/><c:spPr><a:solidFill><a:srgbClr val="' +
+    '<a:ln xmlns:a="' +
+    DRAWING_MAIN_NS +
+    '"><a:solidFill><a:srgbClr val="' +
     options.colour +
-    '"/></a:solidFill><a:ln><a:solidFill><a:srgbClr val="' +
-    options.colour +
-    '"/></a:solidFill></a:ln></c:spPr></c:marker>' +
+    '"/></a:solidFill><a:prstDash val="solid"/></a:ln>' +
+    "</c:spPr></c:marker>" +
     "<c:cat>" +
-    numericReference(categoryFormula, options.ages) +
+    seriesReference(categoryFormula) +
     "</c:cat>" +
     "<c:val>" +
-    numericReference(valueFormula, options.values) +
+    seriesReference(valueFormula) +
     "</c:val>" +
-    '<c:smooth val="0"/>' +
     "</c:ser>"
   );
 }
 
+/**
+ * This deliberately mirrors the conservative chart markup produced by
+ * established XLSX writers. Excel repairs chart parts aggressively: optional
+ * elements in the wrong schema position are enough for it to discard a chart.
+ * Keep this small and standards-shaped rather than "feature rich" XML.
+ */
 function growthChartXml(report: GrowthPerformanceReport): string {
   const points = report.checkpoints.filter((point) => point.sampleSize > 0);
-  const ages = points.map((point) => point.ageDays);
   const firstRow = 7;
   const lastRow = firstRow + points.length - 1;
-  const categoryAxisId = 48650112;
-  const valueAxisId = 48672768;
+  const categoryAxisId = 10;
+  const valueAxisId = 100;
 
   const series = [
     chartSeries({
       index: 0,
-      name: "P10",
       column: "D",
       colour: COLORS.muted,
       marker: "circle",
       dashed: true,
-      ages,
-      values: points.map((point) => point.p10WeightKg),
       firstRow,
       lastRow,
     }),
     chartSeries({
       index: 1,
-      name: "Median",
       column: "E",
       colour: COLORS.navy,
       marker: "diamond",
-      ages,
-      values: points.map((point) => point.medianWeightKg),
       firstRow,
       lastRow,
     }),
     chartSeries({
       index: 2,
-      name: "Mean",
       column: "C",
       colour: COLORS.blue,
       marker: "square",
-      ages,
-      values: points.map((point) => point.meanWeightKg),
       firstRow,
       lastRow,
     }),
     chartSeries({
       index: 3,
-      name: "P90",
       column: "F",
       colour: COLORS.green,
       marker: "triangle",
       dashed: true,
-      ages,
-      values: points.map((point) => point.p90WeightKg),
       firstRow,
       lastRow,
     }),
@@ -251,19 +226,12 @@ function growthChartXml(report: GrowthPerformanceReport): string {
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<c:chartSpace xmlns:c="' +
     CHART_NS +
-    '" xmlns:a="' +
-    DRAWING_MAIN_NS +
-    '" xmlns:r="' +
-    OFFICE_REL_NS +
     '">' +
-    '<c:date1904 val="0"/><c:lang val="en-US"/><c:roundedCorners val="0"/>' +
     "<c:chart>" +
-    richText("Observed growth curve", 1400, true) +
-    '<c:autoTitleDeleted val="0"/>' +
-    "<c:plotArea><c:layout/>" +
-    '<c:lineChart><c:grouping val="standard"/><c:varyColors val="0"/>' +
+    chartTitle("Observed growth curve") +
+    "<c:plotArea>" +
+    '<c:lineChart><c:grouping val="standard"/>' +
     series +
-    '<c:dLbls><c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>' +
     '<c:axId val="' +
     categoryAxisId +
     '"/><c:axId val="' +
@@ -271,29 +239,26 @@ function growthChartXml(report: GrowthPerformanceReport): string {
     '"/></c:lineChart>' +
     '<c:catAx><c:axId val="' +
     categoryAxisId +
-    '"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/>' +
-    richText("Age (days)", 1000, false) +
-    '<c:numFmt formatCode="0" sourceLinked="0"/><c:majorTickMark val="out"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>' +
+    '"/><c:scaling><c:orientation val="minMax"/></c:scaling>' +
+    '<c:axPos val="l"/>' +
+    chartTitle("Age (days)") +
+    '<c:majorTickMark val="none"/><c:minorTickMark val="none"/>' +
     '<c:crossAx val="' +
     valueAxisId +
-    '"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/></c:catAx>' +
+    '"/><c:lblOffset val="100"/></c:catAx>' +
     '<c:valAx><c:axId val="' +
     valueAxisId +
-    '"/><c:scaling><c:orientation val="minMax"/><c:min val="0"/></c:scaling><c:delete val="0"/><c:axPos val="l"/>' +
-    '<c:majorGridlines><c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="' +
-    COLORS.line +
-    '"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>' +
-    richText("Liveweight (kg)", 1000, false) +
-    '<c:numFmt formatCode="0.0" sourceLinked="0"/><c:majorTickMark val="out"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>' +
+    '"/><c:scaling><c:orientation val="minMax"/><c:min val="0"/></c:scaling>' +
+    '<c:axPos val="l"/><c:majorGridlines/>' +
+    chartTitle("Liveweight (kg)") +
+    '<c:majorTickMark val="none"/><c:minorTickMark val="none"/>' +
     '<c:crossAx val="' +
     categoryAxisId +
-    '"/><c:crosses val="autoZero"/><c:crossBetween val="between"/></c:valAx>' +
+    '"/></c:valAx>' +
     "</c:plotArea>" +
-    '<c:legend><c:legendPos val="b"/><c:layout/><c:overlay val="0"/></c:legend>' +
-    '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/><c:showDLblsOverMax val="0"/>' +
-    "</c:chart>" +
-    '<c:printSettings><c:headerFooter/><c:pageMargins b="0.75" l="0.7" r="0.7" t="0.75" header="0.3" footer="0.3"/><c:pageSetup/></c:printSettings>' +
-    "</c:chartSpace>"
+    '<c:legend><c:legendPos val="b"/></c:legend>' +
+    '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/>' +
+    "</c:chart></c:chartSpace>"
   );
 }
 
@@ -302,14 +267,14 @@ function drawingXml(chartRelationshipId: string): string {
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<xdr:wsDr xmlns:xdr="' +
     DRAWING_NS +
-    '" xmlns:a="' +
-    DRAWING_MAIN_NS +
     '">' +
-    "<xdr:twoCellAnchor>" +
+    "<xdr:oneCellAnchor>" +
     "<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>22</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>" +
-    "<xdr:to><xdr:col>7</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>45</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>" +
-    '<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="2" name="Observed growth curve"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>' +
-    '<a:graphic><a:graphicData uri="' +
+    '<xdr:ext cx="7920000" cy="3600000"/>' +
+    "<xdr:graphicFrame><xdr:nvGraphicFramePr><xdr:cNvPr id=\"1\" name=\"Observed growth curve\"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/>" +
+    '<a:graphic xmlns:a="' +
+    DRAWING_MAIN_NS +
+    '"><a:graphicData uri="' +
     CHART_NS +
     '"><c:chart xmlns:c="' +
     CHART_NS +
@@ -319,8 +284,26 @@ function drawingXml(chartRelationshipId: string): string {
     escapeXml(chartRelationshipId) +
     '"/></a:graphicData></a:graphic>' +
     "</xdr:graphicFrame><xdr:clientData/>" +
-    "</xdr:twoCellAnchor></xdr:wsDr>"
+    "</xdr:oneCellAnchor></xdr:wsDr>"
   );
+}
+
+function insertWorksheetDrawing(
+  worksheetXml: string,
+  relationshipId: string,
+): string {
+  const drawing = '<drawing r:id="' + escapeXml(relationshipId) + '"/>';
+  const laterElements =
+    /<(?:legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)\b/;
+  const match = laterElements.exec(worksheetXml);
+  if (match) {
+    return (
+      worksheetXml.slice(0, match.index) +
+      drawing +
+      worksheetXml.slice(match.index)
+    );
+  }
+  return worksheetXml.replace("</worksheet>", drawing + "</worksheet>");
 }
 
 /**
@@ -402,16 +385,11 @@ export async function addNativeGrowthChart(
     sheetRelsXml,
     drawingRelationshipId,
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing",
-    "../drawings/drawing" + drawingNumber + ".xml",
+    "/xl/drawings/drawing" + drawingNumber + ".xml",
   );
 
   sheetXml = withRelationshipNamespace(sheetXml);
-  sheetXml = sheetXml.replace(
-    "</worksheet>",
-    '<drawing r:id="' +
-      drawingRelationshipId +
-      '"/></worksheet>',
-  );
+  sheetXml = insertWorksheetDrawing(sheetXml, drawingRelationshipId);
 
   const chartRelationshipId = "rId1";
   const drawingRels =
@@ -420,7 +398,7 @@ export async function addNativeGrowthChart(
     REL_NS +
     '"><Relationship Id="' +
     chartRelationshipId +
-    '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart' +
+    '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="/xl/charts/chart' +
     chartNumber +
     '.xml"/></Relationships>';
 
