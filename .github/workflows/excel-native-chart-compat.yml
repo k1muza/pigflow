@@ -1,0 +1,64 @@
+name: Excel native chart compatibility
+
+on:
+  push:
+    branches:
+      - interactive-pedigree-graph
+    paths:
+      - .github/workflows/excel-native-chart-compat.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: npm run build
+      - name: Generate growth workbook
+        run: |
+          cat > src/lib/reports/excel-compat.generated.test.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { describe, it } from "vitest";
+          import { cloneDefaultConfig } from "../config";
+          import { simulatePlan } from "../simulation";
+          import { planResultOf } from "../simulation-result";
+          import { reportById } from "./index";
+
+          describe("Excel compatibility fixture", () => {
+            it("writes the growth workbook for an independent reader", async () => {
+              const config = cloneDefaultConfig();
+              config.project.months = 18;
+              const result = planResultOf(simulatePlan(config));
+              const bytes = await reportById("growth-performance").build(
+                result,
+                new Date("2027-01-01T00:00:00Z"),
+              );
+              writeFileSync("/tmp/growth-performance.xlsx", Buffer.from(bytes));
+            }, 120_000);
+          });
+          EOF
+          npm test -- --run src/lib/reports/excel-compat.generated.test.ts src/lib/reports/reports.test.ts
+      - name: Validate chart with openpyxl
+        run: |
+          python -m pip install --disable-pip-version-check openpyxl==3.1.5
+          python - <<'PY'
+          from openpyxl import load_workbook
+          path = "/tmp/growth-performance.xlsx"
+          wb = load_workbook(path, data_only=False)
+          ws = wb["Weight by age"]
+          assert len(ws._charts) == 1, f"expected 1 chart, found {len(ws._charts)}"
+          chart = ws._charts[0]
+          assert len(chart.ser) == 4, f"expected 4 series, found {len(chart.ser)}"
+          assert chart.title is not None
+          assert chart.x_axis.title is not None
+          assert chart.y_axis.title is not None
+          print("openpyxl accepted the workbook and preserved the native chart")
+          PY
