@@ -318,11 +318,13 @@ function attachCareToDays(
 }
 
 /**
- * Re-runs a plan only when somebody asks for one animal's sheet.
+ * Builds one animal's detailed trace on a cache miss.
  *
  * Keeping one row per animal per day in the normal simulation result would make
  * every page carry a very large payload for an export button most people never
- * press. This trace instead follows just the selected tag, off-thread.
+ * press. This trace therefore follows just the selected tag, off-thread. The
+ * browser-side Dexie cache keeps the finished sheet, so asking for the same pig
+ * and the same plan again does not re-run the farm.
  */
 export function pigDatasheetFor(input: PlannerConfig, tag: string): PigDatasheet {
   const run = traceRun(input);
