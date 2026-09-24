@@ -159,7 +159,8 @@ function mortalityResultOf(simulation: PlanSimulation): MortalityResult {
       if (animal.type === "piglet" || animal.type === "weaner" || animal.type === "grower" || animal.type === "finisher") opening[animal.type] += 1;
     }
   } else {
-    opening.piglet = config.stock.piglets;
+    // Legacy aggregate opening stock has no piglet count; opening piglets are
+    // represented explicitly in stock.starting when they exist.
     opening.weaner = config.stock.weaners;
     opening.grower = config.stock.growers;
     opening.finisher = config.stock.finishers;
