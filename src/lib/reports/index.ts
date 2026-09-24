@@ -19,6 +19,7 @@ import {
 } from "./housing-needs";
 import { addMortalitySheet, mortalityReport } from "./mortality";
 import { addGrowthPerformanceSheets, growthPerformanceReport } from "./growth-performance";
+import { addNativeGrowthChart } from "./native-chart";
 import {
   addProfitAndLossSheets,
   profitAndLossReport,
@@ -61,10 +62,27 @@ export type ReportId =
  * Built from the same row definitions the worksheets are written from, so the
  * preview is the document rather than a description of it.
  */
+export type ReportPreviewChart = {
+  type: "line";
+  title: string;
+  description: string;
+  xKey: string;
+  xLabel: string;
+  yLabel: string;
+  series: {
+    key: string;
+    label: string;
+    colour: string;
+    dashed?: boolean;
+  }[];
+  data: Array<Record<string, number>>;
+};
+
 export type ReportPreview = {
   facts: { label: string; value: string; note?: string }[];
   columns: string[];
   lines: PreviewLine[];
+  chart?: ReportPreviewChart;
   /** What the panel is showing, and what the download adds to it. */
   note: string;
 };
@@ -449,6 +467,30 @@ export const REPORTS: readonly ReportDefinition[] = [
           },
         ],
         columns: ["Sample", "Mean kg", "P10", "Median", "P90", "CV"],
+        chart: {
+          type: "line",
+          title: "Observed growth curve",
+          description:
+            "Observed liveweight distribution by age. P10 and P90 show the spread around the median and mean.",
+          xKey: "ageDays",
+          xLabel: "Age (days)",
+          yLabel: "Liveweight (kg)",
+          series: [
+            { key: "p10", label: "P10", colour: "#667085", dashed: true },
+            { key: "median", label: "Median", colour: "#17324D" },
+            { key: "mean", label: "Mean", colour: "#2A78D6" },
+            { key: "p90", label: "P90", colour: "#18794E", dashed: true },
+          ],
+          data: report.checkpoints
+            .filter((point) => point.sampleSize > 0)
+            .map((point) => ({
+              ageDays: point.ageDays,
+              p10: point.p10WeightKg,
+              median: point.medianWeightKg,
+              mean: point.meanWeightKg,
+              p90: point.p90WeightKg,
+            })),
+        },
         lines: report.checkpoints.map((point) => ({
           kind: "line" as const,
           label: "Age " + point.ageDays + " days",
@@ -474,7 +516,8 @@ export const REPORTS: readonly ReportDefinition[] = [
         generatedAt,
       );
       await addGrowthPerformanceSheets(workbook, report, generatedAt);
-      return workbookBytes(workbook);
+      const bytes = await workbookBytes(workbook);
+      return addNativeGrowthChart(bytes, report);
     },
   }
 ];
