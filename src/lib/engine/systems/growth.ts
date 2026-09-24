@@ -502,6 +502,7 @@ export function runGrowthAndSales(world: World): void {
       sow.breedingValue = pig.costs.total;
       world.books.promoteGilt(pig.costs.total);
       world.sows.push(sow);
+      world.pedigree.remember(sow);
       pig.alive = false;
       pig.exitDay = day;
       freeSowPlaces -= 1;

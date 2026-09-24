@@ -14,6 +14,7 @@ import {
   hasDetailedStartingStock,
   openingCounts,
   plannerSchema,
+  requiredBoarTeamSize,
   workersNeeded,
   type PlannerConfig,
   type Vaccination,
@@ -58,6 +59,7 @@ import {
   type FarmValuation,
   type StageValues,
 } from "./accounting";
+import { PedigreeRegistry } from "../pedigree";
 import { countFarmBuilt } from "./instrument";
 import { seedStartingStock, type StartingStockHost } from "./starting-stock";
 import { emptyTotals, Ledger, type CategoryTotals, type LedgerCategory } from "./ledger";
@@ -171,6 +173,8 @@ export type DayRecord = {
   movedToFinisher: number;
   pigletDeaths: number;
   growingDeaths: number;
+  /** Exact production stage at death, retained for stage-mortality reporting. */
+  deathsByStage: Record<PigStage, number>;
   breedingDeaths: number;
   sowsCulled: number;
   giltsPurchased: number;
@@ -606,6 +610,8 @@ export class Farm {
   sows: Sow[] = [];
   boars: Boar[] = [];
   pigs: GrowingPig[] = [];
+  /** Every genetic individual that existed at any point in this run. */
+  readonly pedigree = new PedigreeRegistry();
 
   /** Index of the last simulated day; -1 before the start date. */
   day = -1;
@@ -682,6 +688,8 @@ export class Farm {
     );
     this.mortality = new MortalityScheduler(this.config);
     this.seedHerd();
+    // The live arrays are later pruned; the pedigree is deliberately not.
+    this.pedigree.rememberMany([...this.sows, ...this.boars, ...this.pigs], "starting");
   }
 
   /** Calendar date for a simulation day index. */
@@ -952,6 +960,7 @@ export class Farm {
       ...this.growthDraw(tag),
     });
     this.noteBirth(piglet.generation);
+    this.pedigree.remember(piglet, "born");
     return piglet;
   }
 
@@ -1186,6 +1195,7 @@ export class Farm {
       movedToFinisher: 0,
       pigletDeaths: 0,
       growingDeaths: 0,
+      deathsByStage: { piglet: 0, weaner: 0, grower: 0, finisher: 0, gilt: 0 },
       breedingDeaths: 0,
       sowsCulled: 0,
       giltsPurchased: 0,
@@ -1279,10 +1289,21 @@ export class Farm {
     // Noted on the way out, because after the next three lines there is nobody
     // left to ask. One day's worth, replaced every morning.
     const departures: AnimalDeparture[] = [];
+    for (const pig of this.pigs) {
+      if (!pig.alive) {
+        departures.push({
+          id: pig.id,
+          day,
+          reason: pig.exitReason,
+          stage: pig.stage,
+          ageDays: pig.ageDays(day),
+          weightKg: pig.weightKg,
+        });
+      }
+    }
     const note = (animal: { id: string; alive: boolean; exitReason: ExitReason | null }) => {
       if (!animal.alive) departures.push({ id: animal.id, day, reason: animal.exitReason });
     };
-    for (const pig of this.pigs) note(pig);
     for (const sow of this.sows) note(sow);
     for (const boar of this.boars) note(boar);
     this.departures = departures;
@@ -2034,6 +2055,7 @@ export class Farm {
         sow.breedingValue = pig.costs.total;
         this.books.promoteGilt(pig.costs.total);
         this.sows.push(sow);
+        this.pedigree.remember(sow);
         pig.alive = false;
         pig.exitDay = day;
         freeSowPlaces -= 1;
@@ -2126,6 +2148,7 @@ export class Farm {
       pig.leave(day, "died");
       this.absorbLoss(pig);
       this.noteExit(pig.generation, false);
+      record.deathsByStage[pig.stage] += 1;
       if (pig.stage === "piglet") record.pigletDeaths += 1;
       else record.growingDeaths += 1;
     }
@@ -2187,6 +2210,7 @@ export class Farm {
           this.noteExit(piglet.generation, false);
         }
         record.pigletDeaths += orphans.length;
+        record.deathsByStage.piglet += orphans.length;
         this.lifetime.pigletDeaths += orphans.length;
       }
       sow.litter = [];
@@ -2234,9 +2258,10 @@ export class Farm {
     }
     this.lifetime.boarsRotated += record.boarsRotated;
 
-    // Boars cannot be bred out of the market pigs, so the team is always kept up
-    // to the planned number — without one, the whole herd stops breeding.
-    const boarsWanted = openingCounts(config).boar;
+    // Scale natural-service capacity with the live breeding herd rather than
+    // freezing the boar team at the opening-stock count.
+    const breedingFemales = this.sows.filter((sow) => sow.alive).length;
+    const boarsWanted = requiredBoarTeamSize(config, breedingFemales);
     const boarsAlive = this.boars.filter((boar) => boar.alive).length;
     for (let i = boarsAlive; i < boarsWanted; i += 1) {
       const tag = this.nextBoarTag();
@@ -2252,8 +2277,14 @@ export class Farm {
       boar.breedingValue = config.herd.boarPurchaseCost;
       this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
+      this.pedigree.remember(boar, "purchased", day);
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
-      this.log(day, date, "purchase", "Replacement boar " + tag + " bought in");
+      this.log(
+        day,
+        date,
+        "purchase",
+        "Capacity boar " + tag + " bought in: breeding herd now needs " + boarsWanted + " boars",
+      );
     }
 
     // Once a boar's own daughters are coming to service, one boar is no longer a
@@ -2273,6 +2304,7 @@ export class Farm {
       boar.breedingValue = config.herd.boarPurchaseCost;
       this.books.buyBreedingStock(config.herd.boarPurchaseCost);
       this.boars.push(boar);
+      this.pedigree.remember(boar, "purchased", day);
       this.ledger.accrue("breeding-stock", config.herd.boarPurchaseCost);
       this.log(
         day,
@@ -2304,6 +2336,7 @@ export class Farm {
       gilt.breedingValue = config.herd.giltPurchaseCost;
       this.books.buyBreedingStock(config.herd.giltPurchaseCost);
       this.sows.push(gilt);
+      this.pedigree.remember(gilt, "purchased", day);
       this.ledger.accrue("breeding-stock", config.herd.giltPurchaseCost);
     }
     record.giltsPurchased = shortfall;

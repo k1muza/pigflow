@@ -27,6 +27,7 @@ import {
   HeartPulse,
   LoaderCircle,
   LogOut,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   PencilLine,
@@ -97,6 +98,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "simulator", label: "Farm simulator", icon: CalendarClock },
+  { id: "pedigree", label: "Pedigree", icon: Network },
   { id: "money", label: "Financial planning", icon: WalletCards },
   { id: "method", label: "Method & sources", icon: BookOpen },
   { id: "cashflow", label: "Cashflow", icon: TableProperties },
@@ -469,12 +471,33 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     usePlans();
   const [exporting, setExporting] = useState(false);
   const [inputsOpen, setInputsOpen] = useState(false);
+  /**
+   * Farm Inputs edits a private copy. The project config — and therefore the
+   * simulation key — changes exactly once, when Save is pressed.
+   */
+  const [inputDraft, setInputDraft] = useState<PlannerConfig | null>(null);
 
   // The plan the address names. Until the shared plans arrive there is nothing
   // to find, and the starting defaults stand in so the work below still has a
   // config to run on — none of it is shown, because nothing is shown until then.
   const open = workspace.projects.find((project) => project.id === projectId) ?? null;
   const config = (open ?? activeProject(workspace)).config;
+  const draftConfig = inputDraft ?? config;
+  const draftMetrics = useMemo(() => getModelMetrics(draftConfig), [draftConfig]);
+  const draftValidation = useMemo(
+    () => plannerSchema.safeParse(draftConfig),
+    [draftConfig],
+  );
+
+  function openInputsDialog(source: PlannerConfig = config) {
+    setInputDraft(structuredClone(source));
+    setInputsOpen(true);
+  }
+
+  function closeInputsDialog() {
+    setInputsOpen(false);
+    setInputDraft(null);
+  }
 
   /** Remembers which plan was last open, so that "/" can go back to it. */
   useEffect(() => {
@@ -500,19 +523,10 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
   }
 
   /**
-   * The inputs stay on the live config and the farm runs against a deferred
-   * copy.
-   *
-   * Kept after the move into a worker, for a reason that changed rather than
-   * went away. It used to be what stopped every keystroke blocking the page for
-   * a few hundred milliseconds; the worker does that now.
-   *
-   * What it still does is its actual job: keep React free to go on painting the
-   * charts, the tables and the calendar off the plan already in hand while the
-   * inputs are being changed. It is not a debounce and is not relied on as one
-   * — it coalesces updates only while React is busy, and somebody typing at a
-   * human pace gives it time to settle between every digit. Not running a farm
-   * per keystroke is `usePlanSimulation`'s doing; see `SETTLE_MS` there.
+   * Farm Inputs no longer touches this config while somebody types: the modal
+   * owns a draft and commits once on Save. A deferred copy is still useful for
+   * the few controls elsewhere in the planner that can update the plan directly,
+   * keeping React free to paint the last finished result while they settle.
    */
   const settledConfig = useDeferredValue(config);
   const validation = useMemo(() => plannerSchema.safeParse(settledConfig), [settledConfig]);
@@ -567,12 +581,35 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     }));
   }
 
+  function updateInputDraft<S extends PlannerSection, K extends keyof PlannerConfig[S]>(
+    section: S,
+    key: K,
+    value: PlannerConfig[S][K],
+  ) {
+    setInputDraft((current) => {
+      const base = current ?? structuredClone(config);
+      return {
+        ...base,
+        [section]: { ...base[section], [key]: value },
+      };
+    });
+  }
+
+  function saveInputs() {
+    if (!draftValidation.success) {
+      window.alert("One or more farm inputs are outside the supported range.");
+      return;
+    }
+    setConfig(draftValidation.data);
+    closeInputsDialog();
+  }
+
   function resetPlan() {
-    if (window.confirm("Reset this plan's inputs to the evidence-based starter assumptions?")) {
-      setConfig((current) => {
+    if (window.confirm("Reset this draft to the evidence-based starter assumptions?")) {
+      setInputDraft((current) => {
         const fresh = newPlanConfig();
         // Resetting the numbers is not renaming the plan.
-        fresh.project.name = current.project.name;
+        fresh.project.name = (current ?? config).project.name;
         return fresh;
       });
     }
@@ -580,20 +617,22 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
 
   function applyProductionCalibration() {
     const confirmed = window.confirm(
-      "Apply the 2026 production calibration to this plan? " +
+      "Apply the 2026 production calibration to this draft? " +
         "This updates biological/feed coefficients only. It does not change " +
         "your weaning age, sale price, feed prices, housing, stock or other costs. " +
-        "Duplicate the plan first if you want to keep the current assumptions for comparison.",
+        "Nothing is committed until you press Save.",
     );
     if (!confirmed) return;
-    setConfig((current) => applyProductionCalibration2026(current));
+    setInputDraft((current) =>
+      applyProductionCalibration2026(current ?? structuredClone(config)),
+    );
   }
 
   function exportInputsJson() {
     if (!open) return;
     downloadFile(
-      buildInputsJson(config),
-      inputsJsonFilename(config),
+      buildInputsJson(draftConfig),
+      inputsJsonFilename(draftConfig),
       "application/json;charset=utf-8",
     );
   }
@@ -604,7 +643,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     setWorkspace(next);
     router.push(planHref(next.activeId));
     // A plan you have just started is a plan you are about to describe.
-    setInputsOpen(true);
+    openInputsDialog(activeProject(next).config);
   }
 
   function duplicatePlan() {
@@ -663,7 +702,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
     update,
     exporting,
     exportExcel,
-    openInputs: () => setInputsOpen(true),
+    openInputs: () => openInputsDialog(),
     href: (to) => planHref(projectId, to),
   };
 
@@ -784,7 +823,7 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
               <ThemeToggle />
               <button
                 type="button"
-                onClick={() => setInputsOpen(true)}
+                onClick={() => openInputsDialog()}
                 disabled={!open}
                 aria-label="Open farm inputs"
                 className="inline-flex items-center gap-2 rounded-lg border border-hairline px-2.5 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40 sm:px-3"
@@ -808,39 +847,68 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <Dialog open={inputsOpen} onOpenChange={setInputsOpen}>
+        <Dialog
+          open={inputsOpen}
+          onOpenChange={(nextOpen) => {
+            if (nextOpen) openInputsDialog();
+            else closeInputsDialog();
+          }}
+        >
           <DialogContent className="flex h-[calc(100dvh-2rem)] max-h-[920px] max-w-[min(1280px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0">
             <DialogHeader className="shrink-0 border-b border-hairline px-5 py-4 pr-14">
-              <DialogTitle>Farm inputs - {config.project.name}</DialogTitle>
+              <DialogTitle>Farm inputs - {draftConfig.project.name}</DialogTitle>
             </DialogHeader>
             <div className="min-h-0 flex-1 overflow-hidden">
-              <FarmInputs config={config} update={update} metrics={modelMetrics} />
+              <FarmInputs
+                config={draftConfig}
+                update={updateInputDraft}
+                metrics={draftMetrics}
+              />
             </div>
-            <DialogFooter className="shrink-0 border-t border-hairline px-5 py-3 sm:justify-start">
-              <button
-                type="button"
-                onClick={exportInputsJson}
-                disabled={!open}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-3 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:opacity-40"
-              >
-                <Download size={13} /> Export inputs as JSON
-              </button>
-              <button
-                type="button"
-                onClick={applyProductionCalibration}
-                disabled={!open}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
-              >
-                <Gauge size={13} /> Apply 2026 production calibration
-              </button>
-              <button
-                type="button"
-                onClick={resetPlan}
-                disabled={!open}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
-              >
-                <RefreshCcw size={13} /> Reset farm inputs
-              </button>
+            <DialogFooter className="shrink-0 flex-wrap border-t border-hairline px-5 py-3">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={exportInputsJson}
+                  disabled={!open}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
+                >
+                  <Download size={13} /> Export draft JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={applyProductionCalibration}
+                  disabled={!open}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
+                >
+                  <Gauge size={13} /> Apply 2026 production calibration
+                </button>
+                <button
+                  type="button"
+                  onClick={resetPlan}
+                  disabled={!open}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-3 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink disabled:opacity-40"
+                >
+                  <RefreshCcw size={13} /> Reset draft
+                </button>
+              </div>
+              <div className="ml-auto flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeInputsDialog}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-hairline px-4 py-2 text-xs font-medium text-ink-muted transition hover:bg-raised hover:text-ink"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveInputs}
+                  disabled={!open || !draftValidation.success}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-ink px-4 py-2 text-xs font-medium text-surface transition hover:bg-ink-muted disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Save size={13} /> Save
+                </button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

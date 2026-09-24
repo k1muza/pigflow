@@ -1,4 +1,5 @@
 import { Workbook } from "exceljs";
+import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 
 import { currentProfitOrLoss, inventoryAdjustedProfit } from "../accounts";
@@ -10,6 +11,7 @@ import { balanceSheetReport } from "./balance-sheet";
 import { fundingPlanReport } from "./funding-plan";
 import { herdDevelopmentReport } from "./herd-development";
 import { housingNeedsReport } from "./housing-needs";
+import { growthPerformanceReport } from "./growth-performance";
 import { monthPeriods, openingWorthOf, wholePlanPeriod, yearPeriods } from "./periods";
 import { profitAndLossReport, tradingStatement } from "./profit-and-loss";
 import { REPORTS, reportFilename, reportById } from "./index";
@@ -62,13 +64,15 @@ const byEngine = {
 const PLACES = 6;
 
 describe("the report catalogue", () => {
-  it("offers the five planning documents, each able to write its own file", () => {
+  it("offers the planning documents, each able to write its own file", () => {
     expect(REPORTS.map((report) => report.id)).toEqual([
       "profit-and-loss",
       "balance-sheet",
       "funding-plan",
       "herd-development",
       "housing-needs",
+      "mortality",
+      "growth-performance",
     ]);
     for (const report of REPORTS) {
       expect(report.name.length).toBeGreaterThan(0);
@@ -673,6 +677,70 @@ describe("AI that nobody asked for", () => {
       asPolicy.find((entry) => entry.detail.includes("services were by bought-in semen"))!.title,
     ).toBe("Part of the herd is served by AI");
   });
+});
+
+describe("the growth performance report", () => {
+  const report = growthPerformanceReport(plan);
+
+  it("uses observed animal weights rather than only configured gains", () => {
+    expect(report.checkpoints.length).toBeGreaterThan(5);
+    expect(report.checkpoints.some((point) => point.sampleSize > 0)).toBe(true);
+    expect(report.stages.some((stage) => stage.completed > 0)).toBe(true);
+    expect(report.market.sold).toBeGreaterThan(0);
+  });
+
+  it("keeps the percentile ordering valid at every populated age", () => {
+    for (const point of report.checkpoints.filter((row) => row.sampleSize > 0)) {
+      expect(point.p10WeightKg).toBeLessThanOrEqual(point.medianWeightKg);
+      expect(point.medianWeightKg).toBeLessThanOrEqual(point.p90WeightKg);
+      expect(point.meanWeightKg).toBeGreaterThan(0);
+    }
+  });
+
+  it("previews the observed curve with the same four series", () => {
+    const preview = reportById("growth-performance").preview(plan);
+    expect(preview.chart?.type).toBe("line");
+    expect(preview.chart?.series.map((series) => series.label)).toEqual([
+      "P10",
+      "Median",
+      "Mean",
+      "P90",
+    ]);
+    expect(preview.chart?.data).toHaveLength(
+      report.checkpoints.filter((point) => point.sampleSize > 0).length,
+    );
+  });
+
+  it("writes a native Excel line chart tied to the worksheet cells", async () => {
+    const bytes = await reportById("growth-performance").build(plan, GENERATED_AT);
+    const zip = await JSZip.loadAsync(bytes);
+
+    const chartPath = Object.keys(zip.files).find((path) =>
+      /^xl\/charts\/chart\d+\.xml$/.test(path),
+    );
+    expect(chartPath).toBeTruthy();
+
+    const chartXml = await zip.file(chartPath!)!.async("string");
+    expect(chartXml).toContain("<c:lineChart>");
+    expect(chartXml).toContain("Observed growth curve");
+    expect(chartXml).toContain("Age (days)");
+    expect(chartXml).toContain("Liveweight (kg)");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!D6");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!E6");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!C6");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!F6");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!$A$7:");
+
+    const drawingPath = Object.keys(zip.files).find((path) =>
+      /^xl\/drawings\/drawing\d+\.xml$/.test(path),
+    );
+    expect(drawingPath).toBeTruthy();
+
+    // This report used to draw a PNG. A native chart needs no workbook media.
+    expect(
+      Object.keys(zip.files).filter((path) => path.startsWith("xl/media/")),
+    ).toHaveLength(0);
+  }, 60_000);
 });
 
 describe("the generated workbooks", () => {

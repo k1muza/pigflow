@@ -17,6 +17,9 @@ import {
   housingNeedsReport,
   HOUSING_ROWS,
 } from "./housing-needs";
+import { addMortalitySheet, mortalityReport } from "./mortality";
+import { addGrowthPerformanceSheets, growthPerformanceReport } from "./growth-performance";
+import { addNativeGrowthChart } from "./native-chart";
 import {
   addProfitAndLossSheets,
   profitAndLossReport,
@@ -48,7 +51,9 @@ export type ReportId =
   | "balance-sheet"
   | "funding-plan"
   | "herd-development"
-  | "housing-needs";
+  | "housing-needs"
+  | "mortality"
+  | "growth-performance";
 
 /**
  * A report as the page shows it before anything is downloaded: the headline
@@ -57,10 +62,27 @@ export type ReportId =
  * Built from the same row definitions the worksheets are written from, so the
  * preview is the document rather than a description of it.
  */
+export type ReportPreviewChart = {
+  type: "line";
+  title: string;
+  description: string;
+  xKey: string;
+  xLabel: string;
+  yLabel: string;
+  series: {
+    key: string;
+    label: string;
+    colour: string;
+    dashed?: boolean;
+  }[];
+  data: Array<Record<string, number>>;
+};
+
 export type ReportPreview = {
   facts: { label: string; value: string; note?: string }[];
   columns: string[];
   lines: PreviewLine[];
+  chart?: ReportPreviewChart;
   /** What the panel is showing, and what the download adds to it. */
   note: string;
 };
@@ -385,6 +407,119 @@ export const REPORTS: readonly ReportDefinition[] = [
       return workbookBytes(workbook);
     },
   },
+  {
+    id: "mortality",
+    name: "Mortality by Stage",
+    description: "Production losses by piglet, weaner, grower and finisher stage — showing stage entries, deaths, observed mortality and the configured whole-stage assumption.",
+    format: "xlsx",
+    slug: "mortality-by-stage",
+    preview: (result) => {
+      const report = mortalityReport(result);
+      const worst = [...report.rows].sort((a, b) => b.observedRatePct - a.observedRatePct)[0];
+      return {
+        facts: [
+          { label: "Production-stage deaths", value: count(report.totalDeaths, 0) },
+          { label: "Highest observed stage", value: worst?.label ?? "—", note: worst ? worst.observedRatePct.toFixed(1) + "% observed" : undefined },
+          { label: "Piglets entering pre-weaning", value: count(report.rows.find((row) => row.stage === "piglet")?.entered ?? 0, 0) },
+          { label: "Finishers entering stage", value: count(report.rows.find((row) => row.stage === "finisher")?.entered ?? 0, 0) },
+        ],
+        columns: ["Entered", "Deaths", "Observed", "Configured", "Variance"],
+        lines: report.rows.map((row) => ({ kind: "line" as const, label: row.label, cells: [count(row.entered, 0), count(row.deaths, 0), row.observedRatePct.toFixed(1) + "%", row.configuredRatePct.toFixed(1) + "%", (row.variancePctPoints >= 0 ? "+" : "") + row.variancePctPoints.toFixed(1) + " pp"] })),
+        note: "Observed mortality is deaths divided by animals entering that stage during the plan, including opening stock already in that stage. Pigs entering near the end of the horizon may not yet have completed the stage's full mortality exposure.",
+      };
+    },
+    build: async (result, generatedAt) => {
+      const workbook = await workbookFor(result.config, "mortality by stage", "Stage-based production mortality generated from the PigFlow animal-level simulation.", generatedAt);
+      addMortalitySheet(workbook, mortalityReport(result), generatedAt);
+      return workbookBytes(workbook);
+    },
+  },
+  {
+    id: "growth-performance",
+    name: "Growth Performance Report",
+    description:
+      "Observed weight-for-age distribution, stage ADG and market-age performance from the simulated herd — so the realised growth curve can be assessed rather than inferred from configured gains.",
+    format: "xlsx",
+    slug: "growth-performance",
+    preview: (result) => {
+      const report = growthPerformanceReport(result);
+      const market = report.market;
+      return {
+        facts: [
+          {
+            label: "Mean market age",
+            value: market.sold > 0 ? market.meanAgeDays.toFixed(0) + " days" : "No sales",
+            note: market.sold > 0 ? market.p10AgeDays.toFixed(0) + "–" + market.p90AgeDays.toFixed(0) + " days (P10–P90)" : undefined,
+          },
+          {
+            label: "Mean sale weight",
+            value: market.sold > 0 ? market.meanWeightKg.toFixed(1) + " kg" : "No sales",
+            note: "Configured target " + report.saleWeightKg.toFixed(1) + " kg",
+          },
+          {
+            label: "Mean lifetime ADG",
+            value: market.meanLifetimeAdgKg > 0 ? (market.meanLifetimeAdgKg * 1000).toFixed(0) + " g/day" : "—",
+          },
+          {
+            label: "Market-age spread",
+            value: market.sold > 0 ? (market.p90AgeDays - market.p10AgeDays).toFixed(0) + " days" : "—",
+            note: "P10 to P90",
+          },
+        ],
+        columns: ["Sample", "Mean kg", "P10", "Median", "P90", "CV"],
+        chart: {
+          type: "line",
+          title: "Observed growth curve",
+          description:
+            "Observed liveweight distribution by age. P10 and P90 show the spread around the median and mean.",
+          xKey: "ageDays",
+          xLabel: "Age (days)",
+          yLabel: "Liveweight (kg)",
+          series: [
+            { key: "p10", label: "P10", colour: "#667085", dashed: true },
+            { key: "median", label: "Median", colour: "#17324D" },
+            { key: "mean", label: "Mean", colour: "#2A78D6" },
+            { key: "p90", label: "P90", colour: "#18794E", dashed: true },
+          ],
+          data: report.checkpoints
+            .filter((point) => point.sampleSize > 0)
+            .map((point) => ({
+              ageDays: point.ageDays,
+              p10: point.p10WeightKg,
+              median: point.medianWeightKg,
+              mean: point.meanWeightKg,
+              p90: point.p90WeightKg,
+            })),
+        },
+        lines: report.checkpoints.map((point) => ({
+          kind: "line" as const,
+          label: "Age " + point.ageDays + " days",
+          cells: [
+            count(point.sampleSize, 0),
+            point.meanWeightKg.toFixed(1),
+            point.p10WeightKg.toFixed(1),
+            point.medianWeightKg.toFixed(1),
+            point.p90WeightKg.toFixed(1),
+            point.cvPct.toFixed(1) + "%",
+          ],
+        })),
+        note:
+          "These are observed weights from the simulated animals at fixed ages. The workbook also shows completed-stage observed ADG versus configured ADG and the distribution of age and weight at market.",
+      };
+    },
+    build: async (result, generatedAt) => {
+      const report = growthPerformanceReport(result);
+      const workbook = await workbookFor(
+        result.config,
+        "growth performance",
+        "Observed growth performance generated from the PigFlow animal-level simulation.",
+        generatedAt,
+      );
+      await addGrowthPerformanceSheets(workbook, report, generatedAt);
+      const bytes = await workbookBytes(workbook);
+      return addNativeGrowthChart(bytes, report);
+    },
+  }
 ];
 
 export function reportById(id: ReportId): ReportDefinition {

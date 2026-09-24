@@ -137,6 +137,10 @@ export class Engine {
     });
 
     seedHerd(this.world);
+    this.world.pedigree.rememberMany(
+      [...this.world.sows, ...this.world.boars, ...this.world.pigs],
+      "starting",
+    );
     // A farm does not open its gates with empty bins. The opening order is sized
     // off what the stock actually standing here wants today, which is a thing
     // the farm can see by looking at it rather than a forecast of the horizon.
@@ -209,10 +213,21 @@ export class Engine {
     // Noted on the way out, because after the next three lines there is nobody
     // left to ask. One day's worth, replaced every morning.
     const departures: AnimalDeparture[] = [];
+    for (const pig of world.pigs) {
+      if (!pig.alive) {
+        departures.push({
+          id: pig.id,
+          day,
+          reason: pig.exitReason,
+          stage: pig.stage,
+          ageDays: pig.ageDays(day),
+          weightKg: pig.weightKg,
+        });
+      }
+    }
     const note = (animal: { id: string; alive: boolean; exitReason: ExitReason | null }) => {
       if (!animal.alive) departures.push({ id: animal.id, day, reason: animal.exitReason });
     };
-    for (const pig of world.pigs) note(pig);
     for (const sow of world.sows) note(sow);
     for (const boar of world.boars) note(boar);
     world.departures = departures;

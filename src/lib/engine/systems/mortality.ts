@@ -38,6 +38,7 @@ export function runMortality(world: World): void {
     pig.leave(day, "died");
     absorbLoss(world, pig);
     world.noteExit(pig.generation, false);
+    record.deathsByStage[pig.stage] += 1;
     if (pig.stage === "piglet") record.pigletDeaths += 1;
     else record.growingDeaths += 1;
   }
@@ -103,6 +104,7 @@ export function runMortality(world: World): void {
         world.noteExit(piglet.generation, false);
       }
       record.pigletDeaths += orphans.length;
+      record.deathsByStage.piglet += orphans.length;
       world.lifetime.pigletDeaths += orphans.length;
     }
     sow.litter = [];

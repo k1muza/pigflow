@@ -42,7 +42,15 @@ export type ExitReason = "sold" | "sold-as-gilt" | "died" | "culled";
  * has gone and cannot see what happened to them. A sale and a death empty the
  * same pen; only this tells them apart.
  */
-export type AnimalDeparture = { id: string; day: number; reason: ExitReason | null };
+export type AnimalDeparture = {
+  id: string;
+  day: number;
+  reason: ExitReason | null;
+  /** Present for growing pigs so observers can describe an exit after pruning. */
+  stage?: PigStage;
+  ageDays?: number;
+  weightKg?: number;
+};
 
 export const COST_TYPES = ["feed", "health", "heating", "transport", "purchase"] as const;
 export type CostType = (typeof COST_TYPES)[number];

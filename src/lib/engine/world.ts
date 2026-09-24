@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, format, parseISO } from "date-fns";
 
 import type { PlannerConfig } from "../config";
+import { PedigreeRegistry } from "../pedigree";
 import {
   Boar,
   CostRecord,
@@ -168,6 +169,8 @@ export type EngineDayRecord = {
   movedToFinisher: number;
   pigletDeaths: number;
   growingDeaths: number;
+  /** Exact production stage at death, retained for stage-mortality reporting. */
+  deathsByStage: Record<PigStage, number>;
   breedingDeaths: number;
   sowsCulled: number;
   giltsPurchased: number;
@@ -408,6 +411,7 @@ export function emptyDayRecord(day: number, date: string): EngineDayRecord {
     movedToFinisher: 0,
     pigletDeaths: 0,
     growingDeaths: 0,
+    deathsByStage: { piglet: 0, weaner: 0, grower: 0, finisher: 0, gilt: 0 },
     breedingDeaths: 0,
     sowsCulled: 0,
     giltsPurchased: 0,
@@ -460,6 +464,8 @@ export class World {
   sows: Sow[] = [];
   boars: Boar[] = [];
   pigs: GrowingPig[] = [];
+  /** Every genetic individual that existed at any point in this run. */
+  readonly pedigree = new PedigreeRegistry();
   /**
    * Who left the farm on the day just closed, and why.
    *

@@ -1,5 +1,6 @@
 "use client";
 
+import { readCachedArtifact, writeCachedArtifact } from "@/lib/simulation-cache";
 import {
   answerSimulationRequest,
   askSimulationWorker,
@@ -37,11 +38,30 @@ export function spawnSimulationWorker(): SimulationPort {
  * worker that stopped, or a browser that would not start one and had nothing to
  * fall back on.
  */
-export function runSimulationJob(job: SimulationJob): Promise<SimulationResponse> {
-  return askSimulationWorker(job, {
+export async function runSimulationJob(job: SimulationJob): Promise<SimulationResponse> {
+  const kind = "job-" + job.type;
+  const qualifier = job.type === "pig-datasheet" ? job.tag : "";
+
+  const cached = await readCachedArtifact<SimulationResponse>(
+    kind,
+    job.config,
+    qualifier,
+  );
+  if (cached !== null && cached.type !== "error") {
+    // Callers only use the discriminator and payload. Zero run time makes the
+    // cache hit explicit to diagnostics without changing the response shape.
+    return { ...cached, id: 1, runMs: 0 } as SimulationResponse;
+  }
+
+  const response = await askSimulationWorker(job, {
     spawn: spawnSimulationWorker,
     // A browser with no workers still gets its export; it just pays for it on
     // the thread it is drawing with, as everything here used to.
     fallback: answerSimulationRequest,
   });
+
+  if (response.type !== "error") {
+    await writeCachedArtifact(kind, job.config, response, qualifier);
+  }
+  return response;
 }

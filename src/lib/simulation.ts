@@ -48,6 +48,8 @@ import {
 import { inventoryTotal, type AccountingBalances } from "./sim/accounting";
 import { addTotals, emptyTotals } from "./sim/ledger";
 import { inventoryAdjustedProfit, mergeAccounting } from "./accounts";
+import type { PedigreeRecord } from "./pedigree";
+import { GrowthObserver, type GrowthSimulationSummary } from "./growth-observer";
 
 /**
  * One run of a plan, and every way the product reads it.
@@ -85,6 +87,7 @@ type PlanRun = {
   /** The farm as it stands, rosters and all. */
   state(timestamp?: string): FarmState;
   events(): FarmEvent[];
+  pedigree(): PedigreeRecord[];
   /**
    * The animals themselves, as they stand this morning. Read by the housing
    * planner and by nothing else: it is the one question that cannot be answered
@@ -119,6 +122,7 @@ function legacyRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
     snapshot: (timestamp) => farm.snapshot(timestamp),
     state: (timestamp) => farm.state(timestamp),
     events: () => farm.events,
+    pedigree: () => farm.pedigree.records(),
     herd: () => farm,
   };
 }
@@ -146,6 +150,7 @@ function engineRun(config: PlannerConfig, options: RunOptions = {}): PlanRun {
     snapshot: (timestamp) => engineSnapshot(engine, timestamp),
     state: (timestamp) => engineState(engine, timestamp),
     events: () => engineEventLog(world.log.events),
+    pedigree: () => world.pedigree.records(),
     herd: () => world,
   };
 }
@@ -228,6 +233,10 @@ export type PlanSimulation = {
    * physical housing, or the run was asked not to fill it.
    */
   readonly physicalHousing: HousingSimulationResult | null;
+  /** Lightweight observed growth statistics gathered from this same run. */
+  readonly growth: GrowthSimulationSummary | null;
+  /** Every animal, parent link and generation seen anywhere in the run. */
+  readonly pedigree: PedigreeRecord[];
   /**
    * The farm at a wall-clock moment, bar the rosters. Events resolve to whole
    * days, so a timestamp reads its own day, and a day outside the horizon reads
@@ -269,6 +278,8 @@ export function simulatePlan(
       : null;
 
   const stats: PlanSimulationStats = { days: 0, snapshots: 0, replays: 0 };
+  const growthObserver = keepSnapshots ? new GrowthObserver() : null;
+  let growthSummary: GrowthSimulationSummary | null = null;
 
   /**
    * The one run, taken out to the end of the horizon.
@@ -287,15 +298,15 @@ export function simulatePlan(
       for (let day = run.day + 1; day <= horizon; day += 1) {
         run.advanceTo(day);
         if (keepSnapshots) snapshots.push(run.snapshot());
-        // After the day has closed, so the housing work sees the herd the day
-        // ended with rather than one that still has the morning's dead in it.
-        if (planner !== null || pens !== null) {
+        // After the day has closed, so every observer reads the same settled herd.
+        if (planner !== null || pens !== null || growthObserver !== null) {
           const herd = run.herd();
-          // Read once and shown to both: the planner sizes the farm off these
-          // animals and the allocator puts those same animals in pens.
-          const animals = housingSnapshots(day, herd);
-          planner?.observeSnapshots(day, animals);
-          pens?.step(day, animals, herd.departures ?? []);
+          growthObserver?.observe(day, herd);
+          if (planner !== null || pens !== null) {
+            const animals = housingSnapshots(day, herd);
+            planner?.observeSnapshots(day, animals);
+            pens?.step(day, animals, herd.departures ?? []);
+          }
         }
       }
     } else {
@@ -429,6 +440,15 @@ export function simulatePlan(
       if (pens === null) return null;
       toHorizon();
       return (physicalHousing ??= pens.finish());
+    },
+    get growth() {
+      if (growthObserver === null) return null;
+      toHorizon();
+      return (growthSummary ??= growthObserver.result(config));
+    },
+    get pedigree() {
+      toHorizon();
+      return run.pedigree();
     },
     snapshotAt(timestamp: string): FarmSnapshot {
       const day = dayFor(timestamp);
