@@ -9,7 +9,9 @@ export { breedingStrength } from "./growth";
  * herd has to stand a second, unrelated boar.
  */
 export function everyMateNeedsABoar(world: World): boolean {
-  // A farm that buys semen has a cheaper answer than another boar, and uses it.
+  // Capacity scaling is handled separately. For a purely genetic block, a farm
+  // that already buys semen uses an unrelated stud dose rather than standing an
+  // extra boar solely because one female is related to the whole on-farm team.
   if (world.config.service.useAi) return false;
   const team = world.boars.filter((boar) => boar.alive);
   if (team.length === 0) return false;
