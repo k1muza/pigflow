@@ -3,7 +3,7 @@ import {
   DAYS_PER_MONTH,
   GILT_ACCLIMATISATION_DAYS,
   GILT_ENTRY_AGE_DAYS,
-  openingCounts,
+  requiredBoarTeamSize,
 } from "../../config";
 import { carryingValue } from "../../sim/accounting";
 import { Boar, Sow } from "../../sim/animals";
@@ -69,12 +69,17 @@ export function runHerd(world: World): void {
   }
   world.lifetime.boarsRotated += record.boarsRotated;
 
-  // Boars cannot be bred out of the market pigs, so the team is always kept up
-  // to the planned number — without one, the whole herd stops breeding.
-  const boarsWanted = openingCounts(config).boar;
+  // Scale natural-service capacity with the herd rather than freezing the boar
+  // team at whatever happened to stand here on day zero.
+  const breedingFemales = world.sows.filter((sow) => sow.alive).length;
+  const boarsWanted = requiredBoarTeamSize(config, breedingFemales);
   const boarsAlive = world.boars.filter((boar) => boar.alive).length;
   for (let i = boarsAlive; i < boarsWanted; i += 1) {
-    buyBoar(world, "Replacement boar", "the team was below its planned strength");
+    buyBoar(
+      world,
+      boarsAlive === 0 && i === 0 ? "Replacement boar" : "Capacity boar",
+      "the breeding herd now needs " + boarsWanted + " natural-service boar" + (boarsWanted === 1 ? "" : "s"),
+    );
   }
 
   // Once a boar's own daughters are coming to service, one boar is no longer a
