@@ -151,6 +151,23 @@ describe("The worker answers with the plan the main thread would have got", () =
   });
 });
 
+describe("A cached plan is restored without starting a worker", () => {
+  it("publishes the cached result as ready and invalidates an in-flight run", () => {
+    const { runner, ports, latest } = runnerOn();
+
+    runner.run(plan("1.x"));
+    expect(ports).toHaveLength(1);
+    expect(latest().status).toBe("running");
+
+    runner.restore(fakeResult("from IndexedDB"));
+
+    expect(ports[0].terminated).toBe(true);
+    expect(latest().status).toBe("ready");
+    expect(latest().result?.config.project.name).toBe("from IndexedDB");
+    expect(latest().timings).toEqual({ runMs: 0, roundTripMs: 0 });
+  });
+});
+
 describe("An older plan never lands on top of a newer one", () => {
   it("ignores the reply to a request that has been superseded", () => {
     const { runner, ports, latest } = runnerOn();
