@@ -127,6 +127,71 @@ function drawMarker(
   }
 }
 
+
+const BITMAP_FONT: Record<string, readonly string[]> = {
+  "0": ["111", "101", "101", "101", "111"],
+  "1": ["010", "110", "010", "010", "111"],
+  "2": ["111", "001", "111", "100", "111"],
+  "3": ["111", "001", "111", "001", "111"],
+  "4": ["101", "101", "111", "001", "001"],
+  "5": ["111", "100", "111", "001", "111"],
+  "6": ["111", "100", "111", "101", "111"],
+  "7": ["111", "001", "010", "010", "010"],
+  "8": ["111", "101", "111", "101", "111"],
+  "9": ["111", "101", "111", "001", "111"],
+  "d": ["100", "100", "111", "101", "111"],
+  "a": ["000", "111", "001", "111", "111"],
+  "y": ["000", "101", "111", "001", "111"],
+  "s": ["000", "111", "100", "011", "111"],
+  "k": ["100", "101", "110", "101", "101"],
+  "g": ["000", "111", "101", "111", "001"],
+  " ": ["0", "0", "0", "0", "0"],
+};
+
+function textWidth(text: string, scale = 2): number {
+  let width = 0;
+  for (const character of text) {
+    const glyph = BITMAP_FONT[character] ?? BITMAP_FONT[" "];
+    width += (glyph[0].length + 1) * scale;
+  }
+  return Math.max(0, width - scale);
+}
+
+function drawText(
+  pixels: Uint8Array,
+  width: number,
+  height: number,
+  text: string,
+  x: number,
+  y: number,
+  colour: Rgb,
+  scale = 2,
+): void {
+  let cursor = Math.round(x);
+  const top = Math.round(y);
+  for (const character of text) {
+    const glyph = BITMAP_FONT[character] ?? BITMAP_FONT[" "];
+    for (let row = 0; row < glyph.length; row += 1) {
+      for (let column = 0; column < glyph[row].length; column += 1) {
+        if (glyph[row][column] !== "1") continue;
+        for (let sx = 0; sx < scale; sx += 1) {
+          for (let sy = 0; sy < scale; sy += 1) {
+            setPixel(
+              pixels,
+              width,
+              height,
+              cursor + column * scale + sx,
+              top + row * scale + sy,
+              colour,
+            );
+          }
+        }
+      }
+    }
+    cursor += (glyph[0].length + 1) * scale;
+  }
+}
+
 function uint32(value: number): Uint8Array {
   return new Uint8Array([
     (value >>> 24) & 0xff,
@@ -194,7 +259,7 @@ async function growthCurvePng(report: GrowthPerformanceReport): Promise<string |
 
   const width = 760;
   const height = 330;
-  const margin = { left: 28, right: 12, top: 12, bottom: 24 };
+  const margin = { left: 52, right: 14, top: 18, bottom: 42 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
   const maxAge = Math.max(...points.map((point) => point.ageDays), 1);
@@ -239,8 +304,8 @@ async function growthCurvePng(report: GrowthPerformanceReport): Promise<string |
   const yOf = (weightKg: number) =>
     margin.top + (1 - weightKg / maxWeight) * plotHeight;
 
-  for (let index = 0; index <= 5; index += 1) {
-    const y = margin.top + (plotHeight * index) / 5;
+  for (let weight = 0; weight <= maxWeight; weight += 20) {
+    const y = yOf(weight);
     drawLine(
       pixels,
       width,
@@ -252,7 +317,19 @@ async function growthCurvePng(report: GrowthPerformanceReport): Promise<string |
       line,
       1,
     );
+    const label = String(weight);
+    drawText(
+      pixels,
+      width,
+      height,
+      label,
+      margin.left - textWidth(label, 2) - 8,
+      y - 5,
+      ink,
+      2,
+    );
   }
+
   for (const point of points) {
     const x = xOf(point.ageDays);
     drawLine(
@@ -266,7 +343,39 @@ async function growthCurvePng(report: GrowthPerformanceReport): Promise<string |
       line,
       1,
     );
+    const label = String(point.ageDays);
+    drawText(
+      pixels,
+      width,
+      height,
+      label,
+      x - textWidth(label, 2) / 2,
+      height - margin.bottom + 8,
+      ink,
+      2,
+    );
   }
+
+  drawText(
+    pixels,
+    width,
+    height,
+    "kg",
+    4,
+    margin.top - 3,
+    ink,
+    2,
+  );
+  drawText(
+    pixels,
+    width,
+    height,
+    "days",
+    width - margin.right - textWidth("days", 2),
+    height - 12,
+    ink,
+    2,
+  );
 
   drawLine(
     pixels,
