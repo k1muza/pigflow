@@ -18,6 +18,7 @@ import {
   HOUSING_ROWS,
 } from "./housing-needs";
 import { addMortalitySheet, mortalityReport } from "./mortality";
+import { addGrowthPerformanceSheets, growthPerformanceReport } from "./growth-performance";
 import {
   addProfitAndLossSheets,
   profitAndLossReport,
@@ -50,7 +51,8 @@ export type ReportId =
   | "funding-plan"
   | "herd-development"
   | "housing-needs"
-  | "mortality";
+  | "mortality"
+  | "growth-performance";
 
 /**
  * A report as the page shows it before anything is downloaded: the headline
@@ -411,6 +413,67 @@ export const REPORTS: readonly ReportDefinition[] = [
     build: async (result, generatedAt) => {
       const workbook = await workbookFor(result.config, "mortality by stage", "Stage-based production mortality generated from the PigFlow animal-level simulation.", generatedAt);
       addMortalitySheet(workbook, mortalityReport(result), generatedAt);
+      return workbookBytes(workbook);
+    },
+  },
+  {
+    id: "growth-performance",
+    name: "Growth Performance Report",
+    description:
+      "Observed weight-for-age distribution, stage ADG and market-age performance from the simulated herd — so the realised growth curve can be assessed rather than inferred from configured gains.",
+    format: "xlsx",
+    slug: "growth-performance",
+    preview: (result) => {
+      const report = growthPerformanceReport(result);
+      const market = report.market;
+      return {
+        facts: [
+          {
+            label: "Mean market age",
+            value: market.sold > 0 ? market.meanAgeDays.toFixed(0) + " days" : "No sales",
+            note: market.sold > 0 ? market.p10AgeDays.toFixed(0) + "–" + market.p90AgeDays.toFixed(0) + " days (P10–P90)" : undefined,
+          },
+          {
+            label: "Mean sale weight",
+            value: market.sold > 0 ? market.meanWeightKg.toFixed(1) + " kg" : "No sales",
+            note: "Configured target " + report.saleWeightKg.toFixed(1) + " kg",
+          },
+          {
+            label: "Mean lifetime ADG",
+            value: market.meanLifetimeAdgKg > 0 ? (market.meanLifetimeAdgKg * 1000).toFixed(0) + " g/day" : "—",
+          },
+          {
+            label: "Market-age spread",
+            value: market.sold > 0 ? (market.p90AgeDays - market.p10AgeDays).toFixed(0) + " days" : "—",
+            note: "P10 to P90",
+          },
+        ],
+        columns: ["Sample", "Mean kg", "P10", "Median", "P90", "CV"],
+        lines: report.checkpoints.map((point) => ({
+          kind: "line" as const,
+          label: "Age " + point.ageDays + " days",
+          cells: [
+            count(point.sampleSize, 0),
+            point.meanWeightKg.toFixed(1),
+            point.p10WeightKg.toFixed(1),
+            point.medianWeightKg.toFixed(1),
+            point.p90WeightKg.toFixed(1),
+            point.cvPct.toFixed(1) + "%",
+          ],
+        })),
+        note:
+          "These are observed weights from the simulated animals at fixed ages. The workbook also shows completed-stage observed ADG versus configured ADG and the distribution of age and weight at market.",
+      };
+    },
+    build: async (result, generatedAt) => {
+      const report = growthPerformanceReport(result);
+      const workbook = await workbookFor(
+        result.config,
+        "growth performance",
+        "Observed growth performance generated from the PigFlow animal-level simulation.",
+        generatedAt,
+      );
+      addGrowthPerformanceSheets(workbook, report, generatedAt);
       return workbookBytes(workbook);
     },
   }
