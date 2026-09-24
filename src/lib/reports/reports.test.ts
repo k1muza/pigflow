@@ -725,10 +725,10 @@ describe("the growth performance report", () => {
     expect(chartXml).toContain("Observed growth curve");
     expect(chartXml).toContain("Age (days)");
     expect(chartXml).toContain("Liveweight (kg)");
-    expect(chartXml).toContain("P10");
-    expect(chartXml).toContain("Median");
-    expect(chartXml).toContain("Mean");
-    expect(chartXml).toContain("P90");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!D6");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!E6");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!C6");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!F6");
     expect(chartXml).toContain("&apos;Weight by age&apos;!$A$7:");
 
     const drawingPath = Object.keys(zip.files).find((path) =>
