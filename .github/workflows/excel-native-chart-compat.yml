@@ -1,4 +1,5 @@
 name: Excel native chart compatibility
+# Temporary independent-reader validation.
 
 on:
   push:
