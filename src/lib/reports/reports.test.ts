@@ -10,6 +10,7 @@ import { balanceSheetReport } from "./balance-sheet";
 import { fundingPlanReport } from "./funding-plan";
 import { herdDevelopmentReport } from "./herd-development";
 import { housingNeedsReport } from "./housing-needs";
+import { growthPerformanceReport } from "./growth-performance";
 import { monthPeriods, openingWorthOf, wholePlanPeriod, yearPeriods } from "./periods";
 import { profitAndLossReport, tradingStatement } from "./profit-and-loss";
 import { REPORTS, reportFilename, reportById } from "./index";
@@ -70,6 +71,7 @@ describe("the report catalogue", () => {
       "herd-development",
       "housing-needs",
       "mortality",
+      "growth-performance",
     ]);
     for (const report of REPORTS) {
       expect(report.name.length).toBeGreaterThan(0);
@@ -673,6 +675,25 @@ describe("AI that nobody asked for", () => {
     expect(
       asPolicy.find((entry) => entry.detail.includes("services were by bought-in semen"))!.title,
     ).toBe("Part of the herd is served by AI");
+  });
+});
+
+describe("the growth performance report", () => {
+  const report = growthPerformanceReport(plan);
+
+  it("uses observed animal weights rather than only configured gains", () => {
+    expect(report.checkpoints.length).toBeGreaterThan(5);
+    expect(report.checkpoints.some((point) => point.sampleSize > 0)).toBe(true);
+    expect(report.stages.some((stage) => stage.completed > 0)).toBe(true);
+    expect(report.market.sold).toBeGreaterThan(0);
+  });
+
+  it("keeps the percentile ordering valid at every populated age", () => {
+    for (const point of report.checkpoints.filter((row) => row.sampleSize > 0)) {
+      expect(point.p10WeightKg).toBeLessThanOrEqual(point.medianWeightKg);
+      expect(point.medianWeightKg).toBeLessThanOrEqual(point.p90WeightKg);
+      expect(point.meanWeightKg).toBeGreaterThan(0);
+    }
   });
 });
 
