@@ -73,6 +73,21 @@ export type DayColumns = {
 };
 
 /** What the worker sends back, and what every page of a plan is read from. */
+export type ProductionMortalityStage = "piglet" | "weaner" | "grower" | "finisher";
+
+export type StageMortalityResult = {
+  stage: ProductionMortalityStage;
+  entered: number;
+  deaths: number;
+  observedRatePct: number;
+  configuredRatePct: number;
+};
+
+export type MortalityResult = {
+  stages: StageMortalityResult[];
+  totalDeaths: number;
+};
+
 export type PlanSimulationResult = {
   /** The config as the engine parsed it, so a page reads what actually ran. */
   config: PlannerConfig;
@@ -99,6 +114,8 @@ export type PlanSimulationResult = {
    * `farmStateOnDay`. Null on a plan with no physical housing.
    */
   physicalHousing: HousingSimulationResult | null;
+  /** Production-stage mortality, using actual stage-at-death records from this run. */
+  mortality: MortalityResult;
   /** Whole-run ancestry, including animals that left before the horizon. */
   pedigree: PedigreeRecord[];
 };
@@ -123,8 +140,44 @@ export function planResultOf(simulation: PlanSimulation): PlanSimulationResult {
     days: packDays(days),
     housing: simulation.housing,
     physicalHousing: simulation.physicalHousing,
+    mortality: mortalityResultOf(simulation),
     pedigree: simulation.pedigree,
   };
+}
+
+/** Stage-level production mortality read from the finished run. */
+function mortalityResultOf(simulation: PlanSimulation): MortalityResult {
+  const { config, history } = simulation;
+  const stages: ProductionMortalityStage[] = ["piglet", "weaner", "grower", "finisher"];
+  const opening = { piglet: 0, weaner: 0, grower: 0, finisher: 0 };
+  if (config.stock.starting.length > 0) {
+    for (const animal of config.stock.starting) {
+      if (animal.type === "piglet" || animal.type === "weaner" || animal.type === "grower" || animal.type === "finisher") opening[animal.type] += 1;
+    }
+  } else {
+    opening.piglet = config.stock.piglets;
+    opening.weaner = config.stock.weaners;
+    opening.grower = config.stock.growers;
+    opening.finisher = config.stock.finishers;
+  }
+  const sum = (pick: (day: PlanSimulation["history"][number]) => number) => history.reduce((total, day) => total + pick(day), 0);
+  const entered = {
+    piglet: opening.piglet + sum((day) => day.bornAlive),
+    weaner: opening.weaner + sum((day) => day.weaned),
+    grower: opening.grower + sum((day) => day.movedToGrower),
+    finisher: opening.finisher + sum((day) => day.movedToFinisher),
+  };
+  const configured = {
+    piglet: config.reproduction.preWeanMortalityPct,
+    weaner: config.growth.weanerMortalityPct,
+    grower: config.growth.growerMortalityPct,
+    finisher: config.growth.finisherMortalityPct,
+  };
+  const rows = stages.map((stage) => {
+    const deaths = sum((day) => day.deathsByStage[stage]);
+    return { stage, entered: entered[stage], deaths, observedRatePct: entered[stage] > 0 ? (deaths / entered[stage]) * 100 : 0, configuredRatePct: configured[stage] };
+  });
+  return { stages: rows, totalDeaths: rows.reduce((total, row) => total + row.deaths, 0) };
 }
 
 /** The part of a farm reading that a day of the simulator shows. */

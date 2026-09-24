@@ -169,6 +169,8 @@ export type EngineDayRecord = {
   movedToFinisher: number;
   pigletDeaths: number;
   growingDeaths: number;
+  /** Exact production stage at death, retained for stage-mortality reporting. */
+  deathsByStage: Record<PigStage, number>;
   breedingDeaths: number;
   sowsCulled: number;
   giltsPurchased: number;
@@ -346,6 +348,7 @@ export function emptyLifetime(): EngineLifetime {
     giltsSold: 0,
     pigletDeaths: 0,
     growingDeaths: 0,
+    deathsByStage: { piglet: 0, weaner: 0, grower: 0, finisher: 0, gilt: 0 },
     breedingDeaths: 0,
     sowsCulled: 0,
     giltsPurchased: 0,

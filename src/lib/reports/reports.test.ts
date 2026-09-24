@@ -62,13 +62,14 @@ const byEngine = {
 const PLACES = 6;
 
 describe("the report catalogue", () => {
-  it("offers the five planning documents, each able to write its own file", () => {
+  it("offers the planning documents, each able to write its own file", () => {
     expect(REPORTS.map((report) => report.id)).toEqual([
       "profit-and-loss",
       "balance-sheet",
       "funding-plan",
       "herd-development",
       "housing-needs",
+      "mortality",
     ]);
     for (const report of REPORTS) {
       expect(report.name.length).toBeGreaterThan(0);

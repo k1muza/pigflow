@@ -17,6 +17,7 @@ import {
   housingNeedsReport,
   HOUSING_ROWS,
 } from "./housing-needs";
+import { addMortalitySheet, mortalityReport } from "./mortality";
 import {
   addProfitAndLossSheets,
   profitAndLossReport,
@@ -48,7 +49,8 @@ export type ReportId =
   | "balance-sheet"
   | "funding-plan"
   | "herd-development"
-  | "housing-needs";
+  | "housing-needs"
+  | "mortality";
 
 /**
  * A report as the page shows it before anything is downloaded: the headline
@@ -384,7 +386,34 @@ export const REPORTS: readonly ReportDefinition[] = [
       addHousingNeedsSheets(workbook, report, generatedAt);
       return workbookBytes(workbook);
     },
-  },
+  },,
+  {
+    id: "mortality",
+    name: "Mortality by Stage",
+    description: "Production losses by piglet, weaner, grower and finisher stage — showing stage entries, deaths, observed mortality and the configured whole-stage assumption.",
+    format: "xlsx",
+    slug: "mortality-by-stage",
+    preview: (result) => {
+      const report = mortalityReport(result);
+      const worst = [...report.rows].sort((a, b) => b.observedRatePct - a.observedRatePct)[0];
+      return {
+        facts: [
+          { label: "Production-stage deaths", value: count(report.totalDeaths, 0) },
+          { label: "Highest observed stage", value: worst?.label ?? "—", note: worst ? worst.observedRatePct.toFixed(1) + "% observed" : undefined },
+          { label: "Piglets entering pre-weaning", value: count(report.rows.find((row) => row.stage === "piglet")?.entered ?? 0, 0) },
+          { label: "Finishers entering stage", value: count(report.rows.find((row) => row.stage === "finisher")?.entered ?? 0, 0) },
+        ],
+        columns: ["Entered", "Deaths", "Observed", "Configured", "Variance"],
+        lines: report.rows.map((row) => ({ kind: "line" as const, label: row.label, cells: [count(row.entered, 0), count(row.deaths, 0), row.observedRatePct.toFixed(1) + "%", row.configuredRatePct.toFixed(1) + "%", (row.variancePctPoints >= 0 ? "+" : "") + row.variancePctPoints.toFixed(1) + " pp"] })),
+        note: "Observed mortality is deaths divided by animals entering that stage during the plan, including opening stock already in that stage. Pigs entering near the end of the horizon may not yet have completed the stage's full mortality exposure.",
+      };
+    },
+    build: async (result, generatedAt) => {
+      const workbook = await workbookFor(result.config, "mortality by stage", "Stage-based production mortality generated from the PigFlow animal-level simulation.", generatedAt);
+      addMortalitySheet(workbook, mortalityReport(result), generatedAt);
+      return workbookBytes(workbook);
+    },
+  }
 ];
 
 export function reportById(id: ReportId): ReportDefinition {

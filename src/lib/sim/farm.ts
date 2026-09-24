@@ -172,6 +172,8 @@ export type DayRecord = {
   movedToFinisher: number;
   pigletDeaths: number;
   growingDeaths: number;
+  /** Exact production stage at death, retained for stage-mortality reporting. */
+  deathsByStage: Record<PigStage, number>;
   breedingDeaths: number;
   sowsCulled: number;
   giltsPurchased: number;
@@ -1192,6 +1194,7 @@ export class Farm {
       movedToFinisher: 0,
       pigletDeaths: 0,
       growingDeaths: 0,
+      deathsByStage: { piglet: 0, weaner: 0, grower: 0, finisher: 0, gilt: 0 },
       breedingDeaths: 0,
       sowsCulled: 0,
       giltsPurchased: 0,
@@ -2133,6 +2136,7 @@ export class Farm {
       pig.leave(day, "died");
       this.absorbLoss(pig);
       this.noteExit(pig.generation, false);
+      record.deathsByStage[pig.stage] += 1;
       if (pig.stage === "piglet") record.pigletDeaths += 1;
       else record.growingDeaths += 1;
     }
@@ -2194,6 +2198,7 @@ export class Farm {
           this.noteExit(piglet.generation, false);
         }
         record.pigletDeaths += orphans.length;
+        record.deathsByStage.piglet += orphans.length;
         this.lifetime.pigletDeaths += orphans.length;
       }
       sow.litter = [];
