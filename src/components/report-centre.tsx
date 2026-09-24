@@ -2,6 +2,16 @@
 
 import { useMemo, useState } from "react";
 import {
+  CartesianGrid,
+  Legend,
+  Line as ChartLine,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   Download,
   Eye,
   FileSpreadsheet,
@@ -28,6 +38,7 @@ import {
   type PreviewLine,
   type ReportDefinition,
   type ReportId,
+  type ReportPreviewChart,
 } from "@/lib/reports";
 import type { PlanSimulationResult } from "@/lib/simulation-result";
 
@@ -353,6 +364,10 @@ function PreviewDialog({
                 ))}
               </div>
 
+              {preview.chart ? (
+                <PreviewChart chart={preview.chart} />
+              ) : null}
+
               <div className="mt-5 overflow-hidden rounded-lg border border-hairline">
                 <table className="w-full border-collapse text-xs">
                   <thead className="border-b border-hairline bg-plane text-left text-ink-muted">
@@ -379,6 +394,87 @@ function PreviewDialog({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PreviewChart({ chart }: { chart: ReportPreviewChart }) {
+  return (
+    <div className="mt-5 rounded-xl border border-hairline bg-surface p-4">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-ink">{chart.title}</h3>
+        <p className="mt-1 text-xs leading-5 text-ink-muted">{chart.description}</p>
+      </div>
+      <div className="h-[360px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={chart.data}
+            margin={{ top: 8, right: 18, bottom: 18, left: 6 }}
+          >
+            <CartesianGrid stroke="var(--color-hairline)" strokeDasharray="3 3" />
+            <XAxis
+              dataKey={chart.xKey}
+              type="number"
+              domain={["dataMin", "dataMax"]}
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={{ stroke: "var(--color-hairline)" }}
+              label={{
+                value: chart.xLabel,
+                position: "insideBottom",
+                offset: -10,
+                style: { fontSize: 11, fill: "var(--color-ink-muted)" },
+              }}
+            />
+            <YAxis
+              domain={[0, "auto"]}
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={{ stroke: "var(--color-hairline)" }}
+              width={56}
+              label={{
+                value: chart.yLabel,
+                angle: -90,
+                position: "insideLeft",
+                style: { fontSize: 11, fill: "var(--color-ink-muted)" },
+              }}
+            />
+            <Tooltip
+              labelFormatter={(value) => `Age ${value} days`}
+              formatter={(value, name) => [
+                Number(value).toFixed(1) + " kg",
+                String(name),
+              ]}
+              contentStyle={{
+                border: "1px solid var(--color-hairline)",
+                borderRadius: 8,
+                background: "var(--color-surface)",
+                fontSize: 12,
+              }}
+            />
+            <Legend
+              verticalAlign="bottom"
+              height={28}
+              wrapperStyle={{ fontSize: 12 }}
+            />
+            {chart.series.map((series) => (
+              <ChartLine
+                key={series.key}
+                type="linear"
+                dataKey={series.key}
+                name={series.label}
+                stroke={series.colour}
+                strokeWidth={series.label === "Mean" ? 3 : 2}
+                strokeDasharray={series.dashed ? "6 4" : undefined}
+                dot={{ r: 3, strokeWidth: 1 }}
+                activeDot={{ r: 5 }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
   );
 }
 
