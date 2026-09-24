@@ -1,4 +1,5 @@
 import { Workbook } from "exceljs";
+import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 
 import { currentProfitOrLoss, inventoryAdjustedProfit } from "../accounts";
@@ -695,6 +696,51 @@ describe("the growth performance report", () => {
       expect(point.meanWeightKg).toBeGreaterThan(0);
     }
   });
+
+  it("previews the observed curve with the same four series", () => {
+    const preview = reportById("growth-performance").preview(plan);
+    expect(preview.chart?.type).toBe("line");
+    expect(preview.chart?.series.map((series) => series.label)).toEqual([
+      "P10",
+      "Median",
+      "Mean",
+      "P90",
+    ]);
+    expect(preview.chart?.data).toHaveLength(
+      report.checkpoints.filter((point) => point.sampleSize > 0).length,
+    );
+  });
+
+  it("writes a native Excel line chart tied to the worksheet cells", async () => {
+    const bytes = await reportById("growth-performance").build(plan, GENERATED_AT);
+    const zip = await JSZip.loadAsync(bytes);
+
+    const chartPath = Object.keys(zip.files).find((path) =>
+      /^xl\/charts\/chart\d+\.xml$/.test(path),
+    );
+    expect(chartPath).toBeTruthy();
+
+    const chartXml = await zip.file(chartPath!)!.async("string");
+    expect(chartXml).toContain("<c:lineChart>");
+    expect(chartXml).toContain("Observed growth curve");
+    expect(chartXml).toContain("Age (days)");
+    expect(chartXml).toContain("Liveweight (kg)");
+    expect(chartXml).toContain("P10");
+    expect(chartXml).toContain("Median");
+    expect(chartXml).toContain("Mean");
+    expect(chartXml).toContain("P90");
+    expect(chartXml).toContain("&apos;Weight by age&apos;!$A$7:");
+
+    const drawingPath = Object.keys(zip.files).find((path) =>
+      /^xl\/drawings\/drawing\d+\.xml$/.test(path),
+    );
+    expect(drawingPath).toBeTruthy();
+
+    // This report used to draw a PNG. A native chart needs no workbook media.
+    expect(
+      Object.keys(zip.files).filter((path) => path.startsWith("xl/media/")),
+    ).toHaveLength(0);
+  }, 60_000);
 });
 
 describe("the generated workbooks", () => {
