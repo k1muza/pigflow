@@ -386,7 +386,7 @@ export const REPORTS: readonly ReportDefinition[] = [
       addHousingNeedsSheets(workbook, report, generatedAt);
       return workbookBytes(workbook);
     },
-  },,
+  },
   {
     id: "mortality",
     name: "Mortality by Stage",
