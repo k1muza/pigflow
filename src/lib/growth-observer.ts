@@ -109,15 +109,18 @@ function cvPct(values: readonly number[]): number {
  */
 export class GrowthObserver {
   private readonly checkpointWeights = new Map<number, number[]>(
-    GROWTH_CHECKPOINT_AGES.map((age) => [age, []]),
+    GROWTH_CHECKPOINT_AGES.map((age) => [age, []] as [number, number[]]),
   );
   private readonly stageEntries = new Map<string, StageEntry>();
   private readonly birthWeights = new Map<string, number>();
   private readonly completed = new Map<ProductionGrowthStage, StageAccumulator>(
-    PRODUCTION_STAGES.map((stage) => [
-      stage,
-      { completed: 0, entryKg: 0, exitKg: 0, days: 0, gainKg: 0 },
-    ]),
+    PRODUCTION_STAGES.map(
+      (stage) =>
+        [
+          stage,
+          { completed: 0, entryKg: 0, exitKg: 0, days: 0, gainKg: 0 },
+        ] as [ProductionGrowthStage, StageAccumulator],
+    ),
   );
   private readonly saleAges: number[] = [];
   private readonly saleWeights: number[] = [];
@@ -131,7 +134,7 @@ export class GrowthObserver {
       if (stage !== null && this.checkpointWeights.has(age)) {
         this.checkpointWeights.get(age)!.push(pig.weightKg);
       }
-      if (age === 0) this.birthWeights.set(pig.id, pig.weightKg);
+      if (age === 0) this.birthWeights.set(pig.id, BIRTH_WEIGHT_KG);
       if (stage === null) continue;
 
       const before = this.stageEntries.get(pig.id);
