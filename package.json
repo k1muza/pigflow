@@ -17,6 +17,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.3.0",
     "date-fns": "^4.4.0",
+    "dexie": "^4.4.6",
     "exceljs": "^4.4.0",
     "firebase": "^12.19.0",
     "lucide-react": "^1.46.0",
