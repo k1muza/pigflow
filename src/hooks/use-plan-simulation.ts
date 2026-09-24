@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { PlannerConfig } from "@/lib/config";
+import { readCachedArtifact, writeCachedArtifact } from "@/lib/simulation-cache";
 import { simulatePlan } from "@/lib/simulation";
-import { planResultOf } from "@/lib/simulation-result";
+import { planResultOf, type PlanSimulationResult } from "@/lib/simulation-result";
 import {
   IDLE_SIMULATION,
   PlanSimulationRunner,
@@ -57,7 +58,22 @@ export function usePlanSimulation(
     if (runner.current === null) {
       runner.current = new PlanSimulationRunner({
         spawn: spawnSimulationWorker,
-        onState: setState,
+        onState: (next) => {
+          setState(next);
+          // Persist only a result the farm actually computed. A restored result
+          // has zero run time and is already in IndexedDB.
+          if (
+            next.status === "ready" &&
+            next.result !== null &&
+            (next.timings?.runMs ?? 0) > 0
+          ) {
+            void writeCachedArtifact(
+              "plan-result",
+              next.result.config,
+              next.result,
+            );
+          }
+        },
         // A browser that will not give us a worker still gets its plan; it just
         // pays for it on the thread it is drawing with.
         fallback: (input) => planResultOf(simulatePlan(input)),
@@ -75,14 +91,37 @@ export function usePlanSimulation(
   useEffect(() => {
     if (config === null) return;
     const current = acquire();
-    // Nothing is on screen, so there is nothing to wait for: the first plan of
-    // a session, and the first of a plan just opened, run immediately.
-    if (current.showing === null) {
-      current.run(config);
-      return;
-    }
-    const timer = setTimeout(() => current.run(config), SETTLE_MS);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    void (async () => {
+      const cached = await readCachedArtifact<PlanSimulationResult>(
+        "plan-result",
+        config,
+      );
+      if (cancelled) return;
+
+      if (cached !== null) {
+        current.restore(cached);
+        return;
+      }
+
+      // Nothing is on screen, so there is nothing to wait for: the first plan
+      // of a session, and the first uncached plan just opened, run immediately.
+      if (current.showing === null) {
+        current.run(config);
+        return;
+      }
+
+      // Still useful for edits made outside Farm Inputs. The modal itself now
+      // commits one config on Save, so typing in it never reaches this hook.
+      timer = setTimeout(() => current.run(config), SETTLE_MS);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timer !== null) clearTimeout(timer);
+    };
   }, [acquire, config]);
 
   // Let the worker go when the planner does, and not before. Written as its own
