@@ -6,11 +6,11 @@ import { applyBase, COLORS, NUMBER_FORMAT, PORTRAIT_PAGE, ruleRow, solidFill, st
 const LABELS: Record<ProductionMortalityStage, string> = { piglet: "Pre-weaning", weaner: "Weaner / nursery", grower: "Grower", finisher: "Finisher" };
 
 export type MortalityReportRow = { stage: ProductionMortalityStage; label: string; entered: number; deaths: number; observedRatePct: number; configuredRatePct: number; variancePctPoints: number };
-export type MortalityReport = { rows: MortalityReportRow[]; totalDeaths: number };
+export type MortalityReport = { projectName: string; rows: MortalityReportRow[]; totalDeaths: number };
 
 export function mortalityReport(result: PlanSimulationResult): MortalityReport {
   const rows = result.mortality.stages.map((row) => ({ ...row, label: LABELS[row.stage], variancePctPoints: row.observedRatePct - row.configuredRatePct }));
-  return { rows, totalDeaths: result.mortality.totalDeaths };
+  return { projectName: result.config.project.name, rows, totalDeaths: result.mortality.totalDeaths };
 }
 
 export function addMortalitySheet(workbook: Workbook, report: MortalityReport, generatedAt: Date): void {
@@ -18,7 +18,7 @@ export function addMortalitySheet(workbook: Workbook, report: MortalityReport, g
   sheet.pageSetup = PORTRAIT_PAGE;
   sheet.properties.defaultRowHeight = 18;
   sheet.columns = [{ key: "stage", width: 24 }, { key: "entered", width: 14 }, { key: "deaths", width: 12 }, { key: "observed", width: 16 }, { key: "configured", width: 16 }, { key: "variance", width: 14 }];
-  styleTitle(sheet, "Mortality by stage", "Observed production losses from the simulated run, compared with the mortality assumptions entered in the plan.", "F");
+  styleTitle(sheet, report.projectName + " — mortality by stage", "Observed production losses from the simulated run, compared with the mortality assumptions entered in the plan.", "F");
   const header = sheet.getRow(6);
   header.values = ["Stage", "Entered stage", "Deaths", "Observed", "Configured", "Variance"];
   styleTableHeader(header);
