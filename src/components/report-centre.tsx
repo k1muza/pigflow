@@ -1,7 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Eye, FileSpreadsheet, LoaderCircle, RefreshCcw } from "lucide-react";
+import {
+  Download,
+  Eye,
+  FileSpreadsheet,
+  LayoutGrid,
+  List,
+  LoaderCircle,
+  RefreshCcw,
+} from "lucide-react";
 
 import {
   Dialog,
@@ -56,6 +64,7 @@ export function Reports({
 }) {
   const [busy, setBusy] = useState<ReportId | null>(null);
   const [previewing, setPreviewing] = useState<ReportDefinition | null>(null);
+  const [view, setView] = useState<"grid" | "list">("grid");
   const period = useMemo(() => reportingPeriod(simulation.config), [simulation.config]);
 
   async function download(report: ReportDefinition) {
@@ -74,30 +83,87 @@ export function Reports({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl font-semibold tracking-tight text-ink">Reports</h2>
-        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink-muted">
-          Planning documents generated from the plan currently simulated. Every report reads the
-          same finished run as the Money, Simulator and Cashflow pages, so the figures cannot
-          differ from what is on screen.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-ink">Reports</h2>
+          <p className="mt-1.5 max-w-3xl text-sm leading-6 text-ink-muted">
+            Planning documents generated from the plan currently simulated. Every report reads the
+            same finished run as the Money, Simulator and Cashflow pages, so the figures cannot
+            differ from what is on screen.
+          </p>
+        </div>
+
+        <div
+          className="inline-flex rounded-lg border border-hairline bg-surface p-1"
+          role="group"
+          aria-label="Report layout"
+        >
+          <button
+            type="button"
+            onClick={() => setView("grid")}
+            aria-pressed={view === "grid"}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+              view === "grid"
+                ? "bg-raised text-ink shadow-sm"
+                : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            <LayoutGrid size={13} />
+            Grid
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("list")}
+            aria-pressed={view === "list"}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+              view === "list"
+                ? "bg-raised text-ink shadow-sm"
+                : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            <List size={13} />
+            List
+          </button>
+        </div>
       </div>
 
       {!current ? <Recalculating updating={updating} /> : null}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {REPORTS.map((report) => (
-          <ReportCard
-            key={report.id}
-            report={report}
-            period={period}
-            ready={current}
-            busy={busy === report.id}
-            onDownload={() => void download(report)}
-            onPreview={() => setPreviewing(report)}
-          />
-        ))}
-      </div>
+      {view === "grid" ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {REPORTS.map((report) => (
+            <ReportCard
+              key={report.id}
+              report={report}
+              period={period}
+              ready={current}
+              busy={busy === report.id}
+              onDownload={() => void download(report)}
+              onPreview={() => setPreviewing(report)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-hairline bg-surface">
+          <div className="hidden grid-cols-[minmax(0,1.7fr)_minmax(150px,.8fr)_minmax(150px,.8fr)_auto] gap-4 border-b border-hairline bg-plane px-4 py-2.5 text-[11px] font-medium text-ink-faint md:grid">
+            <span>Report</span>
+            <span>Reporting period</span>
+            <span>Format</span>
+            <span className="text-right">Actions</span>
+          </div>
+          {REPORTS.map((report) => (
+            <ReportListRow
+              key={report.id}
+              report={report}
+              period={period}
+              ready={current}
+              busy={busy === report.id}
+              onDownload={() => void download(report)}
+              onPreview={() => setPreviewing(report)}
+            />
+          ))}
+        </div>
+      )}
 
       <PreviewDialog
         report={previewing}
@@ -187,6 +253,56 @@ function ReportCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ReportListRow({
+  report,
+  period,
+  ready,
+  busy,
+  onDownload,
+  onPreview,
+}: {
+  report: ReportDefinition;
+  period: string;
+  ready: boolean;
+  busy: boolean;
+  onDownload: () => void;
+  onPreview: () => void;
+}) {
+  return (
+    <div className="grid gap-3 border-b border-hairline px-4 py-4 last:border-b-0 md:grid-cols-[minmax(0,1.7fr)_minmax(150px,.8fr)_minmax(150px,.8fr)_auto] md:items-center md:gap-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-raised text-ink-muted">
+          <FileSpreadsheet size={16} strokeWidth={1.75} />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold tracking-tight text-ink">{report.name}</h3>
+          <p className="mt-1 text-xs leading-5 text-ink-muted">{report.description}</p>
+        </div>
+      </div>
+
+      <div className="text-xs">
+        <span className="text-ink-faint md:hidden">Reporting period · </span>
+        <span className="font-medium text-ink">{period}</span>
+      </div>
+
+      <div className="text-xs">
+        <span className="text-ink-faint md:hidden">Format · </span>
+        <span className="font-medium text-ink">{FORMAT_LABELS[report.format]}</span>
+      </div>
+
+      <div className="flex flex-wrap gap-2 md:justify-end">
+        <Button size="sm" variant="outline" disabled={!ready} onClick={onPreview}>
+          <Eye size={14} /> Preview
+        </Button>
+        <Button size="sm" disabled={!ready || busy} onClick={onDownload}>
+          <Download size={14} />
+          {busy ? "Preparing…" : "Download"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
