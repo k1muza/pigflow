@@ -473,7 +473,7 @@ export const REPORTS: readonly ReportDefinition[] = [
         "Observed growth performance generated from the PigFlow animal-level simulation.",
         generatedAt,
       );
-      addGrowthPerformanceSheets(workbook, report, generatedAt);
+      await addGrowthPerformanceSheets(workbook, report, generatedAt);
       return workbookBytes(workbook);
     },
   }
