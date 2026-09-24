@@ -1288,10 +1288,21 @@ export class Farm {
     // Noted on the way out, because after the next three lines there is nobody
     // left to ask. One day's worth, replaced every morning.
     const departures: AnimalDeparture[] = [];
+    for (const pig of this.pigs) {
+      if (!pig.alive) {
+        departures.push({
+          id: pig.id,
+          day,
+          reason: pig.exitReason,
+          stage: pig.stage,
+          ageDays: pig.ageDays(day),
+          weightKg: pig.weightKg,
+        });
+      }
+    }
     const note = (animal: { id: string; alive: boolean; exitReason: ExitReason | null }) => {
       if (!animal.alive) departures.push({ id: animal.id, day, reason: animal.exitReason });
     };
-    for (const pig of this.pigs) note(pig);
     for (const sow of this.sows) note(sow);
     for (const boar of this.boars) note(boar);
     this.departures = departures;
