@@ -866,6 +866,45 @@ export type PlannerConfig = z.infer<typeof plannerSchema>;
 export type PlannerSection = keyof PlannerConfig;
 
 /**
+ * The natural-service team this herd should be carrying today.
+ *
+ * The opening boar count remains a floor so an existing plan never quietly
+ * loses deliberate teaser/backup capacity. Above that, the team scales with the
+ * live breeding-female herd. Expected service heats are read from this plan's
+ * own reproductive cycle and farrowing success, then only the share not
+ * deliberately assigned to AI is put onto the boars.
+ */
+export function requiredBoarTeamSize(
+  config: PlannerConfig,
+  breedingFemales: number,
+): number {
+  const openingFloor = openingCounts(config).boar;
+  const females = Math.max(0, breedingFemales);
+  if (females === 0) return openingFloor;
+
+  const naturalShare = config.service.useAi
+    ? Math.max(0, 1 - config.service.aiSharePct / 100)
+    : 1;
+  if (naturalShare === 0) return openingFloor;
+
+  const cycleDays =
+    config.reproduction.gestationDays +
+    config.reproduction.weaningAgeDays +
+    config.reproduction.weanToServiceDays;
+  const farrowingRate = Math.max(0.01, config.reproduction.farrowingSuccessPct / 100);
+
+  // Successful litters per week divided by the chance a service holds gives the
+  // expected sow-service heats the farm must cover, including ordinary returns.
+  const serviceHeatsPerWeek =
+    females * (7 / cycleDays) * (1 / farrowingRate) * naturalShare;
+  const capacityTarget = Math.ceil(
+    serviceHeatsPerWeek / PLANNED_SERVICES_PER_BOAR_PER_WEEK,
+  );
+
+  return Math.max(openingFloor, 1, capacityTarget);
+}
+
+/**
  * Evidence-based production coefficients for the 2026 benchmark profile.
  *
  * Deliberately excludes management and market assumptions that belong to the
@@ -1019,6 +1058,15 @@ export const IRREGULAR_RETURN_DAYS = { min: 25, max: 38 } as const;
 export const BIRTH_WEIGHT_KG = 1.4;
 /** Natural services one working boar can cover in a week. */
 export const SERVICES_PER_BOAR_PER_WEEK = 5;
+/**
+ * Workload PigFlow plans around rather than the absolute physical ceiling.
+ *
+ * Two expected sow-service heats per week leaves room inside the five-service
+ * hard cap for clustered post-weaning heats, returns and gilts joining the herd.
+ * The hard cap still governs actual mating; this only decides when another boar
+ * should be standing before AI has to become routine overflow.
+ */
+export const PLANNED_SERVICES_PER_BOAR_PER_WEEK = 2;
 /**
  * How many generations of a female's paternal line bar a sire from serving her.
  * 1 is her own sire; 2 adds the maternal grandsire, which a boar standing a full
