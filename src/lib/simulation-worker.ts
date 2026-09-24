@@ -293,6 +293,26 @@ export class PlanSimulationRunner {
     return this.state.result;
   }
 
+  /**
+   * Restores a finished deterministic result from IndexedDB.
+   *
+   * A cached result is as authoritative as a worker reply because its key is
+   * the full config plus the model build. Restoring it also invalidates any
+   * older request that may still be in flight.
+   */
+  restore(result: PlanSimulationResult): void {
+    if (this.closed) return;
+    this.latest += 1;
+    if (this.running) this.dropWorker();
+    this.publish({
+      status: "ready",
+      result,
+      error: null,
+      isUpdating: false,
+      timings: { runMs: 0, roundTripMs: 0 },
+    });
+  }
+
   /** Runs a plan, and abandons whichever one was running. */
   run(config: PlannerConfig): void {
     if (this.closed) return;
