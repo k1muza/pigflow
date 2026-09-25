@@ -16,6 +16,7 @@ describe("the address of a plan", () => {
   it("puts every other page beneath the plan", () => {
     expect(planHref("abc", "cashflow")).toBe("/projects/abc/cashflow");
     expect(planHref("abc", "simulator")).toBe("/projects/abc/simulator");
+    expect(planHref("abc", "nutrition")).toBe("/projects/abc/nutrition");
   });
 
   it("escapes an id that would otherwise change the path", () => {
