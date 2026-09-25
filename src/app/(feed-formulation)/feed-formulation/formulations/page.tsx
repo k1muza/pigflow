@@ -4,6 +4,8 @@ import { ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PIC_EXAMPLE_FORMULATIONS } from "@/lib/feed-formulations";
+import { analyzeFeedFormulation } from "@/lib/formulation-analysis";
+import type { AnalyzedNutrient } from "@/lib/diet-formula";
 import { feedFormulationStrategyHref } from "@/lib/routes";
 
 export default function FeedFormulationsPage() {
@@ -15,14 +17,14 @@ export default function FeedFormulationsPage() {
           <Badge variant="secondary">{PIC_EXAMPLE_FORMULATIONS.length} PIC example diets</Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-          Actual example rations published by PIC, including ingredient inclusion rates and the
-          resulting nutrient profile reported in the source.
+          PIC example ingredient ratios with resulting nutrient profiles calculated by PigFlow
+          from the ingredient nutrient library.
         </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         {PIC_EXAMPLE_FORMULATIONS.map((formulation) => {
-          const profile = formulation.nutrientProfiles[0];
+          const profile = analyzeFeedFormulation(formulation).analysis;
           return (
             <Link
               key={formulation.id}
@@ -39,13 +41,22 @@ export default function FeedFormulationsPage() {
               </div>
 
               <div className="mt-5 grid grid-cols-3 gap-3">
-                <Metric label="ME" value={`${profile.metabolizableEnergyKcalKg.toLocaleString()} kcal/kg`} />
-                <Metric label="NE" value={`${profile.netEnergyKcalKg.toLocaleString()} kcal/kg`} />
-                <Metric label="SID Lys" value={`${profile.sidLysinePct}%`} />
+                <Metric
+                  label="ME"
+                  value={metricValue(profile.energy.metabolizableKcalKg, "kcal/kg")}
+                />
+                <Metric
+                  label="NE"
+                  value={metricValue(profile.energy.netKcalKg, "kcal/kg")}
+                />
+                <Metric
+                  label="SID Lys"
+                  value={metricValue(profile.sidAminoAcidsPct.lysine, "%")}
+                />
               </div>
 
               <div className="mt-4 text-xs text-ink-faint">
-                {formulation.ingredients.length} ingredients · {formulation.ingredientDatabase}
+                {formulation.ingredients.length} ingredients · calculated profile
               </div>
             </Link>
           );
@@ -62,4 +73,10 @@ function Metric({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-sm font-medium text-ink">{value}</div>
     </div>
   );
+}
+
+
+function metricValue(nutrient: AnalyzedNutrient, unit: string): string {
+  const value = Number(nutrient.value.toFixed(3));
+  return nutrient.complete ? `${value} ${unit}` : `known ≥ ${value} ${unit}`;
 }
