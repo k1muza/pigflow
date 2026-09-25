@@ -354,7 +354,7 @@ export class GrowingPig extends Animal {
     return this.stage === "piglet";
   }
 
-  dailyGainKg(config: PlannerConfig): number {
+  dailyGainKg(config: PlannerConfig, day?: number): number {
     // What a fully milked, fully creep-fed suckler of this genotype would do —
     // and only that. Whether this one gets it is settled by what its dam was
     // actually given: see `lib/sim/lactation` and {@link achievedGainKg}. This
@@ -367,7 +367,12 @@ export class GrowingPig extends Animal {
     // Keeping it here would also make a litter's milk demand unforecastable:
     // the ordering policy would be buying sow feed for an average litter and
     // the farm would be feeding a particular one.
-    if (this.stage === "piglet") return potentialPigletGainKg(config);
+    if (this.stage === "piglet") {
+      if (day === undefined) {
+        throw new Error("A suckling piglet's growth potential requires the simulation day.");
+      }
+      return potentialPigletGainKg(config, this.ageDays(day));
+    }
     if (this.stage === "gilt") return GILT_DAILY_GAIN_KG * this.growthFactor * this.maturityFactor;
     const base =
       this.stage === "weaner"
@@ -445,9 +450,9 @@ export class GrowingPig extends Animal {
    * for the other — a shed with no room in it does not make feed go further,
    * and a full trough does not cure anything.
    */
-  achievedGainKg(config: PlannerConfig): number {
+  achievedGainKg(config: PlannerConfig, day?: number): number {
     const treatmentFactor = this.treatmentPenaltyDays > 0 ? this.treatmentGrowthFactor : 1;
-    const potential = this.dailyGainKg(config) * this.crowdingFactor * treatmentFactor;
+    const potential = this.dailyGainKg(config, day) * this.crowdingFactor * treatmentFactor;
     if (this.stage === "piglet") {
       // A suckler lives on milk, and the milk is its dam's to give. What that
       // milk and the creep feeder paid for is worked out over the whole litter
@@ -482,7 +487,7 @@ export class GrowingPig extends Animal {
    * {@link nextStage} — because there a stage is a room with a finite number of
    * places in it.
    */
-  grow(config: PlannerConfig): void {
+  grow(config: PlannerConfig, day?: number): void {
     // The same growth rule the 2.0 engine uses, and for the same reason there is
     // only one of it: what the pig ate today, less what it took to keep it, over
     // what a kilogram of gain costs at this weight. This engine buys feed as it
@@ -490,7 +495,7 @@ export class GrowingPig extends Animal {
     // a full ration and the rule hands back its plan rate, exactly as it always
     // did. A suckler is the exception in both engines, because its feed is its
     // dam's and hers can fall short of what her litter is trying to grow.
-    this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config));
+    this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config, day));
     if (this.stage === "piglet" || this.stage === "gilt") return;
     if (this.destination === "breeding" && this.weightKg >= config.growth.saleWeightKg) {
       this.moveToStage("gilt");
@@ -505,8 +510,8 @@ export class GrowingPig extends Animal {
    * pig is {@link nextStage}; whether it gets it is the farm's business rather
    * than the pig's, and in the 2.0 engine it is settled by the housing.
    */
-  advanceWeight(config: PlannerConfig): void {
-    this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config));
+  advanceWeight(config: PlannerConfig, day?: number): void {
+    this.weightKg = Math.max(BIRTH_WEIGHT_KG, this.weightKg + this.achievedGainKg(config, day));
     if (this.treatmentPenaltyDays > 0) this.treatmentPenaltyDays -= 1;
   }
 
@@ -722,7 +727,7 @@ export class Sow extends Animal {
     for (const piglet of this.litter) {
       if (!piglet.alive || piglet.stage !== "piglet") continue;
       sucklers += 1;
-      potentialGainKg += piglet.dailyGainKg(config);
+      potentialGainKg += piglet.dailyGainKg(config, day);
       creepOfferedKg += piglet.creepFeed(day, config).kg;
     }
     return lactationDemandOf(
