@@ -215,24 +215,58 @@ export function pigletSupportFactor(
 }
 
 /**
- * The most a suckler can put on in a day: the genotype's own figure, and
- * nothing to do with what it will be given or with what the plan hopes it will
- * weigh at weaning.
+ * Biological pre-weaning growth potential under essentially unrestricted
+ * nutrition, expressed as an age-dependent daily gain curve.
  *
- * It is a cap and not a rate the piglet is entitled to. What it actually makes
- * is settled by {@link litterGrowthAccount} out of its dam's ration and the
- * creep feeder, and how many days it gets is the farm's own weaning age.
+ * The later anchors are taken from the artificial-rearing work reported by
+ * Harrell/Boyd: growth accelerates through lactation instead of sitting at one
+ * flat ADG. The first point is a conservative back-extrapolation chosen so the
+ * curve averages about 0.40 kg/day over the first three weeks, matching the
+ * reported birth-to-21-day biological potential. The study ends at 23 days, so
+ * the last observed level is held flat after that rather than extrapolated
+ * upward without evidence.
  *
- * This used to be the configured weaning weight divided by the weaning age,
- * which made the plan's target the thing that drove growth — type a heavier
- * weaner and every litter on the farm grew faster, for nothing. Worse, the
- * weaning age was in the divisor: a litter left on a week longer simply grew a
- * seventh slower and arrived at the same weight, so time on the sow bought
- * nothing either. The rule is that pre-weaning liveweight comes from feed or
- * from days, and it has to hold for both.
+ * These are ceilings, not expected farm gains. Milk and creep still have to pay
+ * for every kilogram through {@link litterGrowthAccount}.
  */
-export function potentialPigletGainKg(config: PlannerConfig): number {
-  return Math.max(0, config.growth.pigletDailyGainKg);
+export const REFERENCE_PIGLET_GROWTH_CURVE = [
+  { ageDays: 0, gainKgDay: 0.2894 },
+  { ageDays: 9.5, gainKgDay: 0.358 },
+  { ageDays: 12.5, gainKgDay: 0.432 },
+  { ageDays: 15.5, gainKgDay: 0.455 },
+  { ageDays: 19, gainKgDay: 0.521 },
+  { ageDays: 22, gainKgDay: 0.61 },
+] as const;
+
+export function referencePigletGainKg(ageDays: number): number {
+  const age = Math.max(0, ageDays);
+  const first = REFERENCE_PIGLET_GROWTH_CURVE[0];
+  if (age <= first.ageDays) return first.gainKgDay;
+
+  for (let index = 1; index < REFERENCE_PIGLET_GROWTH_CURVE.length; index += 1) {
+    const right = REFERENCE_PIGLET_GROWTH_CURVE[index];
+    if (age > right.ageDays) continue;
+    const left = REFERENCE_PIGLET_GROWTH_CURVE[index - 1];
+    const share = (age - left.ageDays) / (right.ageDays - left.ageDays);
+    return left.gainKgDay + share * (right.gainKgDay - left.gainKgDay);
+  }
+
+  return REFERENCE_PIGLET_GROWTH_CURVE[REFERENCE_PIGLET_GROWTH_CURVE.length - 1].gainKgDay;
+}
+
+/**
+ * What a fully nourished suckler of this genotype can put on at this age.
+ *
+ * A farm can move the whole reference curve up or down with one calibration
+ * percentage. The feed system then decides how much of this ceiling the litter
+ * actually reaches.
+ */
+export function potentialPigletGainKg(
+  config: PlannerConfig,
+  ageDays: number,
+): number {
+  const calibration = Math.max(0, config.growth.pigletGrowthPotentialPct) / 100;
+  return referencePigletGainKg(ageDays) * calibration;
 }
 
 /**
@@ -269,29 +303,36 @@ export function expectedPigletWeightAtAgeKg(
 ): number {
   const days = Math.max(0, Math.round(ageDays));
   const sucklers = Math.max(0, litterSize);
-  const gain = potentialPigletGainKg(config);
-  if (days === 0 || sucklers <= 0 || gain <= 0) return BIRTH_WEIGHT_KG;
+  if (days === 0 || sucklers <= 0) return BIRTH_WEIGHT_KG;
 
-  // Two rates and not twenty-eight: the litter's demand is flat across the
-  // lactation and the creep feeder is the only thing that changes, so the whole
-  // walk is the days before it went in and the days after.
-  const shareOn = (creepOfferedKg: number) => {
+  // Potential now changes with age, so the only honest calculation is the same
+  // one the engine performs: walk the lactation one day at a time, ask what the
+  // piglet could do at that age, then let the sow ration and creep feeder limit
+  // it. This remains a deterministic planning walk — no future simulation state
+  // or random draw is consulted.
+  let weightKg = BIRTH_WEIGHT_KG;
+  for (let day = 0; day < days; day += 1) {
+    const potentialPerPiglet = potentialPigletGainKg(config, day);
+    const creepOfferedKg =
+      day >= config.feed.creepStartAgeDays ? sucklers * config.feed.creepKgPerPigDay : 0;
     const demand = lactationDemandOf(
       {
         weightKg: MATURE_SOW_WEIGHT_KG,
         sucklers,
-        potentialGainKg: sucklers * gain,
+        potentialGainKg: sucklers * potentialPerPiglet,
         creepOfferedKg,
       },
       config,
     );
-    return pigletSupportFactor(demand, demand.offeredKg, creepOfferedKg, config);
-  };
-
-  const creepFrom = Math.min(days, Math.max(0, Math.round(config.feed.creepStartAgeDays)));
-  const onMilkAlone = shareOn(0);
-  const onCreep = shareOn(sucklers * config.feed.creepKgPerPigDay);
-  return BIRTH_WEIGHT_KG + gain * (creepFrom * onMilkAlone + (days - creepFrom) * onCreep);
+    const support = pigletSupportFactor(
+      demand,
+      demand.offeredKg,
+      creepOfferedKg,
+      config,
+    );
+    weightKg += potentialPerPiglet * support;
+  }
+  return weightKg;
 }
 
 /**
@@ -328,7 +369,12 @@ export function expectedWeaningWeightKg(config: PlannerConfig): number {
  * entirely.
  */
 export function fullyFedPigletWeightKg(config: PlannerConfig, ageDays: number): number {
-  return BIRTH_WEIGHT_KG + potentialPigletGainKg(config) * Math.max(0, ageDays);
+  const days = Math.max(0, Math.round(ageDays));
+  let weightKg = BIRTH_WEIGHT_KG;
+  for (let day = 0; day < days; day += 1) {
+    weightKg += potentialPigletGainKg(config, day);
+  }
+  return weightKg;
 }
 
 /** Where the weaner house starts for a pig the farm already owned. */
