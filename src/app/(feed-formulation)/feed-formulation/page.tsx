@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CircleCheck, CircleDashed, Wheat } from "lucide-react";
+import { ArrowRight, BookOpen, CircleCheck, CircleDashed, FlaskConical, Wheat } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,20 +42,27 @@ export default function FeedFormulationDashboard() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <WorkspaceLink
+          href={feedFormulationHref("programmes")}
+          icon={BookOpen}
+          title="Programmes"
+          description="See the PIC feeding programmes in the source material and which ones PigFlow has loaded."
+          action="Browse programmes"
+        />
         <WorkspaceLink
           href={feedFormulationHref("ingredients")}
           icon={Wheat}
-          title="Ingredient database"
+          title="Ingredients"
           description="Browse NRC energy, protein, SID amino acids, minerals and source provenance ingredient by ingredient."
           action="Browse ingredients"
         />
         <WorkspaceLink
-          href={feedFormulationHref("requirements")}
-          icon={BookOpen}
-          title="Nutrition requirements"
-          description="Inspect the PIC source phases and the nutrient constraints a valid ration must satisfy."
-          action="Browse requirements"
+          href={feedFormulationHref("nutrients")}
+          icon={FlaskConical}
+          title="Nutrients"
+          description="Inspect the nutrient targets and constraints currently loaded from PIC."
+          action="Browse nutrients"
         />
       </div>
 
