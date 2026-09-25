@@ -242,27 +242,48 @@ export function analyzeDiet(
       ["phenylalanine", "tyrosine"],
     );
 
-    add(result.minerals.calciumPct, ingredient, share, ingredient.macroMinerals.calciumPct);
+    add(
+      result.minerals.calciumPct,
+      ingredient,
+      share,
+      ingredient.macroMinerals.calciumPct,
+      structuralZero(ingredient, "macroMineral"),
+    );
     add(
       result.minerals.totalPhosphorusPct,
       ingredient,
       share,
       ingredient.macroMinerals.totalPhosphorusPct,
+      structuralZero(ingredient, "macroMineral"),
     );
     add(
       result.minerals.availablePhosphorusPct,
       ingredient,
       share,
       ingredient.macroMinerals.availablePhosphorusPct,
+      structuralZero(ingredient, "macroMineral"),
     );
     add(
       result.minerals.sttdPhosphorusPct,
       ingredient,
       share,
       sttdPhosphorusPctOf(ingredient),
+      structuralZero(ingredient, "macroMineral"),
     );
-    add(result.minerals.sodiumPct, ingredient, share, ingredient.macroMinerals.sodiumPct);
-    add(result.minerals.chloridePct, ingredient, share, ingredient.macroMinerals.chloridePct);
+    add(
+      result.minerals.sodiumPct,
+      ingredient,
+      share,
+      ingredient.macroMinerals.sodiumPct,
+      structuralZero(ingredient, "macroMineral"),
+    );
+    add(
+      result.minerals.chloridePct,
+      ingredient,
+      share,
+      ingredient.macroMinerals.chloridePct,
+      structuralZero(ingredient, "macroMineral"),
+    );
 
     addTrace(result.traceMineralsPpm.zinc, ingredient, share, "zinc");
     addTrace(result.traceMineralsPpm.iron, ingredient, share, "iron");
@@ -271,29 +292,68 @@ export function analyzeDiet(
     addTrace(result.traceMineralsPpm.iodine, ingredient, share, "iodine");
     addTrace(result.traceMineralsPpm.selenium, ingredient, share, "selenium");
 
-    add(result.vitamins.vitaminAIuKg, ingredient, share, ingredient.vitamins.vitaminAIuKg);
-    add(result.vitamins.vitaminDIuKg, ingredient, share, ingredient.vitamins.vitaminDIuKg);
-    add(result.vitamins.vitaminEIuKg, ingredient, share, ingredient.vitamins.vitaminEIuKg);
-    add(result.vitamins.vitaminKMgKg, ingredient, share, ingredient.vitamins.vitaminKMgKg);
-    add(result.vitamins.niacinMgKg, ingredient, share, ingredient.vitamins.niacinMgKg);
-    add(result.vitamins.riboflavinMgKg, ingredient, share, ingredient.vitamins.riboflavinMgKg);
+    add(
+      result.vitamins.vitaminAIuKg,
+      ingredient,
+      share,
+      ingredient.vitamins.vitaminAIuKg,
+      structuralZero(ingredient, "vitamin"),
+    );
+    add(
+      result.vitamins.vitaminDIuKg,
+      ingredient,
+      share,
+      ingredient.vitamins.vitaminDIuKg,
+      structuralZero(ingredient, "vitamin"),
+    );
+    add(
+      result.vitamins.vitaminEIuKg,
+      ingredient,
+      share,
+      ingredient.vitamins.vitaminEIuKg,
+      structuralZero(ingredient, "vitamin"),
+    );
+    add(
+      result.vitamins.vitaminKMgKg,
+      ingredient,
+      share,
+      ingredient.vitamins.vitaminKMgKg,
+      structuralZero(ingredient, "vitamin"),
+    );
+    add(
+      result.vitamins.niacinMgKg,
+      ingredient,
+      share,
+      ingredient.vitamins.niacinMgKg,
+      structuralZero(ingredient, "vitamin"),
+    );
+    add(
+      result.vitamins.riboflavinMgKg,
+      ingredient,
+      share,
+      ingredient.vitamins.riboflavinMgKg,
+      structuralZero(ingredient, "vitamin"),
+    );
     add(
       result.vitamins.pantothenicAcidMgKg,
       ingredient,
       share,
       ingredient.vitamins.pantothenicAcidMgKg,
+      structuralZero(ingredient, "vitamin"),
     );
     add(
       result.vitamins.vitaminB12McgKg,
       ingredient,
       share,
       ingredient.vitamins.vitaminB12McgKg,
+      structuralZero(ingredient, "vitamin"),
     );
     add(
       result.vitamins.totalCholineMgKg,
       ingredient,
       share,
       ingredient.vitamins.totalCholineMgKg,
+      structuralZero(ingredient, "vitamin"),
     );
 
     if (ingredient.id.startsWith("soybean-meal-")) result.soybeanMealPct += row.inclusionPct;
@@ -559,16 +619,62 @@ export function evaluateDietForPhase(
   };
 }
 
+type NutrientFamily =
+  | "energy"
+  | "crudeProtein"
+  | "aminoAcid"
+  | "macroMineral"
+  | "traceMineral"
+  | "vitamin";
+
+/**
+ * Some ingredient classes cannot materially contribute certain nutrient
+ * families. A missing field in those cases is a structural zero, not unknown.
+ *
+ * This must stay deliberately narrower than "missing source value = zero".
+ * Premix vitamin/mineral content, for example, is unknown until a supplier
+ * specification is loaded.
+ */
 function structuralZero(
   ingredient: IngredientNutrientRecord,
-  family: "energy" | "crudeProtein",
+  family: NutrientFamily,
 ): boolean {
-  return (
-    (ingredient.category === "mineral" ||
-      ingredient.category === "vitamin_mineral_premix" ||
-      (family === "crudeProtein" && ingredient.category === "oil_fat")) &&
-    (family === "energy" || family === "crudeProtein")
-  );
+  switch (family) {
+    case "energy":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "crudeProtein":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "aminoAcid":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "macroMineral":
+      return (
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid"
+      );
+    case "traceMineral":
+      return (
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "mineral"
+      );
+    case "vitamin":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "amino_acid"
+      );
+  }
 }
 
 function add(
@@ -595,12 +701,7 @@ function addSid(
   for (const aminoAcid of aminoAcids) {
     const value = sidAminoAcidPct(ingredient, aminoAcid);
     if (value === undefined) {
-      if (
-        ingredient.category !== "mineral" &&
-        ingredient.category !== "amino_acid" &&
-        ingredient.category !== "vitamin_mineral_premix" &&
-        ingredient.category !== "oil_fat"
-      ) {
+      if (!structuralZero(ingredient, "aminoAcid")) {
         markMissing(target, ingredient.id);
         return;
       }
@@ -617,7 +718,13 @@ function addTrace(
   share: number,
   nutrient: string,
 ): void {
-  add(target, ingredient, share, ingredient.traceMineralsPpm[nutrient]);
+  add(
+    target,
+    ingredient,
+    share,
+    ingredient.traceMineralsPpm[nutrient],
+    structuralZero(ingredient, "traceMineral"),
+  );
 }
 
 function markMissing(target: AnalyzedNutrient, ingredientId: string): void {
