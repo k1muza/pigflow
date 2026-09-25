@@ -15,10 +15,15 @@ import {
 import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
 import {
   FEED_NUTRIENTS,
+  abundantIngredientsForNutrient,
   feedNutrientById,
   nutrientRequirementValue,
 } from "@/lib/feed-nutrients";
-import { feedFormulationHref, feedProgrammePhaseHref } from "@/lib/routes";
+import {
+  feedFormulationHref,
+  feedIngredientHref,
+  feedProgrammePhaseHref,
+} from "@/lib/routes";
 
 export default async function FeedNutrientPage({
   params,
@@ -28,6 +33,8 @@ export default async function FeedNutrientPage({
   const { nutrientId } = await params;
   const nutrient = feedNutrientById(nutrientId);
   if (!nutrient) notFound();
+
+  const abundantIngredients = abundantIngredientsForNutrient(nutrient.id);
 
   const requirements = FEED_PROGRAMMES.flatMap((programme) =>
     programme.phases.flatMap((phase) => {
@@ -83,9 +90,59 @@ export default async function FeedNutrientPage({
 
       <Card>
         <CardHeader>
+          <CardTitle>Ingredients rich in {nutrient.shortName}</CardTitle>
+          <CardDescription>
+            Highest concentrations among ingredients currently loaded in the NRC ingredient library.
+            Ranking is by nutrient concentration, not cost or recommended inclusion rate.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {abundantIngredients.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-hairline">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Ingredient</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Concentration</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {abundantIngredients.map((row) => (
+                    <TableRow key={row.ingredientId}>
+                      <TableCell>
+                        <Link
+                          href={feedIngredientHref(row.ingredientId)}
+                          className="font-medium text-brand hover:underline"
+                        >
+                          {row.ingredientName}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="capitalize text-ink-muted">
+                        {row.category.replaceAll("_", " ")}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {Number(row.value.toFixed(4))} {row.unit}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-hairline px-4 py-6 text-sm text-ink-muted">
+              None of the currently loaded NRC ingredients has a quantified value for this nutrient.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Loaded PIC requirements</CardTitle>
           <CardDescription>
-            Requirement values currently available in PigFlow. Values remain programme- and phase-specific.
+            Programme- and phase-specific PIC constraints. Minimums, targets and maximum caps are
+            kept separate so a recommendation is not accidentally treated as a hard upper bound.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -96,7 +153,9 @@ export default async function FeedNutrientPage({
                   <TableRow>
                     <TableHead>Programme</TableHead>
                     <TableHead>Phase</TableHead>
-                    <TableHead className="text-right">Requirement</TableHead>
+                    <TableHead className="text-right">Minimum</TableHead>
+                    <TableHead className="text-right">Target</TableHead>
+                    <TableHead className="text-right">Maximum cap</TableHead>
                     <TableHead>Basis</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -112,7 +171,15 @@ export default async function FeedNutrientPage({
                           {phase.label}
                         </Link>
                       </TableCell>
-                      <TableCell className="text-right font-mono">{requirement.value}</TableCell>
+                      <TableCell className="text-right font-mono">
+                        {requirement.minimum ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {requirement.target ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {requirement.maximum ?? "—"}
+                      </TableCell>
                       <TableCell className="text-ink-muted">{requirement.basis}</TableCell>
                     </TableRow>
                   ))}
