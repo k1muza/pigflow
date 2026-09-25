@@ -68,6 +68,26 @@ describe("A finished plan, in the shape that crosses to the page", () => {
     expect(result.config).toEqual(simulation.config);
   }, 120_000);
 
+  it("carries the resources used by each simulator day", () => {
+    const result = planResultOf(simulatePlan(plan("1.x")));
+    const days = result.timeline.days;
+
+    expect(
+      days.some(
+        (day) =>
+          Object.values(day.resources.feedKg).reduce((sum, kg) => sum + kg, 0) > 0,
+      ),
+    ).toBe(true);
+    expect(days.some((day) => day.resources.workers > 0)).toBe(true);
+
+    for (const day of days) {
+      expect(day.resources.supplyTrips, day.date).toBe(day.lorriesIn);
+      expect(day.resources.gasKg, day.date).toBeGreaterThanOrEqual(0);
+      expect(day.resources.beddingKg, day.date).toBeGreaterThanOrEqual(0);
+      expect(day.resources.marketTrips, day.date).toBeGreaterThanOrEqual(0);
+    }
+  }, 120_000);
+
   it("survives the journey a worker would send it on", () => {
     const result = planResultOf(simulatePlan(plan("1.x")));
     const before = daySnapshotAt(result, result.days.dates[200] + "T23:00");
