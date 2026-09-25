@@ -2001,7 +2001,7 @@ export class Farm {
     const movedOn: GrowingPig[] = [];
     for (const pig of this.pigs) {
       const was = pig.stage;
-      pig.grow(config);
+      pig.grow(config, day);
       if (pig.stage === was) continue;
       if (pig.stage === "grower") record.movedToGrower += 1;
       else if (pig.stage === "finisher") record.movedToFinisher += 1;
