@@ -3,6 +3,8 @@ import {
   PLAN_TABS,
   feedFormulationHref,
   feedIngredientHref,
+  feedProgrammeHref,
+  feedProgrammePhaseHref,
   ingredientHref,
   planHref,
   tabFromPath,
@@ -46,6 +48,12 @@ describe("the address of a plan", () => {
     expect(feedFormulationHref("nutrients")).toBe("/feed-formulation/nutrients");
     expect(feedIngredientHref("corn/yellow")).toBe(
       "/feed-formulation/ingredients/corn%2Fyellow",
+    );
+    expect(feedProgrammeHref("nursery/pig")).toBe(
+      "/feed-formulation/programmes/nursery%2Fpig",
+    );
+    expect(feedProgrammePhaseHref("nursery-pig", "phase/1")).toBe(
+      "/feed-formulation/programmes/nursery-pig/phases/phase%2F1",
     );
   });
 });
