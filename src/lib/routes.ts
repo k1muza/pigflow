@@ -52,7 +52,11 @@ export function tabFromPath(pathname: string): Tab {
 
 
 /** App-level feed formulation workspace, deliberately outside any farm plan. */
-export type FeedFormulationSection = "programmes" | "ingredients" | "nutrients";
+export type FeedFormulationSection =
+  | "programmes"
+  | "formulations"
+  | "ingredients"
+  | "nutrients";
 
 export function feedFormulationHref(section?: FeedFormulationSection): string {
   return section ? `/feed-formulation/${section}` : "/feed-formulation";
@@ -72,4 +76,10 @@ export function feedProgrammeHref(programmeId: string): string {
 /** One phase/requirement set inside one feed programme. */
 export function feedProgrammePhaseHref(programmeId: string, phaseId: string): string {
   return feedProgrammeHref(programmeId) + "/phases/" + encodeURIComponent(phaseId);
+}
+
+
+/** One source-backed formulation strategy in the feed workspace. */
+export function feedFormulationStrategyHref(formulationId: string): string {
+  return feedFormulationHref("formulations") + "/" + encodeURIComponent(formulationId);
 }
