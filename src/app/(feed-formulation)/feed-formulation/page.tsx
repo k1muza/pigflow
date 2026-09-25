@@ -83,7 +83,7 @@ export default function FeedFormulationDashboard() {
           href={feedFormulationHref("nutrients")}
           icon={FlaskConical}
           title="Nutrients"
-          description="Inspect the nutrient targets and constraints currently loaded from PIC."
+          description="Browse the nutrient concepts used across programmes, ingredients and diet validation."
           action="Browse nutrients"
         />
       </div>
