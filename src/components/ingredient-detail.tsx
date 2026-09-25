@@ -46,6 +46,9 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
   const ingredient = INGREDIENT_LIBRARY.ingredients.find((row) => row.id === ingredientId);
   const defaultPrice = ingredientDefaultPrice(ingredientId);
   const recordSource = ingredient?.provenance.source;
+  const nutrientSources = ingredient
+    ? Object.entries(ingredient.provenance.nutrientSources)
+    : [];
 
   if (!ingredient) {
     return (
@@ -240,6 +243,51 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           {[...ingredient.provenance.notes, ...ingredient.constraints.notes].map((note) => (
             <p key={note}>{note}</p>
           ))}
+
+          {nutrientSources.length > 0 ? (
+            <div className="space-y-2 pt-2">
+              <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">
+                Nutrient-specific fallback sources
+              </div>
+              <div className="overflow-x-auto rounded-lg border border-hairline">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nutrient field</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Priority</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {nutrientSources.map(([path, source]) => (
+                      <TableRow key={path}>
+                        <TableCell className="font-mono text-xs">{path}</TableCell>
+                        <TableCell>
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-brand hover:underline"
+                          >
+                            {source.publisher}
+                          </a>
+                          {source.note ? (
+                            <div className="mt-1 max-w-xl text-xs leading-5 text-ink-faint">
+                              {source.note}
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="capitalize text-ink-muted">
+                          {source.priority ?? "primary"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          ) : null}
+
           <a
             href={recordSource?.url ?? INGREDIENT_LIBRARY.source.url}
             target="_blank"
