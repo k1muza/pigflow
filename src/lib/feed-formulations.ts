@@ -19,6 +19,7 @@ export type FeedFormulation = {
   sourcePage: number;
   sourceUrl: string;
   ingredientDatabase: string;
+  reportedTotalPct: number;
   ingredients: readonly FormulationIngredient[];
   nutrientProfiles: readonly FormulationNutrientProfile[];
   featured: boolean;
@@ -58,6 +59,7 @@ export const PIC_EXAMPLE_FORMULATIONS: readonly FeedFormulation[] = [
     sourcePage: 14,
     sourceUrl: PIC_MANUAL_URL,
     ingredientDatabase: "NRC 2012",
+    reportedTotalPct: 100,
     ingredients: CORN_SOY_INGREDIENTS,
     nutrientProfiles: [
       {
@@ -84,6 +86,7 @@ export const PIC_EXAMPLE_FORMULATIONS: readonly FeedFormulation[] = [
     sourcePage: 15,
     sourceUrl: PIC_MANUAL_URL,
     ingredientDatabase: "NRC 2012",
+    reportedTotalPct: 100,
     ingredients: [
       { ingredientId: "corn-yellow-dent", sourceName: "Corn, yellow", inclusionPct: 37.48 },
       { ingredientId: "corn-ddgs-low-oil", sourceName: "Corn DDGS, <4% oil", inclusionPct: 30.0 },
