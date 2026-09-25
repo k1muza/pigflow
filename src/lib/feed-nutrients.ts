@@ -1,4 +1,10 @@
 import type { NutritionPhase } from "./nutrition";
+import {
+  INGREDIENT_LIBRARY,
+  sidAminoAcidPct,
+  sttdPhosphorusPctOf,
+  type IngredientNutrientRecord,
+} from "./ingredient-nutrients";
 
 export type NutrientGroup =
   | "Energy & protein"
@@ -221,34 +227,89 @@ export function feedNutrientById(id: string): FeedNutrient | undefined {
   return FEED_NUTRIENTS.find((nutrient) => nutrient.id === id);
 }
 
+export type NutrientRequirementConstraint = {
+  /** Human-readable compact form retained for simple consumers. */
+  value: string;
+  basis: string;
+  minimum?: string;
+  target?: string;
+  maximum?: string;
+};
+
+export type NutrientIngredientAbundance = {
+  ingredientId: string;
+  ingredientName: string;
+  category: IngredientNutrientRecord["category"];
+  value: number;
+  unit: string;
+};
+
+function energyRelativeValue(
+  me: number | undefined,
+  ne: number | undefined,
+): string | undefined {
+  const values = [
+    me === undefined ? undefined : `${me} g/Mcal ME`,
+    ne === undefined ? undefined : `${ne} g/Mcal NE`,
+  ].filter((value): value is string => value !== undefined);
+  return values.length > 0 ? values.join(" · ") : undefined;
+}
+
+function minimum(value: string, basis: string, maximum?: string): NutrientRequirementConstraint {
+  return { value, basis, minimum: value, maximum };
+}
+
+function target(value: string, basis: string): NutrientRequirementConstraint {
+  return { value, basis, target: value };
+}
+
+function rangeConstraint(
+  min: string,
+  max: string,
+  basis: string,
+): NutrientRequirementConstraint {
+  return {
+    value: `${min}–${max}`,
+    basis,
+    minimum: min,
+    maximum: max,
+  };
+}
+
 export function nutrientRequirementValue(
   nutrientId: string,
   phase: NutritionPhase,
-): { value: string; basis: string } | undefined {
+): NutrientRequirementConstraint | undefined {
   const r = phase.requirements;
-  const ratio = (value: number) => ({ value: `${value}%`, basis: "ratio to SID Lys" });
+  const ratio = (value: number) =>
+    minimum(`${value}%`, "minimum ratio to SID Lys");
+
   switch (nutrientId) {
     case "metabolizable-energy":
       return r.metabolizableEnergyKcalKg === undefined
         ? undefined
-        : { value: `${r.metabolizableEnergyKcalKg} kcal/kg`, basis: "diet" };
+        : target(`${r.metabolizableEnergyKcalKg} kcal/kg`, "dietary energy level");
     case "net-energy":
       return r.netEnergyKcalKg === undefined
         ? undefined
-        : { value: `${r.netEnergyKcalKg} kcal/kg`, basis: "diet" };
+        : target(`${r.netEnergyKcalKg} kcal/kg`, "dietary energy level");
     case "crude-protein":
       return r.practical.crudeProteinMinPct === undefined
         ? undefined
-        : { value: `${r.practical.crudeProteinMinPct}%`, basis: "minimum" };
-    case "sid-lysine":
-      if (r.sidLysinePct !== undefined) return { value: `${r.sidLysinePct}%`, basis: "diet" };
-      if (r.sidLysineGPerMcalME !== undefined) {
-        return { value: `${r.sidLysineGPerMcalME} g/Mcal ME`, basis: "energy-relative" };
+        : minimum(`${r.practical.crudeProteinMinPct}%`, "minimum crude protein");
+    case "sid-lysine": {
+      const maxLysCp =
+        r.practical.sidLysineToCrudeProteinMaxPct === undefined
+          ? undefined
+          : `${r.practical.sidLysineToCrudeProteinMaxPct}% of crude protein (SID Lys:CP)`;
+      if (r.sidLysinePct !== undefined) {
+        return minimum(`${r.sidLysinePct}%`, "diet", maxLysCp);
       }
-      if (r.sidLysineGPerMcalNE !== undefined) {
-        return { value: `${r.sidLysineGPerMcalNE} g/Mcal NE`, basis: "energy-relative" };
-      }
-      return undefined;
+      const value = energyRelativeValue(r.sidLysineGPerMcalME, r.sidLysineGPerMcalNE);
+      return value === undefined
+        ? undefined
+        : minimum(value, "energy-relative requirement", maxLysCp);
+    }
     case "sid-methionine-cysteine":
       return ratio(r.aminoAcids.methionineCysteineToLysPct);
     case "sid-threonine":
@@ -268,75 +329,222 @@ export function nutrientRequirementValue(
     case "calcium":
       return r.minerals.calciumPct === undefined
         ? undefined
-        : { value: `${r.minerals.calciumPct}%`, basis: "minimum" };
-    case "sttd-phosphorus":
+        : minimum(`${r.minerals.calciumPct}%`, "diet");
+    case "sttd-phosphorus": {
       if (r.minerals.sttdPhosphorusPct !== undefined) {
-        return { value: `${r.minerals.sttdPhosphorusPct}%`, basis: "diet" };
+        return minimum(`${r.minerals.sttdPhosphorusPct}%`, "diet");
       }
-      if (r.minerals.sttdPhosphorusGPerMcalME !== undefined) {
-        return {
-          value: `${r.minerals.sttdPhosphorusGPerMcalME} g/Mcal ME`,
-          basis: "energy-relative",
-        };
-      }
-      return undefined;
-    case "available-phosphorus":
+      const value = energyRelativeValue(
+        r.minerals.sttdPhosphorusGPerMcalME,
+        r.minerals.sttdPhosphorusGPerMcalNE,
+      );
+      return value === undefined
+        ? undefined
+        : minimum(value, "energy-relative requirement");
+    }
+    case "available-phosphorus": {
       if (r.minerals.availablePhosphorusPct !== undefined) {
-        return { value: `${r.minerals.availablePhosphorusPct}%`, basis: "diet" };
+        return minimum(`${r.minerals.availablePhosphorusPct}%`, "diet");
       }
-      if (r.minerals.availablePhosphorusGPerMcalME !== undefined) {
-        return {
-          value: `${r.minerals.availablePhosphorusGPerMcalME} g/Mcal ME`,
-          basis: "energy-relative",
-        };
-      }
-      return undefined;
+      const value = energyRelativeValue(
+        r.minerals.availablePhosphorusGPerMcalME,
+        r.minerals.availablePhosphorusGPerMcalNE,
+      );
+      return value === undefined
+        ? undefined
+        : minimum(value, "energy-relative requirement");
+    }
     case "sodium":
-      return { value: `${r.minerals.sodiumPct}%`, basis: "diet" };
+      return minimum(`${r.minerals.sodiumPct}%`, "diet");
     case "chloride":
-      if (r.minerals.chloridePct !== undefined) {
-        return { value: `${r.minerals.chloridePct}%`, basis: "diet" };
-      }
       if (r.minerals.chloridePctRange) {
-        return {
-          value: `${r.minerals.chloridePctRange.min}–${r.minerals.chloridePctRange.max}%`,
-          basis: "range",
-        };
+        return rangeConstraint(
+          `${r.minerals.chloridePctRange.min}%`,
+          `${r.minerals.chloridePctRange.max}%`,
+          "diet range",
+        );
       }
-      return undefined;
+      return r.minerals.chloridePct === undefined
+        ? undefined
+        : minimum(`${r.minerals.chloridePct}%`, "diet");
     case "zinc":
-      return { value: `${r.traceMinerals.zincPpm} ppm`, basis: "diet" };
+      return target(`${r.traceMinerals.zincPpm} ppm`, "added supplementation");
     case "iron":
-      return { value: `${r.traceMinerals.ironPpm} ppm`, basis: "diet" };
+      return target(`${r.traceMinerals.ironPpm} ppm`, "added supplementation");
     case "manganese":
-      return { value: `${r.traceMinerals.manganesePpm} ppm`, basis: "diet" };
+      return target(`${r.traceMinerals.manganesePpm} ppm`, "added supplementation");
     case "copper":
-      return { value: `${r.traceMinerals.copperPpm} ppm`, basis: "diet" };
+      return target(`${r.traceMinerals.copperPpm} ppm`, "added supplementation");
     case "iodine":
-      return { value: `${r.traceMinerals.iodinePpm} ppm`, basis: "diet" };
+      return target(`${r.traceMinerals.iodinePpm} ppm`, "added supplementation");
     case "selenium":
-      return { value: `${r.traceMinerals.seleniumPpm} ppm`, basis: "diet" };
+      return target(`${r.traceMinerals.seleniumPpm} ppm`, "added supplementation");
     case "vitamin-a":
-      return { value: `${r.vitamins.vitaminAIuKg} IU/kg`, basis: "diet" };
+      return target(`${r.vitamins.vitaminAIuKg} IU/kg`, "added supplementation");
     case "vitamin-d":
-      return { value: `${r.vitamins.vitaminDIuKg} IU/kg`, basis: "diet" };
+      return target(`${r.vitamins.vitaminDIuKg} IU/kg`, "added supplementation");
     case "vitamin-e":
-      return { value: `${r.vitamins.vitaminEIuKg} IU/kg`, basis: "diet" };
+      return target(`${r.vitamins.vitaminEIuKg} IU/kg`, "added supplementation");
     case "vitamin-k":
-      return { value: `${r.vitamins.vitaminKMgKg} mg/kg`, basis: "diet" };
+      return target(`${r.vitamins.vitaminKMgKg} mg/kg`, "added supplementation");
     case "niacin":
-      return { value: `${r.vitamins.niacinMgKg} mg/kg`, basis: "diet" };
+      return target(`${r.vitamins.niacinMgKg} mg/kg`, "added supplementation");
     case "riboflavin":
-      return { value: `${r.vitamins.riboflavinMgKg} mg/kg`, basis: "diet" };
+      return target(`${r.vitamins.riboflavinMgKg} mg/kg`, "added supplementation");
     case "pantothenic-acid":
-      return { value: `${r.vitamins.pantothenicAcidMgKg} mg/kg`, basis: "diet" };
+      return target(`${r.vitamins.pantothenicAcidMgKg} mg/kg`, "added supplementation");
     case "vitamin-b12":
-      return { value: `${r.vitamins.vitaminB12McgKg} mcg/kg`, basis: "diet" };
+      return target(`${r.vitamins.vitaminB12McgKg} mcg/kg`, "added supplementation");
     case "choline":
       return r.vitamins.totalCholineMgKg === undefined
         ? undefined
-        : { value: `${r.vitamins.totalCholineMgKg} mg/kg`, basis: "diet" };
+        : target(`${r.vitamins.totalCholineMgKg} mg/kg`, "total dietary concentration");
     default:
       return undefined;
   }
+}
+
+function ingredientValueForNutrient(
+  nutrientId: string,
+  ingredient: IngredientNutrientRecord,
+): { value: number; unit: string } | undefined {
+  const sid = (aminoAcid: string) => sidAminoAcidPct(ingredient, aminoAcid);
+  const combinedSid = (...aminoAcids: string[]) => {
+    const values = aminoAcids.map(sid);
+    return values.every((value) => value !== undefined)
+      ? values.reduce((sum, value) => sum + (value ?? 0), 0)
+      : undefined;
+  };
+
+  let value: number | undefined;
+  let unit = "%";
+
+  switch (nutrientId) {
+    case "metabolizable-energy":
+      value = ingredient.energy.metabolizableKcalKg;
+      unit = "kcal/kg";
+      break;
+    case "net-energy":
+      value = ingredient.energy.netKcalKg;
+      unit = "kcal/kg";
+      break;
+    case "crude-protein":
+      value = ingredient.composition.crudeProteinPct;
+      break;
+    case "sid-lysine":
+      value = sid("lysine");
+      break;
+    case "sid-methionine-cysteine":
+      value = combinedSid("methionine", "cysteine");
+      break;
+    case "sid-threonine":
+      value = sid("threonine");
+      break;
+    case "sid-tryptophan":
+      value = sid("tryptophan");
+      break;
+    case "sid-valine":
+      value = sid("valine");
+      break;
+    case "sid-isoleucine":
+      value = sid("isoleucine");
+      break;
+    case "sid-leucine":
+      value = sid("leucine");
+      break;
+    case "sid-histidine":
+      value = sid("histidine");
+      break;
+    case "sid-phenylalanine-tyrosine":
+      value = combinedSid("phenylalanine", "tyrosine");
+      break;
+    case "calcium":
+      value = ingredient.macroMinerals.calciumPct;
+      break;
+    case "total-phosphorus":
+      value = ingredient.macroMinerals.totalPhosphorusPct;
+      break;
+    case "sttd-phosphorus":
+      value = sttdPhosphorusPctOf(ingredient);
+      break;
+    case "available-phosphorus":
+      value = ingredient.macroMinerals.availablePhosphorusPct;
+      break;
+    case "sodium":
+      value = ingredient.macroMinerals.sodiumPct;
+      break;
+    case "chloride":
+      value = ingredient.macroMinerals.chloridePct;
+      break;
+    case "zinc":
+    case "iron":
+    case "manganese":
+    case "copper":
+    case "iodine":
+    case "selenium":
+      value = ingredient.traceMineralsPpm[nutrientId];
+      unit = "ppm";
+      break;
+    case "vitamin-a":
+      value = ingredient.vitamins.vitaminAIuKg;
+      unit = "IU/kg";
+      break;
+    case "vitamin-d":
+      value = ingredient.vitamins.vitaminDIuKg;
+      unit = "IU/kg";
+      break;
+    case "vitamin-e":
+      value = ingredient.vitamins.vitaminEIuKg;
+      unit = "IU/kg";
+      break;
+    case "vitamin-k":
+      value = ingredient.vitamins.vitaminKMgKg;
+      unit = "mg/kg";
+      break;
+    case "niacin":
+      value = ingredient.vitamins.niacinMgKg;
+      unit = "mg/kg";
+      break;
+    case "riboflavin":
+      value = ingredient.vitamins.riboflavinMgKg;
+      unit = "mg/kg";
+      break;
+    case "pantothenic-acid":
+      value = ingredient.vitamins.pantothenicAcidMgKg;
+      unit = "mg/kg";
+      break;
+    case "vitamin-b12":
+      value = ingredient.vitamins.vitaminB12McgKg;
+      unit = "mcg/kg";
+      break;
+    case "choline":
+      value = ingredient.vitamins.totalCholineMgKg;
+      unit = "mg/kg";
+      break;
+    default:
+      return undefined;
+  }
+
+  return value === undefined || value <= 0 ? undefined : { value, unit };
+}
+
+export function abundantIngredientsForNutrient(
+  nutrientId: string,
+  limit = 6,
+): readonly NutrientIngredientAbundance[] {
+  return INGREDIENT_LIBRARY.ingredients
+    .flatMap((ingredient) => {
+      const nutrient = ingredientValueForNutrient(nutrientId, ingredient);
+      return nutrient
+        ? [{
+            ingredientId: ingredient.id,
+            ingredientName: ingredient.name,
+            category: ingredient.category,
+            value: nutrient.value,
+            unit: nutrient.unit,
+          }]
+        : [];
+    })
+    .sort((a, b) => b.value - a.value)
+    .slice(0, Math.max(0, limit));
 }
