@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { PLAN_TABS, ingredientHref, planHref, tabFromPath } from "./routes";
+import {
+  PLAN_TABS,
+  feedFormulationHref,
+  feedIngredientHref,
+  ingredientHref,
+  planHref,
+  tabFromPath,
+} from "./routes";
 
 describe("the address of a plan", () => {
   it("names the plan itself on the page it opens on", () => {
@@ -30,6 +37,15 @@ describe("the address of a plan", () => {
       "/projects/abc/nutrition/ingredients/corn%2Fyellow",
     );
     expect(tabFromPath(ingredientHref("abc", "corn-yellow-dent"))).toBe("nutrition");
+  });
+
+  it("keeps feed formulation outside project routes", () => {
+    expect(feedFormulationHref()).toBe("/feed-formulation");
+    expect(feedFormulationHref("ingredients")).toBe("/feed-formulation/ingredients");
+    expect(feedFormulationHref("requirements")).toBe("/feed-formulation/requirements");
+    expect(feedIngredientHref("corn/yellow")).toBe(
+      "/feed-formulation/ingredients/corn%2Fyellow",
+    );
   });
 });
 
