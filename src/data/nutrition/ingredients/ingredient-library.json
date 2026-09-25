@@ -564,9 +564,9 @@
         "crudeProteinPct": 95.4
       },
       "energy": {
-        "digestibleKcalKg": 4795,
-        "metabolizableKcalKg": 4363,
-        "netKcalKg": 3380
+        "digestibleKcalKg": 4780,
+        "metabolizableKcalKg": 4350,
+        "netKcalKg": 3390
       },
       "aminoAcids": {
         "totalPct": {
@@ -577,7 +577,14 @@
           "lysine": 78.8
         }
       },
-      "macroMinerals": {},
+      "macroMinerals": {
+        "calciumPct": 0,
+        "totalPhosphorusPct": 0,
+        "magnesiumPct": 0,
+        "potassiumPct": 0,
+        "sodiumPct": 0,
+        "chloridePct": 19.1
+      },
       "traceMineralsPpm": {},
       "constraints": {
         "notes": [
@@ -593,7 +600,97 @@
           "Crystalline amino acids are generally assumed fully absorbed.",
           "DE, ME, NE, dry matter and crude protein are supplemented from National Swine Nutrition Guide Table 18 for L-lysine HCl (converted from kcal/lb to kcal/kg).",
           "Lysine activity remains the NRC Chapter 2 value already stored above."
-        ]
+        ],
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "macroMinerals.calciumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "macroMinerals.totalPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-lysine-hcl",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          }
+        }
       }
     },
     {
@@ -728,7 +825,10 @@
           "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
           "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
         },
-        "notes": []
+        "notes": [
+          "INRAE–CIRAD–AFZ publishes pig digestible phosphorus for monocalcium phosphate, but PigFlow does not map that value to STTD phosphorus because the measures are not identical."
+        ],
+        "nutrientSources": {}
       }
     },
     {
@@ -743,9 +843,9 @@
         "crudeProteinPct": 58.4
       },
       "energy": {
-        "digestibleKcalKg": 5657,
-        "metabolizableKcalKg": 5370,
-        "netKcalKg": 4147
+        "digestibleKcalKg": 5640,
+        "metabolizableKcalKg": 5350,
+        "netKcalKg": 4130
       },
       "aminoAcids": {
         "totalPct": {
@@ -756,7 +856,14 @@
           "methionine": 99
         }
       },
-      "macroMinerals": {},
+      "macroMinerals": {
+        "calciumPct": 0,
+        "totalPhosphorusPct": 0,
+        "magnesiumPct": 0,
+        "potassiumPct": 0,
+        "sodiumPct": 0,
+        "chloridePct": 0
+      },
       "traceMineralsPpm": {},
       "vitamins": {},
       "constraints": {
@@ -773,7 +880,97 @@
           "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
           "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
         },
-        "notes": []
+        "notes": [],
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "macroMinerals.calciumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "macroMinerals.totalPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/dl-methionine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          }
+        }
       }
     },
     {
@@ -788,9 +985,9 @@
         "crudeProteinPct": 73.1
       },
       "energy": {
-        "digestibleKcalKg": 4123,
-        "metabolizableKcalKg": 3788,
-        "netKcalKg": 2950
+        "digestibleKcalKg": 4120,
+        "metabolizableKcalKg": 3770,
+        "netKcalKg": 2930
       },
       "aminoAcids": {
         "totalPct": {
@@ -801,7 +998,14 @@
           "threonine": 99
         }
       },
-      "macroMinerals": {},
+      "macroMinerals": {
+        "calciumPct": 0,
+        "totalPhosphorusPct": 0,
+        "magnesiumPct": 0,
+        "potassiumPct": 0,
+        "sodiumPct": 0,
+        "chloridePct": 0
+      },
       "traceMineralsPpm": {},
       "vitamins": {},
       "constraints": {
@@ -818,7 +1022,97 @@
           "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
           "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
         },
-        "notes": []
+        "notes": [],
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "macroMinerals.calciumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "macroMinerals.totalPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-threonine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          }
+        }
       }
     },
     {
@@ -829,13 +1123,13 @@
       ],
       "category": "amino_acid",
       "composition": {
-        "dryMatterPct": 99.5,
-        "crudeProteinPct": 85.3
+        "dryMatterPct": 99.7,
+        "crudeProteinPct": 84
       },
       "energy": {
-        "digestibleKcalKg": 6592,
-        "metabolizableKcalKg": 6186,
-        "netKcalKg": 4795
+        "digestibleKcalKg": 6510,
+        "metabolizableKcalKg": 6120,
+        "netKcalKg": 4730
       },
       "aminoAcids": {
         "totalPct": {
@@ -846,7 +1140,14 @@
           "tryptophan": 98.5
         }
       },
-      "macroMinerals": {},
+      "macroMinerals": {
+        "calciumPct": 0,
+        "totalPhosphorusPct": 0,
+        "magnesiumPct": 0,
+        "potassiumPct": 0,
+        "sodiumPct": 0,
+        "chloridePct": 0
+      },
       "traceMineralsPpm": {},
       "vitamins": {},
       "constraints": {
@@ -863,7 +1164,97 @@
           "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
           "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
         },
-        "notes": []
+        "notes": [],
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "macroMinerals.calciumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "macroMinerals.totalPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/l-tryptophan",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          }
+        }
       }
     },
     {
@@ -969,18 +1360,67 @@
         "neutralDetergentFibrePct": 24.52,
         "acidDetergentFibrePct": 8.14
       },
-      "energy": {},
+      "energy": {
+        "digestibleKcalKg": 2950,
+        "metabolizableKcalKg": 2760,
+        "netKcalKg": 1810
+      },
       "aminoAcids": {
-        "totalPct": {},
+        "totalPct": {
+          "lysine": 0.73,
+          "threonine": 0.89,
+          "methionine": 0.46,
+          "cysteine": 0.5,
+          "tryptophan": 0.18,
+          "isoleucine": 0.89,
+          "valine": 1.21,
+          "leucine": 2.57,
+          "phenylalanine": 1.1,
+          "tyrosine": 0.77,
+          "histidine": 0.67,
+          "arginine": 1.04
+        },
         "sidDigestibilityPct": {},
-        "sidPct": {}
+        "sidPct": {
+          "lysine": 0.42,
+          "threonine": 0.55,
+          "methionine": 0.35,
+          "cysteine": 0.3,
+          "tryptophan": 0.13,
+          "isoleucine": 0.64,
+          "valine": 0.8,
+          "leucine": 2.01,
+          "phenylalanine": 0.87,
+          "tyrosine": 0.58,
+          "histidine": 0.39,
+          "arginine": 0.79
+        }
       },
       "macroMinerals": {
         "calciumPct": 0.08,
-        "totalPhosphorusPct": 1.03
+        "totalPhosphorusPct": 1.03,
+        "sodiumPct": 0.427,
+        "chloridePct": 0.29,
+        "magnesiumPct": 0.29,
+        "potassiumPct": 1.08
       },
-      "traceMineralsPpm": {},
-      "vitamins": {},
+      "traceMineralsPpm": {
+        "manganese": 22,
+        "zinc": 60,
+        "copper": 8,
+        "iron": 282,
+        "selenium": 0.3,
+        "iodine": 0.03
+      },
+      "vitamins": {
+        "vitaminAIuKg": 900,
+        "vitaminDIuKg": 0,
+        "riboflavinMgKg": 8.3,
+        "vitaminB12McgKg": 12.61,
+        "niacinMgKg": 73.1,
+        "pantothenicAcidMgKg": 13.5,
+        "totalCholineMgKg": 2222
+      },
       "constraints": {
         "notes": [
           "Low-oil DDGS is highly variable. This default profile is an analyzed study ingredient, not a universal NRC mean; supplier analysis should replace it for formulation."
@@ -997,8 +1437,363 @@
           "basis": "Analyzed as-fed composition of the study's low-oil corn DDGS source"
         },
         "notes": [
-          "PIC Tables B1/B2 specify corn DDGS with <4% oil."
-        ]
+          "PIC Tables B1/B2 specify corn DDGS with <4% oil.",
+          "Pig-specific low-oil DDGS fallback values are drawn from INRAE–CIRAD–AFZ only where the primary record lacked that nutrient."
+        ],
+        "nutrientSources": {
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.lysine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.threonine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.methionine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.cysteine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.tryptophan": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.isoleucine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.valine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.leucine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.phenylalanine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.tyrosine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.histidine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.totalPct.arginine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.lysine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.threonine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.methionine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.cysteine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.tryptophan": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.isoleucine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.valine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.leucine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.phenylalanine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.tyrosine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.histidine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "aminoAcids.sidPct.arginine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "traceMineralsPpm.manganese": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "traceMineralsPpm.zinc": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "traceMineralsPpm.copper": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "traceMineralsPpm.iron": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "traceMineralsPpm.selenium": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "traceMineralsPpm.iodine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "vitamins.vitaminAIuKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "vitamins.vitaminDIuKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "vitamins.riboflavinMgKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "vitamins.vitaminB12McgKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "vitamins.niacinMgKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "vitamins.pantothenicAcidMgKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          },
+          "vitamins.totalCholineMgKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/maize-distillers-grains-and-solubles-oil-6-dried",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Fallback values for low-oil maize DDGS (<6% oil). Existing primary study values are retained where already populated."
+          }
+        }
       }
     },
     {
@@ -3528,6 +4323,7 @@
     "Ingredient loading values should be transcribed from NRC 2012 Chapter 17 or the official NRC Swine Model 2012 companion workbook.",
     "Do not silently mix ingredient composition values from other databases into this library. Any local laboratory or supplier override must carry its own provenance.",
     "Keep values on the basis published by NRC; conversions for formulation belong in code, not in the source data.",
-    "The library also contains explicitly sourced supplemental National Swine Nutrition Guide records. Each supplemental record carries per-ingredient provenance and must not be silently treated as NRC 2012 data."
+    "The library also contains explicitly sourced supplemental National Swine Nutrition Guide records. Each supplemental record carries per-ingredient provenance and must not be silently treated as NRC 2012 data.",
+    "When a primary ingredient source lacks a nutrient, PigFlow may use an explicitly documented fallback value. Per-value provenance is stored in provenance.nutrientSources."
   ]
 }
