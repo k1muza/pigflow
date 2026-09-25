@@ -1,15 +1,16 @@
+import { evaluateDietForPhase, type DietConstraintCheck } from "./diet-formula";
+import { analyzeFeedFormulation } from "./formulation-analysis";
 import type { FeedFormulation } from "./feed-formulations";
 import type { NutritionPhase } from "./nutrition";
-import { resolveNutritionTargets } from "./nutrition-targets";
 
-export type FormulationComparisonStatus = "pass" | "fail" | "incomplete" | "not_applicable";
+export type FormulationComparisonStatus = "pass" | "fail" | "incomplete";
 
 export type FormulationRequirementComparisonRow = {
   id: string;
   label: string;
   actual?: string;
   requirement?: string;
-  relation?: "min" | "max" | "target" | "range";
+  relation: "min" | "max" | "range";
   status: FormulationComparisonStatus;
   note?: string;
 };
@@ -17,384 +18,80 @@ export type FormulationRequirementComparisonRow = {
 export type FormulationRequirementComparison = {
   phaseId: string;
   profileBasis: string;
-  status: "pass" | "fail" | "incomplete";
+  status: FormulationComparisonStatus;
   rows: readonly FormulationRequirementComparisonRow[];
   quantifiedCount: number;
   incompleteCount: number;
 };
 
-function ingredientInclusion(
-  formulation: FeedFormulation,
-  predicate: (ingredientId: string) => boolean,
-): number {
-  return formulation.ingredients.reduce(
-    (sum, row) => sum + (predicate(row.ingredientId) ? row.inclusionPct : 0),
-    0,
-  );
+function formatNumber(value: number): string {
+  return Number(value.toFixed(4)).toString();
 }
 
-function fmtPct(value: number): string {
-  return `${Number(value.toFixed(4))}%`;
+function formatActual(check: DietConstraintCheck): string | undefined {
+  if (check.actual !== null) return `${formatNumber(check.actual)} ${check.unit}`;
+  if (check.knownSubtotal !== undefined && check.knownSubtotal > 0) {
+    return `known ≥ ${formatNumber(check.knownSubtotal)} ${check.unit}`;
+  }
+  return undefined;
 }
 
-function compareMin(
-  id: string,
-  label: string,
-  actual: number,
-  minimum: number,
-  note?: string,
-): FormulationRequirementComparisonRow {
-  return {
-    id,
-    label,
-    actual: fmtPct(actual),
-    requirement: `≥ ${fmtPct(minimum)}`,
-    relation: "min",
-    status: actual >= minimum ? "pass" : "fail",
-    note,
-  };
+function formatRequirement(check: DietConstraintCheck): string {
+  if (typeof check.bound === "number") {
+    const operator = check.relation === "max" ? "≤" : "≥";
+    return `${operator} ${formatNumber(check.bound)} ${check.unit}`;
+  }
+
+  return `${formatNumber(check.bound.min)}–${formatNumber(check.bound.max)} ${check.unit}`;
 }
 
-function compareMax(
-  id: string,
-  label: string,
-  actual: number,
-  maximum: number,
-  note?: string,
-): FormulationRequirementComparisonRow {
-  return {
-    id,
-    label,
-    actual: fmtPct(actual),
-    requirement: `≤ ${fmtPct(maximum)}`,
-    relation: "max",
-    status: actual <= maximum ? "pass" : "fail",
-    note,
-  };
-}
-
-function incomplete(
-  id: string,
-  label: string,
-  requirement: string,
-  note: string,
-): FormulationRequirementComparisonRow {
-  return {
-    id,
-    label,
-    requirement,
-    status: "incomplete",
-    note,
-  };
+function comparisonNote(check: DietConstraintCheck): string | undefined {
+  if (check.status !== "incomplete") return undefined;
+  if (check.missingIngredientIds.length === 0) {
+    return "The current ingredient dataset does not provide enough information to calculate this check.";
+  }
+  return `Missing nutrient values for: ${check.missingIngredientIds.join(", ")}.`;
 }
 
 /**
- * Compare a source-published formulation profile with one PIC requirement phase.
- *
- * This intentionally uses only values explicitly reported for the formulation
- * plus exact ingredient inclusion rates. It does not recompute a complete
- * nutrient profile from mixed ingredient databases.
+ * Compare a formulation against one PIC phase using PigFlow's calculated
+ * ingredient-weighted nutrient profile. PIC contributes requirement ratios and
+ * limits only; no source-reported formulation output values are used here.
  */
 export function compareFormulationToPhase(
   formulation: FeedFormulation,
   phase: NutritionPhase,
 ): FormulationRequirementComparison {
-  const profile =
-    formulation.nutrientProfiles.find((candidate) =>
-      candidate.basis.toLowerCase().includes(formulation.ingredientDatabase.toLowerCase()),
-    ) ?? formulation.nutrientProfiles[0];
+  const calculated = analyzeFeedFormulation(formulation);
+  const evaluation = evaluateDietForPhase(calculated.formula, phase, "ME");
 
-  if (!profile) {
-    return {
-      phaseId: phase.id,
-      profileBasis: "unknown",
+  const rows = evaluation.checks.map(
+    (check): FormulationRequirementComparisonRow => ({
+      id: check.id,
+      label: check.label,
+      actual: formatActual(check),
+      requirement: formatRequirement(check),
+      relation: check.relation,
+      status: check.status,
+      note: comparisonNote(check),
+    }),
+  );
+
+  for (const unsupported of evaluation.unsupportedConstraints) {
+    rows.push({
+      id: `unsupported-${unsupported}`,
+      label:
+        unsupported === "highlyDigestibleProteinPct"
+          ? "Highly digestible protein"
+          : unsupported === "highlyDigestibleCarbohydratePct"
+            ? "Highly digestible carbohydrate"
+            : unsupported,
+      relation: "min",
       status: "incomplete",
-      rows: [],
-      quantifiedCount: 0,
-      incompleteCount: 0,
-    };
-  }
-
-  const meTargets = resolveNutritionTargets(phase, {
-    system: "ME",
-    kcalKg: profile.metabolizableEnergyKcalKg,
-  });
-  const neTargets = resolveNutritionTargets(phase, {
-    system: "NE",
-    kcalKg: profile.netEnergyKcalKg,
-  });
-
-  const rows: FormulationRequirementComparisonRow[] = [];
-
-  if (phase.requirements.metabolizableEnergyKcalKg !== undefined) {
-    const target = phase.requirements.metabolizableEnergyKcalKg;
-    rows.push({
-      id: "me",
-      label: "Metabolizable energy",
-      actual: `${profile.metabolizableEnergyKcalKg.toLocaleString()} kcal/kg`,
-      requirement: `≥ ${target.toLocaleString()} kcal/kg`,
-      relation: "min",
-      status: profile.metabolizableEnergyKcalKg >= target ? "pass" : "fail",
-      note: "PIC publishes a dietary energy level for this phase.",
+      note: "This practical PIC constraint is not yet calculable from the ingredient nutrient schema.",
     });
   }
 
-  if (phase.requirements.netEnergyKcalKg !== undefined) {
-    const target = phase.requirements.netEnergyKcalKg;
-    rows.push({
-      id: "ne",
-      label: "Net energy",
-      actual: `${profile.netEnergyKcalKg.toLocaleString()} kcal/kg`,
-      requirement: `≥ ${target.toLocaleString()} kcal/kg`,
-      relation: "min",
-      status: profile.netEnergyKcalKg >= target ? "pass" : "fail",
-      note: "PIC publishes a dietary energy level for this phase.",
-    });
-  }
-
-  rows.push(
-    compareMin(
-      "sid-lys-me",
-      "SID lysine — ME basis",
-      profile.sidLysinePct,
-      meTargets.aminoAcids.sidLysinePct,
-      "Requirement resolved from this formulation's reported ME.",
-    ),
-  );
-
-  rows.push(
-    compareMin(
-      "sid-lys-ne",
-      "SID lysine — NE basis",
-      profile.sidLysinePct,
-      neTargets.aminoAcids.sidLysinePct,
-      "Requirement resolved from this formulation's reported NE.",
-    ),
-  );
-
-  if (phase.requirements.practical.crudeProteinMinPct !== undefined) {
-    rows.push(
-      incomplete(
-        "crude-protein",
-        "Crude protein",
-        `≥ ${fmtPct(phase.requirements.practical.crudeProteinMinPct)}`,
-        "PIC Tables B1/B2 do not report crude protein for the example diet.",
-      ),
-    );
-  }
-
-  if (phase.requirements.practical.sidLysineToCrudeProteinMaxPct !== undefined) {
-    rows.push(
-      incomplete(
-        "sid-lysine-cp",
-        "SID lysine : crude protein",
-        `≤ ${phase.requirements.practical.sidLysineToCrudeProteinMaxPct}%`,
-        "The formulation source reports SID lysine but not crude protein, so this ratio cannot be verified.",
-      ),
-    );
-  }
-
-  if (phase.requirements.practical.highlyDigestibleProteinPct) {
-    rows.push(
-      incomplete(
-        "highly-digestible-protein",
-        "Highly digestible protein",
-        `${phase.requirements.practical.highlyDigestibleProteinPct.min}–${phase.requirements.practical.highlyDigestibleProteinPct.max}%`,
-        "PIC Tables B1/B2 do not report this practical diet characteristic.",
-      ),
-    );
-  }
-
-  if (phase.requirements.practical.highlyDigestibleCarbohydratePct !== undefined) {
-    rows.push(
-      incomplete(
-        "highly-digestible-carbohydrate",
-        "Highly digestible carbohydrate",
-        `≥ ${fmtPct(phase.requirements.practical.highlyDigestibleCarbohydratePct)}`,
-        "PIC Tables B1/B2 do not report this practical diet characteristic.",
-      ),
-    );
-  }
-
-  const soybeanMealPct = ingredientInclusion(formulation, (id) =>
-    id.startsWith("soybean-meal-"),
-  );
-  if (phase.requirements.practical.soybeanMealMaxPct !== undefined) {
-    rows.push(
-      compareMax(
-        "soybean-meal",
-        "Soybean meal inclusion",
-        soybeanMealPct,
-        phase.requirements.practical.soybeanMealMaxPct,
-      ),
-    );
-  }
-
-  const lLysineHclPct = ingredientInclusion(
-    formulation,
-    (id) => id === "l-lysine-hcl",
-  );
-  if (phase.requirements.practical.lLysineHclMaxPct !== undefined) {
-    rows.push(
-      compareMax(
-        "l-lysine-hcl",
-        "L-Lysine HCl inclusion",
-        lLysineHclPct,
-        phase.requirements.practical.lLysineHclMaxPct,
-        "PIC describes this as a suggested maximum for corn-soybean meal-based diets.",
-      ),
-    );
-  }
-
-  const aaRequirements: Array<[string, string, number]> = [
-    ["sid-met-cys", "SID methionine + cysteine", meTargets.aminoAcids.sidMethionineCysteinePct],
-    ["sid-threonine", "SID threonine", meTargets.aminoAcids.sidThreoninePct],
-    ["sid-tryptophan", "SID tryptophan", meTargets.aminoAcids.sidTryptophanPct],
-    ["sid-valine", "SID valine", meTargets.aminoAcids.sidValinePct],
-    ["sid-isoleucine", "SID isoleucine", meTargets.aminoAcids.sidIsoleucinePct],
-    ["sid-leucine", "SID leucine", meTargets.aminoAcids.sidLeucinePct],
-    ["sid-histidine", "SID histidine", meTargets.aminoAcids.sidHistidinePct],
-    [
-      "sid-phe-tyr",
-      "SID phenylalanine + tyrosine",
-      meTargets.aminoAcids.sidPhenylalanineTyrosinePct,
-    ],
-  ];
-
-  for (const [id, label, minimum] of aaRequirements) {
-    rows.push(
-      incomplete(
-        id,
-        label,
-        `≥ ${fmtPct(minimum)}`,
-        "PIC Tables B1/B2 do not report this nutrient in the resulting profile.",
-      ),
-    );
-  }
-
-  if (meTargets.minerals.sttdPhosphorusPct !== undefined) {
-    rows.push(
-      incomplete(
-        "sttd-phosphorus",
-        "STTD phosphorus",
-        `≥ ${fmtPct(meTargets.minerals.sttdPhosphorusPct)}`,
-        "PIC Tables B1/B2 do not report STTD phosphorus for the example diet.",
-      ),
-    );
-  }
-
-  if (meTargets.minerals.availablePhosphorusPct !== undefined) {
-    rows.push(
-      incomplete(
-        "available-phosphorus",
-        "Available phosphorus",
-        `≥ ${fmtPct(meTargets.minerals.availablePhosphorusPct)}`,
-        "PIC Tables B1/B2 do not report available phosphorus for the example diet.",
-      ),
-    );
-  }
-
-  if (meTargets.minerals.calciumPct !== undefined) {
-    rows.push(
-      incomplete(
-        "calcium",
-        "Calcium",
-        `≥ ${fmtPct(meTargets.minerals.calciumPct)}`,
-        "PIC Tables B1/B2 do not report analyzed calcium for the example diet.",
-      ),
-    );
-  }
-
-  if (meTargets.minerals.analyzedCalciumToPhosphorus) {
-    rows.push(
-      incomplete(
-        "calcium-phosphorus-ratio",
-        "Analyzed calcium : phosphorus",
-        `${meTargets.minerals.analyzedCalciumToPhosphorus.min}–${meTargets.minerals.analyzedCalciumToPhosphorus.max}`,
-        "PIC Tables B1/B2 do not report the analyzed calcium:phosphorus ratio.",
-      ),
-    );
-  }
-
-  rows.push(
-    incomplete(
-      "sodium",
-      "Sodium",
-      `≥ ${fmtPct(meTargets.minerals.sodiumPct)}`,
-      "PIC Tables B1/B2 do not report sodium for the example diet.",
-    ),
-  );
-
-  if (meTargets.minerals.chloridePct !== undefined) {
-    rows.push(
-      incomplete(
-        "chloride",
-        "Chloride",
-        `≥ ${fmtPct(meTargets.minerals.chloridePct)}`,
-        "PIC Tables B1/B2 do not report chloride for the example diet.",
-      ),
-    );
-  } else if (meTargets.minerals.chloridePctRange) {
-    rows.push(
-      incomplete(
-        "chloride",
-        "Chloride",
-        `${fmtPct(meTargets.minerals.chloridePctRange.min)}–${fmtPct(
-          meTargets.minerals.chloridePctRange.max,
-        )}`,
-        "PIC Tables B1/B2 do not report chloride for the example diet.",
-      ),
-    );
-  }
-
-  const traceRequirements: Array<[string, string, number]> = [
-    ["zinc", "Zinc", phase.requirements.traceMinerals.zincPpm],
-    ["iron", "Iron", phase.requirements.traceMinerals.ironPpm],
-    ["manganese", "Manganese", phase.requirements.traceMinerals.manganesePpm],
-    ["copper", "Copper", phase.requirements.traceMinerals.copperPpm],
-    ["iodine", "Iodine", phase.requirements.traceMinerals.iodinePpm],
-    ["selenium", "Selenium", phase.requirements.traceMinerals.seleniumPpm],
-  ];
-  for (const [id, label, requirement] of traceRequirements) {
-    rows.push(
-      incomplete(
-        id,
-        label,
-        `${requirement} ppm added`,
-        "PIC Tables B1/B2 do not report the premix micronutrient contribution. PIC expresses these as added supplementation.",
-      ),
-    );
-  }
-
-  const vitaminRequirements: Array<[string, string, number | undefined, string]> = [
-    ["vitamin-a", "Vitamin A", phase.requirements.vitamins.vitaminAIuKg, "IU/kg added"],
-    ["vitamin-d", "Vitamin D", phase.requirements.vitamins.vitaminDIuKg, "IU/kg added"],
-    ["vitamin-e", "Vitamin E", phase.requirements.vitamins.vitaminEIuKg, "IU/kg added"],
-    ["vitamin-k", "Vitamin K", phase.requirements.vitamins.vitaminKMgKg, "mg/kg added"],
-    ["niacin", "Niacin", phase.requirements.vitamins.niacinMgKg, "mg/kg added"],
-    ["riboflavin", "Riboflavin", phase.requirements.vitamins.riboflavinMgKg, "mg/kg added"],
-    [
-      "pantothenic-acid",
-      "Pantothenic acid",
-      phase.requirements.vitamins.pantothenicAcidMgKg,
-      "mg/kg added",
-    ],
-    ["vitamin-b12", "Vitamin B12", phase.requirements.vitamins.vitaminB12McgKg, "mcg/kg added"],
-    ["choline", "Total choline", phase.requirements.vitamins.totalCholineMgKg, "mg/kg"],
-  ];
-  for (const [id, label, requirement, unit] of vitaminRequirements) {
-    if (requirement === undefined) continue;
-    rows.push(
-      incomplete(
-        id,
-        label,
-        `${requirement} ${unit}`,
-        "PIC Tables B1/B2 do not report this vitamin concentration for the example diet.",
-      ),
-    );
-  }
-
-  const anyFail = rows.some((row) => row.status === "fail");
   const incompleteCount = rows.filter((row) => row.status === "incomplete").length;
   const quantifiedCount = rows.filter(
     (row) => row.status === "pass" || row.status === "fail",
@@ -402,8 +99,13 @@ export function compareFormulationToPhase(
 
   return {
     phaseId: phase.id,
-    profileBasis: profile.basis,
-    status: anyFail ? "fail" : incompleteCount > 0 ? "incomplete" : "pass",
+    profileBasis: "Calculated from ingredient library · ME basis",
+    status:
+      evaluation.status === "valid"
+        ? "pass"
+        : evaluation.status === "invalid"
+          ? "fail"
+          : "incomplete",
     rows,
     quantifiedCount,
     incompleteCount,
