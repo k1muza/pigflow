@@ -270,7 +270,7 @@ export function loadNutritionProgramme(input: unknown): NutritionProgramme {
   return {
     id: file.id,
     name: file.name,
-    source: `${file.source.publisher} · ${file.source.title}`,
+    source: file.source.title,
     sourceVersion: file.source.version,
     sourceSections: file.source.sections,
     sourceUrl: file.source.url,
