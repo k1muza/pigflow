@@ -36,15 +36,22 @@ const ingredientSchema = z.object({
   }),
   aminoAcids: z
     .object({
+      /** Concentration printed by the source, on the library basis. */
       totalPct: z.record(z.string(), z.number()).default({}),
+      /** NRC Table 17-1 standardized ileal digestibility coefficient. */
+      sidDigestibilityPct: z.record(z.string(), z.number()).default({}),
+      /** Explicit SID concentration for crystalline sources when appropriate. */
       sidPct: z.record(z.string(), z.number()).default({}),
     })
-    .default({ totalPct: {}, sidPct: {} }),
+    .default({ totalPct: {}, sidDigestibilityPct: {}, sidPct: {} }),
   macroMinerals: z
     .object({
       calciumPct: z.number().optional(),
       totalPhosphorusPct: z.number().optional(),
       availablePhosphorusPct: z.number().optional(),
+      /** NRC source coefficient; use sttdPhosphorusPctOf() for concentration. */
+      sttdPhosphorusDigestibilityPct: z.number().optional(),
+      /** Explicit concentration for sources that publish one directly. */
       sttdPhosphorusPct: z.number().optional(),
       sodiumPct: z.number().optional(),
       chloridePct: z.number().optional(),
@@ -106,3 +113,37 @@ export function loadIngredientLibrary(input: unknown): IngredientLibrary {
 }
 
 export const INGREDIENT_LIBRARY = loadIngredientLibrary(ingredientLibraryJson);
+
+
+/**
+ * Standardized ileal digestible concentration for one amino acid.
+ *
+ * NRC Table 17-1 publishes total concentration and an SID coefficient. Keeping
+ * that coefficient in JSON lets the source remain auditable while formulation
+ * receives the concentration it needs.
+ */
+export function sidAminoAcidPct(
+  ingredient: IngredientNutrientRecord,
+  aminoAcid: string,
+): number | undefined {
+  const explicit = ingredient.aminoAcids.sidPct[aminoAcid];
+  if (explicit !== undefined) return explicit;
+
+  const total = ingredient.aminoAcids.totalPct[aminoAcid];
+  const digestibility = ingredient.aminoAcids.sidDigestibilityPct[aminoAcid];
+  if (total === undefined || digestibility === undefined) return undefined;
+  return total * (digestibility / 100);
+}
+
+/** STTD phosphorus concentration derived from the NRC total-P row and coefficient. */
+export function sttdPhosphorusPctOf(
+  ingredient: IngredientNutrientRecord,
+): number | undefined {
+  if (ingredient.macroMinerals.sttdPhosphorusPct !== undefined) {
+    return ingredient.macroMinerals.sttdPhosphorusPct;
+  }
+  const total = ingredient.macroMinerals.totalPhosphorusPct;
+  const digestibility = ingredient.macroMinerals.sttdPhosphorusDigestibilityPct;
+  if (total === undefined || digestibility === undefined) return undefined;
+  return total * (digestibility / 100);
+}
