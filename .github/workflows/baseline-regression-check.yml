@@ -1,0 +1,23 @@
+name: Baseline regression check
+
+on:
+  push:
+    branches:
+      - age-dependent-piglet-growth
+    paths:
+      - .github/workflows/baseline-regression-check.yml
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test -- --run src/lib/model.test.ts src/lib/housing/housing.test.ts src/lib/sim/farm.test.ts src/lib/sim/mortality.test.ts
