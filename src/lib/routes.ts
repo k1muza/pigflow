@@ -32,6 +32,12 @@ export function planHref(projectId: string, tab: Tab = "overview"): string {
   return tab === "overview" ? plan : plan + "/" + tab;
 }
 
+/** Browse ingredients, or open one ingredient, inside a plan's nutrition workspace. */
+export function ingredientHref(projectId: string, ingredientId?: string): string {
+  const base = planHref(projectId, "nutrition") + "/ingredients";
+  return ingredientId ? base + "/" + encodeURIComponent(ingredientId) : base;
+}
+
 /**
  * Which page an address is on. Anything that is not a page of a plan reads as
  * the overview, because that is what a plan opens on — the sidebar has to mark
