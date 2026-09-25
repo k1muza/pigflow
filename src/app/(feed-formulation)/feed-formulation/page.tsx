@@ -15,6 +15,8 @@ import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 import { PIC_GROWTH_NUTRITION_2021 } from "@/lib/nutrition";
 import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
 import { PIC_EXAMPLE_FORMULATIONS } from "@/lib/feed-formulations";
+import { analyzeFeedFormulation } from "@/lib/formulation-analysis";
+import type { AnalyzedNutrient } from "@/lib/diet-formula";
 import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
 import { feedFormulationHref, feedFormulationStrategyHref } from "@/lib/routes";
 
@@ -69,7 +71,7 @@ export default function FeedFormulationDashboard() {
           href={feedFormulationHref("formulations")}
           icon={Layers3}
           title="Formulations"
-          description="Browse PIC example rations with ingredient ratios and reported nutrient profiles."
+          description="Browse PIC example ingredient ratios with nutrient profiles calculated from the ingredient library."
           action="Browse formulations"
         />
         <WorkspaceLink
@@ -92,13 +94,13 @@ export default function FeedFormulationDashboard() {
         <CardHeader>
           <CardTitle>Featured PIC formulations</CardTitle>
           <CardDescription>
-            Actual example diets from PIC Tables B1 and B2, including ingredient ratios and
-            source-reported ME, NE and SID lysine.
+            PIC Tables B1/B2 provide the ingredient ratios; PigFlow calculates the resulting
+            nutrient profile from the ingredient library.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {PIC_EXAMPLE_FORMULATIONS.filter((formulation) => formulation.featured).map((formulation) => {
-            const profile = formulation.nutrientProfiles[0];
+            const profile = analyzeFeedFormulation(formulation).analysis;
             return (
               <Link
                 key={formulation.id}
@@ -110,10 +112,11 @@ export default function FeedFormulationDashboard() {
                   {formulation.ingredients.length} ingredients · {formulation.sourceTable}
                 </div>
                 <div className="mt-3 text-lg font-semibold text-ink">
-                  {profile.metabolizableEnergyKcalKg.toLocaleString()} ME
+                  {dashboardMetric(profile.energy.metabolizableKcalKg)} ME
                 </div>
                 <div className="mt-1 text-xs text-ink-faint">
-                  {profile.netEnergyKcalKg.toLocaleString()} NE · {profile.sidLysinePct}% SID Lys
+                  {dashboardMetric(profile.energy.netKcalKg)} NE ·{" "}
+                  {dashboardMetric(profile.sidAminoAcidsPct.lysine)}% SID Lys
                 </div>
               </Link>
             );
@@ -131,8 +134,8 @@ export default function FeedFormulationDashboard() {
         <CardContent className="space-y-3">
           <StatusRow
             ready
-            label="NRC ingredient nutrient analysis"
-            detail="Energy, SID amino acids, STTD phosphorus and minerals are available for checked-in ingredients."
+            label="Ingredient-weighted nutrient analysis"
+            detail="Formulation profiles are calculated from ingredient records; missing ingredient values remain explicitly incomplete."
           />
           <StatusRow
             ready
@@ -227,4 +230,10 @@ function StatusRow({
       </div>
     </div>
   );
+}
+
+
+function dashboardMetric(nutrient: AnalyzedNutrient): string {
+  const value = Number(nutrient.value.toFixed(3));
+  return nutrient.complete ? value.toLocaleString() : `≥${value.toLocaleString()}`;
 }
