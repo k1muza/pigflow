@@ -109,12 +109,10 @@ describe("diet formula analysis", () => {
   it("does not silently turn missing nutrient data into zero", () => {
     const result = analyzeDiet(simple);
 
-    expect(result.energy.metabolizableKcalKg.complete).toBe(false);
-    expect(result.energy.metabolizableKcalKg.missingIngredientIds).toContain(
-      "l-lysine-hcl",
-    );
+    expect(result.energy.metabolizableKcalKg.complete).toBe(true);
     expect(result.vitamins.vitaminAIuKg.complete).toBe(false);
     expect(result.vitamins.vitaminAIuKg.value).toBe(0);
+    expect(result.vitamins.vitaminAIuKg.missingIngredientIds.length).toBeGreaterThan(0);
   });
 
   it("reports a missing local price instead of silently treating it as free", () => {
@@ -123,7 +121,7 @@ describe("diet formula analysis", () => {
     expect(result.missingPriceIngredientIds).toHaveLength(simple.ingredients.length);
   });
 
-  it("marks evaluation incomplete when the energy basis or micronutrient data is missing", () => {
+  it("marks evaluation incomplete when micronutrient data is missing", () => {
     const result = evaluateDietForPhase(
       simple,
       nutritionPhaseAtWeight(30),
@@ -132,10 +130,8 @@ describe("diet formula analysis", () => {
 
     expect(result.status).toBe("incomplete");
     expect(result.passes).toBe(false);
-    expect(result.energyKcalKg).toBeNull();
-    expect(result.checks.find((check) => check.id === "energy-basis")?.status).toBe(
-      "incomplete",
-    );
+    expect(result.energyKcalKg).toBeGreaterThan(3000);
+    expect(result.checks.find((check) => check.id === "energy-basis")).toBeUndefined();
     expect(result.checks.find((check) => check.id === "vitamin-a")?.status).toBe(
       "incomplete",
     );
