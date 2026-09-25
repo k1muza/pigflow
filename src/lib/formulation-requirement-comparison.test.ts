@@ -36,9 +36,9 @@ describe("formulation requirement comparison", () => {
     expect(result.rows.find((row) => row.id === "l-lysine-hcl")).toMatchObject({
       status: "fail",
     });
-    expect(result.rows.find((row) => row.id === "l-lysine-hcl")?.actual).toBeCloseTo
-      ? undefined
-      : undefined;
+    expect(result.rows.find((row) => row.id === "l-lysine-hcl")?.actual).toBe(
+      "0.5699 %",
+    );
     expect(result.status).toBe("fail");
   });
 
