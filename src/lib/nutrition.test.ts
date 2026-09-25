@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { GrowingPig } from "./sim/animals";
 import {
   PIC_GROWTH_NUTRITION_2021,
   nutritionForGrowthStage,
