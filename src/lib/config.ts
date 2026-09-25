@@ -576,16 +576,18 @@ export const plannerSchema = z.object({
     /**
      * What a piglet is expected to weigh off the sow: the target, for reporting.
      *
-     * Nothing in the simulation reads it. Weaning weight is whatever the animal
-     * reached on the milk and the creep it was actually given, and this is the
-     * line that run is held up against — target 11.5 kg, actual 10.3 kg — so the
-     * farm can see the gap and go and look at the ration that made it.
+     * It does not drive future suckling growth. Weaning weight is whatever the
+     * animal reached on the milk and creep it was actually given, and this is
+     * the line that run is held up against — target 11.5 kg, actual 10.3 kg.
+     * It is also the fallback prior for already-owned opening weaners whose
+     * measured weight was not entered; that historical assumption does not feed
+     * back into growth of future litters.
      *
      * It was `weaningWeightKg` and it was a guarantee: the day's gain was this
      * weight divided by the weaning age, so a heavier weaner cost nothing and
      * arrived by arithmetic. Plans saved under the old name are read into this
      * one, and the rate they used to imply is carried into
-     * {@link pigletDailyGainKg}, so nothing they predict moves.
+     * {@link pigletGrowthPotentialPct}, so nothing they predict moves.
      */
     referenceWeaningWeightKg: z.number().min(2).max(20),
     /**
