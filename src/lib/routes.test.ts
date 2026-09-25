@@ -4,6 +4,7 @@ import {
   feedFormulationHref,
   feedFormulationStrategyHref,
   feedIngredientHref,
+  feedNutrientHref,
   feedProgrammeHref,
   feedProgrammePhaseHref,
   ingredientHref,
@@ -53,6 +54,9 @@ describe("the address of a plan", () => {
     );
     expect(feedFormulationStrategyHref("maximum/adg")).toBe(
       "/feed-formulation/formulations/maximum%2Fadg",
+    );
+    expect(feedNutrientHref("sid/lysine")).toBe(
+      "/feed-formulation/nutrients/sid%2Flysine",
     );
     expect(feedProgrammeHref("nursery/pig")).toBe(
       "/feed-formulation/programmes/nursery%2Fpig",
