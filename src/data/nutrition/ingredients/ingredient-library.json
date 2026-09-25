@@ -586,11 +586,2939 @@
           "Crystalline amino acids are generally assumed fully absorbed."
         ]
       }
+    },
+    {
+      "id": "corn-oil",
+      "name": "Corn Oil",
+      "aliases": [
+        "maize oil"
+      ],
+      "category": "oil_fat",
+      "composition": {
+        "dryMatterPct": 100,
+        "crudeFatPct": 100
+      },
+      "energy": {
+        "digestibleKcalKg": 8774,
+        "metabolizableKcalKg": 8422,
+        "netKcalKg": 7579
+      },
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn oil",
+        "sourceTable": "Table 19",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": [
+          "Vegetable oil energy values from the National Swine Nutrition Guide."
+        ]
+      }
+    },
+    {
+      "id": "calcium-carbonate",
+      "name": "Calcium Carbonate (Feed-Grade Limestone)",
+      "aliases": [
+        "calcium carbonate",
+        "feed-grade limestone"
+      ],
+      "category": "mineral",
+      "composition": {
+        "dryMatterPct": 99
+      },
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 38,
+        "totalPhosphorusPct": 0.02,
+        "sodiumPct": 0.08,
+        "chloridePct": 0.02,
+        "magnesiumPct": 1.61,
+        "potassiumPct": 0.08
+      },
+      "traceMineralsPpm": {
+        "iron": 600,
+        "manganese": 200,
+        "zinc": 18
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Mineral supplements vary by supplier; prefer the supplier certificate of analysis."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Limestone (minimum 95% calcium carbonate)",
+        "sourceTable": "Table 21",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "monocalcium-phosphate",
+      "name": "Monocalcium Phosphate",
+      "aliases": [
+        "MCP"
+      ],
+      "category": "mineral",
+      "composition": {
+        "dryMatterPct": 100
+      },
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 17,
+        "totalPhosphorusPct": 21.1,
+        "sodiumPct": 0.2,
+        "magnesiumPct": 0.9,
+        "potassiumPct": 0.16
+      },
+      "traceMineralsPpm": {
+        "iron": 7500,
+        "manganese": 100,
+        "zinc": 220
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Feed-grade phosphate composition varies; prefer supplier analysis."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Monocalcium phosphate",
+        "sourceTable": "Table 21",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "dl-methionine",
+      "name": "DL-Methionine",
+      "aliases": [
+        "feed-grade methionine"
+      ],
+      "category": "amino_acid",
+      "composition": {
+        "dryMatterPct": 99.5,
+        "crudeProteinPct": 58.4
+      },
+      "energy": {
+        "digestibleKcalKg": 5657,
+        "metabolizableKcalKg": 5370,
+        "netKcalKg": 4147
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "methionine": 99
+        },
+        "sidDigestibilityPct": {},
+        "sidPct": {
+          "methionine": 99
+        }
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Crystalline feed-grade amino acid represented at its active amino-acid concentration."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "DL-methionine",
+        "sourceTable": "Table 18",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "l-threonine",
+      "name": "L-Threonine",
+      "aliases": [
+        "feed-grade threonine"
+      ],
+      "category": "amino_acid",
+      "composition": {
+        "dryMatterPct": 99.5,
+        "crudeProteinPct": 73.1
+      },
+      "energy": {
+        "digestibleKcalKg": 4123,
+        "metabolizableKcalKg": 3788,
+        "netKcalKg": 2950
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "threonine": 99
+        },
+        "sidDigestibilityPct": {},
+        "sidPct": {
+          "threonine": 99
+        }
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Crystalline feed-grade amino acid represented at its active amino-acid concentration."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "L-threonine",
+        "sourceTable": "Table 18",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "l-tryptophan",
+      "name": "L-Tryptophan",
+      "aliases": [
+        "feed-grade tryptophan"
+      ],
+      "category": "amino_acid",
+      "composition": {
+        "dryMatterPct": 99.5,
+        "crudeProteinPct": 85.3
+      },
+      "energy": {
+        "digestibleKcalKg": 6592,
+        "metabolizableKcalKg": 6186,
+        "netKcalKg": 4795
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "tryptophan": 98.5
+        },
+        "sidDigestibilityPct": {},
+        "sidPct": {
+          "tryptophan": 98.5
+        }
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Crystalline feed-grade amino acid represented at its active amino-acid concentration."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "L-tryptophan",
+        "sourceTable": "Table 18",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "wheat-middlings",
+      "name": "Wheat Middlings, <9.5% Fiber",
+      "aliases": [
+        "wheat midds",
+        "middlings"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 89,
+        "crudeProteinPct": 15.9,
+        "crudeFatPct": 4.2,
+        "crudeFibrePct": 7.8,
+        "starchPct": 27.7,
+        "neutralDetergentFibrePct": 35.6,
+        "acidDetergentFibrePct": 9.2
+      },
+      "energy": {
+        "digestibleKcalKg": 3075,
+        "metabolizableKcalKg": 3031,
+        "netKcalKg": 2189
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.57,
+          "threonine": 0.51,
+          "methionine": 0.26,
+          "cysteine": 0.32,
+          "tryptophan": 0.2,
+          "isoleucine": 0.53,
+          "valine": 0.75,
+          "arginine": 0.97,
+          "histidine": 0.44,
+          "leucine": 1.06,
+          "phenylalanine": 0.7,
+          "tyrosine": 0.29
+        },
+        "sidDigestibilityPct": {
+          "lysine": 89,
+          "threonine": 88,
+          "methionine": 93,
+          "cysteine": 91,
+          "tryptophan": 91,
+          "isoleucine": 92,
+          "valine": 90,
+          "arginine": 95,
+          "histidine": 94,
+          "leucine": 93,
+          "phenylalanine": 95,
+          "tyrosine": 92
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.12,
+        "totalPhosphorusPct": 0.93,
+        "sodiumPct": 0.05,
+        "chloridePct": 0.04,
+        "magnesiumPct": 0.41,
+        "potassiumPct": 1.06
+      },
+      "traceMineralsPpm": {
+        "copper": 10,
+        "iodine": 0.11,
+        "iron": 84,
+        "manganese": 100,
+        "selenium": 0.72,
+        "zinc": 92
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Wheat Middlings, <9.5% Fiber",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "corn-ddgs-low-oil",
+      "name": "Corn DDGS, Low-Oil (<4% Oil)",
+      "aliases": [
+        "low-oil DDGS",
+        "de-oiled DDGS"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 88.5,
+        "crudeProteinPct": 26.3,
+        "crudeFatPct": 3.72,
+        "ashPct": 5.5,
+        "neutralDetergentFibrePct": 24.52,
+        "acidDetergentFibrePct": 8.14
+      },
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.08,
+        "totalPhosphorusPct": 1.03
+      },
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Low-oil DDGS is highly variable. This default profile is an analyzed study ingredient, not a universal NRC mean; supplier analysis should replace it for formulation."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Low-oil corn DDGS",
+        "sourceTable": "Table 1",
+        "source": {
+          "publisher": "Asian-Australasian Journal of Animal Sciences",
+          "title": "Low-oil corn distillers dried grains with solubles can be fed to pigs up to 16.5% without compromising growth and pork quality",
+          "year": 2024,
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12062809/",
+          "basis": "Analyzed as-fed composition of the study's low-oil corn DDGS source"
+        },
+        "notes": [
+          "PIC Tables B1/B2 specify corn DDGS with <4% oil."
+        ]
+      }
+    },
+    {
+      "id": "vitamin-trace-mineral-premix",
+      "name": "Vitamin and Trace Mineral Premix",
+      "aliases": [
+        "vitamin-mineral premix",
+        "VTM premix"
+      ],
+      "category": "vitamin_mineral_premix",
+      "composition": {},
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Generic placeholder only. Premix potency and inclusion must come from the specific supplier product label; no universal nutrient profile is assumed."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Vitamin and trace mineral premix",
+        "sourceTable": "PIC Tables B1/B2",
+        "source": {
+          "publisher": "PIC",
+          "title": "PIC Nutrition and Feeding Guidelines",
+          "year": 2021,
+          "url": "https://www.pic.com/wp-content/uploads/sites/3/2021/03/PIC_Nutrition-Guidelines_English-Metric.pdf",
+          "basis": "Ingredient identity from PIC Tables B1/B2; premix composition is product-specific"
+        },
+        "notes": [
+          "Ingredient is present at 0.50% in both PIC example diets."
+        ]
+      }
+    },
+    {
+      "id": "barley-two-row",
+      "name": "Barley, Two Row",
+      "aliases": [
+        "barley"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 89,
+        "crudeProteinPct": 11.3,
+        "crudeFatPct": 1.9,
+        "crudeFibrePct": 5,
+        "starchPct": 52.2,
+        "neutralDetergentFibrePct": 18,
+        "acidDetergentFibrePct": 6.2
+      },
+      "energy": {
+        "digestibleKcalKg": 3049,
+        "metabolizableKcalKg": 2915,
+        "netKcalKg": 2280
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.41,
+          "threonine": 0.35,
+          "methionine": 0.2,
+          "cysteine": 0.28,
+          "tryptophan": 0.11,
+          "isoleucine": 0.39,
+          "valine": 0.52,
+          "arginine": 0.54,
+          "histidine": 0.25,
+          "leucine": 0.77,
+          "phenylalanine": 0.55,
+          "tyrosine": 0.29
+        },
+        "sidDigestibilityPct": {
+          "lysine": 79,
+          "threonine": 81,
+          "methionine": 86,
+          "cysteine": 86,
+          "tryptophan": 80,
+          "isoleucine": 84,
+          "valine": 82,
+          "arginine": 86,
+          "histidine": 86,
+          "leucine": 86,
+          "phenylalanine": 88,
+          "tyrosine": 87
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.06,
+        "totalPhosphorusPct": 0.35,
+        "sodiumPct": 0.04,
+        "chloridePct": 0.12,
+        "magnesiumPct": 0.14,
+        "potassiumPct": 0.45
+      },
+      "traceMineralsPpm": {
+        "copper": 7,
+        "iodine": 0.04,
+        "iron": 78,
+        "manganese": 18,
+        "selenium": 0.19,
+        "zinc": 25
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Barley, Two Row",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "wheat-hard-red-winter",
+      "name": "Wheat, Hard Red Winter",
+      "aliases": [
+        "wheat grain",
+        "wheat"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 88,
+        "crudeProteinPct": 13.5,
+        "crudeFatPct": 2,
+        "crudeFibrePct": 2.6,
+        "starchPct": 55.5,
+        "neutralDetergentFibrePct": 13.5,
+        "acidDetergentFibrePct": 3.7
+      },
+      "energy": {
+        "digestibleKcalKg": 3364,
+        "metabolizableKcalKg": 3217,
+        "netKcalKg": 2456
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.34,
+          "threonine": 0.37,
+          "methionine": 0.2,
+          "cysteine": 0.29,
+          "tryptophan": 0.15,
+          "isoleucine": 0.41,
+          "valine": 0.54,
+          "arginine": 0.6,
+          "histidine": 0.32,
+          "leucine": 0.86,
+          "phenylalanine": 0.6,
+          "tyrosine": 0.38
+        },
+        "sidDigestibilityPct": {
+          "lysine": 81,
+          "threonine": 83,
+          "methionine": 89,
+          "cysteine": 91,
+          "tryptophan": 88,
+          "isoleucine": 89,
+          "valine": 86,
+          "arginine": 88,
+          "histidine": 90,
+          "leucine": 90,
+          "phenylalanine": 91,
+          "tyrosine": 90
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.06,
+        "totalPhosphorusPct": 0.37,
+        "sodiumPct": 0.01,
+        "chloridePct": 0.06,
+        "magnesiumPct": 0.13,
+        "potassiumPct": 0.49
+      },
+      "traceMineralsPpm": {
+        "copper": 6,
+        "iodine": 0.09,
+        "iron": 39,
+        "manganese": 34,
+        "selenium": 0.33,
+        "zinc": 40
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Wheat, Hard Red Winter",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "sorghum-grain",
+      "name": "Sorghum, Grain (Milo)",
+      "aliases": [
+        "milo",
+        "sorghum"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 89,
+        "crudeProteinPct": 9.2,
+        "crudeFatPct": 2.9,
+        "crudeFibrePct": 2.2,
+        "starchPct": 64.1,
+        "neutralDetergentFibrePct": 18,
+        "acidDetergentFibrePct": 8.3
+      },
+      "energy": {
+        "digestibleKcalKg": 3386,
+        "metabolizableKcalKg": 3347,
+        "netKcalKg": 2617
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.22,
+          "threonine": 0.31,
+          "methionine": 0.17,
+          "cysteine": 0.17,
+          "tryptophan": 0.1,
+          "isoleucine": 0.37,
+          "valine": 0.46,
+          "arginine": 0.38,
+          "histidine": 0.23,
+          "leucine": 1.21,
+          "phenylalanine": 0.49,
+          "tyrosine": 0.35
+        },
+        "sidDigestibilityPct": {
+          "lysine": 81,
+          "threonine": 84,
+          "methionine": 89,
+          "cysteine": 83,
+          "tryptophan": 83,
+          "isoleucine": 87,
+          "valine": 87,
+          "arginine": 87,
+          "histidine": 81,
+          "leucine": 90,
+          "phenylalanine": 88,
+          "tyrosine": 87
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.03,
+        "totalPhosphorusPct": 0.29,
+        "sodiumPct": 0.01,
+        "chloridePct": 0.09,
+        "magnesiumPct": 0.15,
+        "potassiumPct": 0.35
+      },
+      "traceMineralsPpm": {
+        "copper": 5,
+        "iodine": 0.02,
+        "iron": 45,
+        "manganese": 15,
+        "selenium": 0.2,
+        "zinc": 15
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Sorghum, Grain (Milo)",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "oats-grain",
+      "name": "Oats, Grain",
+      "aliases": [
+        "oats"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 89,
+        "crudeProteinPct": 11.5,
+        "crudeFatPct": 4.7,
+        "crudeFibrePct": 10.7,
+        "starchPct": 36.2,
+        "neutralDetergentFibrePct": 27,
+        "acidDetergentFibrePct": 13.5
+      },
+      "energy": {
+        "digestibleKcalKg": 2769,
+        "metabolizableKcalKg": 2716,
+        "netKcalKg": 1898
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.4,
+          "threonine": 0.44,
+          "methionine": 0.22,
+          "cysteine": 0.36,
+          "tryptophan": 0.14,
+          "isoleucine": 0.48,
+          "valine": 0.66,
+          "arginine": 0.87,
+          "histidine": 0.31,
+          "leucine": 0.92,
+          "phenylalanine": 0.65,
+          "tyrosine": 0.41
+        },
+        "sidDigestibilityPct": {
+          "lysine": 76,
+          "threonine": 71,
+          "methionine": 84,
+          "cysteine": 75,
+          "tryptophan": 78,
+          "isoleucine": 80,
+          "valine": 79,
+          "arginine": 89,
+          "histidine": 85,
+          "leucine": 83,
+          "phenylalanine": 86,
+          "tyrosine": 82
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.07,
+        "totalPhosphorusPct": 0.31,
+        "sodiumPct": 0.08,
+        "chloridePct": 0.1,
+        "magnesiumPct": 0.16,
+        "potassiumPct": 0.42
+      },
+      "traceMineralsPpm": {
+        "copper": 6,
+        "iodine": 0.09,
+        "iron": 85,
+        "manganese": 43,
+        "selenium": 0.3,
+        "zinc": 38
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Oats, Grain",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "rye-grain",
+      "name": "Rye",
+      "aliases": [
+        "rye grain"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 88,
+        "crudeProteinPct": 11.8,
+        "crudeFatPct": 1.6,
+        "crudeFibrePct": 2.2,
+        "starchPct": 53.8,
+        "neutralDetergentFibrePct": 12.3,
+        "acidDetergentFibrePct": 4.6
+      },
+      "energy": {
+        "digestibleKcalKg": 3269,
+        "metabolizableKcalKg": 3064,
+        "netKcalKg": 2359
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.38,
+          "threonine": 0.32,
+          "methionine": 0.17,
+          "cysteine": 0.19,
+          "tryptophan": 0.12,
+          "isoleucine": 0.37,
+          "valine": 0.51,
+          "arginine": 0.5,
+          "histidine": 0.24,
+          "leucine": 0.64,
+          "phenylalanine": 0.5,
+          "tyrosine": 0.26
+        },
+        "sidDigestibilityPct": {
+          "lysine": 73,
+          "threonine": 73,
+          "methionine": 81,
+          "cysteine": 83,
+          "tryptophan": 75,
+          "isoleucine": 77,
+          "valine": 75,
+          "arginine": 79,
+          "histidine": 78,
+          "leucine": 79,
+          "phenylalanine": 82,
+          "tyrosine": 76
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.06,
+        "totalPhosphorusPct": 0.33,
+        "sodiumPct": 0.02,
+        "chloridePct": 0.03,
+        "magnesiumPct": 0.12,
+        "potassiumPct": 0.48
+      },
+      "traceMineralsPpm": {
+        "copper": 7,
+        "iodine": 0.08,
+        "iron": 60,
+        "manganese": 58,
+        "selenium": 0.38,
+        "zinc": 31
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Rye",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "triticale-grain",
+      "name": "Triticale",
+      "aliases": [
+        "triticale grain"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 12.5,
+        "crudeFatPct": 1.8,
+        "crudeFibrePct": 4,
+        "starchPct": 59.9,
+        "neutralDetergentFibrePct": 12.7,
+        "acidDetergentFibrePct": 3.2
+      },
+      "energy": {
+        "digestibleKcalKg": 3320,
+        "metabolizableKcalKg": 3186,
+        "netKcalKg": 2474
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.39,
+          "threonine": 0.36,
+          "methionine": 0.2,
+          "cysteine": 0.26,
+          "tryptophan": 0.14,
+          "isoleucine": 0.39,
+          "valine": 0.51,
+          "arginine": 0.57,
+          "histidine": 0.26,
+          "leucine": 0.76,
+          "phenylalanine": 0.49,
+          "tyrosine": 0.32
+        },
+        "sidDigestibilityPct": {
+          "lysine": 81,
+          "threonine": 76,
+          "methionine": 89,
+          "cysteine": 87,
+          "tryptophan": 88,
+          "isoleucine": 84,
+          "valine": 84,
+          "arginine": 88,
+          "histidine": 84,
+          "leucine": 86,
+          "phenylalanine": 85,
+          "tyrosine": 83
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.05,
+        "totalPhosphorusPct": 0.33,
+        "sodiumPct": 0.03,
+        "chloridePct": 0.03,
+        "magnesiumPct": 0.1,
+        "potassiumPct": 0.46
+      },
+      "traceMineralsPpm": {
+        "copper": 8,
+        "iodine": 0.09,
+        "iron": 31,
+        "manganese": 43,
+        "zinc": 32
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Triticale",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "millet-proso",
+      "name": "Millet, Proso",
+      "aliases": [
+        "proso millet",
+        "millet"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 11.1,
+        "crudeFatPct": 3.5,
+        "crudeFibrePct": 6.1,
+        "starchPct": 52.8,
+        "neutralDetergentFibrePct": 15.8,
+        "acidDetergentFibrePct": 13.8
+      },
+      "energy": {
+        "digestibleKcalKg": 3020,
+        "metabolizableKcalKg": 2954,
+        "netKcalKg": 2213
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.23,
+          "threonine": 0.4,
+          "methionine": 0.31,
+          "cysteine": 0.18,
+          "tryptophan": 0.16,
+          "isoleucine": 0.46,
+          "valine": 0.57,
+          "arginine": 0.41,
+          "histidine": 0.2,
+          "leucine": 1.24,
+          "phenylalanine": 0.56,
+          "tyrosine": 0.31
+        },
+        "sidDigestibilityPct": {
+          "lysine": 90,
+          "threonine": 94,
+          "methionine": 93,
+          "cysteine": 92,
+          "tryptophan": 98,
+          "isoleucine": 96,
+          "valine": 94,
+          "arginine": 93,
+          "histidine": 88,
+          "leucine": 94,
+          "phenylalanine": 98
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.03,
+        "totalPhosphorusPct": 0.31,
+        "sodiumPct": 0.04,
+        "chloridePct": 0.03,
+        "magnesiumPct": 0.16,
+        "potassiumPct": 0.43
+      },
+      "traceMineralsPpm": {
+        "copper": 26,
+        "iron": 71,
+        "manganese": 30,
+        "selenium": 0.7,
+        "zinc": 18
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Millet, Proso",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "peas-field",
+      "name": "Peas",
+      "aliases": [
+        "field peas",
+        "peas"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 88,
+        "crudeProteinPct": 22,
+        "crudeFatPct": 1.2,
+        "crudeFibrePct": 5.5,
+        "starchPct": 44.6,
+        "neutralDetergentFibrePct": 13.7,
+        "acidDetergentFibrePct": 8.2
+      },
+      "energy": {
+        "digestibleKcalKg": 3483,
+        "metabolizableKcalKg": 3307,
+        "netKcalKg": 2385
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 1.6,
+          "threonine": 0.9,
+          "methionine": 0.24,
+          "cysteine": 0.26,
+          "tryptophan": 0.19,
+          "isoleucine": 0.95,
+          "valine": 1.05,
+          "arginine": 1.85,
+          "histidine": 0.55,
+          "leucine": 1.65,
+          "phenylalanine": 1.05,
+          "tyrosine": 0.75
+        },
+        "sidDigestibilityPct": {
+          "lysine": 88,
+          "threonine": 78,
+          "methionine": 80,
+          "cysteine": 73,
+          "tryptophan": 75,
+          "isoleucine": 83,
+          "valine": 80,
+          "arginine": 92,
+          "histidine": 88,
+          "leucine": 85,
+          "phenylalanine": 86,
+          "tyrosine": 85
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.1,
+        "totalPhosphorusPct": 0.44,
+        "sodiumPct": 0.04,
+        "chloridePct": 0.05,
+        "magnesiumPct": 0.12,
+        "potassiumPct": 1.02
+      },
+      "traceMineralsPpm": {
+        "copper": 9,
+        "iodine": 0.26,
+        "iron": 65,
+        "manganese": 23,
+        "selenium": 0.38,
+        "zinc": 23
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Peas",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "alfalfa-meal-dehydrated",
+      "name": "Alfalfa Meal, Dehydrated",
+      "aliases": [
+        "dehydrated alfalfa meal",
+        "alfalfa meal"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 92,
+        "crudeProteinPct": 17,
+        "crudeFatPct": 2.6,
+        "crudeFibrePct": 24,
+        "starchPct": 0,
+        "neutralDetergentFibrePct": 41.2,
+        "acidDetergentFibrePct": 30.2
+      },
+      "energy": {
+        "digestibleKcalKg": 1830,
+        "metabolizableKcalKg": 1653,
+        "netKcalKg": 877
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.74,
+          "threonine": 0.7,
+          "methionine": 0.25,
+          "cysteine": 0.18,
+          "tryptophan": 0.24,
+          "isoleucine": 0.68,
+          "valine": 0.86,
+          "arginine": 0.71,
+          "histidine": 0.37,
+          "leucine": 1.21,
+          "phenylalanine": 0.84,
+          "tyrosine": 0.55
+        },
+        "sidDigestibilityPct": {
+          "lysine": 56,
+          "threonine": 63,
+          "methionine": 71,
+          "cysteine": 37,
+          "tryptophan": 46,
+          "isoleucine": 68,
+          "valine": 64,
+          "arginine": 74,
+          "histidine": 59,
+          "leucine": 71,
+          "phenylalanine": 70,
+          "tyrosine": 66
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 1.53,
+        "totalPhosphorusPct": 0.26,
+        "sodiumPct": 0.09,
+        "chloridePct": 0.47,
+        "magnesiumPct": 0.23,
+        "potassiumPct": 2.3
+      },
+      "traceMineralsPpm": {
+        "copper": 10,
+        "iodine": 0.15,
+        "iron": 333,
+        "manganese": 32,
+        "selenium": 0.34,
+        "zinc": 24
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Alfalfa Meal, Dehydrated",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "bakery-waste-dehydrated",
+      "name": "Bakery Waste, Dehydrated",
+      "aliases": [
+        "bakery meal",
+        "bakery waste"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 91,
+        "crudeProteinPct": 10.8,
+        "crudeFatPct": 11.3,
+        "crudeFibrePct": 1.2,
+        "starchPct": 53.7,
+        "neutralDetergentFibrePct": 2,
+        "acidDetergentFibrePct": 1.3
+      },
+      "energy": {
+        "digestibleKcalKg": 3940,
+        "metabolizableKcalKg": 3708,
+        "netKcalKg": 2974
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.27,
+          "threonine": 0.33,
+          "methionine": 0.18,
+          "cysteine": 0.23,
+          "tryptophan": 0.1,
+          "isoleucine": 0.38,
+          "valine": 0.46,
+          "arginine": 0.46,
+          "histidine": 0.24,
+          "leucine": 0.8,
+          "phenylalanine": 0.5,
+          "tyrosine": 0.36
+        },
+        "sidDigestibilityPct": {
+          "lysine": 77,
+          "threonine": 69,
+          "methionine": 90,
+          "cysteine": 91,
+          "tryptophan": 91,
+          "isoleucine": 94,
+          "valine": 93,
+          "leucine": 90
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.13,
+        "totalPhosphorusPct": 0.25,
+        "sodiumPct": 1.14,
+        "chloridePct": 1.48,
+        "magnesiumPct": 0.24,
+        "potassiumPct": 0.39
+      },
+      "traceMineralsPpm": {
+        "copper": 5,
+        "iron": 28,
+        "manganese": 65,
+        "zinc": 15
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Bakery Waste, Dehydrated",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "beet-pulp",
+      "name": "Beet Pulp",
+      "aliases": [
+        "sugar beet pulp"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 91,
+        "crudeProteinPct": 8.6,
+        "crudeFatPct": 0.8,
+        "crudeFibrePct": 18.2,
+        "starchPct": 0,
+        "neutralDetergentFibrePct": 42.4,
+        "acidDetergentFibrePct": 24.3
+      },
+      "energy": {
+        "digestibleKcalKg": 2866,
+        "metabolizableKcalKg": 2500,
+        "netKcalKg": 1479
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.52,
+          "threonine": 0.38,
+          "methionine": 0.07,
+          "cysteine": 0.06,
+          "tryptophan": 0.1,
+          "isoleucine": 0.31,
+          "valine": 0.45,
+          "arginine": 0.32,
+          "histidine": 0.23,
+          "leucine": 0.53,
+          "phenylalanine": 0.3,
+          "tyrosine": 0.4
+        },
+        "sidDigestibilityPct": {
+          "lysine": 51,
+          "threonine": 30,
+          "methionine": 64,
+          "cysteine": 21,
+          "tryptophan": 41,
+          "isoleucine": 60,
+          "valine": 42,
+          "arginine": 57,
+          "histidine": 61,
+          "leucine": 59,
+          "phenylalanine": 54,
+          "tyrosine": 51
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.7,
+        "totalPhosphorusPct": 0.1,
+        "sodiumPct": 0.2,
+        "chloridePct": 0.1,
+        "magnesiumPct": 0.22,
+        "potassiumPct": 0.61
+      },
+      "traceMineralsPpm": {
+        "copper": 11,
+        "iodine": 2,
+        "iron": 411,
+        "manganese": 46,
+        "selenium": 0.09,
+        "zinc": 12
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Beet Pulp",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "soybean-hulls",
+      "name": "Soybean Hulls",
+      "aliases": [
+        "soya hulls",
+        "soy hulls"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 89,
+        "crudeProteinPct": 12,
+        "crudeFatPct": 2.2,
+        "crudeFibrePct": 34.2,
+        "starchPct": 0.9,
+        "neutralDetergentFibrePct": 56.4,
+        "acidDetergentFibrePct": 40.4
+      },
+      "energy": {
+        "digestibleKcalKg": 2002,
+        "metabolizableKcalKg": 1870,
+        "netKcalKg": 999
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.71,
+          "threonine": 0.43,
+          "methionine": 0.14,
+          "cysteine": 0.19,
+          "tryptophan": 0.14,
+          "isoleucine": 0.44,
+          "valine": 0.51,
+          "arginine": 0.59,
+          "histidine": 0.28,
+          "leucine": 0.74,
+          "phenylalanine": 0.45,
+          "tyrosine": 0.36
+        },
+        "sidDigestibilityPct": {
+          "lysine": 59,
+          "threonine": 58,
+          "methionine": 68,
+          "cysteine": 63,
+          "tryptophan": 63,
+          "isoleucine": 60,
+          "valine": 58,
+          "arginine": 77,
+          "histidine": 58,
+          "leucine": 61,
+          "phenylalanine": 68,
+          "tyrosine": 64
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.49,
+        "totalPhosphorusPct": 0.14,
+        "sodiumPct": 0.01,
+        "chloridePct": 0.02,
+        "magnesiumPct": 0.22,
+        "potassiumPct": 1.2
+      },
+      "traceMineralsPpm": {
+        "copper": 8,
+        "iron": 580,
+        "manganese": 22,
+        "selenium": 0.21,
+        "zinc": 40
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Soybean Hulls",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "soybeans-heat-processed",
+      "name": "Soybean Seeds, Heat Processed",
+      "aliases": [
+        "full-fat soybeans",
+        "roasted soybeans",
+        "heat-treated soybeans"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 35.2,
+        "crudeFatPct": 18,
+        "crudeFibrePct": 5.2,
+        "starchPct": 0.4,
+        "neutralDetergentFibrePct": 13.9,
+        "acidDetergentFibrePct": 8
+      },
+      "energy": {
+        "digestibleKcalKg": 4140,
+        "metabolizableKcalKg": 3697,
+        "netKcalKg": 2562
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 2.22,
+          "threonine": 1.41,
+          "methionine": 0.53,
+          "cysteine": 0.55,
+          "tryptophan": 0.48,
+          "isoleucine": 1.61,
+          "valine": 1.68,
+          "arginine": 2.6,
+          "histidine": 0.96,
+          "leucine": 2.75,
+          "phenylalanine": 1.83,
+          "tyrosine": 1.32
+        },
+        "sidDigestibilityPct": {
+          "lysine": 93,
+          "threonine": 86,
+          "methionine": 92,
+          "cysteine": 85,
+          "tryptophan": 89,
+          "isoleucine": 90,
+          "valine": 89,
+          "arginine": 97,
+          "histidine": 92,
+          "leucine": 90,
+          "phenylalanine": 91,
+          "tyrosine": 91
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.25,
+        "totalPhosphorusPct": 0.59,
+        "sodiumPct": 0.03,
+        "chloridePct": 0.03,
+        "magnesiumPct": 0.28,
+        "potassiumPct": 1.7
+      },
+      "traceMineralsPpm": {
+        "copper": 16,
+        "iodine": 0.09,
+        "iron": 80,
+        "manganese": 30,
+        "selenium": 0.11,
+        "zinc": 39
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Soybean Seeds, Heat Processed",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "canola-meal",
+      "name": "Canola Meal",
+      "aliases": [
+        "rapeseed meal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 35.6,
+        "crudeFatPct": 3.5,
+        "crudeFibrePct": 11.1,
+        "starchPct": 0,
+        "neutralDetergentFibrePct": 21.2,
+        "acidDetergentFibrePct": 17.2
+      },
+      "energy": {
+        "digestibleKcalKg": 2886,
+        "metabolizableKcalKg": 2646,
+        "netKcalKg": 1515
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 2.08,
+          "threonine": 1.59,
+          "methionine": 0.74,
+          "cysteine": 0.91,
+          "tryptophan": 0.45,
+          "isoleucine": 1.43,
+          "valine": 1.82,
+          "arginine": 2.21,
+          "histidine": 0.96,
+          "leucine": 2.58,
+          "phenylalanine": 1.43,
+          "tyrosine": 1.13
+        },
+        "sidDigestibilityPct": {
+          "lysine": 78,
+          "threonine": 76,
+          "methionine": 86,
+          "cysteine": 83,
+          "tryptophan": 75,
+          "isoleucine": 78,
+          "valine": 77,
+          "arginine": 85,
+          "histidine": 85,
+          "leucine": 81,
+          "phenylalanine": 82,
+          "tyrosine": 79
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.63,
+        "totalPhosphorusPct": 1.01,
+        "sodiumPct": 0.07,
+        "chloridePct": 0.11,
+        "magnesiumPct": 0.51,
+        "potassiumPct": 1.22
+      },
+      "traceMineralsPpm": {
+        "copper": 6,
+        "iodine": 0.09,
+        "iron": 142,
+        "manganese": 49,
+        "selenium": 1.1,
+        "zinc": 69
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Canola Meal",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "corn-ddgs",
+      "name": "Corn Distillers Dried Grains with Solubles",
+      "aliases": [
+        "DDGS",
+        "corn DDGS"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 88,
+        "crudeProteinPct": 27.4,
+        "crudeFatPct": 9.9,
+        "crudeFibrePct": 7.7,
+        "starchPct": 7.3,
+        "neutralDetergentFibrePct": 30.5,
+        "acidDetergentFibrePct": 12.2
+      },
+      "energy": {
+        "digestibleKcalKg": 3635,
+        "metabolizableKcalKg": 3422,
+        "netKcalKg": 2372
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.78,
+          "threonine": 0.97,
+          "methionine": 0.58,
+          "cysteine": 0.38,
+          "tryptophan": 0.2,
+          "isoleucine": 1.04,
+          "valine": 1.38,
+          "arginine": 1.16,
+          "histidine": 0.71,
+          "leucine": 3.32,
+          "phenylalanine": 1.34,
+          "tyrosine": 1.16
+        },
+        "sidDigestibilityPct": {
+          "lysine": 62,
+          "threonine": 71,
+          "methionine": 82,
+          "cysteine": 74,
+          "tryptophan": 70,
+          "isoleucine": 75,
+          "valine": 75,
+          "arginine": 81,
+          "histidine": 77,
+          "leucine": 83,
+          "phenylalanine": 81,
+          "tyrosine": 81
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.06,
+        "totalPhosphorusPct": 0.69,
+        "sodiumPct": 0.21,
+        "chloridePct": 0.2,
+        "magnesiumPct": 0.29,
+        "potassiumPct": 0.82
+      },
+      "traceMineralsPpm": {
+        "copper": 5,
+        "iodine": 0.03,
+        "iron": 105,
+        "manganese": 14,
+        "selenium": 0.39,
+        "zinc": 85
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn Distillers Dried Grains with Solubles",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "corn-ddg-high-protein",
+      "name": "Corn Distillers Dried Grains, High Protein",
+      "aliases": [
+        "high-protein DDG",
+        "HP-DDG"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 41.8,
+        "crudeFatPct": 3.4,
+        "crudeFibrePct": 7.2,
+        "starchPct": 11.2,
+        "neutralDetergentFibrePct": 16.4,
+        "acidDetergentFibrePct": 8.7
+      },
+      "energy": {
+        "digestibleKcalKg": 4403,
+        "metabolizableKcalKg": 4136,
+        "netKcalKg": 2760
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 1.17,
+          "threonine": 0.54,
+          "methionine": 0.86,
+          "cysteine": 0.8,
+          "tryptophan": 0.24,
+          "isoleucine": 1.73,
+          "valine": 2.11,
+          "arginine": 1.52,
+          "histidine": 1.1
+        },
+        "sidDigestibilityPct": {
+          "lysine": 64,
+          "threonine": 77,
+          "methionine": 88,
+          "cysteine": 82,
+          "tryptophan": 81,
+          "isoleucine": 81,
+          "valine": 80,
+          "arginine": 83,
+          "histidine": 81
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.02,
+        "totalPhosphorusPct": 0.38
+      },
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn Distillers Dried Grains, High Protein",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "corn-germ",
+      "name": "Corn Germ",
+      "aliases": [
+        "maize germ"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 91,
+        "crudeProteinPct": 14.8,
+        "crudeFatPct": 17.5,
+        "crudeFibrePct": 6.2,
+        "starchPct": 23.6,
+        "neutralDetergentFibrePct": 20.4,
+        "acidDetergentFibrePct": 5.6
+      },
+      "energy": {
+        "digestibleKcalKg": 3671,
+        "metabolizableKcalKg": 3567,
+        "netKcalKg": 2776
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.79,
+          "threonine": 0.52,
+          "methionine": 0.26,
+          "cysteine": 0.31,
+          "tryptophan": 0.11,
+          "isoleucine": 0.45,
+          "valine": 0.73,
+          "arginine": 1.1,
+          "histidine": 0.42,
+          "leucine": 1.09,
+          "phenylalanine": 0.58,
+          "tyrosine": 0.42
+        },
+        "sidDigestibilityPct": {
+          "lysine": 58,
+          "threonine": 53,
+          "methionine": 68,
+          "cysteine": 64,
+          "tryptophan": 67,
+          "isoleucine": 57,
+          "valine": 62,
+          "arginine": 83,
+          "histidine": 69,
+          "leucine": 68,
+          "phenylalanine": 64,
+          "tyrosine": 59
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.02,
+        "totalPhosphorusPct": 1.2
+      },
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn Germ",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "corn-gluten-feed",
+      "name": "Corn Gluten Feed",
+      "aliases": [
+        "maize gluten feed"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 21.5,
+        "crudeFatPct": 3,
+        "crudeFibrePct": 6.8,
+        "starchPct": 18,
+        "neutralDetergentFibrePct": 33.3,
+        "acidDetergentFibrePct": 10.7
+      },
+      "energy": {
+        "digestibleKcalKg": 2989,
+        "metabolizableKcalKg": 2610,
+        "netKcalKg": 1631
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.63,
+          "threonine": 0.74,
+          "methionine": 0.35,
+          "cysteine": 0.46,
+          "tryptophan": 0.07,
+          "isoleucine": 0.66,
+          "valine": 1.01,
+          "arginine": 1.04,
+          "histidine": 0.67,
+          "leucine": 1.96,
+          "phenylalanine": 0.76,
+          "tyrosine": 0.58
+        },
+        "sidDigestibilityPct": {
+          "lysine": 66,
+          "threonine": 71,
+          "methionine": 83,
+          "cysteine": 59,
+          "tryptophan": 64,
+          "isoleucine": 80,
+          "valine": 77,
+          "arginine": 87,
+          "histidine": 78,
+          "leucine": 85,
+          "phenylalanine": 87,
+          "tyrosine": 84
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.22,
+        "totalPhosphorusPct": 0.83,
+        "sodiumPct": 0.15,
+        "chloridePct": 0.22,
+        "magnesiumPct": 0.33,
+        "potassiumPct": 0.98
+      },
+      "traceMineralsPpm": {
+        "copper": 48,
+        "iodine": 0.07,
+        "iron": 460,
+        "manganese": 24,
+        "selenium": 0.27,
+        "zinc": 70
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn Gluten Feed",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "corn-gluten-meal-60",
+      "name": "Corn Gluten Meal, 60% CP",
+      "aliases": [
+        "corn gluten meal",
+        "maize gluten meal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 60.2,
+        "crudeFatPct": 2.9,
+        "crudeFibrePct": 1.1,
+        "starchPct": 17.2,
+        "neutralDetergentFibrePct": 8.7,
+        "acidDetergentFibrePct": 4.6
+      },
+      "energy": {
+        "digestibleKcalKg": 4233,
+        "metabolizableKcalKg": 3838,
+        "netKcalKg": 2474
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 1.02,
+          "threonine": 2.08,
+          "methionine": 1.43,
+          "cysteine": 1.09,
+          "tryptophan": 0.31,
+          "isoleucine": 2.48,
+          "valine": 2.79,
+          "arginine": 1.93,
+          "histidine": 1.28,
+          "leucine": 10.19,
+          "phenylalanine": 3.84,
+          "tyrosine": 3.25
+        },
+        "sidDigestibilityPct": {
+          "lysine": 80,
+          "threonine": 84,
+          "methionine": 90,
+          "cysteine": 82,
+          "tryptophan": 63,
+          "isoleucine": 84,
+          "valine": 80,
+          "arginine": 89,
+          "histidine": 80,
+          "leucine": 88,
+          "phenylalanine": 85,
+          "tyrosine": 87
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.05,
+        "totalPhosphorusPct": 0.44,
+        "sodiumPct": 0.02,
+        "chloridePct": 0.06,
+        "magnesiumPct": 0.08,
+        "potassiumPct": 0.18
+      },
+      "traceMineralsPpm": {
+        "copper": 26,
+        "iron": 282,
+        "manganese": 4,
+        "selenium": 1,
+        "zinc": 33
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn Gluten Meal, 60% CP",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "corn-hominy-feed",
+      "name": "Corn Hominy Feed",
+      "aliases": [
+        "hominy feed",
+        "maize hominy"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 10.3,
+        "crudeFatPct": 6.7,
+        "crudeFibrePct": 5,
+        "starchPct": 36,
+        "neutralDetergentFibrePct": 28.5,
+        "acidDetergentFibrePct": 8.1
+      },
+      "energy": {
+        "digestibleKcalKg": 3355,
+        "metabolizableKcalKg": 3217,
+        "netKcalKg": 2434
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.38,
+          "threonine": 0.4,
+          "methionine": 0.18,
+          "cysteine": 0.18,
+          "tryptophan": 0.1,
+          "isoleucine": 0.36,
+          "valine": 0.52,
+          "arginine": 0.56,
+          "histidine": 0.28,
+          "leucine": 0.98,
+          "phenylalanine": 0.43,
+          "tyrosine": 0.4
+        },
+        "sidDigestibilityPct": {
+          "lysine": 65,
+          "threonine": 65,
+          "methionine": 86,
+          "cysteine": 67,
+          "tryptophan": 60,
+          "isoleucine": 75,
+          "valine": 73,
+          "arginine": 86,
+          "histidine": 74,
+          "leucine": 83,
+          "phenylalanine": 84,
+          "tyrosine": 88
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.05,
+        "totalPhosphorusPct": 0.43,
+        "sodiumPct": 0.08,
+        "chloridePct": 0.07,
+        "magnesiumPct": 0.24,
+        "potassiumPct": 0.61
+      },
+      "traceMineralsPpm": {
+        "copper": 13,
+        "iron": 67,
+        "manganese": 15,
+        "selenium": 0.1,
+        "zinc": 30
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn Hominy Feed",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "fish-meal-menhaden",
+      "name": "Fish Meal, Menhaden",
+      "aliases": [
+        "menhaden fish meal",
+        "fishmeal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 92,
+        "crudeProteinPct": 62.3,
+        "crudeFatPct": 9.4,
+        "crudeFibrePct": 0.9,
+        "starchPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 3770,
+        "metabolizableKcalKg": 3366,
+        "netKcalKg": 2191
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 4.81,
+          "threonine": 2.64,
+          "methionine": 1.77,
+          "cysteine": 0.57,
+          "tryptophan": 0.66,
+          "isoleucine": 2.57,
+          "valine": 3.03,
+          "arginine": 3.66,
+          "histidine": 1.78,
+          "leucine": 4.54,
+          "phenylalanine": 2.51,
+          "tyrosine": 2.04
+        },
+        "sidDigestibilityPct": {
+          "lysine": 95,
+          "threonine": 88,
+          "methionine": 94,
+          "cysteine": 88,
+          "tryptophan": 90,
+          "isoleucine": 94,
+          "valine": 93,
+          "arginine": 94,
+          "histidine": 93,
+          "leucine": 94,
+          "phenylalanine": 93,
+          "tyrosine": 92
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 5.21,
+        "totalPhosphorusPct": 3.04,
+        "sodiumPct": 0.4,
+        "chloridePct": 0.55,
+        "magnesiumPct": 0.16,
+        "potassiumPct": 0.7
+      },
+      "traceMineralsPpm": {
+        "copper": 11,
+        "iodine": 1.09,
+        "iron": 440,
+        "manganese": 37,
+        "selenium": 2.1,
+        "zinc": 147
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Fish Meal, Menhaden",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "flaxseed-meal-solvent-extracted",
+      "name": "Flax (Linseed) Meal, Solvent Extracted",
+      "aliases": [
+        "linseed meal",
+        "flax meal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 90,
+        "crudeProteinPct": 33.6,
+        "crudeFatPct": 1.8,
+        "crudeFibrePct": 9.8,
+        "starchPct": 0,
+        "neutralDetergentFibrePct": 23.9,
+        "acidDetergentFibrePct": 15
+      },
+      "energy": {
+        "digestibleKcalKg": 3060,
+        "metabolizableKcalKg": 2709,
+        "netKcalKg": 1748
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 1.24,
+          "threonine": 1.26,
+          "methionine": 0.59,
+          "cysteine": 0.59,
+          "tryptophan": 0.52,
+          "isoleucine": 1.56,
+          "valine": 1.74,
+          "arginine": 2.97,
+          "histidine": 0.68,
+          "leucine": 2.06,
+          "phenylalanine": 1.57,
+          "tyrosine": 1.03
+        },
+        "sidDigestibilityPct": {
+          "lysine": 82,
+          "threonine": 79,
+          "methionine": 85,
+          "cysteine": 87,
+          "tryptophan": 84,
+          "isoleucine": 81,
+          "valine": 82,
+          "arginine": 78,
+          "histidine": 81,
+          "leucine": 80,
+          "phenylalanine": 80
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.39,
+        "totalPhosphorusPct": 0.83,
+        "sodiumPct": 0.13,
+        "chloridePct": 0.06,
+        "magnesiumPct": 0.54,
+        "potassiumPct": 1.26
+      },
+      "traceMineralsPpm": {
+        "copper": 22,
+        "iodine": 0.9,
+        "iron": 270,
+        "manganese": 41,
+        "selenium": 0.63,
+        "zinc": 66
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Flax (Linseed) Meal, Solvent Extracted",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "meat-and-bone-meal",
+      "name": "Meat and Bone Meal (≥4% P)",
+      "aliases": [
+        "meat and bone meal",
+        "MBM"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 96,
+        "crudeProteinPct": 52.8,
+        "crudeFatPct": 10.1,
+        "crudeFibrePct": 2.4,
+        "starchPct": 0,
+        "neutralDetergentFibrePct": 32.5,
+        "acidDetergentFibrePct": 5.6
+      },
+      "energy": {
+        "digestibleKcalKg": 3157,
+        "metabolizableKcalKg": 2754,
+        "netKcalKg": 1759
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 2.76,
+          "threonine": 1.62,
+          "methionine": 0.72,
+          "cysteine": 0.51,
+          "tryptophan": 0.36,
+          "isoleucine": 1.54,
+          "valine": 2.28,
+          "arginine": 3.55,
+          "histidine": 0.98,
+          "leucine": 3.17,
+          "phenylalanine": 1.74,
+          "tyrosine": 1.16
+        },
+        "sidDigestibilityPct": {
+          "lysine": 80,
+          "threonine": 80,
+          "methionine": 83,
+          "cysteine": 63,
+          "tryptophan": 78,
+          "isoleucine": 82,
+          "valine": 79,
+          "arginine": 83,
+          "histidine": 83,
+          "leucine": 81,
+          "phenylalanine": 81,
+          "tyrosine": 78
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 9.87,
+        "totalPhosphorusPct": 4.63,
+        "sodiumPct": 0.69,
+        "chloridePct": 0.65,
+        "magnesiumPct": 0.41,
+        "potassiumPct": 0.65
+      },
+      "traceMineralsPpm": {
+        "copper": 11,
+        "iodine": 1.31,
+        "iron": 606,
+        "manganese": 17,
+        "selenium": 0.31,
+        "zinc": 0.38
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Meat and Bone Meal (≥4% P)",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "meat-meal",
+      "name": "Meat Meal (<4% P)",
+      "aliases": [
+        "meat meal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 96,
+        "crudeProteinPct": 56.4,
+        "crudeFatPct": 11.2,
+        "crudeFibrePct": 2.3,
+        "starchPct": 0,
+        "neutralDetergentFibrePct": 31.6,
+        "acidDetergentFibrePct": 8.3
+      },
+      "energy": {
+        "digestibleKcalKg": 3322,
+        "metabolizableKcalKg": 2928,
+        "netKcalKg": 1856
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 3.29,
+          "threonine": 1.89,
+          "methionine": 0.87,
+          "cysteine": 0.52,
+          "tryptophan": 0.43,
+          "isoleucine": 1.92,
+          "valine": 2.6,
+          "arginine": 3.58,
+          "histidine": 1.29,
+          "leucine": 3.71,
+          "phenylalanine": 2,
+          "tyrosine": 1.37
+        },
+        "sidDigestibilityPct": {
+          "lysine": 83,
+          "threonine": 82,
+          "methionine": 87,
+          "cysteine": 58,
+          "tryptophan": 79,
+          "isoleucine": 84,
+          "valine": 80,
+          "arginine": 86,
+          "histidine": 83,
+          "leucine": 83,
+          "phenylalanine": 85,
+          "tyrosine": 80
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 6.6,
+        "totalPhosphorusPct": 3.17,
+        "sodiumPct": 0.8,
+        "chloridePct": 0.97,
+        "magnesiumPct": 0.35,
+        "potassiumPct": 0.57
+      },
+      "traceMineralsPpm": {
+        "copper": 10,
+        "iron": 440,
+        "manganese": 10,
+        "selenium": 0.37,
+        "zinc": 94
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Meat Meal (<4% P)",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "blood-meal-spray-dried",
+      "name": "Blood Meal, Spray-Dried",
+      "aliases": [
+        "spray-dried blood meal",
+        "blood meal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 93,
+        "crudeProteinPct": 88.8,
+        "crudeFatPct": 1.3,
+        "crudeFibrePct": 1,
+        "starchPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 3371,
+        "metabolizableKcalKg": 2950,
+        "netKcalKg": 1565
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 7.45,
+          "threonine": 3.78,
+          "methionine": 0.99,
+          "cysteine": 1.04,
+          "tryptophan": 1.48,
+          "isoleucine": 1.03,
+          "valine": 7.03,
+          "arginine": 3.69,
+          "histidine": 5.3,
+          "leucine": 10.81,
+          "phenylalanine": 5.81,
+          "tyrosine": 2.71
+        },
+        "sidDigestibilityPct": {
+          "lysine": 94,
+          "threonine": 94,
+          "methionine": 96,
+          "cysteine": 91,
+          "tryptophan": 94,
+          "isoleucine": 92,
+          "valine": 91,
+          "arginine": 92,
+          "histidine": 92,
+          "leucine": 92,
+          "phenylalanine": 93,
+          "tyrosine": 93
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.41,
+        "totalPhosphorusPct": 0.3,
+        "sodiumPct": 0.44,
+        "chloridePct": 0.25,
+        "magnesiumPct": 0.11,
+        "potassiumPct": 0.15
+      },
+      "traceMineralsPpm": {
+        "copper": 8,
+        "iodine": 0.34,
+        "iron": 2919,
+        "manganese": 6,
+        "selenium": 0.58,
+        "zinc": 30
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Blood Meal, Spray-Dried",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "plasma-protein-spray-dried",
+      "name": "Plasma Protein, Spray-Dried",
+      "aliases": [
+        "spray-dried plasma",
+        "plasma protein"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 91,
+        "crudeProteinPct": 78,
+        "crudeFatPct": 2,
+        "crudeFibrePct": 0.2,
+        "starchPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 4555,
+        "metabolizableKcalKg": 3988,
+        "netKcalKg": 2412
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 6.84,
+          "threonine": 4.72,
+          "methionine": 0.75,
+          "cysteine": 2.63,
+          "tryptophan": 0.36,
+          "isoleucine": 2.71,
+          "valine": 4.94,
+          "arginine": 4.55,
+          "histidine": 2.55,
+          "leucine": 7.61,
+          "phenylalanine": 4.42,
+          "tyrosine": 3.53
+        },
+        "sidDigestibilityPct": {
+          "lysine": 91,
+          "threonine": 87,
+          "methionine": 92,
+          "cysteine": 85,
+          "tryptophan": 92,
+          "isoleucine": 92,
+          "valine": 89,
+          "arginine": 95,
+          "histidine": 91,
+          "leucine": 92,
+          "phenylalanine": 92,
+          "tyrosine": 92
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.15,
+        "totalPhosphorusPct": 1.48,
+        "sodiumPct": 2.76,
+        "chloridePct": 1.19,
+        "magnesiumPct": 0.03,
+        "potassiumPct": 0.02
+      },
+      "traceMineralsPpm": {
+        "copper": 18,
+        "iron": 77,
+        "manganese": 2.5,
+        "selenium": 1.6,
+        "zinc": 13
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Plasma Protein, Spray-Dried",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "skim-milk-dried",
+      "name": "Skim Milk, Dried",
+      "aliases": [
+        "dried skim milk",
+        "skim milk powder"
+      ],
+      "category": "other",
+      "composition": {
+        "dryMatterPct": 96,
+        "crudeProteinPct": 34.6,
+        "crudeFatPct": 0.9,
+        "crudeFibrePct": 0.2,
+        "starchPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 3988,
+        "metabolizableKcalKg": 3724,
+        "netKcalKg": 2716
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 2.86,
+          "threonine": 1.62,
+          "methionine": 0.92,
+          "cysteine": 0.3,
+          "tryptophan": 0.51,
+          "isoleucine": 1.87,
+          "valine": 2.33,
+          "arginine": 1.24,
+          "histidine": 1.05,
+          "leucine": 3.67,
+          "phenylalanine": 1.78,
+          "tyrosine": 1.87
+        },
+        "sidDigestibilityPct": {
+          "lysine": 93,
+          "threonine": 92,
+          "methionine": 96,
+          "cysteine": 89,
+          "tryptophan": 97,
+          "isoleucine": 88,
+          "valine": 91,
+          "arginine": 92,
+          "histidine": 96,
+          "leucine": 97,
+          "phenylalanine": 98,
+          "tyrosine": 97
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 1.31,
+        "totalPhosphorusPct": 1,
+        "sodiumPct": 0.48,
+        "chloridePct": 1,
+        "magnesiumPct": 0.12,
+        "potassiumPct": 1.6
+      },
+      "traceMineralsPpm": {
+        "copper": 5,
+        "iodine": 0.82,
+        "iron": 8,
+        "manganese": 2,
+        "selenium": 0.12,
+        "zinc": 42
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Skim Milk, Dried",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "whey-dried",
+      "name": "Whey, Dried",
+      "aliases": [
+        "dried whey",
+        "whey powder"
+      ],
+      "category": "other",
+      "composition": {
+        "dryMatterPct": 96,
+        "crudeProteinPct": 12.1,
+        "crudeFatPct": 0.9,
+        "starchPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 3336,
+        "metabolizableKcalKg": 3197,
+        "netKcalKg": 2864
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.9,
+          "threonine": 0.72,
+          "methionine": 0.17,
+          "cysteine": 0.25,
+          "tryptophan": 0.18,
+          "isoleucine": 0.62,
+          "valine": 0.6,
+          "arginine": 0.26,
+          "histidine": 0.23,
+          "leucine": 1.08,
+          "phenylalanine": 0.36,
+          "tyrosine": 0.25
+        },
+        "sidDigestibilityPct": {
+          "lysine": 87,
+          "threonine": 79,
+          "methionine": 81,
+          "cysteine": 85,
+          "tryptophan": 79,
+          "isoleucine": 83,
+          "valine": 77,
+          "arginine": 48,
+          "histidine": 89,
+          "leucine": 87,
+          "phenylalanine": 83,
+          "tyrosine": 77
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.75,
+        "totalPhosphorusPct": 0.72,
+        "sodiumPct": 0.94,
+        "chloridePct": 1.4,
+        "magnesiumPct": 0.13,
+        "potassiumPct": 1.96
+      },
+      "traceMineralsPpm": {
+        "copper": 13,
+        "iron": 130,
+        "manganese": 3,
+        "selenium": 0.12,
+        "zinc": 10
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Whey, Dried",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "molasses-cane",
+      "name": "Molasses, Cane",
+      "aliases": [
+        "cane molasses",
+        "molasses"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 74,
+        "crudeProteinPct": 4,
+        "crudeFatPct": 1.1,
+        "crudeFibrePct": 0,
+        "starchPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 2302,
+        "metabolizableKcalKg": 2229,
+        "netKcalKg": 1537
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.01,
+          "threonine": 0.06,
+          "methionine": 0.02,
+          "cysteine": 0.04,
+          "tryptophan": 0.01,
+          "isoleucine": 0.03,
+          "valine": 0.12,
+          "arginine": 0.02,
+          "histidine": 0.01,
+          "leucine": 0.05,
+          "phenylalanine": 0.02,
+          "tyrosine": 0.05
+        },
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.74,
+        "totalPhosphorusPct": 0.06,
+        "sodiumPct": 0.24,
+        "chloridePct": 1.59,
+        "magnesiumPct": 0.33,
+        "potassiumPct": 3.74
+      },
+      "traceMineralsPpm": {
+        "copper": 29,
+        "iron": 188,
+        "manganese": 59,
+        "zinc": 13
+      },
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Molasses, Cane",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
+    },
+    {
+      "id": "lactose",
+      "name": "Lactose",
+      "aliases": [
+        "milk sugar"
+      ],
+      "category": "other",
+      "composition": {
+        "dryMatterPct": 96,
+        "crudeProteinPct": 0.3
+      },
+      "energy": {
+        "digestibleKcalKg": 3532,
+        "metabolizableKcalKg": 3441,
+        "netKcalKg": 3190
+      },
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Lactose",
+        "sourceTable": "Tables 16, 17 and 20",
+        "source": {
+          "publisher": "Pork Information Gateway",
+          "title": "National Swine Nutrition Guide tables on nutrient recommendations, ingredient composition, and use rates",
+          "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
+          "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
+        },
+        "notes": []
+      }
     }
   ],
   "notes": [
     "Ingredient loading values should be transcribed from NRC 2012 Chapter 17 or the official NRC Swine Model 2012 companion workbook.",
     "Do not silently mix ingredient composition values from other databases into this library. Any local laboratory or supplier override must carry its own provenance.",
-    "Keep values on the basis published by NRC; conversions for formulation belong in code, not in the source data."
+    "Keep values on the basis published by NRC; conversions for formulation belong in code, not in the source data.",
+    "The library also contains explicitly sourced supplemental National Swine Nutrition Guide records. Each supplemental record carries per-ingredient provenance and must not be silently treated as NRC 2012 data."
   ]
 }
