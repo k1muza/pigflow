@@ -352,21 +352,10 @@ export function expectedWeaningWeightKg(config: PlannerConfig): number {
 }
 
 /**
- * What a suckler of this age weighs if nothing was ever short of it: the
- * genotype's rate, every day, and no ration in it at all.
- *
- * For the animals the farm already owned on the morning the plan opens. A pig
- * standing in the weaner house on day zero was weaned by whatever fed it, weeks
- * before any of this plan applies, so inferring its weight from this plan's
- * lactation ration runs the causality backwards: raising the sow feed for the
- * litters still to come would reach back and make a pig that is already three
- * weeks weaned heavier, and the farm would sell the difference. The past is not
- * the plan's to decide.
- *
- * So what is left is what a farm with nothing else to go on would say — this
- * genotype, fed. It is an assumption and not a measurement, which is why a
- * starting animal can carry its own weighed weight instead and override it
- * entirely.
+ * What a suckler could weigh at this age if nutrition never limited its
+ * biological potential. This is an upper envelope used for biology tests and
+ * reporting comparisons; it is deliberately not the assumed weight of opening
+ * stock.
  */
 export function fullyFedPigletWeightKg(config: PlannerConfig, ageDays: number): number {
   const days = Math.max(0, Math.round(ageDays));
@@ -377,7 +366,15 @@ export function fullyFedPigletWeightKg(config: PlannerConfig, ageDays: number): 
   return weightKg;
 }
 
-/** Where the weaner house starts for a pig the farm already owned. */
+/**
+ * Fallback weight for a weaner the farm already owns but has not weighed.
+ *
+ * The current plan cannot reach backwards and decide how that pig was fed, and
+ * the artificial-rearing potential curve is an upper bound rather than a
+ * plausible historical estimate. The farmer's reference weaning weight is the
+ * appropriate prior here. Detailed opening stock with a measured weight
+ * overrides this completely.
+ */
 export function openingWeanerWeightKg(config: PlannerConfig): number {
-  return fullyFedPigletWeightKg(config, config.reproduction.weaningAgeDays);
+  return config.growth.referenceWeaningWeightKg;
 }
