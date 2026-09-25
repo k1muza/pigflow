@@ -15,7 +15,39 @@ describe("ingredient nutrient JSON library", () => {
     expect(INGREDIENT_LIBRARY.source.edition).toBe("11th Revised Edition");
     expect(INGREDIENT_LIBRARY.source.year).toBe(2012);
     expect(INGREDIENT_LIBRARY.source.chapter).toBe("17 — Feed Ingredient Composition");
-    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(9);
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(48);
+  });
+
+  it("has unique ingredient ids and includes every ingredient used by the PIC example diets", () => {
+    const ids = INGREDIENT_LIBRARY.ingredients.map((ingredient) => ingredient.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        "corn-yellow-dent",
+        "soybean-meal-dehulled-solvent-extracted",
+        "corn-oil",
+        "calcium-carbonate",
+        "monocalcium-phosphate",
+        "sodium-chloride",
+        "l-lysine-hcl",
+        "dl-methionine",
+        "l-threonine",
+        "l-tryptophan",
+        "vitamin-trace-mineral-premix",
+        "corn-ddgs-low-oil",
+        "wheat-middlings",
+      ]),
+    );
+  });
+
+  it("keeps supplemental ingredient sources explicit rather than relabelling them NRC 2012", () => {
+    const barley = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "barley-two-row",
+    );
+    expect(barley?.provenance.source?.publisher).toBe("Pork Information Gateway");
+    expect(barley?.provenance.source?.basis).toMatch(/distinct from NRC 2012/i);
+    expect(barley?.energy.metabolizableKcalKg).toBeGreaterThan(2900);
   });
 
   it("preserves NRC total lysine and SID digestibility separately", () => {
