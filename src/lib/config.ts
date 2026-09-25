@@ -952,12 +952,6 @@ export const PRODUCTION_CALIBRATION_2026 = {
     growerMortalityPct: 1.5,
     finisherMortalityPct: 1.5,
   },
-  nutrition: {
-    formulationObjective: "max_profit",
-    performanceMetric: "adg",
-    facilityCostPerPigDay: 0,
-    ingredientPrices: [],
-  },
   feed: {
     gestationKgDay: 2.4,
     lactationKgDay: 7.0,
@@ -1328,6 +1322,12 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     weanerMortalityPct: 3,
     growerMortalityPct: 1.5,
     finisherMortalityPct: 1.5,
+  },
+  nutrition: {
+    formulationObjective: "max_profit",
+    performanceMetric: "adg",
+    facilityCostPerPigDay: 0,
+    ingredientPrices: [],
   },
   feed: {
     gestationKgDay: 2.4,
