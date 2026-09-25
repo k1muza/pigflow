@@ -1,0 +1,22 @@
+name: Simulator day modal check
+
+on:
+  push:
+    branches:
+      - simulator-day-modal
+    paths:
+      - .github/workflows/simulator-day-modal-check.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --run src/lib/simulation-result.test.ts src/lib/engine/projection.test.ts
