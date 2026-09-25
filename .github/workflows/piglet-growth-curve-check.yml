@@ -1,0 +1,22 @@
+name: Piglet growth curve check
+
+on:
+  push:
+    branches:
+      - age-dependent-piglet-growth
+    paths:
+      - .github/workflows/piglet-growth-curve-check.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --run src/lib/sim/preweaning.test.ts src/lib/calibration.test.ts src/lib/sim/growth-from-feed.test.ts src/lib/engine/planning/forecast.test.ts
