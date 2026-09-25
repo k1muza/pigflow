@@ -37,7 +37,11 @@ class PigFlowCache extends Dexie {
 }
 
 const BUILD_ID = process.env.NEXT_PUBLIC_PIGFLOW_BUILD_ID ?? "dev";
-const CACHE_FORMAT = "v1";
+// Bump when a cached artefact's runtime shape changes. Deployed builds are
+// already isolated by git SHA; localhost deliberately has BUILD_ID="dev", so
+// this is the schema boundary that prevents old IndexedDB objects surviving a
+// code change with fields missing at runtime.
+const CACHE_FORMAT = "v2";
 /** Enough room for several scenarios and individual exports without growing forever. */
 const MAX_ARTIFACTS = 96;
 
