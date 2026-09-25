@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "id": "pigflow-ingredient-library",
-  "name": "PigFlow ingredient nutrient library",
+  "id": "nrc-swine-2012-ingredient-library",
+  "name": "NRC 2012 swine feed ingredient nutrient library",
   "basis": {
     "nutrientComposition": "as-fed",
     "energy": "kcal/kg",
@@ -10,10 +10,22 @@
     "traceMinerals": "ppm"
   },
   "source": {
-    "publisher": "",
-    "title": "",
-    "version": "",
-    "url": ""
+    "publisher": "National Research Council",
+    "title": "Nutrient Requirements of Swine",
+    "edition": "11th Revised Edition",
+    "year": 2012,
+    "chapter": "17 — Feed Ingredient Composition",
+    "doi": "10.17226/13298",
+    "url": "https://www.nationalacademies.org/publications/13298",
+    "companionModel": {
+      "title": "NRC Swine Model 2012",
+      "url": "https://nap.nationalacademies.org/nr-swine/"
+    }
   },
-  "ingredients": []
+  "ingredients": [],
+  "notes": [
+    "Ingredient loading values should be transcribed from NRC 2012 Chapter 17 or the official NRC Swine Model 2012 companion workbook.",
+    "Do not silently mix ingredient composition values from other databases into this library. Any local laboratory or supplier override must carry its own provenance.",
+    "Keep values on the basis published by NRC; conversions for formulation belong in code, not in the source data."
+  ]
 }
