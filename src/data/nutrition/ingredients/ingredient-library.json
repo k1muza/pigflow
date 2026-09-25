@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "pigflow-ingredient-library",
+  "name": "PigFlow ingredient nutrient library",
+  "basis": {
+    "nutrientComposition": "as-fed",
+    "energy": "kcal/kg",
+    "aminoAcids": "percent",
+    "macroMinerals": "percent",
+    "traceMinerals": "ppm"
+  },
+  "source": {
+    "publisher": "",
+    "title": "",
+    "version": "",
+    "url": ""
+  },
+  "ingredients": []
+}
