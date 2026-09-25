@@ -242,7 +242,7 @@ export function runGrowthAndSales(world: World): void {
   // and this is the 1.x figure to the gram.
   for (const pig of world.pigs) {
     if (!pig.alive) continue;
-    pig.advanceWeight(config);
+    pig.advanceWeight(config, day);
   }
 
   // ---- moving between the houses -------------------------------------------
