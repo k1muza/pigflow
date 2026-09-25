@@ -27,6 +27,8 @@ import { Input } from "@/components/ui/input";
 import { usePlanner } from "@/components/planner-shell";
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 import type { PlannerConfig } from "@/lib/config";
+import { IngredientNutrientBrowser } from "@/components/ingredient-nutrient-browser";
+import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
 
 const programme = PIC_GROWTH_NUTRITION_2021;
 
@@ -230,6 +232,40 @@ export function NutritionBrowser() {
               </p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <IngredientNutrientBrowser />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>PIC biological response evidence</CardTitle>
+          <CardDescription>
+            What PigFlow can and cannot currently reproduce from the public PIC response model.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm md:grid-cols-3">
+          <div className="rounded-lg border border-hairline bg-raised/40 p-4">
+            <div className="text-xs text-ink-faint">Evidence base</div>
+            <div className="mt-1 font-medium text-ink">
+              {PIC_SID_LYSINE_RESPONSE_2021.population.trials} trials ·{" "}
+              {PIC_SID_LYSINE_RESPONSE_2021.population.pigs.toLocaleString()} pigs
+            </div>
+          </div>
+          <div className="rounded-lg border border-hairline bg-raised/40 p-4">
+            <div className="text-xs text-ink-faint">Biological target</div>
+            <div className="mt-1 font-medium text-ink">
+              ~{PIC_SID_LYSINE_RESPONSE_2021.biologicalTarget.approximateMaximumAdgPct}% max ADG · ~
+              {PIC_SID_LYSINE_RESPONSE_2021.biologicalTarget.approximateMaximumGainFeedPct}% max G:F
+            </div>
+          </div>
+          <div className="rounded-lg border border-hairline bg-raised/40 p-4">
+            <div className="text-xs text-ink-faint">Economic response curve</div>
+            <div className="mt-1 font-medium text-warning">Coefficients not publicly reproduced</div>
+            <div className="mt-1 text-xs leading-5 text-ink-faint">
+              PigFlow will not invent ADG/FCR responses between nutrient levels.
+            </div>
+          </div>
         </CardContent>
       </Card>
 
