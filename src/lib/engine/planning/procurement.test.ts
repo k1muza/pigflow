@@ -303,7 +303,6 @@ describe("the engine's procurement override", () => {
     const config = cloneDefaultConfig();
     config.project.months = 12;
     config.feed.procurementMode = "operational";
-    config.feed.operationalPolicy = "balanced-load";
 
     expect(runEngine(config, 1).world.procurement.id).toBe("balanced-load");
   });
@@ -337,7 +336,6 @@ describe("a farm that eats more in a day than the lorry carries", () => {
     config.herd.startMode = "staggered";
     config.project.variation = "settled";
     config.feed.procurementMode = "operational";
-    config.feed.operationalPolicy = "balanced-load";
     config.feed.truckCapacityKg = 200;
     config.feed.maxSupplyTripsPerDay = maxSupplyTripsPerDay;
     return config;
@@ -376,7 +374,6 @@ describe("a farm that eats more in a day than the lorry carries", () => {
     config.herd.startMode = "staggered";
     config.project.variation = "settled";
     config.feed.procurementMode = "operational";
-    config.feed.operationalPolicy = "balanced-load";
 
     const dispatches = runEngine(config, 360)
       .history.map((day) => day.deliveries.filter((trip) => trip.kind === "supplies").length)
