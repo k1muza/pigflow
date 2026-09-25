@@ -122,9 +122,9 @@ export default async function FeedProgrammePhasePage({
           {programme.name}
         </Link>
 
-        <div className="text-sm font-medium text-brand">{programme.name}</div>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">{phase.label}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">{programme.name}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="text-base font-medium text-ink-muted">{phase.label}</div>
           <Badge variant="secondary">{phase.sourceWeightRange}</Badge>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
