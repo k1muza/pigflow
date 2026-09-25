@@ -563,7 +563,11 @@ function structuralZero(
   ingredient: IngredientNutrientRecord,
   family: "energy" | "crudeProtein",
 ): boolean {
-  return ingredient.category === "mineral" && (family === "energy" || family === "crudeProtein");
+  return (
+    (ingredient.category === "mineral" ||
+      ingredient.category === "vitamin_mineral_premix") &&
+    (family === "energy" || family === "crudeProtein")
+  );
 }
 
 function add(
@@ -590,7 +594,11 @@ function addSid(
   for (const aminoAcid of aminoAcids) {
     const value = sidAminoAcidPct(ingredient, aminoAcid);
     if (value === undefined) {
-      if (ingredient.category !== "mineral" && ingredient.category !== "amino_acid") {
+      if (
+        ingredient.category !== "mineral" &&
+        ingredient.category !== "amino_acid" &&
+        ingredient.category !== "vitamin_mineral_premix"
+      ) {
         markMissing(target, ingredient.id);
         return;
       }
