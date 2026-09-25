@@ -49,3 +49,14 @@ export function tabFromPath(pathname: string): Tab {
   const tab = segments[2];
   return PLAN_TABS.some((known) => known === tab) ? (tab as Tab) : "overview";
 }
+
+
+/** App-level feed formulation workspace, deliberately outside any farm plan. */
+export function feedFormulationHref(section?: "ingredients" | "requirements"): string {
+  return section ? `/feed-formulation/${section}` : "/feed-formulation";
+}
+
+/** One NRC ingredient in the app-level formulation workspace. */
+export function feedIngredientHref(ingredientId: string): string {
+  return feedFormulationHref("ingredients") + "/" + encodeURIComponent(ingredientId);
+}
