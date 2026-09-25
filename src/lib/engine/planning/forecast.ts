@@ -205,7 +205,7 @@ function giltRationKg(weightKg: number, config: PlannerConfig): number {
 }
 
 /** The litter an expected lactating sow is carrying, as the ration needs it. */
-type ExpectedLitter = { sucklers: number; creepKg: number };
+type ExpectedLitter = { sucklers: number; creepKg: number; ageDays: number };
 
 /**
  * What a breeding female of this weight eats in the state she is in.
@@ -247,7 +247,8 @@ function expectedLactation(
     {
       weightKg,
       sucklers: litter.sucklers,
-      potentialGainKg: litter.sucklers * potentialPigletGainKg(config),
+      potentialGainKg:
+        litter.sucklers * potentialPigletGainKg(config, litter.ageDays),
       creepOfferedKg: litter.creepKg,
     },
     config,
@@ -302,7 +303,7 @@ function expectedGainKg(walker: Walker, config: PlannerConfig): number {
   // engine either: what a piglet puts on before weaning is how much milk it got
   // and not how well it converts. A factor here and not there would be the
   // ordering policy buying sow feed for a litter the farm is not feeding.
-  if (walker.stage === "piglet") return potentialPigletGainKg(config);
+  if (walker.stage === "piglet") return potentialPigletGainKg(config, walker.ageDays);
   const maturity = maturityFactor(walker.weightKg, growth);
   if (walker.stage === "gilt") return GILT_DAILY_GAIN_KG * walker.growthFactor * maturity;
   const base =
@@ -590,6 +591,7 @@ export function forecastDemand(
     return {
       sucklers,
       creepKg: ageDays >= feed.creepStartAgeDays ? sucklers * feed.creepKgPerPigDay : 0,
+      ageDays,
     };
   };
   const weanToServiceDays = Math.max(1, Math.round(reproduction.weanToServiceDays));
@@ -689,7 +691,11 @@ export function forecastDemand(
     const standing = new Map<number, ExpectedLitter>();
     for (const walker of walkers) {
       if (walker.stage !== "piglet" || walker.weanDay === null || walker.head <= CRUMB_KG) continue;
-      const already = standing.get(walker.weanDay) ?? { sucklers: 0, creepKg: 0 };
+      const already = standing.get(walker.weanDay) ?? {
+        sucklers: 0,
+        creepKg: 0,
+        ageDays: walker.ageDays,
+      };
       const litters = Math.max(1, walker.litters);
       already.sucklers += walker.head / litters;
       if (walker.ageDays >= feed.creepStartAgeDays) {
@@ -794,7 +800,13 @@ export function forecastDemand(
           already.mass += entry.mass;
           support.set(weanDay, already);
         } else {
-          kg = entry.mass * sowRationKg(track.weightKg, state, config, { sucklers: 0, creepKg: 0 });
+          kg =
+            entry.mass *
+            sowRationKg(track.weightKg, state, config, {
+              sucklers: 0,
+              creepKg: 0,
+              ageDays: 0,
+            });
         }
         demandKg.sow[index] += kg;
         note("sow", "breeding", kg, "the breeding females standing on the farm");

@@ -14,10 +14,12 @@ import {
   expectedPigletWeightAtAgeKg,
   expectedWeaningWeightKg,
   explainLitterGrowth,
+  fullyFedPigletWeightKg,
   lactationDemandOf,
   litterGrowthAccount,
   pigletSupportFactor,
   potentialPigletGainKg,
+  referencePigletGainKg,
 } from "./lactation";
 
 /**
@@ -81,7 +83,7 @@ function run(config: PlannerConfig): Outcome {
 describe("what a litter asks of its dam", () => {
   it("asks for more when there are more of them", () => {
     const config = plan();
-    const gain = potentialPigletGainKg(config);
+    const gain = potentialPigletGainKg(config, 14);
     const six = lactationDemandOf(
       { weightKg: 210, sucklers: 6, potentialGainKg: 6 * gain, creepOfferedKg: 0 },
       config,
@@ -101,7 +103,11 @@ describe("what a litter asks of its dam", () => {
 
   it("asks for less when the creep feeder is doing some of the work", () => {
     const config = plan();
-    const litter = { weightKg: 210, sucklers: 10, potentialGainKg: 10 * potentialPigletGainKg(config) };
+    const litter = {
+      weightKg: 210,
+      sucklers: 10,
+      potentialGainKg: 10 * potentialPigletGainKg(config, 14),
+    };
     const dry = lactationDemandOf({ ...litter, creepOfferedKg: 0 }, config);
     const creeped = lactationDemandOf({ ...litter, creepOfferedKg: 0.6 }, config);
 
@@ -144,57 +150,75 @@ describe("what a litter asks of its dam", () => {
     expect(shortCreep).toBeLessThan(full);
   });
 
-  it("grows at the genotype's rate whatever day the farm weans on", () => {
-    // How fast a piglet can grow is a fact about the animal; when it comes off
-    // the sow is a decision about the farm. Reading the rate off the weaning age
-    // made them one number, and a litter left on a week longer grew a seventh
-    // slower and arrived at exactly the same weight for exactly the same feed.
-    const early = plan((c) => (c.reproduction.weaningAgeDays = 28));
-    const late = plan((c) => (c.reproduction.weaningAgeDays = 35));
-    expect(potentialPigletGainKg(late)).toBe(potentialPigletGainKg(early));
+  it("uses an age-dependent biological ceiling", () => {
+    const config = plan();
+
+    expect(potentialPigletGainKg(config, 5)).toBeLessThan(
+      potentialPigletGainKg(config, 14),
+    );
+    expect(potentialPigletGainKg(config, 14)).toBeLessThan(
+      potentialPigletGainKg(config, 21),
+    );
+
+    // Published/artificial-rearing anchors used by the reference curve.
+    expect(referencePigletGainKg(12.5)).toBeCloseTo(0.432, 6);
+    expect(referencePigletGainKg(19)).toBeCloseTo(0.521, 6);
+    expect(referencePigletGainKg(22)).toBeCloseTo(0.61, 6);
+
+    // The reported biological potential is about 0.4 kg/day over the first
+    // three weeks; the discretised daily curve should land close to that.
+    const first21 = Array.from({ length: 21 }, (_, day) =>
+      potentialPigletGainKg(config, day),
+    );
+    expect(first21.reduce((sum, gain) => sum + gain, 0) / first21.length).toBeCloseTo(
+      0.4,
+      1,
+    );
   });
 
-  it("gives a fully fed litter more weight for more days on the sow", () => {
-    // The test that would have caught it. With milk to spare, nothing is
-    // rationed and nothing is short, so the only thing left that can make one
-    // litter heavier than the other is the week.
-    const fed = (weaningAgeDays: number) => {
-      const config = plan((c) => {
-        c.reproduction.weaningAgeDays = weaningAgeDays;
-        c.feed.lactationKgDay = 14;
-      });
-      return expectedWeaningWeightKg(config);
-    };
+  it("does not let the farm's weaning day change potential at a given age", () => {
+    const early = plan((c) => (c.reproduction.weaningAgeDays = 28));
+    const late = plan((c) => (c.reproduction.weaningAgeDays = 35));
+    expect(potentialPigletGainKg(late, 14)).toBe(
+      potentialPigletGainKg(early, 14),
+    );
+  });
 
-    const early = fed(28);
-    const late = fed(35);
+  it("gives a fully nourished piglet more weight for more days on the sow", () => {
+    const config = plan();
+    const early = fullyFedPigletWeightKg(config, 28);
+    const late = fullyFedPigletWeightKg(config, 35);
+
     expect(late).toBeGreaterThan(early);
-    // And by the week's worth of the genotype's own rate, not by some share of
-    // a target both of them were walking towards.
-    expect(late - early).toBeCloseTo(7 * potentialPigletGainKg(plan()), 6);
+    const extraWeek = Array.from({ length: 7 }, (_, offset) =>
+      potentialPigletGainKg(config, 28 + offset),
+    ).reduce((sum, gain) => sum + gain, 0);
+    expect(late - early).toBeCloseTo(extraWeek, 9);
   });
 
   it("reads nothing at all off the weaning weight the plan is aiming at", () => {
-    // The target is a line to hold the run up against. It was the thing that
-    // drove growth, which is how a farm typed its way to 2.5 kg a head.
     const light = plan((c) => (c.growth.referenceWeaningWeightKg = 7));
     const heavy = plan((c) => (c.growth.referenceWeaningWeightKg = 12));
-    expect(potentialPigletGainKg(heavy)).toBe(potentialPigletGainKg(light));
-    expect(potentialPigletGainKg(light)).toBe(light.growth.pigletDailyGainKg);
+    expect(potentialPigletGainKg(heavy, 14)).toBe(
+      potentialPigletGainKg(light, 14),
+    );
   });
 
-  it("grows a suckler faster when the genotype is faster", () => {
-    const steady = plan((c) => (c.growth.pigletDailyGainKg = 0.2));
-    const quick = plan((c) => (c.growth.pigletDailyGainKg = 0.3));
-    expect(potentialPigletGainKg(quick)).toBeGreaterThan(potentialPigletGainKg(steady));
-    // And the dam is asked for the feed to milk it, which is where the extra
-    // weight is paid for.
+  it("moves the whole curve when the genotype calibration changes", () => {
+    const steady = plan((c) => (c.growth.pigletGrowthPotentialPct = 80));
+    const quick = plan((c) => (c.growth.pigletGrowthPotentialPct = 120));
+    const ageDays = 14;
+
+    expect(potentialPigletGainKg(quick, ageDays)).toBeGreaterThan(
+      potentialPigletGainKg(steady, ageDays),
+    );
+
     const askedOf = (config: PlannerConfig) =>
       lactationDemandOf(
         {
           weightKg: 210,
           sucklers: 12,
-          potentialGainKg: 12 * potentialPigletGainKg(config),
+          potentialGainKg: 12 * potentialPigletGainKg(config, ageDays),
           creepOfferedKg: 0,
         },
         config,
@@ -275,7 +299,7 @@ describe("a heavier weaner has to be fed for", () => {
           {
             weightKg: 210,
             sucklers,
-            potentialGainKg: sucklers * potentialPigletGainKg(config),
+            potentialGainKg: sucklers * potentialPigletGainKg(config, day),
             // Creep from the day the feeder goes into the crate, as the farm does.
             creepOfferedKg:
               day >= config.feed.creepStartAgeDays ? sucklers * config.feed.creepKgPerPigDay : 0,
@@ -304,17 +328,18 @@ describe("a heavier weaner has to be fed for", () => {
       weightKg: 3,
       stage: "piglet",
     });
-    const ceiling = potentialPigletGainKg(config);
+    const ageDays = 14;
+    const ceiling = potentialPigletGainKg(config, ageDays);
     piglet.treatmentPenaltyDays = 4;
     piglet.treatmentGrowthFactor = 0.6;
 
     // Milk for four fifths of a day's growth, health for six tenths.
     piglet.milkGainKg = 0.8 * ceiling;
-    expect(piglet.achievedGainKg(config)).toBeCloseTo(0.6 * ceiling, 12);
+    expect(piglet.achievedGainKg(config, ageDays)).toBeCloseTo(0.6 * ceiling, 12);
 
     // And the other way round, milk is the binding one.
     piglet.milkGainKg = 0.4 * ceiling;
-    expect(piglet.achievedGainKg(config)).toBeCloseTo(0.4 * ceiling, 12);
+    expect(piglet.achievedGainKg(config, ageDays)).toBeCloseTo(0.4 * ceiling, 12);
   });
 
   it("opens the plan with the piglets its own ration would have fed", () => {
@@ -335,7 +360,7 @@ describe("a heavier weaner has to be fed for", () => {
       c.feed.lactationKgDay = 12;
     });
     const ceilingAt = (config: PlannerConfig, ageDays: number) =>
-      BIRTH_WEIGHT_KG + potentialPigletGainKg(config) * ageDays;
+      fullyFedPigletWeightKg(config, ageDays);
 
     for (const ageDays of [7, 14, 21]) {
       expect(expectedPigletWeightAtAgeKg(thin, ageDays)).toBeLessThan(ceilingAt(thin, ageDays));
@@ -344,8 +369,11 @@ describe("a heavier weaner has to be fed for", () => {
       );
       expect(expectedPigletWeightAtAgeKg(thin, ageDays)).toBeGreaterThan(BIRTH_WEIGHT_KG);
     }
-    // Fed enough and the expectation is the ceiling, because nothing is short.
-    expect(expectedPigletWeightAtAgeKg(generous, 21)).toBeCloseTo(ceilingAt(generous, 21), 6);
+    // A practical sow ration can still bind below biological potential; more
+    // feed moves the piglet toward the ceiling but never above it.
+    expect(expectedPigletWeightAtAgeKg(generous, 21)).toBeLessThanOrEqual(
+      ceilingAt(generous, 21),
+    );
 
     // And a farm actually opens on it. Each litter takes its dam's ration
     // between however many of them there are, so the weights are not one
@@ -433,7 +461,7 @@ describe("what the plan says its weaner cost", () => {
       {
         weightKg: 210,
         sucklers,
-        potentialGainKg: sucklers * potentialPigletGainKg(config),
+        potentialGainKg: sucklers * potentialPigletGainKg(config, 21),
         creepOfferedKg: sucklers * config.feed.creepKgPerPigDay,
       },
       config,
@@ -528,12 +556,11 @@ describe("what the plan says its weaner cost", () => {
     );
     expect(expectedWeaningWeightKg(config)).toBeGreaterThan(BIRTH_WEIGHT_KG);
 
-    // Fed enough and the expectation is the genotype's own rate over the days
-    // the farm leaves them on, which is the most a piglet can do.
+    // The biological curve is an upper bound. Even a generous practical sow
+    // ration cannot make the litter exceed it.
     const fed = plan((c) => (c.feed.lactationKgDay = 12));
-    expect(expectedWeaningWeightKg(fed)).toBeCloseTo(
-      BIRTH_WEIGHT_KG + potentialPigletGainKg(fed) * fed.reproduction.weaningAgeDays,
-      6,
+    expect(expectedWeaningWeightKg(fed)).toBeLessThanOrEqual(
+      fullyFedPigletWeightKg(fed, fed.reproduction.weaningAgeDays),
     );
   });
 
@@ -567,27 +594,26 @@ describe("a plan saved before any of this", () => {
     expect(loaded?.growth.referenceWeaningWeightKg).toBe(8.2);
   });
 
-  it("grows its sucklers at exactly the rate it used to imply", () => {
-    // A plan written before any of this had no view on how fast a suckler
-    // grows, because nothing asked it: the rate was the weaning weight over the
-    // weaning age. That is the rate every figure its owner has seen was built
-    // on, so it is what the plan is loaded with — handing it the starter
-    // assumption instead would move its weaners overnight for no reason its
-    // owner could see.
+  it("preserves an old implied suckling rate as a relative curve calibration", () => {
     const stored = cloneDefaultConfig() as unknown as Record<string, unknown>;
     const growth = { ...(stored.growth as Record<string, unknown>) };
-    delete growth.pigletDailyGainKg;
+    delete growth.pigletGrowthPotentialPct;
     delete growth.referenceWeaningAgeDays;
     delete growth.referenceWeaningWeightKg;
     growth.weaningWeightKg = 9;
     stored.growth = growth;
-    stored.reproduction = { ...(stored.reproduction as Record<string, unknown>), weaningAgeDays: 35 };
+    stored.reproduction = {
+      ...(stored.reproduction as Record<string, unknown>),
+      weaningAgeDays: 35,
+    };
 
-    const loaded = withConfigDefaults(stored);
-    // The old rate was quoted at the age that plan weaned at, because that is
-    // the only age it had.
-    expect(loaded?.growth.referenceWeaningAgeDays).toBe(35);
-    expect(potentialPigletGainKg(loaded!)).toBeCloseTo((9 - BIRTH_WEIGHT_KG) / 35, 9);
+    const loaded = withConfigDefaults(stored)!;
+    const implied = (9 - BIRTH_WEIGHT_KG) / 35;
+    expect(loaded.growth.referenceWeaningAgeDays).toBe(35);
+    expect(loaded.growth.pigletGrowthPotentialPct).toBeCloseTo(
+      Math.max(50, Math.min(150, (implied / 0.28) * 100)),
+      9,
+    );
   });
 
   it("does not take a rate off a target a plan already knew was a target", () => {
@@ -599,7 +625,7 @@ describe("a plan saved before any of this", () => {
     const saved = (referenceWeaningWeightKg: number) => {
       const stored = cloneDefaultConfig() as unknown as Record<string, unknown>;
       const growth = { ...(stored.growth as Record<string, unknown>) };
-      delete growth.pigletDailyGainKg;
+      delete growth.pigletGrowthPotentialPct;
       growth.referenceWeaningWeightKg = referenceWeaningWeightKg;
       stored.growth = growth;
       return withConfigDefaults(stored)!;
@@ -607,14 +633,23 @@ describe("a plan saved before any of this", () => {
 
     const modest = saved(7);
     const ambitious = saved(12);
-    expect(potentialPigletGainKg(ambitious)).toBe(potentialPigletGainKg(modest));
+    expect(potentialPigletGainKg(ambitious, 14)).toBe(
+      potentialPigletGainKg(modest, 14),
+    );
     expect(expectedWeaningWeightKg(ambitious)).toBe(expectedWeaningWeightKg(modest));
   });
 
-  it("leaves the rate alone on a plan that has one", () => {
+  it("maps a saved flat rate onto the curve without losing its relative tuning", () => {
     const stored = cloneDefaultConfig() as unknown as Record<string, unknown>;
-    stored.growth = { ...(stored.growth as Record<string, unknown>), pigletDailyGainKg: 0.25 };
-    expect(withConfigDefaults(stored)?.growth.pigletDailyGainKg).toBe(0.25);
+    const growth = { ...(stored.growth as Record<string, unknown>) };
+    delete growth.pigletGrowthPotentialPct;
+    growth.pigletDailyGainKg = 0.25;
+    stored.growth = growth;
+
+    expect(withConfigDefaults(stored)?.growth.pigletGrowthPotentialPct).toBeCloseTo(
+      (0.25 / 0.28) * 100,
+      9,
+    );
   });
 
   it("leaves a plan that already has the new field alone", () => {

@@ -16,7 +16,7 @@ describe("2026 production calibration", () => {
 
     const after = applyProductionCalibration2026(before);
 
-    expect(after.growth.pigletDailyGainKg).toBe(0.28);
+    expect(after.growth.pigletGrowthPotentialPct).toBe(100);
     expect(after.feed.lactationKgDay).toBe(7);
     expect(after.feed.lactationFeedKgPerKgGain).toBe(2);
     expect(after.feed.creepKgPerPigDay).toBe(0.03);
@@ -31,7 +31,7 @@ describe("2026 production calibration", () => {
 
   it("does not rewrite an existing saved plan merely because defaults changed", () => {
     const stored = cloneDefaultConfig();
-    stored.growth.pigletDailyGainKg = 0.40285714285714286;
+    stored.growth.pigletGrowthPotentialPct = 125;
     stored.feed.lactationKgDay = 6;
     stored.feed.lactationFeedKgPerKgGain = 1.8;
     stored.feed.creepKgPerPigDay = 0.05;
@@ -39,11 +39,27 @@ describe("2026 production calibration", () => {
     stored.herd.giltServiceAgeDays = 240;
 
     const loaded = withConfigDefaults(stored)!;
-    expect(loaded.growth.pigletDailyGainKg).toBe(0.40285714285714286);
+    expect(loaded.growth.pigletGrowthPotentialPct).toBe(125);
     expect(loaded.feed.lactationKgDay).toBe(6);
     expect(loaded.feed.lactationFeedKgPerKgGain).toBe(1.8);
     expect(loaded.feed.creepKgPerPigDay).toBe(0.05);
     expect(loaded.growth.weanerMortalityPct).toBe(2);
     expect(loaded.herd.giltServiceAgeDays).toBe(240);
+  });
+
+  it("maps the old flat piglet rate onto the new reference curve calibration", () => {
+    const stored = structuredClone(cloneDefaultConfig()) as unknown as {
+      growth: Record<string, unknown>;
+      [key: string]: unknown;
+    };
+    delete stored.growth.pigletGrowthPotentialPct;
+    stored.growth.pigletDailyGainKg = 0.28;
+
+    const standard = withConfigDefaults(stored)!;
+    expect(standard.growth.pigletGrowthPotentialPct).toBeCloseTo(100, 9);
+
+    stored.growth.pigletDailyGainKg = 0.21;
+    const slower = withConfigDefaults(stored)!;
+    expect(slower.growth.pigletGrowthPotentialPct).toBeCloseTo(75, 9);
   });
 });

@@ -561,35 +561,33 @@ export const plannerSchema = z.object({
   }),
   growth: z.object({
     /**
-     * What a suckling piglet puts on in a day when its dam's milk and the creep
-     * feeder between them cover everything it is trying to grow.
+     * Calibration applied to the age-dependent neonatal growth-potential curve.
      *
-     * The genotype's ceiling and nothing else, quoted the way the tabled gains
-     * for the weaner, grower and finisher stages are. What a piglet actually
-     * puts on is read off the feed — the gain the sow's ration paid for in milk
-     * plus the gain the creep bought, held to this — so a litter reaches it only
-     * on a farm that fed it. See `lib/sim/lactation`.
+     * 100 means the reference curve reported from ad-libitum artificial rearing:
+     * roughly 0.4 kg/day averaged to 21 days, rising with age rather than a flat
+     * daily rate. The curve itself lives in `lib/sim/lactation`; this percentage
+     * lets a farm or genotype be calibrated without turning one observed
+     * sow-reared ADG into the biological ceiling.
      *
-     * It used to be read off {@link referenceWeaningWeightKg} and the weaning
-     * age, which made the weight in the box the thing that drove growth: raise
-     * the target and every litter grew faster because a number moved. A weaning
-     * weight is an outcome, so the potential it used to imply is stated here,
-     * where a farmer can see it and argue with it.
+     * What a piglet actually gains is still the lower of that age-specific
+     * potential and what its dam's milk plus creep feed can support.
      */
-    pigletDailyGainKg: z.number().min(0.05).max(0.6).default(0.22),
+    pigletGrowthPotentialPct: z.number().min(50).max(150).default(100),
     /**
      * What a piglet is expected to weigh off the sow: the target, for reporting.
      *
-     * Nothing in the simulation reads it. Weaning weight is whatever the animal
-     * reached on the milk and the creep it was actually given, and this is the
-     * line that run is held up against — target 11.5 kg, actual 10.3 kg — so the
-     * farm can see the gap and go and look at the ration that made it.
+     * It does not drive future suckling growth. Weaning weight is whatever the
+     * animal reached on the milk and creep it was actually given, and this is
+     * the line that run is held up against — target 11.5 kg, actual 10.3 kg.
+     * It is also the fallback prior for already-owned opening weaners whose
+     * measured weight was not entered; that historical assumption does not feed
+     * back into growth of future litters.
      *
      * It was `weaningWeightKg` and it was a guarantee: the day's gain was this
      * weight divided by the weaning age, so a heavier weaner cost nothing and
      * arrived by arithmetic. Plans saved under the old name are read into this
      * one, and the rate they used to imply is carried into
-     * {@link pigletDailyGainKg}, so nothing they predict moves.
+     * {@link pigletGrowthPotentialPct}, so nothing they predict moves.
      */
     referenceWeaningWeightKg: z.number().min(2).max(20),
     /**
@@ -929,7 +927,7 @@ export const PRODUCTION_CALIBRATION_2026 = {
     preWeanMortalityPct: 12.5,
   },
   growth: {
-    pigletDailyGainKg: 0.28,
+    pigletGrowthPotentialPct: 100,
     growerStartWeightKg: 30,
     finisherStartWeightKg: 60,
     saleWeightKg: 100,
@@ -1297,7 +1295,7 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     aiStudPanelSize: 4,
   },
   growth: {
-    pigletDailyGainKg: 0.28,
+    pigletGrowthPotentialPct: 100,
     referenceWeaningWeightKg: 7.5,
     referenceWeaningAgeDays: 28,
     growerStartWeightKg: 30,
@@ -1561,30 +1559,39 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
     merged.growth.referenceWeaningAgeDays = storedWeaningAge;
   }
 
-  // And the rate itself. A plan written under the old model has no view on how
-  // fast a suckler grows, because nothing asked it: growth was the weaning
-  // weight over the weaning age, and that is exactly the rate its owner's
-  // figures were built on. So it is carried across rather than replaced by the
-  // starter assumption, and the plan predicts what it predicted yesterday.
-  //
-  // Only for a plan written under the old model, which is what the old name on
-  // its own says. A plan carrying the new name was written since the weaning
-  // weight became a target, and deriving a rate from a target is how the target
-  // gets back into the simulation by the side door: the weight would be inert
-  // in the plan the farm is editing and live in the one on the disk, so raising
-  // it would grow the litters after all — the whole defect this replaced, back
-  // again and harder to see. Such a plan takes the starter rate, which is what
-  // the field it never had would have given it.
-  //
-  // Clamped because the field has a range, and an old plan weaning very late
-  // off a very light weaner can imply a rate outside it.
+  // The flat suckling ADG used by the previous model is now only a migration
+  // calibration. 0.28 kg/day was the production profile's well-fed sow-reared
+  // figure; it was never a biological maximum. Map that standard value to 100%
+  // of the new age-dependent reference curve and preserve any deliberate user
+  // adjustment as a relative multiplier.
+  const legacyPotentialRate = storedGrowth?.pigletDailyGainKg;
+  if (
+    storedGrowth?.pigletGrowthPotentialPct === undefined &&
+    typeof legacyPotentialRate === "number" &&
+    Number.isFinite(legacyPotentialRate)
+  ) {
+    merged.growth.pigletGrowthPotentialPct = Math.min(
+      150,
+      Math.max(50, (legacyPotentialRate / 0.28) * 100),
+    );
+  }
+
+  // Plans written before a separate suckling-rate field existed derived that
+  // rate from the old guaranteed weaning weight. Preserve only its relative
+  // calibration, not the old flat ceiling itself.
   const writtenBeforeTheRate =
-    typeof legacyWeaning === "number" && storedGrowth?.referenceWeaningWeightKg === undefined;
-  if (writtenBeforeTheRate && storedGrowth?.pigletDailyGainKg === undefined) {
+    typeof legacyWeaning === "number" &&
+    storedGrowth?.referenceWeaningWeightKg === undefined &&
+    storedGrowth?.pigletDailyGainKg === undefined &&
+    storedGrowth?.pigletGrowthPotentialPct === undefined;
+  if (writtenBeforeTheRate) {
     const days = Math.max(1, Number(merged.growth.referenceWeaningAgeDays));
     const implied = (legacyWeaning - BIRTH_WEIGHT_KG) / days;
     if (Number.isFinite(implied)) {
-      merged.growth.pigletDailyGainKg = Math.min(0.6, Math.max(0.05, implied));
+      merged.growth.pigletGrowthPotentialPct = Math.min(
+        150,
+        Math.max(50, (implied / 0.28) * 100),
+      );
     }
   }
   const parsed = plannerSchema.safeParse(merged);

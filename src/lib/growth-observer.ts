@@ -1,6 +1,7 @@
 import { BIRTH_WEIGHT_KG, type PlannerConfig } from "./config";
 import type { HousingHerdView } from "./housing";
 import type { PigStage } from "./sim";
+import { fullyFedPigletWeightKg } from "./sim/lactation";
 
 export type ProductionGrowthStage = Exclude<PigStage, "gilt">;
 
@@ -199,7 +200,10 @@ export class GrowthObserver {
 
   result(config: PlannerConfig): GrowthSimulationSummary {
     const configured: Record<ProductionGrowthStage, number> = {
-      piglet: config.growth.pigletDailyGainKg,
+      piglet:
+        (fullyFedPigletWeightKg(config, config.reproduction.weaningAgeDays) -
+          BIRTH_WEIGHT_KG) /
+        Math.max(1, config.reproduction.weaningAgeDays),
       weaner: config.growth.weanerDailyGainKg,
       grower: config.growth.growerDailyGainKg,
       finisher: config.growth.finisherDailyGainKg,
