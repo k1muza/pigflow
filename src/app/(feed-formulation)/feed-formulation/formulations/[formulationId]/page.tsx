@@ -13,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
+import type { AnalyzedNutrient } from "@/lib/diet-formula";
+import { analyzeFeedFormulation } from "@/lib/formulation-analysis";
 import {
   PIC_EXAMPLE_FORMULATIONS,
   feedFormulationById,
@@ -56,6 +58,9 @@ export default async function FeedFormulationPage({
   const query = await searchParams;
   const formulation = feedFormulationById(formulationId);
   if (!formulation) notFound();
+
+  const calculated = analyzeFeedFormulation(formulation);
+  const analysis = calculated.analysis;
 
   const requestedTarget =
     parseRequirementKey(query.requirement) ??
@@ -105,7 +110,7 @@ export default async function FeedFormulationPage({
         <CardHeader>
           <CardTitle>Requirement fit</CardTitle>
           <CardDescription>
-            Compare this ration&apos;s source-reported nutrient profile and exact ingredient
+            Compare PigFlow&apos;s calculated nutrient profile and the exact published ingredient
             inclusions against a loaded PIC requirement phase.
           </CardDescription>
         </CardHeader>
@@ -242,10 +247,9 @@ export default async function FeedFormulationPage({
 
               {comparison.status === "incomplete" ? (
                 <div className="rounded-lg border border-hairline bg-raised/30 px-4 py-3 text-xs leading-5 text-ink-muted">
-                  “Partially verifiable” means the PIC formulation source reports enough data to
-                  check some requirements, but not the complete amino-acid, mineral and vitamin
-                  profile. PigFlow does not infer missing source values from mixed ingredient
-                  databases.
+                  “Partially verifiable” means some ingredient nutrient records are missing values
+                  needed for one or more checks. PigFlow shows the known subtotal and the missing
+                  ingredient IDs instead of substituting PIC&apos;s reported formulation outputs.
                 </div>
               ) : null}
             </div>
@@ -315,29 +319,93 @@ export default async function FeedFormulationPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Resulting nutritional profile</CardTitle>
+          <CardTitle>Calculated nutritional profile</CardTitle>
           <CardDescription>
-            Values reported by PIC for this exact ration. These are source results, not recomputed
-            from PigFlow&apos;s mixed-source ingredient catalogue.
+            Calculated from the formulation&apos;s ingredient ratios and PigFlow&apos;s ingredient
+            nutrient records. PIC&apos;s reported ME, NE and SID lysine outputs are not used in
+            this calculation.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {formulation.nutrientProfiles.map((profile) => (
-            <div key={profile.basis} className="rounded-lg border border-hairline p-4">
-              <div className="mb-3 text-sm font-medium text-ink">{profile.basis}</div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <ProfileMetric
-                  label="Metabolizable energy"
-                  value={`${profile.metabolizableEnergyKcalKg.toLocaleString()} kcal/kg`}
-                />
-                <ProfileMetric
-                  label="Net energy"
-                  value={`${profile.netEnergyKcalKg.toLocaleString()} kcal/kg`}
-                />
-                <ProfileMetric label="SID lysine" value={`${profile.sidLysinePct}%`} />
-              </div>
-            </div>
-          ))}
+        <CardContent className="space-y-5">
+          <div className="rounded-lg border border-hairline bg-raised/30 px-4 py-3 text-xs leading-5 text-ink-muted">
+            PIC&apos;s printed rows sum to {calculated.sourceInclusionTotalPct.toFixed(2)}%.
+            PigFlow preserves those displayed ratios, then normalizes them by{" "}
+            {calculated.normalizationFactor.toFixed(6)} for nutrient calculation so the analyzed
+            ration is exactly 100%.
+          </div>
+
+          <CalculatedNutrientSection
+            title="Energy & protein"
+            rows={[
+              ["Digestible energy", analysis.energy.digestibleKcalKg, "kcal/kg"],
+              ["Metabolizable energy", analysis.energy.metabolizableKcalKg, "kcal/kg"],
+              ["Net energy", analysis.energy.netKcalKg, "kcal/kg"],
+              ["Crude protein", analysis.crudeProteinPct, "%"],
+            ]}
+          />
+
+          <CalculatedNutrientSection
+            title="SID amino acids"
+            rows={[
+              ["SID lysine", analysis.sidAminoAcidsPct.lysine, "%"],
+              ["SID methionine + cysteine", analysis.sidAminoAcidsPct.methionineCysteine, "%"],
+              ["SID threonine", analysis.sidAminoAcidsPct.threonine, "%"],
+              ["SID tryptophan", analysis.sidAminoAcidsPct.tryptophan, "%"],
+              ["SID valine", analysis.sidAminoAcidsPct.valine, "%"],
+              ["SID isoleucine", analysis.sidAminoAcidsPct.isoleucine, "%"],
+              ["SID leucine", analysis.sidAminoAcidsPct.leucine, "%"],
+              ["SID histidine", analysis.sidAminoAcidsPct.histidine, "%"],
+              [
+                "SID phenylalanine + tyrosine",
+                analysis.sidAminoAcidsPct.phenylalanineTyrosine,
+                "%",
+              ],
+            ]}
+          />
+
+          <CalculatedNutrientSection
+            title="Macro minerals"
+            rows={[
+              ["Calcium", analysis.minerals.calciumPct, "%"],
+              ["Total phosphorus", analysis.minerals.totalPhosphorusPct, "%"],
+              ["Available phosphorus", analysis.minerals.availablePhosphorusPct, "%"],
+              ["STTD phosphorus", analysis.minerals.sttdPhosphorusPct, "%"],
+              ["Sodium", analysis.minerals.sodiumPct, "%"],
+              ["Chloride", analysis.minerals.chloridePct, "%"],
+            ]}
+          />
+
+          <CalculatedNutrientSection
+            title="Trace minerals"
+            rows={[
+              ["Zinc", analysis.traceMineralsPpm.zinc, "ppm"],
+              ["Iron", analysis.traceMineralsPpm.iron, "ppm"],
+              ["Manganese", analysis.traceMineralsPpm.manganese, "ppm"],
+              ["Copper", analysis.traceMineralsPpm.copper, "ppm"],
+              ["Iodine", analysis.traceMineralsPpm.iodine, "ppm"],
+              ["Selenium", analysis.traceMineralsPpm.selenium, "ppm"],
+            ]}
+          />
+
+          <CalculatedNutrientSection
+            title="Vitamins"
+            rows={[
+              ["Vitamin A", analysis.vitamins.vitaminAIuKg, "IU/kg"],
+              ["Vitamin D", analysis.vitamins.vitaminDIuKg, "IU/kg"],
+              ["Vitamin E", analysis.vitamins.vitaminEIuKg, "IU/kg"],
+              ["Vitamin K", analysis.vitamins.vitaminKMgKg, "mg/kg"],
+              ["Niacin", analysis.vitamins.niacinMgKg, "mg/kg"],
+              ["Riboflavin", analysis.vitamins.riboflavinMgKg, "mg/kg"],
+              ["Pantothenic acid", analysis.vitamins.pantothenicAcidMgKg, "mg/kg"],
+              ["Vitamin B12", analysis.vitamins.vitaminB12McgKg, "mcg/kg"],
+              ["Total choline", analysis.vitamins.totalCholineMgKg, "mg/kg"],
+            ]}
+          />
+
+          <div className="rounded-lg border border-hairline px-4 py-3 text-xs leading-5 text-ink-muted">
+            <span className="font-medium text-ink">Ingredient nutrient sources:</span>{" "}
+            {calculated.nutrientDataSources.join(" · ")}
+          </div>
         </CardContent>
       </Card>
 
@@ -347,8 +415,8 @@ export default async function FeedFormulationPage({
         </CardHeader>
         <CardContent className="text-sm leading-6 text-ink-muted">
           PIC Nutrition and Feeding Guidelines · {formulation.sourceTable} · printed page{" "}
-          {formulation.sourcePage}. The source uses {formulation.ingredientDatabase} ingredient
-          values for the primary profile.
+          {formulation.sourcePage}. PigFlow copies the published ingredient inclusion ratios from
+          this source; resulting nutrient values are calculated from the ingredient library.
           <div className="mt-3">
             <a
               href={formulation.sourceUrl}
@@ -361,6 +429,46 @@ export default async function FeedFormulationPage({
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function CalculatedNutrientSection({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: readonly [string, AnalyzedNutrient, string][];
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-hairline">
+      <div className="border-b border-hairline bg-raised/30 px-4 py-3 text-sm font-medium text-ink">
+        {title}
+      </div>
+      <Table>
+        <TableBody>
+          {rows.map(([label, nutrient, unit]) => (
+            <TableRow key={label}>
+              <TableCell className="font-medium text-ink">{label}</TableCell>
+              <TableCell className="text-right font-mono">
+                {nutrient.complete
+                  ? `${Number(nutrient.value.toFixed(4))} ${unit}`
+                  : `known ≥ ${Number(nutrient.value.toFixed(4))} ${unit}`}
+              </TableCell>
+              <TableCell className="w-32 text-right">
+                <Badge variant="secondary">
+                  {nutrient.complete ? "Calculated" : "Incomplete"}
+                </Badge>
+              </TableCell>
+              <TableCell className="max-w-sm text-xs text-ink-faint">
+                {nutrient.complete
+                  ? "All ingredient contributions known"
+                  : `Missing: ${nutrient.missingIngredientIds.join(", ")}`}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
