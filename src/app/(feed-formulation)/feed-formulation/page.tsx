@@ -1,11 +1,20 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CircleCheck, CircleDashed, FlaskConical, Wheat } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  CircleCheck,
+  CircleDashed,
+  FlaskConical,
+  Layers3,
+  Wheat,
+} from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 import { PIC_GROWTH_NUTRITION_2021 } from "@/lib/nutrition";
 import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
+import { PIC_FORMULATION_STRATEGIES } from "@/lib/feed-formulations";
 import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
 import { feedFormulationHref } from "@/lib/routes";
 
@@ -25,7 +34,7 @@ export default function FeedFormulationDashboard() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           label="NRC ingredient library"
           value={INGREDIENT_LIBRARY.ingredients.length.toString()}
@@ -37,19 +46,31 @@ export default function FeedFormulationDashboard() {
           detail={`${FEED_PROGRAMMES.filter((programme) => programme.status === "loaded").length} loaded · ${PIC_GROWTH_NUTRITION_2021.phases.length} phases`}
         />
         <SummaryCard
+          label="PIC formulations"
+          value={PIC_FORMULATION_STRATEGIES.length.toString()}
+          detail="source-backed formulation strategies"
+        />
+        <SummaryCard
           label="Response evidence"
           value={PIC_SID_LYSINE_RESPONSE_2021.population.pigs.toLocaleString()}
           detail={`pigs across ${PIC_SID_LYSINE_RESPONSE_2021.population.trials} trials`}
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <WorkspaceLink
           href={feedFormulationHref("programmes")}
           icon={BookOpen}
           title="Programmes"
           description="See the PIC feeding programmes in the source material and which ones PigFlow has loaded."
           action="Browse programmes"
+        />
+        <WorkspaceLink
+          href={feedFormulationHref("formulations")}
+          icon={Layers3}
+          title="Formulations"
+          description="Explore PIC formulation strategies for performance, cost, profitability and seasonal feeding."
+          action="Browse formulations"
         />
         <WorkspaceLink
           href={feedFormulationHref("ingredients")}
@@ -66,6 +87,35 @@ export default function FeedFormulationDashboard() {
           action="Browse nutrients"
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Featured PIC formulations</CardTitle>
+          <CardDescription>
+            PIC publishes optimization strategies rather than universal ingredient recipes.
+            Figure A2 illustrates how the optimum SID lysine concentration changes with the chosen outcome.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {PIC_FORMULATION_STRATEGIES.filter((strategy) => strategy.featured).map((strategy) => (
+            <Link
+              key={strategy.id}
+              href={`${feedFormulationHref("formulations")}/${strategy.id}`}
+              className="rounded-lg border border-hairline bg-raised/30 p-4 transition hover:border-ink-faint/40 hover:bg-raised"
+            >
+              <div className="text-sm font-medium text-ink">{strategy.name}</div>
+              <div className="mt-1 text-xs leading-5 text-ink-muted">{strategy.objective}</div>
+              {strategy.exampleSidLysinePct !== undefined ? (
+                <div className="mt-3 text-lg font-semibold text-ink">
+                  {strategy.exampleSidLysinePct}% SID Lys
+                </div>
+              ) : (
+                <div className="mt-3 text-xs font-medium text-brand">Dynamic by season</div>
+              )}
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
