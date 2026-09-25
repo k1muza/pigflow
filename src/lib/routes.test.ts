@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLAN_TABS, planHref, tabFromPath } from "./routes";
+import { PLAN_TABS, ingredientHref, planHref, tabFromPath } from "./routes";
 
 describe("the address of a plan", () => {
   it("names the plan itself on the page it opens on", () => {
@@ -22,6 +22,14 @@ describe("the address of a plan", () => {
   it("escapes an id that would otherwise change the path", () => {
     // Plans made now are UUIDs, but plans saved before they were still open.
     expect(planHref("a/b", "cashflow")).toBe("/projects/a%2Fb/cashflow");
+  });
+
+  it("gives the ingredient catalog and each ingredient a stable address", () => {
+    expect(ingredientHref("abc")).toBe("/projects/abc/nutrition/ingredients");
+    expect(ingredientHref("abc", "corn/yellow")).toBe(
+      "/projects/abc/nutrition/ingredients/corn%2Fyellow",
+    );
+    expect(tabFromPath(ingredientHref("abc", "corn-yellow-dent"))).toBe("nutrition");
   });
 });
 
