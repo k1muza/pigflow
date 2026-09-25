@@ -313,16 +313,9 @@ export const plannerSchema = z.object({
   }),
   stock: z.object({
     /**
-     * The plain head counts, which are what a plan with no starting animals is
-     * built from. Every animal they place is valued by the plan rather than by
-     * the farmer: a growing pig opens at nothing and a founding sow is priced at
-     * what a replacement gilt costs.
-     *
-     * Nothing on screen writes these any more — the farm is described animal by
-     * animal in {@link starting}, and a new plan comes with its animals already
-     * there. They are kept because plans saved before that still carry them, and
-     * they are ignored the moment {@link starting} has an animal in it, so read
-     * them through {@link openingCounts} rather than reaching for them here.
+     * Legacy persistence only. New plans describe opening stock animal by animal
+     * in {@link starting}, and no UI writes these counts. They remain temporarily
+     * so previously saved plans can still be opened and simulated unchanged.
      */
     sows: nonNegative,
     gilts: nonNegative,
@@ -345,7 +338,12 @@ export const plannerSchema = z.object({
       .default([]),
   }),
   herd: z.object({
-    startMode: z.enum(["staggered", "synchronised"]),
+    /**
+     * Legacy count-based seeding only. Detailed opening stock carries each sow's
+     * reproductive state and timing explicitly, so this is no longer a farmer
+     * input. Keep it while old count-only plans still need to replay.
+     */
+    startMode: z.enum(["staggered", "synchronised"]).default("synchronised"),
     maxSows: z.number().int().min(1).max(5000),
     cullAfterParity: z.number().int().min(1).max(12),
     retainHomeBredGilts: z.boolean(),
@@ -723,29 +721,6 @@ export const plannerSchema = z.object({
      */
     procurementMode: z.enum(["foresight", "operational"]).default("operational"),
     /**
-     * Which operating policy places the orders, once the farm is buying
-     * operationally at all.
-     *
-     * "balanced-load" is the capacity-balanced operating rule, and now the only
-     * one: a due store justifies the trip, then the available vehicle payload is
-     * shared so the compatible stores approach their next safety-stock dates
-     * together. The resulting cover period is an output, not a setting.
-     * Benchmarked against V1 perfect foresight over three, five, ten and twenty
-     * years it matches or beats it on journeys, cost and stock held.
-     *
-     * Two rules have been withdrawn: "reorder-point", which read appetite off
-     * the last week of consumption and could not see a farrowing coming, and
-     * "rolling-cover", which bought every compatible store up to one configured
-     * common date and cost about a fifth more journeys than it needed. Plans
-     * that stored either are migrated by {@link withConfigDefaults}.
-     *
-     * The field is kept rather than dropped now that it names one rule. It is
-     * what the engine's policy seam reads, every procurement decision is stamped
-     * with it, and the optimiser bench parameterises on it — so a future rule is
-     * added to this enum rather than by reintroducing the axis.
-     */
-    operationalPolicy: z.enum(["balanced-load"]).default("balanced-load"),
-    /**
      * Demand buffer kept ahead of physical zero. Forecast policies use this to
      * decide when a store becomes operationally at risk; it is not itself a
      * replenishment target.
@@ -777,8 +752,6 @@ export const plannerSchema = z.object({
     targetCoverDays: z.number().int().min(2).max(240).default(21),
     /** Days between placing an order and the lorry coming through the gate. */
     deliveryLeadDays: z.number().int().min(0).max(60).default(3),
-    /** Below this a supplier will not send a lorry, so a small order rounds up. */
-    minimumOrderKg: z.number().min(0).max(30_000).default(500),
     /** What one ration's bin holds, which is what caps a delivery into it. */
     binCapacityKg: z.number().min(50).max(500_000).default(6_000),
     /** Days after delivery that the supplier's invoice is paid. */
@@ -1339,12 +1312,10 @@ export const DEFAULT_CONFIG: PlannerConfig = {
     deliveryCostPerTrip: 60,
     feedBufferDays: 7,
     procurementMode: "operational",
-    operationalPolicy: "balanced-load",
     safetyCoverDays: 3,
     maxSupplyTripsPerDay: 3,
     targetCoverDays: 21,
     deliveryLeadDays: 3,
-    minimumOrderKg: 500,
     binCapacityKg: 6_000,
     supplierPaymentDays: 30,
     emergencyLeadDays: 1,
@@ -1488,19 +1459,9 @@ export function withConfigDefaults(value: unknown): PlannerConfig | null {
     merged.stock.starting = [];
   }
 
-  // The reorder-point and rolling-cover rules have both been withdrawn. A plan
-  // saved while either was selected still has the string in it, and the schema no
-  // longer accepts it, so without this every such plan fails to load rather than
-  // opening on the rule that replaced them. Moving them is safe in the direction
-  // it moves them: balanced-load was measured against V1 perfect foresight at
-  // three, five, ten and twenty years and is at least as good on journeys, cost
-  // and stock held. A stored rollingTargetCoverDays needs no such handling — it
-  // rides along in the same object and is dropped on parse, the schema no longer
-  // declaring it.
-  const storedPolicy = merged.feed?.operationalPolicy;
-  if (storedPolicy === "reorder-point" || storedPolicy === "rolling-cover") {
-    merged.feed.operationalPolicy = "balanced-load";
-  }
+  // Legacy config keys that are no longer part of the canonical schema are
+  // intentionally left in the stored object here; Zod strips unknown keys on
+  // parse, so old plans load without carrying dead knobs forward.
 
   // Older plans predate explicit housing inputs. Preserve the capacity they
   // previously saw on the dashboard by scaling the old planning ratios once,

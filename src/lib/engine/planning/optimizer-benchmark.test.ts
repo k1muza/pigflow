@@ -150,7 +150,6 @@ describe("an operational run does not depend on when the project ends", () => {
     config.project.variation = "settled";
     config.project.months = months;
     config.housing.enforceCapacity = false;
-    config.feed.operationalPolicy = "balanced-load";
     return config;
   }
 

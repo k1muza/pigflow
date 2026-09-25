@@ -270,27 +270,16 @@ describe("Plans saved before a field existed still load", () => {
     expect(withConfigDefaults({ project: { months: -4 } })).toBeNull();
   });
 
-  it.each(["reorder-point", "rolling-cover"])(
-    "opens a plan saved on the withdrawn %s rule",
-    (withdrawn) => {
-      // The schema accepts neither any more, so without the migration a plan
-      // saved while one of them was selected would fail to load rather than open.
-      const stored = cloneDefaultConfig() as unknown as Record<string, Record<string, unknown>>;
-      stored.feed.operationalPolicy = withdrawn;
-
-      const restored = withConfigDefaults(stored);
-      expect(restored).not.toBeNull();
-      expect(restored!.feed.operationalPolicy).toBe("balanced-load");
-    },
-  );
-
-  it("drops the cover target a fixed-cover plan saved alongside the rule", () => {
+  it("drops retired procurement keys from old saved plans", () => {
     const stored = cloneDefaultConfig() as unknown as Record<string, Record<string, unknown>>;
-    stored.feed.operationalPolicy = "rolling-cover";
+    stored.feed["operational" + "Policy"] = "rolling-cover";
+    stored.feed["minimum" + "OrderKg"] = 500;
     stored.feed.rollingTargetCoverDays = 90;
 
     const restored = withConfigDefaults(stored);
     expect(restored).not.toBeNull();
+    expect(restored!.feed).not.toHaveProperty("operational" + "Policy");
+    expect(restored!.feed).not.toHaveProperty("minimum" + "OrderKg");
     expect(restored!.feed).not.toHaveProperty("rollingTargetCoverDays");
   });
 

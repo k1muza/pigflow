@@ -662,7 +662,6 @@ function feedUnit(key: string, currency: string): string {
   if (key === "maxSupplyTripsPerDay") return "loads a day";
   if (key === "feedBagKg") return "kg a bag";
   if (key === "binCapacityKg") return "kg a ration";
-  if (key === "minimumOrderKg") return "kg";
   if (key === "deliveryCostPerTrip") return `${currency}/load`;
   if (key.endsWith("Days")) return "days";
   if (key.toLowerCase().includes("cost")) return `${currency}/kg`;
@@ -711,7 +710,6 @@ function addAssumptionsSheet(workbook: import("exceljs").Workbook, config: Plann
       "OPENING HERD & POLICY",
       [
         ...openingStockRows(config),
-        ["Herd start mode", config.herd.startMode, ""],
         ["Maximum sows", config.herd.maxSows, "head"],
         ["Cull after parity", config.herd.cullAfterParity, "parities"],
         ["Retain home-bred gilts", config.herd.retainHomeBredGilts, "yes/no"],

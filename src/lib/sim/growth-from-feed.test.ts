@@ -212,7 +212,6 @@ describe("a farm that cannot get the loads in", () => {
     config.herd.maxSows = 20;
     config.herd.startMode = "staggered";
     config.feed.procurementMode = "operational";
-    config.feed.operationalPolicy = "balanced-load";
   };
 
   it("sells fewer pigs than one that can", () => {

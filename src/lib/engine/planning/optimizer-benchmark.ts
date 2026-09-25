@@ -284,7 +284,6 @@ export async function runOptimizer(
   knobs: OptimizerKnobs,
 ): Promise<Engine> {
   const tuned = structuredClone(config);
-  tuned.feed.operationalPolicy = knobs.policy;
   if (knobs.safetyCoverDays !== undefined) tuned.feed.safetyCoverDays = knobs.safetyCoverDays;
   if (knobs.maxSupplyTripsPerDay !== undefined) {
     tuned.feed.maxSupplyTripsPerDay = knobs.maxSupplyTripsPerDay;

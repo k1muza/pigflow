@@ -185,7 +185,6 @@ export function HousingSettings({
         </CardContent>
       </Card>
 
-      {built ? null : <LegacyHousing config={config} update={update} />}
       <Bedding config={config} update={update} />
     </div>
   );
@@ -314,55 +313,6 @@ function Hierarchy({ config, plan }: { config: PlannerConfig; plan: PhysicalFarm
         ))}
       </div>
     </div>
-  );
-}
-
-/**
- * The aggregate places, for a plan that has not generated a farm yet.
- *
- * Shown only until there is real housing, and then never again: two sources of
- * truth is what this phase exists to get rid of, and the moment there are pens
- * the pens are what the farm is run against.
- */
-function LegacyHousing({ config, update }: { config: PlannerConfig; update: Update }) {
-  return (
-    <Card className="mt-5 [--card-spacing:--spacing(5)]">
-      <CardHeader className="grid-cols-[auto_1fr] gap-x-3">
-        <span className="row-span-2 flex size-8 items-center justify-center rounded-lg bg-raised text-ink-muted">
-          <Rows3 size={16} strokeWidth={1.75} />
-        </span>
-        <CardTitle>Legacy housing configuration</CardTitle>
-        <CardDescription>
-          Aggregate places, as this plan was written before housing was a place. They still drive
-          the occupancy lines and the crowding rules — and they stop being read the moment you
-          generate housing above.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <PlaceField
-            label="Farrowing places"
-            value={config.housing.farrowingPlaces}
-            onChange={(value) => update("housing", "farrowingPlaces", value)}
-          />
-          <PlaceField
-            label="Weaner places"
-            value={config.housing.weanerPlaces}
-            onChange={(value) => update("housing", "weanerPlaces", value)}
-          />
-          <PlaceField
-            label="Grower places"
-            value={config.housing.growerPlaces}
-            onChange={(value) => update("housing", "growerPlaces", value)}
-          />
-          <PlaceField
-            label="Finisher places"
-            value={config.housing.finisherPlaces}
-            onChange={(value) => update("housing", "finisherPlaces", value)}
-          />
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
