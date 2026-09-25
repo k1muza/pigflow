@@ -1,16 +1,47 @@
 import { describe, expect, it } from "vitest";
 
-import { INGREDIENT_LIBRARY, loadIngredientLibrary } from "./ingredient-nutrients";
+import {
+  INGREDIENT_LIBRARY,
+  loadIngredientLibrary,
+  sidAminoAcidPct,
+  sttdPhosphorusPctOf,
+} from "./ingredient-nutrients";
 
 describe("ingredient nutrient JSON library", () => {
-  it("loads the checked-in JSON structure", () => {
+  it("loads the checked-in NRC 2012 ingredient library", () => {
     expect(INGREDIENT_LIBRARY.schemaVersion).toBe(1);
     expect(INGREDIENT_LIBRARY.basis.nutrientComposition).toBe("as-fed");
     expect(INGREDIENT_LIBRARY.source.title).toBe("Nutrient Requirements of Swine");
     expect(INGREDIENT_LIBRARY.source.edition).toBe("11th Revised Edition");
     expect(INGREDIENT_LIBRARY.source.year).toBe(2012);
     expect(INGREDIENT_LIBRARY.source.chapter).toBe("17 — Feed Ingredient Composition");
-    expect(INGREDIENT_LIBRARY.ingredients).toEqual([]);
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(9);
+  });
+
+  it("preserves NRC total lysine and SID digestibility separately", () => {
+    const maize = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-yellow-dent",
+    );
+    expect(maize).toBeDefined();
+    expect(maize?.aminoAcids.totalPct.lysine).toBe(0.25);
+    expect(maize?.aminoAcids.sidDigestibilityPct.lysine).toBe(74);
+    expect(sidAminoAcidPct(maize!, "lysine")).toBeCloseTo(0.185, 6);
+  });
+
+  it("derives STTD phosphorus concentration from NRC total P and digestibility", () => {
+    const soybeanMeal = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-meal-dehulled-solvent-extracted",
+    );
+    expect(soybeanMeal).toBeDefined();
+    expect(sttdPhosphorusPctOf(soybeanMeal!)).toBeCloseTo(0.3408, 6);
+  });
+
+  it("uses explicit SID concentration for crystalline lysine", () => {
+    const lysine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "l-lysine-hcl",
+    );
+    expect(lysine).toBeDefined();
+    expect(sidAminoAcidPct(lysine!, "lysine")).toBe(78.8);
   });
 
   it("rejects ingredient records without an explicit category and nutrient structure", () => {
