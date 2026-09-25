@@ -3097,7 +3097,7 @@ export function FarmInputs({
       <SectionCard
         className={cardClass("breeding")}
         title="Gilt and breeding policy"
-        description="How the herd starts, when breeding animals leave, and how replacements are found."
+        description="When breeding animals leave and how replacements are found. The opening herd itself is described animal by animal above."
         icon={Landmark}
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -3110,16 +3110,6 @@ export function FarmInputs({
             max={5000}
             step={1}
             hint="The breeding herd grows towards this limit and never past it. It is a breeding policy rather than a building: the sow housing itself is generated from it on the Housing tab."
-          />
-          <SelectField
-            label="Herd at the start date"
-            value={config.herd.startMode}
-            onChange={(value) => update("herd", "startMode", value)}
-            options={[
-              { value: "staggered", label: "Running herd, spread across the cycle" },
-              { value: "synchronised", label: "All sows served on day one" },
-            ]}
-            hint="A running herd already has sows in pig and piglets on the ground."
           />
           <Field
             label="Cull after parity"
