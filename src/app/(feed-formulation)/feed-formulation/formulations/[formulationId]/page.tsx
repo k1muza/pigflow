@@ -55,8 +55,9 @@ export default async function FeedFormulationPage({
         <CardHeader>
           <CardTitle>Ingredient ratios</CardTitle>
           <CardDescription>
-            As-fed inclusion percentages exactly as reported by PIC. Total:{" "}
-            {formulation.ingredients.reduce((sum, row) => sum + row.inclusionPct, 0).toFixed(2)}%.
+            As-fed inclusion percentages exactly as reported by PIC. PIC reports the ration total
+            as {formulation.reportedTotalPct}%; individual printed rows may sum a few hundredths
+            above 100% because of source rounding.
           </CardDescription>
         </CardHeader>
         <CardContent>
