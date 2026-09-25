@@ -64,11 +64,14 @@ export function analyzeFeedFormulation(
           (candidate) => candidate.id === row.ingredientId,
         );
         if (!ingredient) return "Unknown ingredient source";
-        return (
+        return [
           ingredient.provenance.source?.title ??
-          `${library.source.title} (${library.source.year})`
-        );
-      }),
+            `${library.source.title} (${library.source.year})`,
+          ...Object.values(ingredient.provenance.nutrientSources).map(
+            (source) => source.title,
+          ),
+        ];
+      }).flat(),
     ),
   );
 
