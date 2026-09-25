@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
+import { ingredientDefaultPrice } from "@/lib/feed-ingredient-prices";
 import { feedIngredientHref } from "@/lib/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -86,6 +87,7 @@ export function IngredientNutrientBrowser() {
                 <TableHead className="text-right">CP</TableHead>
                 <TableHead className="text-right">ME</TableHead>
                 <TableHead className="text-right">NE</TableHead>
+                <TableHead className="text-right">Default price</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -115,6 +117,11 @@ export function IngredientNutrientBrowser() {
                     </TableCell>
                     <TableCell className="text-right font-mono">
                       {display(ingredient.energy.netKcalKg, "kcal/kg")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {ingredientDefaultPrice(ingredient.id)
+                        ? `US${ingredientDefaultPrice(ingredient.id)!.usdPerTonne.toLocaleString()}/t`
+                        : "—"}
                     </TableCell>
                   </TableRow>
               ))}
