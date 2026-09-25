@@ -6,6 +6,10 @@ describe("ingredient nutrient JSON library", () => {
   it("loads the checked-in JSON structure", () => {
     expect(INGREDIENT_LIBRARY.schemaVersion).toBe(1);
     expect(INGREDIENT_LIBRARY.basis.nutrientComposition).toBe("as-fed");
+    expect(INGREDIENT_LIBRARY.source.title).toBe("Nutrient Requirements of Swine");
+    expect(INGREDIENT_LIBRARY.source.edition).toBe("11th Revised Edition");
+    expect(INGREDIENT_LIBRARY.source.year).toBe(2012);
+    expect(INGREDIENT_LIBRARY.source.chapter).toBe("17 — Feed Ingredient Composition");
     expect(INGREDIENT_LIBRARY.ingredients).toEqual([]);
   });
 
