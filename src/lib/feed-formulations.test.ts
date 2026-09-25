@@ -6,7 +6,7 @@ import {
 } from "./feed-formulations";
 
 describe("PIC example formulation library", () => {
-  it("stores the two actual example diets from PIC Table B2", () => {
+  it("stores the two PIC example ingredient-ratio sets", () => {
     expect(PIC_EXAMPLE_FORMULATIONS.map((formulation) => formulation.id)).toEqual([
       "pic-corn-soybean-meal",
       "pic-high-fiber",
@@ -20,9 +20,10 @@ describe("PIC example formulation library", () => {
       100,
       1,
     );
-    expect(formulation?.ingredients.find((row) => row.ingredientId === "corn-yellow-dent")?.inclusionPct).toBe(
-      70.99,
-    );
+    expect(
+      formulation?.ingredients.find((row) => row.ingredientId === "corn-yellow-dent")
+        ?.inclusionPct,
+    ).toBe(70.99);
     expect(
       formulation?.ingredients.find(
         (row) => row.ingredientId === "soybean-meal-dehulled-solvent-extracted",
@@ -30,24 +31,10 @@ describe("PIC example formulation library", () => {
     ).toBe(25.19);
   });
 
-  it("preserves PIC's reported nutrient profiles", () => {
-    const cornSoy = feedFormulationById("pic-corn-soybean-meal");
-    expect(cornSoy?.nutrientProfiles[0]).toMatchObject({
-      basis: "NRC 2012",
-      metabolizableEnergyKcalKg: 3342,
-      netEnergyKcalKg: 2515,
-      sidLysinePct: 0.93,
-    });
-    expect(cornSoy?.nutrientProfiles[1]).toMatchObject({
-      metabolizableEnergyKcalKg: 3232,
-      netEnergyKcalKg: 2414,
-      sidLysinePct: 0.91,
-    });
-
-    expect(feedFormulationById("pic-high-fiber")?.nutrientProfiles[0]).toMatchObject({
-      metabolizableEnergyKcalKg: 3342,
-      netEnergyKcalKg: 2452,
-      sidLysinePct: 0.93,
-    });
+  it("does not store PIC's reported resulting nutrient profile", () => {
+    const formulation = feedFormulationById("pic-corn-soybean-meal");
+    expect(formulation).toBeDefined();
+    expect("nutrientProfiles" in formulation!).toBe(false);
+    expect("ingredientDatabase" in formulation!).toBe(false);
   });
 });
