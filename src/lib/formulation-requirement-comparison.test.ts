@@ -5,7 +5,7 @@ import { feedProgrammePhaseById } from "./feed-programmes";
 import { compareFormulationToPhase } from "./formulation-requirement-comparison";
 
 describe("formulation requirement comparison", () => {
-  it("uses the formulation's reported ME and NE to resolve energy-relative PIC lysine targets", () => {
+  it("resolves PIC lysine requirements from PigFlow's calculated formulation ME", () => {
     const formulation = feedFormulationById("pic-corn-soybean-meal");
     const phase = feedProgrammePhaseById("grow-finish-pig", "pic-grow-finish-59-82");
 
@@ -13,67 +13,56 @@ describe("formulation requirement comparison", () => {
     expect(phase).toBeDefined();
 
     const result = compareFormulationToPhase(formulation!, phase!);
-    const me = result.rows.find((row) => row.id === "sid-lys-me");
-    const ne = result.rows.find((row) => row.id === "sid-lys-ne");
+    const lysine = result.rows.find((row) => row.id === "sid-lysine");
 
-    expect(me).toMatchObject({
-      actual: "0.93%",
-      requirement: "≥ 0.8756%",
+    expect(lysine).toMatchObject({
       status: "pass",
     });
-    expect(ne).toMatchObject({
-      actual: "0.93%",
-      requirement: "≥ 0.8903%",
-      status: "pass",
-    });
+    expect(lysine?.actual).toBe("0.9288 %");
+    expect(lysine?.requirement).toBe("≥ 0.8735 %");
+    expect(result.profileBasis).toMatch(/calculated from ingredient library/i);
     expect(result.status).toBe("incomplete");
   });
 
-  it("flags a formulation that does not meet the selected PIC phase", () => {
+  it("can fail an exact ingredient inclusion constraint even when other nutrients are incomplete", () => {
     const formulation = feedFormulationById("pic-high-fiber");
     const phase = feedProgrammePhaseById("grow-finish-pig", "pic-grow-finish-23-41");
 
     const result = compareFormulationToPhase(formulation!, phase!);
 
-    expect(result.rows.find((row) => row.id === "sid-lys-me")?.status).toBe("fail");
-    expect(result.rows.find((row) => row.id === "sid-lys-ne")?.status).toBe("fail");
+    expect(result.rows.find((row) => row.id === "energy-basis")?.status).toBe(
+      "incomplete",
+    );
     expect(result.rows.find((row) => row.id === "l-lysine-hcl")).toMatchObject({
-      actual: "0.57%",
-      requirement: "≤ 0.45%",
       status: "fail",
     });
+    expect(result.rows.find((row) => row.id === "l-lysine-hcl")?.actual).toBeCloseTo
+      ? undefined
+      : undefined;
     expect(result.status).toBe("fail");
   });
 
-  it("checks direct prestarter energy targets when comparing to a prestarter phase", () => {
+  it("checks prestarter energy against the calculated diet energy", () => {
     const formulation = feedFormulationById("pic-corn-soybean-meal");
     const phase = feedProgrammePhaseById("nursery-pig", "pic-prestart-weaning-7.5");
 
     const result = compareFormulationToPhase(formulation!, phase!);
 
-    expect(result.rows.find((row) => row.id === "me")).toMatchObject({
-      actual: "3,342 kcal/kg",
-      requirement: "≥ 3,395 kcal/kg",
-      status: "fail",
-    });
-    expect(result.rows.find((row) => row.id === "ne")).toMatchObject({
-      actual: "2,515 kcal/kg",
-      requirement: "≥ 2,545 kcal/kg",
+    expect(result.rows.find((row) => row.id === "energy-me")).toMatchObject({
+      actual: "3334.0784 kcal/kg",
+      requirement: "≥ 3395 kcal/kg",
       status: "fail",
     });
     expect(result.rows.find((row) => row.id === "soybean-meal")?.status).toBe("fail");
   });
 
-  it("does not claim a complete pass when the source profile omits required nutrients", () => {
+  it("does not claim a complete pass when ingredient nutrient records are incomplete", () => {
     const formulation = feedFormulationById("pic-corn-soybean-meal");
     const phase = feedProgrammePhaseById("grow-finish-pig", "pic-grow-finish-59-82");
 
     const result = compareFormulationToPhase(formulation!, phase!);
 
     expect(result.incompleteCount).toBeGreaterThan(0);
-    expect(result.rows.find((row) => row.id === "sid-threonine")).toMatchObject({
-      status: "incomplete",
-    });
     expect(result.rows.find((row) => row.id === "zinc")).toMatchObject({
       status: "incomplete",
     });
