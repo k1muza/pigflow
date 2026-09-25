@@ -5,6 +5,7 @@ import {
   loadIngredientLibrary,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
+  nutrientValueSource,
 } from "./ingredient-nutrients";
 
 describe("ingredient nutrient JSON library", () => {
@@ -48,6 +49,27 @@ describe("ingredient nutrient JSON library", () => {
     expect(barley?.provenance.source?.publisher).toBe("Pork Information Gateway");
     expect(barley?.provenance.source?.basis).toMatch(/distinct from NRC 2012/i);
     expect(barley?.energy.metabolizableKcalKg).toBeGreaterThan(2900);
+  });
+
+  it("tracks nutrient-specific fallback provenance", () => {
+    const ddgs = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-ddgs-low-oil",
+    );
+    const lysine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "l-lysine-hcl",
+    );
+
+    expect(ddgs?.energy.metabolizableKcalKg).toBe(2760);
+    expect(nutrientValueSource(ddgs!, "energy.metabolizableKcalKg")).toMatchObject({
+      publisher: "INRAE–CIRAD–AFZ",
+      priority: "fallback",
+    });
+
+    expect(lysine?.macroMinerals.chloridePct).toBe(19.1);
+    expect(nutrientValueSource(lysine!, "macroMinerals.chloridePct")).toMatchObject({
+      publisher: "INRAE–CIRAD–AFZ",
+      priority: "fallback",
+    });
   });
 
   it("preserves NRC total lysine and SID digestibility separately", () => {
