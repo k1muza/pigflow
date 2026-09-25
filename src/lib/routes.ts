@@ -83,3 +83,9 @@ export function feedProgrammePhaseHref(programmeId: string, phaseId: string): st
 export function feedFormulationStrategyHref(formulationId: string): string {
   return feedFormulationHref("formulations") + "/" + encodeURIComponent(formulationId);
 }
+
+
+/** One nutrient concept in the feed reference catalogue. */
+export function feedNutrientHref(nutrientId: string): string {
+  return feedFormulationHref("nutrients") + "/" + encodeURIComponent(nutrientId);
+}
