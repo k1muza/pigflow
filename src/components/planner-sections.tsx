@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addMonths,
   differenceInCalendarMonths,
@@ -130,6 +130,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -1780,6 +1787,29 @@ function Marker({ color, children }: { color: string; children: React.ReactNode 
  * standing on it; a month shows the same, led by the income and expenditure the
  * month posted — which is the question a month-at-a-time view is being asked.
  */
+type DayDetailView =
+  | "activities"
+  | "resources"
+  | "stores"
+  | "net-worth"
+  | "animals";
+
+const DAY_DETAIL_NAV: Array<{ id: DayDetailView; label: string }> = [
+  { id: "activities", label: "Activities" },
+  { id: "resources", label: "Resource Usage" },
+  { id: "stores", label: "In-store" },
+  { id: "net-worth", label: "Net Worth" },
+  { id: "animals", label: "Animals" },
+];
+
+/**
+ * What opens from the simulator timeline.
+ *
+ * A day is now a workspace rather than a narrow contextual sheet: the farmer
+ * moves between activities, resources, stores, net worth and animals without
+ * losing the date they are inspecting. Month drill-down keeps the compact sheet
+ * because it is still a summary rather than a day-level operating view.
+ */
 function DetailPanel({
   open,
   onOpenChange,
@@ -1800,60 +1830,398 @@ function DetailPanel({
   monthEnd: FarmCalendarDay | null;
   state: DaySnapshot;
   config: PlannerConfig;
-  /** The pens this plan was run in, or null on a plan that has none. */
   housing: HousingSimulationResult | null;
-  /** Opens the whole farm as it stood on the day this panel is headed by. */
   onSeeFarm: () => void;
 }) {
-  const currency = config.project.currency;
+  const [dayView, setDayView] = useState<DayDetailView>("activities");
   const months = view === "months";
-  const herd = months ? monthEnd : day;
-  const events = months ? month?.events : day?.events;
+
+  useEffect(() => {
+    if (open && !months) setDayView("activities");
+  }, [open, months, day?.date]);
+
   if (months ? !month : !day) return null;
 
+  const currency = config.project.currency;
+  const herd = months ? monthEnd : day;
+  const events = months ? month?.events : day?.events;
   const counts = herd?.counts ?? null;
   const groups = counts
     ? herdGroups(counts, state.valueAtCost).filter((group) => group.count > 0)
     : [];
-  // A bin with nothing in it is not standing on the farm, and this section is
-  // what is standing on the farm.
   const stores = state.stores.filter((store) => store.quantity > 0);
   const worth = farmWorthLines(state.finance);
-  // A category at nothing is a category the month did not have. Printing all
-  // fifteen of them buries the three that happened under a column of zeroes,
-  // so only the lines that moved are shown. The totals under them are printed
-  // whatever they come to: a month with no money in is a fact to read, not a
-  // gap to leave out.
   const moved = (category: LedgerCategory) => (month?.totals[category] ?? 0) !== 0;
   const income = INCOME_CATEGORIES.filter(moved);
   const expenses = EXPENSE_CATEGORIES.filter(moved);
 
+  if (!months && day) {
+    // An already-mounted result can briefly predate the timeline resource
+    // payload after a hot reload. Cache v2 prevents that result being restored
+    // on the next read; this fallback keeps the modal usable until the fresh
+    // worker result lands instead of throwing on `undefined.feedKg`.
+    const resources = day.resources ?? {
+      feedKg: { sow: 0, creep: 0, weaner: 0, grower: 0, finisher: 0 },
+      gasKg: 0,
+      gasHeaters: 0,
+      beddingKg: 0,
+      workers: 0,
+      supplyTrips: 0,
+      marketTrips: 0,
+    };
+    const feedUsage = [
+      { label: "Sow ration", kg: resources.feedKg.sow },
+      { label: "Creep feed", kg: resources.feedKg.creep },
+      { label: "Weaner ration", kg: resources.feedKg.weaner },
+      { label: "Grower ration", kg: resources.feedKg.grower },
+      { label: "Finisher ration", kg: resources.feedKg.finisher },
+    ].filter((line) => line.kg > 0);
+    const totalFeedKg = feedUsage.reduce((sum, line) => sum + line.kg, 0);
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="grid h-[min(820px,calc(100vh-2rem))] max-w-6xl grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b border-hairline px-6 py-4 pr-14">
+            <p className="text-xs font-medium text-brand">
+              Day {day.day + 1} of the plan
+            </p>
+            <DialogTitle>
+              {format(parseISO(day.date), "EEEE d MMMM yyyy")}
+            </DialogTitle>
+            <DialogDescription>
+              {number(day.total, 0)} head on the farm when the day closed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex min-h-0 flex-col md:flex-row">
+            <aside className="shrink-0 border-b border-hairline bg-plane/50 p-3 md:w-56 md:border-r md:border-b-0">
+              <nav
+                aria-label="Day details"
+                className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible"
+              >
+                {DAY_DETAIL_NAV.map((item) => {
+                  const active = dayView === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setDayView(item.id)}
+                      aria-current={active ? "page" : undefined}
+                      className={
+                        "shrink-0 rounded-lg px-3 py-2 text-left text-sm font-medium transition " +
+                        (active
+                          ? "bg-surface text-brand shadow-sm ring-1 ring-hairline"
+                          : "text-ink-muted hover:bg-surface hover:text-ink")
+                      }
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </aside>
+
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="p-5 md:p-7">
+                {dayView === "activities" ? (
+                  <section>
+                    <h3 className="text-base font-semibold text-ink">Activities</h3>
+                    <p className="mt-1 text-sm leading-5 text-ink-muted">
+                      Work, movements and events recorded on this date.
+                    </p>
+                    {events && events.length > 0 ? (
+                      <ul className="mt-5 grid gap-2.5 xl:grid-cols-2">
+                        {events.map((event, index) => (
+                          <li
+                            key={`${event.type}-${index}`}
+                            className="flex items-start gap-3 rounded-lg border border-hairline bg-surface p-3"
+                          >
+                            <span
+                              className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${EVENT_TONES[event.type]}`}
+                            >
+                              {EVENT_NAMES[event.type]}
+                            </span>
+                            <span className="min-w-0 text-sm leading-5 text-ink-muted">
+                              {event.label}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="mt-5 rounded-lg border border-dashed border-hairline p-5 text-sm text-ink-faint">
+                        A quiet day: the herd is fed and grown, and nothing else falls due.
+                      </div>
+                    )}
+                  </section>
+                ) : null}
+
+                {dayView === "resources" ? (
+                  <section>
+                    <h3 className="text-base font-semibold text-ink">Resource Usage</h3>
+                    <p className="mt-1 text-sm leading-5 text-ink-muted">
+                      What the farm actually consumed or deployed during this day.
+                    </p>
+
+                    <div className="mt-5 grid gap-5 lg:grid-cols-2">
+                      <div className="rounded-xl border border-hairline bg-surface p-4">
+                        <div className="flex items-baseline justify-between gap-4">
+                          <h4 className="text-sm font-semibold text-ink">Feed consumed</h4>
+                          <span className="text-sm font-semibold tabular-nums text-ink">
+                            {number(totalFeedKg, 1)} kg
+                          </span>
+                        </div>
+                        {feedUsage.length > 0 ? (
+                          <dl className="mt-4 space-y-2">
+                            {feedUsage.map((line) => (
+                              <div
+                                key={line.label}
+                                className="flex items-baseline justify-between gap-4 border-b border-hairline pb-2 last:border-0 last:pb-0"
+                              >
+                                <dt className="text-sm text-ink-muted">{line.label}</dt>
+                                <dd className="text-sm font-medium tabular-nums text-ink">
+                                  {number(line.kg, 1)} kg
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : (
+                          <p className="mt-4 text-sm text-ink-faint">No feed was consumed.</p>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl border border-hairline bg-surface p-4">
+                        <h4 className="text-sm font-semibold text-ink">Other resources</h4>
+                        <dl className="mt-4 space-y-2">
+                          {[
+                            {
+                              label: "Heating gas",
+                              value: `${number(resources.gasKg, 1)} kg`,
+                            },
+                            {
+                              label: "Heaters running",
+                              value: number(resources.gasHeaters, 0),
+                            },
+                            {
+                              label: "Bedding",
+                              value: `${number(resources.beddingKg, 1)} kg`,
+                            },
+                            {
+                              label: "Workers",
+                              value: number(resources.workers, 0),
+                            },
+                            {
+                              label: "Supply trips",
+                              value: number(resources.supplyTrips, 0),
+                            },
+                            {
+                              label: "Abattoir trips",
+                              value: number(resources.marketTrips, 0),
+                            },
+                          ].map((line) => (
+                            <div
+                              key={line.label}
+                              className="flex items-baseline justify-between gap-4 border-b border-hairline pb-2 last:border-0 last:pb-0"
+                            >
+                              <dt className="text-sm text-ink-muted">{line.label}</dt>
+                              <dd className="text-sm font-medium tabular-nums text-ink">
+                                {line.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {dayView === "stores" ? (
+                  <section>
+                    <h3 className="text-base font-semibold text-ink">In-store</h3>
+                    <p className="mt-1 text-sm leading-5 text-ink-muted">
+                      Closing stock after today&apos;s deliveries and consumption.
+                    </p>
+                    {stores.length > 0 ? (
+                      <div className="mt-5 overflow-hidden rounded-xl border border-hairline">
+                        <table className="w-full text-sm">
+                          <thead className="bg-plane text-left text-xs text-ink-faint">
+                            <tr>
+                              <th className="px-4 py-2.5 font-medium">Store</th>
+                              <th className="px-4 py-2.5 text-right font-medium">On hand</th>
+                              <th className="px-4 py-2.5 text-right font-medium">Cover</th>
+                              <th className="px-4 py-2.5 text-right font-medium">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {stores.map((store) => (
+                              <tr key={store.id} className="border-t border-hairline">
+                                <td className="px-4 py-3">
+                                  <span className="font-medium text-ink">{store.label}</span>
+                                  {store.capacity !== null ? (
+                                    <span className="ml-2 text-xs text-ink-faint">
+                                      capacity {number(store.capacity, 0)} {store.unit}
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="px-4 py-3 text-right tabular-nums text-ink">
+                                  {number(store.quantity, 1)} {store.unit}
+                                </td>
+                                <td className="px-4 py-3 text-right tabular-nums text-ink-muted">
+                                  {store.daysOfCover === null
+                                    ? "—"
+                                    : `${number(store.daysOfCover, 0)} days`}
+                                </td>
+                                <td className="px-4 py-3 text-right tabular-nums text-ink-muted">
+                                  {money(store.value, currency)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="mt-5 rounded-lg border border-dashed border-hairline p-5 text-sm text-ink-faint">
+                        Every store is empty at the close of this day.
+                      </div>
+                    )}
+                    <p className="mt-3 text-xs leading-5 text-ink-faint">
+                      {money(state.finance.storeValue, currency)} of goods remain in store and
+                      form part of the farm&apos;s net worth.
+                    </p>
+                  </section>
+                ) : null}
+
+                {dayView === "net-worth" ? (
+                  <section>
+                    <h3 className="text-base font-semibold text-ink">Farm&apos;s net worth</h3>
+                    <p className="mt-1 text-sm leading-5 text-ink-muted">
+                      What the farm owns less what it owes at the close of this day.
+                    </p>
+                    <dl className="mt-5 max-w-2xl overflow-hidden rounded-xl border border-hairline bg-surface">
+                      {worth.map((line) => (
+                        <div
+                          key={line.label}
+                          className={
+                            "flex items-baseline justify-between gap-5 px-4 py-3 " +
+                            (line.total
+                              ? "border-t-2 border-rule bg-plane"
+                              : "border-b border-hairline last:border-b-0")
+                          }
+                        >
+                          <dt className={line.total ? "font-semibold text-ink" : "text-ink-muted"}>
+                            {line.label}
+                          </dt>
+                          <dd
+                            className={
+                              "tabular-nums " +
+                              (line.total ? "text-base font-semibold " : "text-sm font-medium ") +
+                              (line.amount < 0 ? "text-critical" : "text-ink")
+                            }
+                          >
+                            {money(line.amount, currency)}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </section>
+                ) : null}
+
+                {dayView === "animals" ? (
+                  <section>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-base font-semibold text-ink">Animals on Farm</h3>
+                        <p className="mt-1 text-sm leading-5 text-ink-muted">
+                          Head count and carrying value at the close of this day.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={onSeeFarm}
+                        disabled={housing === null}
+                      >
+                        <Building2 size={14} />
+                        See the whole farm
+                      </Button>
+                    </div>
+
+                    {groups.length > 0 ? (
+                      <div className="mt-5 overflow-hidden rounded-xl border border-hairline">
+                        <table className="w-full text-sm">
+                          <thead className="bg-plane text-left text-xs text-ink-faint">
+                            <tr>
+                              <th className="px-4 py-2.5 font-medium">Group</th>
+                              <th className="px-4 py-2.5 text-right font-medium">Head</th>
+                              <th className="px-4 py-2.5 text-right font-medium">Carrying value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {groups.map((group) => (
+                              <tr key={group.label} className="border-t border-hairline">
+                                <td className="px-4 py-3 font-medium text-ink">{group.label}</td>
+                                <td className="px-4 py-3 text-right tabular-nums text-ink">
+                                  {number(group.count, 0)}
+                                </td>
+                                <td className="px-4 py-3 text-right tabular-nums text-ink-muted">
+                                  {money(group.value, currency)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="mt-5 rounded-lg border border-dashed border-hairline p-5 text-sm text-ink-faint">
+                        No animals are standing on the farm on this day.
+                      </div>
+                    )}
+
+                    {counts ? (
+                      <p className="mt-3 text-xs leading-5 text-ink-faint">
+                        {number(counts.total, 0)} head in all, carrying{" "}
+                        {number(state.liveweightKg, 0)} kg of liveweight.
+                        {counts.replacementPipeline > 0 ? (
+                          <>
+                            {" "}
+                            {plural(counts.replacementPipeline, "gilt")}{" "}
+                            {counts.replacementPipeline === 1 ? "is" : "are"} growing on{" "}
+                            {counts.sows > 0
+                              ? ` to replace the ${plural(counts.sows, "sow")} in the herd.`
+                              : " to start the breeding herd, which has no sow in it."}
+                          </>
+                        ) : counts.sows === 0 ? (
+                          " There is no breeding female on the farm, so no litter is coming."
+                        ) : null}
+                      </p>
+                    ) : null}
+                  </section>
+                ) : null}
+              </div>
+            </ScrollArea>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Month view remains a compact summary sheet. Its operating detail is still
+  // available by opening an individual day from the calendar.
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 sm:max-w-lg">
         <SheetHeader className="shrink-0 border-b border-hairline">
           <p className="text-xs font-medium text-brand">
-            {months
-              ? `Month ${(month?.index ?? 0) + 1} of the plan`
-              : `Day ${(day?.day ?? 0) + 1} of the plan`}
+            Month {(month?.index ?? 0) + 1} of the plan
           </p>
-          <SheetTitle>
-            {months
-              ? month?.label
-              : format(parseISO(day?.date ?? state.date), "EEEE d MMMM yyyy")}
-          </SheetTitle>
+          <SheetTitle>{month?.label}</SheetTitle>
           <SheetDescription>
-            {number(herd?.total ?? 0, 0)} head on the farm
-            {months ? " at the end of the month" : " when the day closed"}.
+            {number(herd?.total ?? 0, 0)} head on the farm at the end of the month.
           </SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-6 px-4 py-5">
-            {/*
-              The one thing a day panel could never answer before: not how many
-              head were on the farm, but where they were standing.
-            */}
             <button
               type="button"
               onClick={onSeeFarm}
@@ -1865,15 +2233,13 @@ function DetailPanel({
                 <span className="block text-xs leading-5 text-ink-faint">
                   {housing === null
                     ? "No pens yet — generate housing in Farm inputs."
-                    : months
-                      ? "Every pen at the end of the month, and what moved."
-                      : "Every pen on this day, and what moved between them."}
+                    : "Every pen at the end of the month, and what moved."}
                 </span>
               </span>
               <Building2 size={16} className="shrink-0 text-ink-faint" />
             </button>
 
-            {months && month ? (
+            {month ? (
               <section>
                 <h4 className="text-sm font-semibold text-ink">Income and expenditure</h4>
                 <table className="mt-3 w-full text-sm">
@@ -1909,8 +2275,9 @@ function DetailPanel({
                     <tr className="border-b border-hairline">
                       <td className="py-2 font-medium">Net for the month</td>
                       <td
-                        className={`py-2 text-right font-semibold tabular-nums ${month.netCashFlow < 0 ? "text-critical" : "text-good"
-                          }`}
+                        className={`py-2 text-right font-semibold tabular-nums ${
+                          month.netCashFlow < 0 ? "text-critical" : "text-good"
+                        }`}
                       >
                         {money(month.netCashFlow, currency)}
                       </td>
@@ -1918,8 +2285,9 @@ function DetailPanel({
                     <tr>
                       <td className="py-2 font-medium">Cash at month end</td>
                       <td
-                        className={`py-2 text-right font-semibold tabular-nums ${month.closingCash < 0 ? "text-critical" : ""
-                          }`}
+                        className={`py-2 text-right font-semibold tabular-nums ${
+                          month.closingCash < 0 ? "text-critical" : ""
+                        }`}
                       >
                         {money(month.closingCash, currency)}
                       </td>
@@ -1928,9 +2296,9 @@ function DetailPanel({
                 </table>
               </section>
             ) : null}
-            
+
             <section>
-              <h4 className="text-sm font-semibold text-ink">What the farm is worth on the day</h4>
+              <h4 className="text-sm font-semibold text-ink">Farm&apos;s net worth</h4>
               <dl className="mt-3 space-y-1.5">
                 {worth.map((line) => (
                   <div
@@ -1941,11 +2309,7 @@ function DetailPanel({
                         : "flex items-baseline justify-between gap-3 border-b border-hairline pb-1.5"
                     }
                   >
-                    <dt
-                      className={
-                        line.total ? "text-xs font-medium text-ink" : "text-xs text-ink-muted"
-                      }
-                    >
+                    <dt className={line.total ? "text-xs font-medium text-ink" : "text-xs text-ink-muted"}>
                       {line.label}
                     </dt>
                     <dd
@@ -1963,9 +2327,7 @@ function DetailPanel({
             </section>
 
             <section>
-              <h4 className="text-sm font-semibold text-ink">
-                {months ? "Activities this month" : "Activities"}
-              </h4>
+              <h4 className="text-sm font-semibold text-ink">Activities this month</h4>
               {events && events.length > 0 ? (
                 <ul className="mt-3 space-y-2">
                   {events.map((event, index) => (
@@ -1984,19 +2346,13 @@ function DetailPanel({
                 </ul>
               ) : (
                 <p className="mt-3 text-sm text-ink-faint">
-                  {months
-                    ? "A quiet month: the herd is fed and grown, and nothing else falls due."
-                    : "A quiet day: the herd is fed and grown, and nothing else falls due."}
+                  A quiet month: the herd is fed and grown, and nothing else falls due.
                 </p>
               )}
             </section>
 
             <section>
               <h4 className="text-sm font-semibold text-ink">In the stores</h4>
-              <p className="mt-1 text-xs leading-5 text-ink-faint">
-                What is standing on the farm at the close of this day, and how long the herd
-                can go on it at the rate it is using it now.
-              </p>
               {stores.length > 0 ? (
                 <dl className="mt-3 space-y-1.5">
                   {stores.map((store) => (
@@ -2004,44 +2360,22 @@ function DetailPanel({
                       key={store.id}
                       className="flex items-baseline justify-between gap-3 border-b border-hairline pb-1.5 last:border-0"
                     >
-                      <dt className="text-xs text-ink-muted">
-                        {store.label}
-                        {store.capacity !== null ? (
-                          <span className="ml-1.5 text-[11px] text-ink-faint">
-                            of {number(store.capacity, 0)} {store.unit}
-                          </span>
-                        ) : null}
-                      </dt>
-                      <dd className="flex items-baseline gap-2.5 text-right">
-                        <span className="text-[11px] text-ink-faint">
-                          {store.daysOfCover === null
-                            ? "—"
-                            : `${number(store.daysOfCover, 0)} days`}
-                        </span>
-                        <span className="text-sm font-medium tabular-nums text-ink">
-                          {number(store.quantity, 0)} {store.unit}
-                        </span>
-                        <span className="w-16 text-[11px] tabular-nums text-ink-faint">
-                          {money(store.value, currency)}
-                        </span>
+                      <dt className="text-xs text-ink-muted">{store.label}</dt>
+                      <dd className="text-sm font-medium tabular-nums text-ink">
+                        {number(store.quantity, 0)} {store.unit}
                       </dd>
                     </div>
                   ))}
                 </dl>
               ) : (
                 <p className="mt-3 text-sm text-ink-faint">
-                  Every store is empty at the close of this day.
+                  Every store is empty at the end of the month.
                 </p>
               )}
-              <p className="mt-2.5 text-xs leading-5 text-ink-faint">
-                {money(state.finance.storeValue, currency)} of goods bought and not yet used,
-                which is part of what the farm is worth.
-              </p>
             </section>
 
             <section>
-              <h4 className="text-sm font-semibold text-ink">Pigs on the farm</h4>
-              
+              <h4 className="text-sm font-semibold text-ink">Animals on Farm</h4>
               {groups.length > 0 ? (
                 <dl className="mt-3 space-y-1.5">
                   {groups.map((group) => (
@@ -2050,40 +2384,17 @@ function DetailPanel({
                       className="flex items-baseline justify-between gap-3 border-b border-hairline pb-1.5 last:border-0"
                     >
                       <dt className="text-xs text-ink-muted">{group.label}</dt>
-                      <dd className="flex items-baseline gap-2.5 text-right">
-                        <span className="text-sm font-medium tabular-nums text-ink">
-                          {number(group.count, 0)} head
-                        </span>
-                        <span className="w-20 text-[11px] tabular-nums text-ink-faint">
-                          {money(group.value, currency)}
-                        </span>
+                      <dd className="text-sm font-medium tabular-nums text-ink">
+                        {number(group.count, 0)} head
                       </dd>
                     </div>
                   ))}
                 </dl>
               ) : (
                 <p className="mt-3 text-sm text-ink-faint">
-                  No animals are standing on the farm on this day.
+                  No animals are standing on the farm at month end.
                 </p>
               )}
-              {counts ? (
-                <p className="mt-2.5 text-xs leading-5 text-ink-faint">
-                  {number(counts.total, 0)} head in all, carrying{" "}
-                  {number(state.liveweightKg, 0)} kg of liveweight.
-                  {counts.replacementPipeline > 0 ? (
-                    <>
-                      {" "}
-                      {plural(counts.replacementPipeline, "gilt")}{" "}
-                      {counts.replacementPipeline === 1 ? "is" : "are"} growing on{" "}
-                      {counts.sows > 0
-                        ? `to replace the ${plural(counts.sows, "sow")} in the herd.`
-                        : "to start the breeding herd, which has no sow in it."}
-                    </>
-                  ) : counts.sows === 0 ? (
-                    " There is no breeding female on the farm, so no litter is coming."
-                  ) : null}
-                </p>
-              ) : null}
             </section>
           </div>
         </ScrollArea>

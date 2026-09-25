@@ -367,6 +367,26 @@ function periodEvents(days: DayRecord[]): FarmPeriodEvent[] {
   return events;
 }
 
+export type FarmResourceUsage = {
+  /** Feed actually eaten today, split by ration. */
+  feedKg: {
+    sow: number;
+    creep: number;
+    weaner: number;
+    grower: number;
+    finisher: number;
+  };
+  gasKg: number;
+  gasHeaters: number;
+  beddingKg: number;
+  /** Stockpeople on payroll for this day. */
+  workers: number;
+  /** Supply lorries through the gate today. */
+  supplyTrips: number;
+  /** Abattoir runs made today. */
+  marketTrips: number;
+};
+
 /** A single dated square on the calendar, and everything its panel shows. */
 export type FarmCalendarDay = {
   day: number;
@@ -382,6 +402,8 @@ export type FarmCalendarDay = {
   cashOut: number;
   netCashFlow: number;
   closingCash: number;
+  /** Physical resources the farm actually consumed or deployed today. */
+  resources: FarmResourceUsage;
   /** The herd split by stage and by what each sow is doing on the day. */
   counts: StageCounts;
   events: FarmPeriodEvent[];
@@ -462,6 +484,21 @@ export function timelineOf(
     cashOut: expensesOf(cashTotalsOf(record)),
     netCashFlow: record.netCashFlow,
     closingCash: record.closingCash,
+    resources: {
+      feedKg: {
+        sow: record.feedByRation.sow,
+        creep: record.feedByRation.creep,
+        weaner: record.feedByRation.weaner,
+        grower: record.feedByRation.grower,
+        finisher: record.feedByRation.finisher,
+      },
+      gasKg: record.gasKg,
+      gasHeaters: record.gasHeaters,
+      beddingKg: record.beddingKg,
+      workers: record.workers,
+      supplyTrips: record.lorriesIn,
+      marketTrips: record.marketTrips,
+    },
     counts: record.counts,
     events: periodEvents([record]),
   }));
