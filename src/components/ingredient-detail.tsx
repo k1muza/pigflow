@@ -45,6 +45,7 @@ function ValueRows({ rows }: { rows: Array<[string, string]> }) {
 export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
   const ingredient = INGREDIENT_LIBRARY.ingredients.find((row) => row.id === ingredientId);
   const defaultPrice = ingredientDefaultPrice(ingredientId);
+  const recordSource = ingredient?.provenance.source;
 
   if (!ingredient) {
     return (
@@ -211,15 +212,21 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">NRC provenance</CardTitle>
+          <CardTitle className="text-base">Nutrient-data provenance</CardTitle>
           <CardDescription>
-            The source record is kept separate from any PigFlow-derived values.
+            The source record is kept separate from any PigFlow-derived values and market pricing.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm leading-6 text-ink-muted">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <SourceFact label="Source" value={INGREDIENT_LIBRARY.source.title} />
-            <SourceFact label="Edition" value={INGREDIENT_LIBRARY.source.edition} />
+            <SourceFact
+              label="Source"
+              value={recordSource?.title ?? INGREDIENT_LIBRARY.source.title}
+            />
+            <SourceFact
+              label="Publisher"
+              value={recordSource?.publisher ?? INGREDIENT_LIBRARY.source.publisher}
+            />
             <SourceFact label="Table" value={ingredient.provenance.sourceTable ?? "—"} />
             <SourceFact
               label="Page"
@@ -227,19 +234,19 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
             />
           </div>
           <p>
-            <span className="font-medium text-ink">NRC ingredient name:</span>{" "}
+            <span className="font-medium text-ink">Source ingredient name:</span>{" "}
             {ingredient.provenance.sourceIngredientName ?? ingredient.name}
           </p>
           {[...ingredient.provenance.notes, ...ingredient.constraints.notes].map((note) => (
             <p key={note}>{note}</p>
           ))}
           <a
-            href={INGREDIENT_LIBRARY.source.url}
+            href={recordSource?.url ?? INGREDIENT_LIBRARY.source.url}
             target="_blank"
             rel="noreferrer"
             className="inline-flex font-medium text-brand underline underline-offset-4"
           >
-            Open NRC source
+            Open nutrient source
           </a>
         </CardContent>
       </Card>
