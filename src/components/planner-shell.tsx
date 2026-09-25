@@ -22,6 +22,7 @@ import {
   Copy,
   Download,
   FileText,
+  FlaskConical,
   GitCompareArrows,
   Gauge,
   HeartPulse,
@@ -58,7 +59,7 @@ import type { SimulationStatus } from "@/lib/simulation-worker";
 import { plural } from "@/lib/format";
 import { buildInputsJson, inputsJsonFilename } from "@/lib/export-inputs";
 import { downloadFile, XLSX_MIME } from "@/lib/download";
-import { planHref, tabFromPath, type Tab } from "@/lib/routes";
+import { feedFormulationHref, planHref, tabFromPath, type Tab } from "@/lib/routes";
 import {
   activeProject,
   addProject,
@@ -764,6 +765,16 @@ export default function PlannerShell({ children }: { children: ReactNode }) {
                 );
               })}
             </nav>
+
+            <div className="mx-3 mt-3 border-t border-hairline pt-3">
+              <Link
+                href={feedFormulationHref()}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-muted transition hover:bg-raised hover:text-ink"
+              >
+                <FlaskConical size={16} strokeWidth={1.75} />
+                Feed formulation
+              </Link>
+            </div>
 
             <div className="mt-auto space-y-3 p-4">
               <div className="rounded-lg border border-hairline bg-plane p-3.5">
