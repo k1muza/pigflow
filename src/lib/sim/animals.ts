@@ -11,7 +11,8 @@ import {
   SOW_WEIGHT_GAIN_PER_PARITY_KG,
   type PlannerConfig,
 } from "../config";
-import { achievedGainKg, dailyFeedKg, growthAccountOf } from "../growth-curve";\nimport { nutritionForGrowthStage, type GrowthStageNutrition } from "../nutrition";
+import { achievedGainKg, dailyFeedKg, growthAccountOf } from "../growth-curve";
+import { nutritionForGrowthStage, type GrowthStageNutrition } from "../nutrition";
 import {
   lactationDemandOf,
   potentialPigletGainKg,
