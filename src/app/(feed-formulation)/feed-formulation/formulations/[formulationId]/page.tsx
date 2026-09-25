@@ -277,7 +277,7 @@ export default async function FeedFormulationPage({
                 <TableRow>
                   <TableHead>Ingredient</TableHead>
                   <TableHead className="text-right">Inclusion</TableHead>
-                  <TableHead className="text-right">kg / tonne</TableHead>
+                  <TableHead className="text-right">Normalized kg / tonne</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -306,7 +306,7 @@ export default async function FeedFormulationPage({
                       </TableCell>
                       <TableCell className="text-right font-mono">{row.inclusionPct.toFixed(2)}%</TableCell>
                       <TableCell className="text-right font-mono">
-                        {(row.inclusionPct * 10).toFixed(1)} kg
+                        {(row.inclusionPct * calculated.normalizationFactor * 10).toFixed(1)} kg
                       </TableCell>
                     </TableRow>
                   );
