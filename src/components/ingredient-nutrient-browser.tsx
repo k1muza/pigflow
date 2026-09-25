@@ -5,8 +5,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
-import { usePlanner } from "@/components/planner-shell";
-import { ingredientHref } from "@/lib/routes";
+import { feedIngredientHref } from "@/lib/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,13 +26,7 @@ function display(value: number | undefined, unit = ""): string {
 }
 
 export function IngredientNutrientBrowser() {
-  const { projectId, config } = usePlanner();
   const [query, setQuery] = useState("");
-
-  const priceById = useMemo(
-    () => new Map(config.nutrition.ingredientPrices.map((row) => [row.ingredientId, row.pricePerKg])),
-    [config.nutrition.ingredientPrices],
-  );
 
   const ingredients = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -93,17 +86,14 @@ export function IngredientNutrientBrowser() {
                 <TableHead className="text-right">CP</TableHead>
                 <TableHead className="text-right">ME</TableHead>
                 <TableHead className="text-right">NE</TableHead>
-                <TableHead className="text-right">Farm price</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {ingredients.map((ingredient) => {
-                const price = priceById.get(ingredient.id);
-                return (
+              {ingredients.map((ingredient) => (
                   <TableRow key={ingredient.id}>
                     <TableCell>
                       <Link
-                        href={ingredientHref(projectId, ingredient.id)}
+                        href={feedIngredientHref(ingredient.id)}
                         className="font-medium text-ink underline-offset-4 hover:underline"
                       >
                         {ingredient.name}
@@ -126,14 +116,8 @@ export function IngredientNutrientBrowser() {
                     <TableCell className="text-right font-mono">
                       {display(ingredient.energy.netKcalKg, "kcal/kg")}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {price === undefined
-                        ? "—"
-                        : `${config.project.currency} ${price.toFixed(2)}/kg`}
-                    </TableCell>
                   </TableRow>
-                );
-              })}
+              ))}
             </TableBody>
           </Table>
         </div>
