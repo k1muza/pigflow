@@ -2,6 +2,16 @@ import { z } from "zod";
 
 import ingredientLibraryJson from "@/data/nutrition/ingredients/ingredient-library.json";
 
+const nutrientSourceSchema = z.object({
+  publisher: z.string(),
+  title: z.string(),
+  year: z.number().int().optional(),
+  url: z.string().url(),
+  basis: z.string().optional(),
+  priority: z.enum(["primary", "fallback", "supplier"]).optional(),
+  note: z.string().optional(),
+});
+
 const ingredientSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -83,15 +93,13 @@ const ingredientSchema = z.object({
       sourceIngredientName: z.string().optional(),
       sourcePage: z.number().optional(),
       sourceTable: z.string().optional(),
-      source: z
-        .object({
-          publisher: z.string(),
-          title: z.string(),
-          year: z.number().int().optional(),
-          url: z.string().url(),
-          basis: z.string().optional(),
-        })
-        .optional(),
+      source: nutrientSourceSchema.optional(),
+      /**
+       * Per-value provenance for fields supplemented from a different source.
+       * Keys use stable nutrient paths such as "energy.metabolizableKcalKg"
+       * or "aminoAcids.sidPct.lysine".
+       */
+      nutrientSources: z.record(z.string(), nutrientSourceSchema).default({}),
       notes: z.array(z.string()).default([]),
     })
     .default({ notes: [] }),
@@ -125,6 +133,7 @@ const ingredientLibrarySchema = z.object({
   ingredients: z.array(ingredientSchema),
 });
 
+export type NutrientValueSource = z.infer<typeof nutrientSourceSchema>;
 export type IngredientNutrientRecord = z.infer<typeof ingredientSchema>;
 export type IngredientLibrary = z.infer<typeof ingredientLibrarySchema>;
 
@@ -166,4 +175,12 @@ export function sttdPhosphorusPctOf(
   const digestibility = ingredient.macroMinerals.sttdPhosphorusDigestibilityPct;
   if (total === undefined || digestibility === undefined) return undefined;
   return total * (digestibility / 100);
+}
+
+
+export function nutrientValueSource(
+  ingredient: IngredientNutrientRecord,
+  nutrientPath: string,
+): NutrientValueSource | undefined {
+  return ingredient.provenance.nutrientSources[nutrientPath];
 }
