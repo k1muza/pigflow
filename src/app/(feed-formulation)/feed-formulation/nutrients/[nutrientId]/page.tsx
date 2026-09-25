@@ -96,7 +96,14 @@ export default async function FeedNutrientPage({
             Ranking is by nutrient concentration, not cost or recommended inclusion rate.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {nutrient.group === "Trace minerals" || nutrient.group === "Vitamins" ? (
+            <div className="rounded-lg border border-hairline bg-raised/30 px-4 py-3 text-xs leading-5 text-ink-muted">
+              Ingredient concentrations are shown for reference. PIC&apos;s trace-mineral and vitamin
+              specifications are added-supplementation values and do not give credit for nutrient
+              content already present in ingredients.
+            </div>
+          ) : null}
           {abundantIngredients.length > 0 ? (
             <div className="overflow-x-auto rounded-lg border border-hairline">
               <Table>
