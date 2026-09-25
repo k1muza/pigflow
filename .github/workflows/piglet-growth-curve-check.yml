@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - age-dependent-piglet-growth
-    paths:
-      - .github/workflows/piglet-growth-curve-check.yml
 
 jobs:
   check:
