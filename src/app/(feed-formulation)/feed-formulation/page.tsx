@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 import { PIC_GROWTH_NUTRITION_2021 } from "@/lib/nutrition";
 import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
-import { PIC_FORMULATION_STRATEGIES } from "@/lib/feed-formulations";
+import { PIC_EXAMPLE_FORMULATIONS } from "@/lib/feed-formulations";
 import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
 import { feedFormulationHref, feedFormulationStrategyHref } from "@/lib/routes";
 
@@ -47,8 +47,8 @@ export default function FeedFormulationDashboard() {
         />
         <SummaryCard
           label="PIC formulations"
-          value={PIC_FORMULATION_STRATEGIES.length.toString()}
-          detail="source-backed formulation strategies"
+          value={PIC_EXAMPLE_FORMULATIONS.length.toString()}
+          detail="source-backed example rations"
         />
         <SummaryCard
           label="Response evidence"
@@ -69,7 +69,7 @@ export default function FeedFormulationDashboard() {
           href={feedFormulationHref("formulations")}
           icon={Layers3}
           title="Formulations"
-          description="Explore PIC formulation strategies for performance, cost, profitability and seasonal feeding."
+          description="Browse PIC example rations with ingredient ratios and reported nutrient profiles."
           action="Browse formulations"
         />
         <WorkspaceLink
@@ -92,28 +92,32 @@ export default function FeedFormulationDashboard() {
         <CardHeader>
           <CardTitle>Featured PIC formulations</CardTitle>
           <CardDescription>
-            PIC publishes optimization strategies rather than universal ingredient recipes.
-            Figure A2 illustrates how the optimum SID lysine concentration changes with the chosen outcome.
+            Actual example diets from PIC Tables B1 and B2, including ingredient ratios and
+            source-reported ME, NE and SID lysine.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {PIC_FORMULATION_STRATEGIES.filter((strategy) => strategy.featured).map((strategy) => (
-            <Link
-              key={strategy.id}
-              href={feedFormulationStrategyHref(strategy.id)}
-              className="rounded-lg border border-hairline bg-raised/30 p-4 transition hover:border-ink-faint/40 hover:bg-raised"
-            >
-              <div className="text-sm font-medium text-ink">{strategy.name}</div>
-              <div className="mt-1 text-xs leading-5 text-ink-muted">{strategy.objective}</div>
-              {strategy.exampleSidLysinePct !== undefined ? (
-                <div className="mt-3 text-lg font-semibold text-ink">
-                  {strategy.exampleSidLysinePct}% SID Lys
+          {PIC_EXAMPLE_FORMULATIONS.filter((formulation) => formulation.featured).map((formulation) => {
+            const profile = formulation.nutrientProfiles[0];
+            return (
+              <Link
+                key={formulation.id}
+                href={feedFormulationStrategyHref(formulation.id)}
+                className="rounded-lg border border-hairline bg-raised/30 p-4 transition hover:border-ink-faint/40 hover:bg-raised"
+              >
+                <div className="text-sm font-medium text-ink">{formulation.name}</div>
+                <div className="mt-1 text-xs leading-5 text-ink-muted">
+                  {formulation.ingredients.length} ingredients · {formulation.sourceTable}
                 </div>
-              ) : (
-                <div className="mt-3 text-xs font-medium text-brand">Dynamic by season</div>
-              )}
-            </Link>
-          ))}
+                <div className="mt-3 text-lg font-semibold text-ink">
+                  {profile.metabolizableEnergyKcalKg.toLocaleString()} ME
+                </div>
+                <div className="mt-1 text-xs text-ink-faint">
+                  {profile.netEnergyKcalKg.toLocaleString()} NE · {profile.sidLysinePct}% SID Lys
+                </div>
+              </Link>
+            );
+          })}
         </CardContent>
       </Card>
 
