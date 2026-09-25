@@ -1856,12 +1856,25 @@ function DetailPanel({
   const expenses = EXPENSE_CATEGORIES.filter(moved);
 
   if (!months && day) {
+    // An already-mounted result can briefly predate the timeline resource
+    // payload after a hot reload. Cache v2 prevents that result being restored
+    // on the next read; this fallback keeps the modal usable until the fresh
+    // worker result lands instead of throwing on `undefined.feedKg`.
+    const resources = day.resources ?? {
+      feedKg: { sow: 0, creep: 0, weaner: 0, grower: 0, finisher: 0 },
+      gasKg: 0,
+      gasHeaters: 0,
+      beddingKg: 0,
+      workers: 0,
+      supplyTrips: 0,
+      marketTrips: 0,
+    };
     const feedUsage = [
-      { label: "Sow ration", kg: day.resources.feedKg.sow },
-      { label: "Creep feed", kg: day.resources.feedKg.creep },
-      { label: "Weaner ration", kg: day.resources.feedKg.weaner },
-      { label: "Grower ration", kg: day.resources.feedKg.grower },
-      { label: "Finisher ration", kg: day.resources.feedKg.finisher },
+      { label: "Sow ration", kg: resources.feedKg.sow },
+      { label: "Creep feed", kg: resources.feedKg.creep },
+      { label: "Weaner ration", kg: resources.feedKg.weaner },
+      { label: "Grower ration", kg: resources.feedKg.grower },
+      { label: "Finisher ration", kg: resources.feedKg.finisher },
     ].filter((line) => line.kg > 0);
     const totalFeedKg = feedUsage.reduce((sum, line) => sum + line.kg, 0);
 
@@ -1982,27 +1995,27 @@ function DetailPanel({
                           {[
                             {
                               label: "Heating gas",
-                              value: `${number(day.resources.gasKg, 1)} kg`,
+                              value: `${number(resources.gasKg, 1)} kg`,
                             },
                             {
                               label: "Heaters running",
-                              value: number(day.resources.gasHeaters, 0),
+                              value: number(resources.gasHeaters, 0),
                             },
                             {
                               label: "Bedding",
-                              value: `${number(day.resources.beddingKg, 1)} kg`,
+                              value: `${number(resources.beddingKg, 1)} kg`,
                             },
                             {
                               label: "Workers",
-                              value: number(day.resources.workers, 0),
+                              value: number(resources.workers, 0),
                             },
                             {
                               label: "Supply trips",
-                              value: number(day.resources.supplyTrips, 0),
+                              value: number(resources.supplyTrips, 0),
                             },
                             {
                               label: "Abattoir trips",
-                              value: number(day.resources.marketTrips, 0),
+                              value: number(resources.marketTrips, 0),
                             },
                           ].map((line) => (
                             <div
