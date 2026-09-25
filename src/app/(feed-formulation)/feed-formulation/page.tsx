@@ -16,7 +16,7 @@ import { PIC_GROWTH_NUTRITION_2021 } from "@/lib/nutrition";
 import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
 import { PIC_FORMULATION_STRATEGIES } from "@/lib/feed-formulations";
 import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
-import { feedFormulationHref } from "@/lib/routes";
+import { feedFormulationHref, feedFormulationStrategyHref } from "@/lib/routes";
 
 export default function FeedFormulationDashboard() {
   return (
@@ -100,7 +100,7 @@ export default function FeedFormulationDashboard() {
           {PIC_FORMULATION_STRATEGIES.filter((strategy) => strategy.featured).map((strategy) => (
             <Link
               key={strategy.id}
-              href={`${feedFormulationHref("formulations")}/${strategy.id}`}
+              href={feedFormulationStrategyHref(strategy.id)}
               className="rounded-lg border border-hairline bg-raised/30 p-4 transition hover:border-ink-faint/40 hover:bg-raised"
             >
               <div className="text-sm font-medium text-ink">{strategy.name}</div>
