@@ -659,10 +659,7 @@ function structuralZero(
         ingredient.category === "vitamin_mineral_premix"
       );
     case "macroMineral":
-      return (
-        ingredient.category === "oil_fat" ||
-        ingredient.category === "amino_acid"
-      );
+      return ingredient.category === "oil_fat";
     case "traceMineral":
       return (
         ingredient.category === "oil_fat" ||
