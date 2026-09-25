@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   PLAN_TABS,
   feedFormulationHref,
+  feedFormulationStrategyHref,
   feedIngredientHref,
   feedProgrammeHref,
   feedProgrammePhaseHref,
@@ -43,11 +44,15 @@ describe("the address of a plan", () => {
 
   it("keeps feed formulation outside project routes", () => {
     expect(feedFormulationHref()).toBe("/feed-formulation");
+    expect(feedFormulationHref("formulations")).toBe("/feed-formulation/formulations");
     expect(feedFormulationHref("ingredients")).toBe("/feed-formulation/ingredients");
     expect(feedFormulationHref("programmes")).toBe("/feed-formulation/programmes");
     expect(feedFormulationHref("nutrients")).toBe("/feed-formulation/nutrients");
     expect(feedIngredientHref("corn/yellow")).toBe(
       "/feed-formulation/ingredients/corn%2Fyellow",
+    );
+    expect(feedFormulationStrategyHref("maximum/adg")).toBe(
+      "/feed-formulation/formulations/maximum%2Fadg",
     );
     expect(feedProgrammeHref("nursery/pig")).toBe(
       "/feed-formulation/programmes/nursery%2Fpig",
