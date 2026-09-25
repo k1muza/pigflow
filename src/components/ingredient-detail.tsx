@@ -9,10 +9,8 @@ import {
   sttdPhosphorusPctOf,
   type IngredientNutrientRecord,
 } from "@/lib/ingredient-nutrients";
-import { usePlanner } from "@/components/planner-shell";
-import { ingredientHref } from "@/lib/routes";
+import { feedFormulationHref } from "@/lib/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -44,14 +42,13 @@ function ValueRows({ rows }: { rows: Array<[string, string]> }) {
 }
 
 export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
-  const { projectId, config, update } = usePlanner();
   const ingredient = INGREDIENT_LIBRARY.ingredients.find((row) => row.id === ingredientId);
 
   if (!ingredient) {
     return (
       <div className="space-y-4">
         <Link
-          href={ingredientHref(projectId)}
+          href={feedFormulationHref("ingredients")}
           className="inline-flex items-center gap-2 text-sm font-medium text-brand"
         >
           <ArrowLeft className="size-4" />
@@ -69,34 +66,11 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
     );
   }
 
-  const currentPrice = config.nutrition.ingredientPrices.find(
-    (row) => row.ingredientId === ingredient.id,
-  )?.pricePerKg;
-
-  const setPrice = (raw: string) => {
-    const others = config.nutrition.ingredientPrices.filter(
-      (row) => row.ingredientId !== ingredient.id,
-    );
-    update(
-      "nutrition",
-      "ingredientPrices",
-      raw === ""
-        ? others
-        : [
-            ...others,
-            {
-              ingredientId: ingredient.id,
-              pricePerKg: Math.max(0, Number(raw) || 0),
-            },
-          ],
-    );
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <Link
-          href={ingredientHref(projectId)}
+          href={feedFormulationHref("ingredients")}
           className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-brand hover:underline"
         >
           <ArrowLeft className="size-4" />
@@ -112,29 +86,6 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           {ingredient.aliases.length > 0 ? ingredient.aliases.join(" · ") : "NRC feed ingredient"}
         </p>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Farm price</CardTitle>
-          <CardDescription>
-            Your local price is plan data. It does not modify the NRC nutrient record.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="max-w-sm space-y-2">
-          <label htmlFor="ingredient-price" className="text-xs font-medium text-ink-muted">
-            {config.project.currency} / kg
-          </label>
-          <Input
-            id="ingredient-price"
-            type="number"
-            min={0}
-            step="0.01"
-            value={currentPrice ?? ""}
-            placeholder="Enter local price"
-            onChange={(event) => setPrice(event.target.value)}
-          />
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
