@@ -42,7 +42,8 @@ describe("the address of a plan", () => {
   it("keeps feed formulation outside project routes", () => {
     expect(feedFormulationHref()).toBe("/feed-formulation");
     expect(feedFormulationHref("ingredients")).toBe("/feed-formulation/ingredients");
-    expect(feedFormulationHref("requirements")).toBe("/feed-formulation/requirements");
+    expect(feedFormulationHref("programmes")).toBe("/feed-formulation/programmes");
+    expect(feedFormulationHref("nutrients")).toBe("/feed-formulation/nutrients");
     expect(feedIngredientHref("corn/yellow")).toBe(
       "/feed-formulation/ingredients/corn%2Fyellow",
     );
