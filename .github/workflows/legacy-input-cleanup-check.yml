@@ -1,0 +1,26 @@
+name: Legacy input cleanup check
+
+on:
+  push:
+    branches:
+      - remove-legacy-inputs
+    paths:
+      - .github/workflows/legacy-input-cleanup-check.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify dead fields are gone
+        run: |
+          ! grep -R "minimumOrderKg" -n src
+          ! grep -R "feed\.operationalPolicy" -n src
+      - run: npm run build
+      - run: npm test -- --run src/lib/calibration.test.ts src/lib/engine/planning/optimizer-benchmark.test.ts src/lib/simulation-result.test.ts
