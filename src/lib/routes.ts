@@ -62,3 +62,14 @@ export function feedFormulationHref(section?: FeedFormulationSection): string {
 export function feedIngredientHref(ingredientId: string): string {
   return feedFormulationHref("ingredients") + "/" + encodeURIComponent(ingredientId);
 }
+
+
+/** One feed programme in the app-level formulation workspace. */
+export function feedProgrammeHref(programmeId: string): string {
+  return feedFormulationHref("programmes") + "/" + encodeURIComponent(programmeId);
+}
+
+/** One phase/requirement set inside one feed programme. */
+export function feedProgrammePhaseHref(programmeId: string, phaseId: string): string {
+  return feedProgrammeHref(programmeId) + "/phases/" + encodeURIComponent(phaseId);
+}
