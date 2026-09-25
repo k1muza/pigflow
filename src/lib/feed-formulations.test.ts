@@ -1,38 +1,52 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  PIC_FORMULATION_STRATEGIES,
-  PIC_GROW_FINISH_FORMULATION_STEPS,
-  feedFormulationStrategyById,
+  PIC_EXAMPLE_FORMULATIONS,
+  feedFormulationById,
 } from "./feed-formulations";
 
-describe("PIC formulation strategy library", () => {
-  it("preserves the six Figure A2 optimization outcomes plus seasonal formulation", () => {
-    expect(PIC_FORMULATION_STRATEGIES).toHaveLength(7);
-    expect(PIC_FORMULATION_STRATEGIES.map((strategy) => strategy.id)).toEqual([
-      "maximum-adg",
-      "best-feed-efficiency",
-      "minimum-feed-cost-per-gain",
-      "maximum-iofc",
-      "maximum-ioffc",
-      "maximum-iotc",
-      "seasonal-formulation",
+describe("PIC example formulation library", () => {
+  it("stores the two actual example diets from PIC Table B2", () => {
+    expect(PIC_EXAMPLE_FORMULATIONS.map((formulation) => formulation.id)).toEqual([
+      "pic-corn-soybean-meal",
+      "pic-high-fiber",
     ]);
   });
 
-  it("stores Figure A2 SID lysine values as example context, not programme requirements", () => {
-    expect(feedFormulationStrategyById("maximum-adg")?.exampleSidLysinePct).toBe(1.28);
-    expect(feedFormulationStrategyById("best-feed-efficiency")?.exampleSidLysinePct).toBe(1.42);
-    expect(feedFormulationStrategyById("minimum-feed-cost-per-gain")?.exampleSidLysinePct).toBe(0.85);
-    expect(feedFormulationStrategyById("maximum-iofc")?.exampleSidLysinePct).toBe(1.34);
-    expect(feedFormulationStrategyById("maximum-ioffc")?.exampleSidLysinePct).toBe(1.35);
-    expect(feedFormulationStrategyById("maximum-iotc")?.exampleSidLysinePct).toBe(1.37);
-    expect(feedFormulationStrategyById("seasonal-formulation")?.exampleSidLysinePct).toBeUndefined();
+  it("preserves the corn-soybean meal ingredient ratios", () => {
+    const formulation = feedFormulationById("pic-corn-soybean-meal");
+    expect(formulation?.ingredients.reduce((sum, row) => sum + row.inclusionPct, 0)).toBeCloseTo(
+      100,
+      8,
+    );
+    expect(formulation?.ingredients.find((row) => row.ingredientId === "corn-yellow-dent")?.inclusionPct).toBe(
+      70.99,
+    );
+    expect(
+      formulation?.ingredients.find(
+        (row) => row.ingredientId === "soybean-meal-dehulled-solvent-extracted",
+      )?.inclusionPct,
+    ).toBe(25.19);
   });
 
-  it("captures PIC's five-step grow-finish formulation workflow", () => {
-    expect(PIC_GROW_FINISH_FORMULATION_STEPS).toHaveLength(5);
-    expect(PIC_GROW_FINISH_FORMULATION_STEPS[0]).toMatch(/lysine/i);
-    expect(PIC_GROW_FINISH_FORMULATION_STEPS[4]).toMatch(/calcium/i);
+  it("preserves PIC's reported nutrient profiles", () => {
+    const cornSoy = feedFormulationById("pic-corn-soybean-meal");
+    expect(cornSoy?.nutrientProfiles[0]).toMatchObject({
+      basis: "NRC 2012",
+      metabolizableEnergyKcalKg: 3342,
+      netEnergyKcalKg: 2515,
+      sidLysinePct: 0.93,
+    });
+    expect(cornSoy?.nutrientProfiles[1]).toMatchObject({
+      metabolizableEnergyKcalKg: 3232,
+      netEnergyKcalKg: 2414,
+      sidLysinePct: 0.91,
+    });
+
+    expect(feedFormulationById("pic-high-fiber")?.nutrientProfiles[0]).toMatchObject({
+      metabolizableEnergyKcalKg: 3342,
+      netEnergyKcalKg: 2452,
+      sidLysinePct: 0.93,
+    });
   });
 });
