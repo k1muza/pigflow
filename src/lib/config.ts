@@ -671,6 +671,11 @@ export const plannerSchema = z.object({
       )
       .max(200)
       .default([]),
+  }).default({
+    formulationObjective: "max_profit",
+    performanceMetric: "adg",
+    facilityCostPerPigDay: 0,
+    ingredientPrices: [],
   }),
   feed: z.object({
     gestationKgDay: z.number().min(0.5).max(8),
