@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 import { PIC_GROWTH_NUTRITION_2021 } from "@/lib/nutrition";
+import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
 import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
 import { feedFormulationHref } from "@/lib/routes";
 
@@ -31,9 +32,9 @@ export default function FeedFormulationDashboard() {
           detail="checked-in ingredients"
         />
         <SummaryCard
-          label="PIC growth programme"
-          value={PIC_GROWTH_NUTRITION_2021.phases.length.toString()}
-          detail="nutrition phases and variants"
+          label="PIC programmes"
+          value={FEED_PROGRAMMES.length.toString()}
+          detail={`${FEED_PROGRAMMES.filter((programme) => programme.status === "loaded").length} loaded · ${PIC_GROWTH_NUTRITION_2021.phases.length} phases`}
         />
         <SummaryCard
           label="Response evidence"
