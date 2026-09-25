@@ -218,13 +218,17 @@ export function pigletSupportFactor(
  * Biological pre-weaning growth potential under essentially unrestricted
  * nutrition, expressed as an age-dependent daily gain curve.
  *
- * The later anchors are taken from the artificial-rearing work reported by
- * Harrell/Boyd: growth accelerates through lactation instead of sitting at one
- * flat ADG. The first point is a conservative back-extrapolation chosen so the
- * curve averages about 0.40 kg/day over the first three weeks, matching the
- * reported birth-to-21-day biological potential. The study ends at 23 days, so
- * the last observed level is held flat after that rather than extrapolated
- * upward without evidence.
+ * Reference: Harrell, Thomas & Boyd (1993), "Limitations of sow milk
+ * yield on baby pig growth", Proc. Cornell Nutrition Conference, pp. 156–164.
+ * Their ad-libitum artificial-rearing work reports about 0.40 kg/day averaged
+ * from birth to 21 days and a strongly rising age profile (including about
+ * 0.521 kg/day at 17–21 days). The age-band midpoints below are a digitisation/
+ * approximation of that published profile, not false-precision physiological
+ * constants. The day-zero point is a conservative back-extrapolation chosen so
+ * the discrete curve retains the reported ~0.40 kg/day first-three-week mean.
+ *
+ * Evidence ends around 23 days. Beyond the final anchor we hold the last
+ * observed level flat rather than inventing continued acceleration.
  *
  * These are ceilings, not expected farm gains. Milk and creep still have to pay
  * for every kilogram through {@link litterGrowthAccount}.
