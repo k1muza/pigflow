@@ -524,8 +524,16 @@
         "feed salt"
       ],
       "category": "mineral",
-      "composition": {},
-      "energy": {},
+      "composition": {
+        "dryMatterPct": 99.6,
+        "crudeProteinPct": 0,
+        "ashPct": 99.3
+      },
+      "energy": {
+        "digestibleKcalKg": 0,
+        "metabolizableKcalKg": 0,
+        "netKcalKg": 0
+      },
       "aminoAcids": {
         "totalPct": {},
         "sidDigestibilityPct": {},
@@ -536,7 +544,8 @@
         "sodiumPct": 39.5,
         "chloridePct": 59,
         "potassiumPct": 0,
-        "magnesiumPct": 0.005
+        "magnesiumPct": 0,
+        "totalPhosphorusPct": 0
       },
       "traceMineralsPpm": {},
       "constraints": {
@@ -548,7 +557,81 @@
         "sourceTable": "Table 17-2",
         "notes": [
           "IFN 6-04-152"
-        ]
+        ],
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "composition.ashPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "macroMinerals.totalPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/sodium-chloride",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          }
+        }
       }
     },
     {
@@ -790,9 +873,15 @@
       ],
       "category": "mineral",
       "composition": {
-        "dryMatterPct": 100
+        "dryMatterPct": 98.5,
+        "crudeProteinPct": 0,
+        "ashPct": 80.5
       },
-      "energy": {},
+      "energy": {
+        "digestibleKcalKg": 0,
+        "metabolizableKcalKg": 0,
+        "netKcalKg": 0
+      },
       "aminoAcids": {
         "totalPct": {},
         "sidDigestibilityPct": {},
@@ -801,14 +890,18 @@
       "macroMinerals": {
         "calciumPct": 17,
         "totalPhosphorusPct": 21.1,
-        "sodiumPct": 0.2,
-        "magnesiumPct": 0.9,
-        "potassiumPct": 0.16
+        "sodiumPct": 0.072,
+        "magnesiumPct": 0.48,
+        "potassiumPct": 0.23,
+        "chloridePct": 0.01
       },
       "traceMineralsPpm": {
-        "iron": 7500,
-        "manganese": 100,
-        "zinc": 220
+        "iron": 6132,
+        "manganese": 171,
+        "zinc": 204,
+        "copper": 21,
+        "selenium": 0,
+        "iodine": 0
       },
       "vitamins": {},
       "constraints": {
@@ -828,7 +921,136 @@
         "notes": [
           "INRAE–CIRAD–AFZ publishes pig digestible phosphorus for monocalcium phosphate, but PigFlow does not map that value to STTD phosphorus because the measures are not identical."
         ],
-        "nutrientSources": {}
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "composition.ashPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "traceMineralsPpm.manganese": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "traceMineralsPpm.zinc": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "traceMineralsPpm.copper": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "traceMineralsPpm.iron": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "traceMineralsPpm.selenium": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "traceMineralsPpm.iodine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://feedtables.com/content/monocalcium-phosphate",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          }
+        }
       }
     },
     {
