@@ -40,6 +40,7 @@ import {
   TableProperties,
   Trash2,
   WalletCards,
+  Wheat,
   X,
 } from "lucide-react";
 
@@ -99,6 +100,7 @@ const NAV: { id: Tab; label: string; icon: typeof BarChart3 }[] = [
   { id: "overview", label: "Overview", icon: BarChart3 },
   { id: "simulator", label: "Farm simulator", icon: CalendarClock },
   { id: "pedigree", label: "Pedigree", icon: Network },
+  { id: "nutrition", label: "Nutrition", icon: Wheat },
   { id: "money", label: "Financial planning", icon: WalletCards },
   { id: "method", label: "Method & sources", icon: BookOpen },
   { id: "cashflow", label: "Cashflow", icon: TableProperties },
