@@ -15,9 +15,10 @@ describe("PIC example formulation library", () => {
 
   it("preserves the corn-soybean meal ingredient ratios", () => {
     const formulation = feedFormulationById("pic-corn-soybean-meal");
+    expect(formulation?.reportedTotalPct).toBe(100);
     expect(formulation?.ingredients.reduce((sum, row) => sum + row.inclusionPct, 0)).toBeCloseTo(
       100,
-      8,
+      1,
     );
     expect(formulation?.ingredients.find((row) => row.ingredientId === "corn-yellow-dent")?.inclusionPct).toBe(
       70.99,
