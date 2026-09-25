@@ -634,6 +634,44 @@ export const plannerSchema = z.object({
     growerMortalityPct: percentage,
     finisherMortalityPct: percentage,
   }),
+  nutrition: z.object({
+    /**
+     * What the formulation layer is trying to optimize.
+     *
+     * This is farm policy, not animal biology. PIC's response model and NRC's
+     * ingredient composition stay fixed while local ingredient prices and this
+     * objective decide which valid diet is economically preferred.
+     */
+    formulationObjective: z
+      .enum(["max_performance", "min_feed_cost_per_kg_gain", "max_profit"])
+      .default("max_profit"),
+    /**
+     * "Maximum performance" is not one mathematical objective: a producer can
+     * push daily gain or feed efficiency. Keep that choice explicit rather than
+     * quietly treating the two as interchangeable.
+     */
+    performanceMetric: z.enum(["adg", "feed_efficiency"]).default("adg"),
+    /**
+     * Marginal cost of keeping one growing pig in the system for one more day.
+     * Used by IOFFC-style comparisons. Zero means optimise profit without an
+     * explicit facility-day charge.
+     */
+    facilityCostPerPigDay: nonNegative.default(0),
+    /**
+     * Farm-local as-purchased ingredient prices. Nutrient composition belongs
+     * to the NRC reference JSON; prices belong to the farm and can change
+     * without changing that evidence layer.
+     */
+    ingredientPrices: z
+      .array(
+        z.object({
+          ingredientId: z.string().min(1).max(80),
+          pricePerKg: nonNegative,
+        }),
+      )
+      .max(200)
+      .default([]),
+  }),
   feed: z.object({
     gestationKgDay: z.number().min(0.5).max(8),
     /**
@@ -913,6 +951,12 @@ export const PRODUCTION_CALIBRATION_2026 = {
     weanerMortalityPct: 3.0,
     growerMortalityPct: 1.5,
     finisherMortalityPct: 1.5,
+  },
+  nutrition: {
+    formulationObjective: "max_profit",
+    performanceMetric: "adg",
+    facilityCostPerPigDay: 0,
+    ingredientPrices: [],
   },
   feed: {
     gestationKgDay: 2.4,
