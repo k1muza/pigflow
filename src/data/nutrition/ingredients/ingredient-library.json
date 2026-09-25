@@ -559,8 +559,15 @@
         "lysine hydrochloride"
       ],
       "category": "amino_acid",
-      "composition": {},
-      "energy": {},
+      "composition": {
+        "dryMatterPct": 99.5,
+        "crudeProteinPct": 95.4
+      },
+      "energy": {
+        "digestibleKcalKg": 4795,
+        "metabolizableKcalKg": 4363,
+        "netKcalKg": 3380
+      },
       "aminoAcids": {
         "totalPct": {
           "lysine": 78.8
@@ -583,7 +590,9 @@
         "sourceTable": "Chapter 2 — Amino Acid Sources",
         "notes": [
           "NRC states commercial feed-grade L-lysine HCl is 98.5% pure and has 78.8% lysine activity.",
-          "Crystalline amino acids are generally assumed fully absorbed."
+          "Crystalline amino acids are generally assumed fully absorbed.",
+          "DE, ME, NE, dry matter and crude protein are supplemented from National Swine Nutrition Guide Table 18 for L-lysine HCl (converted from kcal/lb to kcal/kg).",
+          "Lysine activity remains the NRC Chapter 2 value already stored above."
         ]
       }
     },
