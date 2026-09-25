@@ -22,7 +22,572 @@
       "url": "https://nap.nationalacademies.org/nr-swine/"
     }
   },
-  "ingredients": [],
+  "ingredients": [
+    {
+      "id": "corn-yellow-dent",
+      "name": "Corn, Yellow Dent",
+      "aliases": [
+        "yellow maize",
+        "maize"
+      ],
+      "category": "cereal",
+      "composition": {
+        "dryMatterPct": 88.31,
+        "crudeProteinPct": 8.24,
+        "crudeFatPct": 3.48,
+        "crudeFibrePct": 1.98,
+        "ashPct": 1.3,
+        "starchPct": 62.55,
+        "neutralDetergentFibrePct": 9.11,
+        "acidDetergentFibrePct": 2.88
+      },
+      "energy": {
+        "digestibleKcalKg": 3451,
+        "metabolizableKcalKg": 3395,
+        "netKcalKg": 2672
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "arginine": 0.37,
+          "histidine": 0.24,
+          "isoleucine": 0.28,
+          "leucine": 0.96,
+          "lysine": 0.25,
+          "methionine": 0.18,
+          "phenylalanine": 0.39,
+          "threonine": 0.28,
+          "tryptophan": 0.06,
+          "valine": 0.38,
+          "cysteine": 0.19,
+          "tyrosine": 0.26
+        },
+        "sidDigestibilityPct": {
+          "arginine": 87,
+          "histidine": 83,
+          "isoleucine": 82,
+          "leucine": 87,
+          "lysine": 74,
+          "methionine": 83,
+          "phenylalanine": 85,
+          "threonine": 77,
+          "tryptophan": 80,
+          "valine": 82,
+          "cysteine": 80,
+          "tyrosine": 79
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.02,
+        "totalPhosphorusPct": 0.26,
+        "sttdPhosphorusDigestibilityPct": 34,
+        "sodiumPct": 0.02,
+        "chloridePct": 0.05,
+        "potassiumPct": 0.32,
+        "magnesiumPct": 0.12
+      },
+      "traceMineralsPpm": {
+        "copper": 3.41,
+        "iron": 18.38,
+        "manganese": 4.31,
+        "selenium": 0.07,
+        "zinc": 16.51
+      },
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Corn, Yellow Dent",
+        "sourcePage": 261,
+        "sourceTable": "Table 17-1",
+        "notes": [
+          "IFN 4-02-861",
+          "As-fed mean values from NRC 2012."
+        ]
+      }
+    },
+    {
+      "id": "soybean-meal-dehulled-solvent-extracted",
+      "name": "Soybean Meal, Dehulled, Solvent Extracted",
+      "aliases": [
+        "soybean meal 48%",
+        "soya meal 48%",
+        "dehulled soybean meal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 89.98,
+        "crudeProteinPct": 47.73,
+        "crudeFatPct": 1.52,
+        "crudeFibrePct": 3.89,
+        "ashPct": 6.27,
+        "starchPct": 1.89,
+        "neutralDetergentFibrePct": 8.21,
+        "acidDetergentFibrePct": 5.28
+      },
+      "energy": {
+        "digestibleKcalKg": 3619,
+        "metabolizableKcalKg": 3294,
+        "netKcalKg": 2087
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "arginine": 3.45,
+          "histidine": 1.28,
+          "isoleucine": 2.14,
+          "leucine": 3.62,
+          "lysine": 2.96,
+          "methionine": 0.66,
+          "phenylalanine": 2.4,
+          "threonine": 1.86,
+          "tryptophan": 0.66,
+          "valine": 2.23,
+          "cysteine": 0.7,
+          "tyrosine": 1.59
+        },
+        "sidDigestibilityPct": {
+          "arginine": 94,
+          "histidine": 90,
+          "isoleucine": 89,
+          "leucine": 88,
+          "lysine": 89,
+          "methionine": 90,
+          "phenylalanine": 88,
+          "threonine": 85,
+          "tryptophan": 91,
+          "valine": 87,
+          "cysteine": 84,
+          "tyrosine": 88
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.33,
+        "totalPhosphorusPct": 0.71,
+        "sttdPhosphorusDigestibilityPct": 48,
+        "sodiumPct": 0.08,
+        "chloridePct": 0.49,
+        "potassiumPct": 2.24,
+        "magnesiumPct": 0.27
+      },
+      "traceMineralsPpm": {
+        "copper": 15.13,
+        "iron": 98.19,
+        "manganese": 35.49,
+        "selenium": 0.27,
+        "zinc": 48.81
+      },
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Soybean Meal, Dehulled, Solvent Extracted",
+        "sourcePage": 332,
+        "sourceTable": "Table 17-1",
+        "notes": [
+          "IFN 5-04-612",
+          "As-fed mean values from NRC 2012."
+        ]
+      }
+    },
+    {
+      "id": "soybean-meal-solvent-extracted",
+      "name": "Soybean Meal, Solvent Extracted",
+      "aliases": [
+        "soybean meal 44%",
+        "soya meal 44%",
+        "soybean meal"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 88.79,
+        "crudeProteinPct": 43.9,
+        "crudeFatPct": 1.24,
+        "crudeFibrePct": 6.6,
+        "ashPct": 6.38,
+        "starchPct": 1.89,
+        "neutralDetergentFibrePct": 9.82,
+        "acidDetergentFibrePct": 6.66
+      },
+      "energy": {
+        "digestibleKcalKg": 3681,
+        "metabolizableKcalKg": 3382,
+        "netKcalKg": 2148
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "arginine": 3.17,
+          "histidine": 1.26,
+          "isoleucine": 1.96,
+          "leucine": 3.43,
+          "lysine": 2.76,
+          "methionine": 0.6,
+          "phenylalanine": 2.26,
+          "threonine": 1.76,
+          "tryptophan": 0.59,
+          "valine": 1.93,
+          "cysteine": 0.68,
+          "tyrosine": 1.55
+        },
+        "sidDigestibilityPct": {
+          "arginine": 92,
+          "histidine": 86,
+          "isoleucine": 88,
+          "leucine": 86,
+          "lysine": 88,
+          "methionine": 89,
+          "phenylalanine": 87,
+          "threonine": 83,
+          "tryptophan": 90,
+          "valine": 84,
+          "cysteine": 84,
+          "tyrosine": 86
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.35,
+        "totalPhosphorusPct": 0.64,
+        "sttdPhosphorusDigestibilityPct": 48,
+        "sodiumPct": 0.01,
+        "chloridePct": 0.05,
+        "potassiumPct": 1.96,
+        "magnesiumPct": 0.29
+      },
+      "traceMineralsPpm": {
+        "copper": 17.38,
+        "iron": 235,
+        "manganese": 40.64,
+        "selenium": 0.32,
+        "zinc": 50
+      },
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Soybean Meal, Solvent Extracted",
+        "sourcePage": 340,
+        "sourceTable": "Table 17-1",
+        "notes": [
+          "IFN 5-04-604",
+          "As-fed mean values from NRC 2012."
+        ]
+      }
+    },
+    {
+      "id": "sunflower-meal-solvent-extracted",
+      "name": "Sunflower Meal, Solvent Extracted",
+      "aliases": [
+        "sunflower meal",
+        "sunflower cake"
+      ],
+      "category": "protein_meal",
+      "composition": {
+        "dryMatterPct": 87.93,
+        "crudeProteinPct": 30.7,
+        "crudeFatPct": 3.06,
+        "crudeFibrePct": 23.4,
+        "ashPct": 5.97,
+        "starchPct": 2.03,
+        "neutralDetergentFibrePct": 36.82,
+        "acidDetergentFibrePct": 28.67
+      },
+      "energy": {
+        "digestibleKcalKg": 2010,
+        "metabolizableKcalKg": 1801,
+        "netKcalKg": 937
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "arginine": 2.53,
+          "histidine": 0.78,
+          "isoleucine": 1.29,
+          "leucine": 1.96,
+          "lysine": 1.13,
+          "methionine": 0.74,
+          "phenylalanine": 1.39,
+          "threonine": 1.17,
+          "tryptophan": 0.39,
+          "valine": 1.51,
+          "cysteine": 0.53,
+          "tyrosine": 0.7
+        },
+        "sidDigestibilityPct": {
+          "arginine": 93,
+          "histidine": 83,
+          "isoleucine": 82,
+          "leucine": 82,
+          "lysine": 80,
+          "methionine": 90,
+          "phenylalanine": 86,
+          "threonine": 80,
+          "tryptophan": 84,
+          "valine": 79,
+          "cysteine": 80,
+          "tyrosine": 88
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.38,
+        "totalPhosphorusPct": 0.95,
+        "sttdPhosphorusDigestibilityPct": 29,
+        "sodiumPct": 0.02,
+        "chloridePct": 0.1,
+        "potassiumPct": 1.07,
+        "magnesiumPct": 0.68
+      },
+      "traceMineralsPpm": {
+        "copper": 26,
+        "iron": 254,
+        "manganese": 41,
+        "selenium": 0.5,
+        "zinc": 66
+      },
+      "constraints": {
+        "notes": [
+          "NRC composition is for solvent-extracted sunflower meal; local sunflower cake may differ materially and should use a lab/supplier override."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "Sunflower Meal, Solvent Extracted",
+        "sourcePage": 349,
+        "sourceTable": "Table 17-1",
+        "notes": [
+          "IFN 5-30-032",
+          "As-fed mean values from NRC 2012."
+        ]
+      }
+    },
+    {
+      "id": "wheat-bran",
+      "name": "Wheat Bran",
+      "aliases": [
+        "bran"
+      ],
+      "category": "byproduct",
+      "composition": {
+        "dryMatterPct": 87.38,
+        "crudeProteinPct": 15.08,
+        "crudeFatPct": 4.72,
+        "crudeFibrePct": 7.77,
+        "ashPct": 4.16,
+        "starchPct": 22.56,
+        "neutralDetergentFibrePct": 32.28,
+        "acidDetergentFibrePct": 11
+      },
+      "energy": {
+        "digestibleKcalKg": 2420,
+        "metabolizableKcalKg": 2318,
+        "netKcalKg": 1646
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "arginine": 0.77,
+          "histidine": 0.39,
+          "isoleucine": 0.47,
+          "leucine": 0.8,
+          "lysine": 0.52,
+          "methionine": 0.22,
+          "phenylalanine": 0.49,
+          "threonine": 0.6,
+          "tryptophan": 0.22,
+          "valine": 0.66,
+          "cysteine": 0.74,
+          "tyrosine": 0.69
+        },
+        "sidDigestibilityPct": {
+          "arginine": 90,
+          "histidine": 76,
+          "isoleucine": 75,
+          "leucine": 73,
+          "lysine": 73,
+          "methionine": 72,
+          "phenylalanine": 83,
+          "threonine": 64,
+          "tryptophan": 73,
+          "valine": 79,
+          "cysteine": 77,
+          "tyrosine": 56
+        },
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.1,
+        "totalPhosphorusPct": 0.99,
+        "sttdPhosphorusDigestibilityPct": 56,
+        "sodiumPct": 0.04,
+        "chloridePct": 0.07,
+        "potassiumPct": 1.26,
+        "magnesiumPct": 0.52
+      },
+      "traceMineralsPpm": {
+        "copper": 14,
+        "iron": 170,
+        "manganese": 113,
+        "selenium": 0.51,
+        "zinc": 100
+      },
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Wheat Bran",
+        "sourcePage": 354,
+        "sourceTable": "Table 17-1",
+        "notes": [
+          "IFN 4-05-190",
+          "As-fed mean values from NRC 2012."
+        ]
+      }
+    },
+    {
+      "id": "limestone-ground",
+      "name": "Limestone, Ground",
+      "aliases": [
+        "limestone",
+        "calcitic limestone"
+      ],
+      "category": "mineral",
+      "composition": {},
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 35.84,
+        "totalPhosphorusPct": 0.01,
+        "sodiumPct": 0.06,
+        "chloridePct": 0.02,
+        "potassiumPct": 0.11,
+        "magnesiumPct": 2.06
+      },
+      "traceMineralsPpm": {},
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Limestone, ground",
+        "sourcePage": 364,
+        "sourceTable": "Table 17-2",
+        "notes": [
+          "IFN 6-02-632",
+          "NRC notes that most calcitic limestones contain 38% or more calcium; supplier analysis should be preferred when available."
+        ]
+      }
+    },
+    {
+      "id": "dicalcium-phosphate",
+      "name": "Calcium Phosphate (Dicalcium)",
+      "aliases": [
+        "dicalcium phosphate",
+        "DCP"
+      ],
+      "category": "mineral",
+      "composition": {},
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 24.8,
+        "totalPhosphorusPct": 18.8,
+        "sttdPhosphorusDigestibilityPct": 81.4,
+        "sodiumPct": 0.2,
+        "chloridePct": 0.47,
+        "potassiumPct": 0.15,
+        "magnesiumPct": 0.5
+      },
+      "traceMineralsPpm": {},
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Calcium phosphate (dicalcium)",
+        "sourcePage": 364,
+        "sourceTable": "Table 17-2",
+        "notes": [
+          "IFN 6-01-080",
+          "Feed-grade material may contain some monocalcium phosphate; supplier analysis should be preferred when available."
+        ]
+      }
+    },
+    {
+      "id": "sodium-chloride",
+      "name": "Sodium Chloride",
+      "aliases": [
+        "salt",
+        "feed salt"
+      ],
+      "category": "mineral",
+      "composition": {},
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {
+        "calciumPct": 0.3,
+        "sodiumPct": 39.5,
+        "chloridePct": 59,
+        "potassiumPct": 0,
+        "magnesiumPct": 0.005
+      },
+      "traceMineralsPpm": {},
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Sodium chloride",
+        "sourcePage": 364,
+        "sourceTable": "Table 17-2",
+        "notes": [
+          "IFN 6-04-152"
+        ]
+      }
+    },
+    {
+      "id": "l-lysine-hcl",
+      "name": "L-Lysine HCl",
+      "aliases": [
+        "lysine HCl",
+        "lysine hydrochloride"
+      ],
+      "category": "amino_acid",
+      "composition": {},
+      "energy": {},
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 78.8
+        },
+        "sidDigestibilityPct": {},
+        "sidPct": {
+          "lysine": 78.8
+        }
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "constraints": {
+        "notes": [
+          "PIC phase-specific maximum inclusion limits remain formulation constraints and are not stored as an NRC ingredient property."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "L-lysine·HCl",
+        "sourcePage": 17,
+        "sourceTable": "Chapter 2 — Amino Acid Sources",
+        "notes": [
+          "NRC states commercial feed-grade L-lysine HCl is 98.5% pure and has 78.8% lysine activity.",
+          "Crystalline amino acids are generally assumed fully absorbed."
+        ]
+      }
+    }
+  ],
   "notes": [
     "Ingredient loading values should be transcribed from NRC 2012 Chapter 17 or the official NRC Swine Model 2012 companion workbook.",
     "Do not silently mix ingredient composition values from other databases into this library. Any local laboratory or supplier override must carry its own provenance.",
