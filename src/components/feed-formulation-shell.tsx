@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { BookOpen, LayoutDashboard, PiggyBank, Wheat } from "lucide-react";
 
@@ -13,7 +14,7 @@ const NAV = [
   { href: feedFormulationHref("requirements"), label: "Requirements", icon: BookOpen },
 ];
 
-export function FeedFormulationShell({ children }: { children: React.ReactNode }) {
+export function FeedFormulationShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   return (
