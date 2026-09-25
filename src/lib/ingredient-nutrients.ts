@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import ingredientLibraryJson from "@/data/nutrition/ingredients/ingredient-library.json";
 
-const rangeSchema = z.object({ min: z.number(), max: z.number() });
-
 const ingredientSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -60,6 +58,19 @@ const ingredientSchema = z.object({
     })
     .default({}),
   traceMineralsPpm: z.record(z.string(), z.number()).default({}),
+  vitamins: z
+    .object({
+      vitaminAIuKg: z.number().optional(),
+      vitaminDIuKg: z.number().optional(),
+      vitaminEIuKg: z.number().optional(),
+      vitaminKMgKg: z.number().optional(),
+      niacinMgKg: z.number().optional(),
+      riboflavinMgKg: z.number().optional(),
+      pantothenicAcidMgKg: z.number().optional(),
+      vitaminB12McgKg: z.number().optional(),
+      totalCholineMgKg: z.number().optional(),
+    })
+    .default({}),
   constraints: z
     .object({
       minInclusionPct: z.number().optional(),
