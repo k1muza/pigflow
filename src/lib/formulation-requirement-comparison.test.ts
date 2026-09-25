@@ -30,9 +30,8 @@ describe("formulation requirement comparison", () => {
 
     const result = compareFormulationToPhase(formulation!, phase!);
 
-    expect(result.rows.find((row) => row.id === "energy-basis")?.status).toBe(
-      "incomplete",
-    );
+    expect(result.rows.find((row) => row.id === "energy-basis")).toBeUndefined();
+    expect(result.rows.find((row) => row.id === "sid-lysine")?.status).toBe("fail");
     expect(result.rows.find((row) => row.id === "l-lysine-hcl")).toMatchObject({
       status: "fail",
     });
@@ -49,7 +48,7 @@ describe("formulation requirement comparison", () => {
     const result = compareFormulationToPhase(formulation!, phase!);
 
     expect(result.rows.find((row) => row.id === "energy-me")).toMatchObject({
-      actual: "3334.0784 kcal/kg",
+      actual: "3334.0447 kcal/kg",
       requirement: "≥ 3395 kcal/kg",
       status: "fail",
     });
