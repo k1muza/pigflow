@@ -132,8 +132,8 @@ export function compareFormulationToPhase(
       id: "me",
       label: "Metabolizable energy",
       actual: `${profile.metabolizableEnergyKcalKg.toLocaleString()} kcal/kg`,
-      requirement: `${target.toLocaleString()} kcal/kg`,
-      relation: "target",
+      requirement: `≥ ${target.toLocaleString()} kcal/kg`,
+      relation: "min",
       status: profile.metabolizableEnergyKcalKg >= target ? "pass" : "fail",
       note: "PIC publishes a dietary energy level for this phase.",
     });
@@ -145,8 +145,8 @@ export function compareFormulationToPhase(
       id: "ne",
       label: "Net energy",
       actual: `${profile.netEnergyKcalKg.toLocaleString()} kcal/kg`,
-      requirement: `${target.toLocaleString()} kcal/kg`,
-      relation: "target",
+      requirement: `≥ ${target.toLocaleString()} kcal/kg`,
+      relation: "min",
       status: profile.netEnergyKcalKg >= target ? "pass" : "fail",
       note: "PIC publishes a dietary energy level for this phase.",
     });
@@ -171,6 +171,50 @@ export function compareFormulationToPhase(
       "Requirement resolved from this formulation's reported NE.",
     ),
   );
+
+  if (phase.requirements.practical.crudeProteinMinPct !== undefined) {
+    rows.push(
+      incomplete(
+        "crude-protein",
+        "Crude protein",
+        `≥ ${fmtPct(phase.requirements.practical.crudeProteinMinPct)}`,
+        "PIC Tables B1/B2 do not report crude protein for the example diet.",
+      ),
+    );
+  }
+
+  if (phase.requirements.practical.sidLysineToCrudeProteinMaxPct !== undefined) {
+    rows.push(
+      incomplete(
+        "sid-lysine-cp",
+        "SID lysine : crude protein",
+        `≤ ${phase.requirements.practical.sidLysineToCrudeProteinMaxPct}%`,
+        "The formulation source reports SID lysine but not crude protein, so this ratio cannot be verified.",
+      ),
+    );
+  }
+
+  if (phase.requirements.practical.highlyDigestibleProteinPct) {
+    rows.push(
+      incomplete(
+        "highly-digestible-protein",
+        "Highly digestible protein",
+        `${phase.requirements.practical.highlyDigestibleProteinPct.min}–${phase.requirements.practical.highlyDigestibleProteinPct.max}%`,
+        "PIC Tables B1/B2 do not report this practical diet characteristic.",
+      ),
+    );
+  }
+
+  if (phase.requirements.practical.highlyDigestibleCarbohydratePct !== undefined) {
+    rows.push(
+      incomplete(
+        "highly-digestible-carbohydrate",
+        "Highly digestible carbohydrate",
+        `≥ ${fmtPct(phase.requirements.practical.highlyDigestibleCarbohydratePct)}`,
+        "PIC Tables B1/B2 do not report this practical diet characteristic.",
+      ),
+    );
+  }
 
   const soybeanMealPct = ingredientInclusion(formulation, (id) =>
     id.startsWith("soybean-meal-"),
@@ -261,6 +305,17 @@ export function compareFormulationToPhase(
     );
   }
 
+  if (meTargets.minerals.analyzedCalciumToPhosphorus) {
+    rows.push(
+      incomplete(
+        "calcium-phosphorus-ratio",
+        "Analyzed calcium : phosphorus",
+        `${meTargets.minerals.analyzedCalciumToPhosphorus.min}–${meTargets.minerals.analyzedCalciumToPhosphorus.max}`,
+        "PIC Tables B1/B2 do not report the analyzed calcium:phosphorus ratio.",
+      ),
+    );
+  }
+
   rows.push(
     incomplete(
       "sodium",
@@ -288,6 +343,53 @@ export function compareFormulationToPhase(
           meTargets.minerals.chloridePctRange.max,
         )}`,
         "PIC Tables B1/B2 do not report chloride for the example diet.",
+      ),
+    );
+  }
+
+  const traceRequirements: Array<[string, string, number]> = [
+    ["zinc", "Zinc", phase.requirements.traceMinerals.zincPpm],
+    ["iron", "Iron", phase.requirements.traceMinerals.ironPpm],
+    ["manganese", "Manganese", phase.requirements.traceMinerals.manganesePpm],
+    ["copper", "Copper", phase.requirements.traceMinerals.copperPpm],
+    ["iodine", "Iodine", phase.requirements.traceMinerals.iodinePpm],
+    ["selenium", "Selenium", phase.requirements.traceMinerals.seleniumPpm],
+  ];
+  for (const [id, label, requirement] of traceRequirements) {
+    rows.push(
+      incomplete(
+        id,
+        label,
+        `${requirement} ppm added`,
+        "PIC Tables B1/B2 do not report the premix micronutrient contribution. PIC expresses these as added supplementation.",
+      ),
+    );
+  }
+
+  const vitaminRequirements: Array<[string, string, number | undefined, string]> = [
+    ["vitamin-a", "Vitamin A", phase.requirements.vitamins.vitaminAIuKg, "IU/kg added"],
+    ["vitamin-d", "Vitamin D", phase.requirements.vitamins.vitaminDIuKg, "IU/kg added"],
+    ["vitamin-e", "Vitamin E", phase.requirements.vitamins.vitaminEIuKg, "IU/kg added"],
+    ["vitamin-k", "Vitamin K", phase.requirements.vitamins.vitaminKMgKg, "mg/kg added"],
+    ["niacin", "Niacin", phase.requirements.vitamins.niacinMgKg, "mg/kg added"],
+    ["riboflavin", "Riboflavin", phase.requirements.vitamins.riboflavinMgKg, "mg/kg added"],
+    [
+      "pantothenic-acid",
+      "Pantothenic acid",
+      phase.requirements.vitamins.pantothenicAcidMgKg,
+      "mg/kg added",
+    ],
+    ["vitamin-b12", "Vitamin B12", phase.requirements.vitamins.vitaminB12McgKg, "mcg/kg added"],
+    ["choline", "Total choline", phase.requirements.vitamins.totalCholineMgKg, "mg/kg"],
+  ];
+  for (const [id, label, requirement, unit] of vitaminRequirements) {
+    if (requirement === undefined) continue;
+    rows.push(
+      incomplete(
+        id,
+        label,
+        `${requirement} ${unit}`,
+        "PIC Tables B1/B2 do not report this vitamin concentration for the example diet.",
       ),
     );
   }
