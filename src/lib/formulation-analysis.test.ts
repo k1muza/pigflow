@@ -34,6 +34,31 @@ describe("formulation analysis", () => {
     expect(analysis.crudeProteinPct.value).toBeCloseTo(18.0711, 3);
   });
 
+  it("treats non-contributing ingredient classes as structural zero, not missing", () => {
+    const formulation = feedFormulationById("pic-corn-soybean-meal")!;
+    const { analysis } = analyzeFeedFormulation(formulation);
+
+    expect(analysis.traceMineralsPpm.zinc.missingIngredientIds).not.toContain(
+      "corn-oil",
+    );
+    expect(analysis.traceMineralsPpm.zinc.missingIngredientIds).not.toContain(
+      "sodium-chloride",
+    );
+    expect(analysis.traceMineralsPpm.zinc.missingIngredientIds).not.toContain(
+      "l-lysine-hcl",
+    );
+    expect(analysis.traceMineralsPpm.zinc.missingIngredientIds).not.toContain(
+      "dl-methionine",
+    );
+    expect(analysis.traceMineralsPpm.zinc.missingIngredientIds).not.toContain(
+      "l-threonine",
+    );
+
+    expect(analysis.traceMineralsPpm.zinc.missingIngredientIds).toContain(
+      "vitamin-trace-mineral-premix",
+    );
+  });
+
   it("keeps a calculated nutrient incomplete when a formulation ingredient lacks that value", () => {
     const formulation = feedFormulationById("pic-high-fiber")!;
     const { analysis } = analyzeFeedFormulation(formulation);
