@@ -22,10 +22,10 @@ describe("formulation analysis", () => {
     const { analysis } = analyzeFeedFormulation(formulation);
 
     expect(analysis.energy.metabolizableKcalKg).toMatchObject({ complete: true });
-    expect(analysis.energy.metabolizableKcalKg.value).toBeCloseTo(3334.0784, 3);
+    expect(analysis.energy.metabolizableKcalKg.value).toBeCloseTo(3334.0447, 3);
 
     expect(analysis.energy.netKcalKg).toMatchObject({ complete: true });
-    expect(analysis.energy.netKcalKg.value).toBeCloseTo(2506.1023, 3);
+    expect(analysis.energy.netKcalKg.value).toBeCloseTo(2506.1085, 3);
 
     expect(analysis.sidAminoAcidsPct.lysine).toMatchObject({ complete: true });
     expect(analysis.sidAminoAcidsPct.lysine.value).toBeCloseTo(0.928804, 5);
@@ -59,13 +59,18 @@ describe("formulation analysis", () => {
     );
   });
 
-  it("keeps a calculated nutrient incomplete when a formulation ingredient lacks that value", () => {
+  it("uses fallback nutrient data to complete the high-fiber formulation energy and SID lysine", () => {
     const formulation = feedFormulationById("pic-high-fiber")!;
-    const { analysis } = analyzeFeedFormulation(formulation);
+    const { analysis, nutrientDataSources } = analyzeFeedFormulation(formulation);
 
-    expect(analysis.energy.metabolizableKcalKg.complete).toBe(false);
-    expect(analysis.energy.metabolizableKcalKg.missingIngredientIds).toContain(
-      "corn-ddgs-low-oil",
+    expect(analysis.energy.metabolizableKcalKg).toMatchObject({ complete: true });
+    expect(analysis.energy.metabolizableKcalKg.value).toBeCloseTo(3238.9640, 3);
+    expect(analysis.energy.netKcalKg).toMatchObject({ complete: true });
+    expect(analysis.energy.netKcalKg.value).toBeCloseTo(2400.4460, 3);
+    expect(analysis.sidAminoAcidsPct.lysine).toMatchObject({ complete: true });
+    expect(analysis.sidAminoAcidsPct.lysine.value).toBeCloseTo(0.928005, 5);
+    expect(nutrientDataSources).toContain(
+      "Tables of composition and nutritional values of feed materials",
     );
   });
 });
