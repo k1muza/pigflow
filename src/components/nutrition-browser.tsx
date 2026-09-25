@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 
 import {
   PIC_GROWTH_NUTRITION_2021,
@@ -27,8 +28,8 @@ import { Input } from "@/components/ui/input";
 import { usePlanner } from "@/components/planner-shell";
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 import type { PlannerConfig } from "@/lib/config";
-import { IngredientNutrientBrowser } from "@/components/ingredient-nutrient-browser";
 import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
+import { feedFormulationHref } from "@/lib/routes";
 
 const programme = PIC_GROWTH_NUTRITION_2021;
 
@@ -235,7 +236,22 @@ export function NutritionBrowser() {
         </CardContent>
       </Card>
 
-      <IngredientNutrientBrowser />
+      <Card>
+        <CardHeader>
+          <CardTitle>Feed formulation workspace</CardTitle>
+          <CardDescription>
+            Ingredient composition and formulation tooling now live outside individual farm plans.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href={feedFormulationHref()}
+            className="inline-flex rounded-lg border border-hairline px-3 py-2 text-sm font-medium text-brand transition hover:bg-raised"
+          >
+            Open feed formulation
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
