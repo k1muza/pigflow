@@ -23,6 +23,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { usePlanner } from "@/components/planner-shell";
+import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
+import type { PlannerConfig } from "@/lib/config";
 
 const programme = PIC_GROWTH_NUTRITION_2021;
 
@@ -116,6 +120,7 @@ const groups: NutrientRow["group"][] = [
 ];
 
 export function NutritionBrowser() {
+  const { config, update } = usePlanner();
   const [phaseId, setPhaseId] = useState(programme.phases[0].id);
   const phase = programme.phases.find((item) => item.id === phaseId) ?? programme.phases[0];
   const rows = useMemo(() => rowsFor(phase), [phase]);
@@ -132,6 +137,171 @@ export function NutritionBrowser() {
           constraints, not a feed recipe and not the amount an individual pig will eat.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Formulation objective</CardTitle>
+          <CardDescription>
+            The animal requirements stay the same. This controls how PigFlow will choose between
+            biologically valid diets once the response model and formulation solver are connected.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label htmlFor="formulation-objective" className="text-xs font-medium text-ink-muted">
+              Optimize for
+            </label>
+            <Select
+              value={config.nutrition.formulationObjective}
+              onValueChange={(value) =>
+                update(
+                  "nutrition",
+                  "formulationObjective",
+                  value as PlannerConfig["nutrition"]["formulationObjective"],
+                )
+              }
+            >
+              <SelectTrigger id="formulation-objective" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="max_profit">Maximum profit</SelectItem>
+                <SelectItem value="min_feed_cost_per_kg_gain">
+                  Minimum feed cost / kg gain
+                </SelectItem>
+                <SelectItem value="max_performance">Maximum performance</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs leading-5 text-ink-faint">
+              {config.nutrition.formulationObjective === "max_profit"
+                ? "Ranks diets by income over feed and facility cost."
+                : config.nutrition.formulationObjective === "min_feed_cost_per_kg_gain"
+                  ? "Ranks diets by feed price × feed conversion."
+                  : "Ranks diets by the selected biological performance measure."}
+            </p>
+          </div>
+
+          {config.nutrition.formulationObjective === "max_performance" ? (
+            <div className="space-y-2">
+              <label htmlFor="performance-metric" className="text-xs font-medium text-ink-muted">
+                Performance measure
+              </label>
+              <Select
+                value={config.nutrition.performanceMetric}
+                onValueChange={(value) =>
+                  update(
+                    "nutrition",
+                    "performanceMetric",
+                    value as PlannerConfig["nutrition"]["performanceMetric"],
+                  )
+                }
+              >
+                <SelectTrigger id="performance-metric" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="adg">Average daily gain</SelectItem>
+                  <SelectItem value="feed_efficiency">Feed efficiency</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label htmlFor="facility-cost" className="text-xs font-medium text-ink-muted">
+                Facility cost / pig / day ({config.project.currency})
+              </label>
+              <Input
+                id="facility-cost"
+                type="number"
+                min={0}
+                step="0.01"
+                value={config.nutrition.facilityCostPerPigDay}
+                onChange={(event) =>
+                  update(
+                    "nutrition",
+                    "facilityCostPerPigDay",
+                    Math.max(0, Number(event.target.value) || 0),
+                  )
+                }
+              />
+              <p className="text-xs leading-5 text-ink-faint">
+                Used by maximum-profit comparisons to price the extra days a slower diet keeps a pig
+                in the system. Zero leaves facility-day cost out.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ingredient prices</CardTitle>
+          <CardDescription>
+            Local farm prices are deliberately separate from NRC nutrient composition.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {INGREDIENT_LIBRARY.ingredients.length === 0 ? (
+            <div className="rounded-lg border border-hairline bg-raised/40 px-4 py-4 text-sm leading-6 text-ink-muted">
+              The NRC 2012 ingredient library structure is ready, but no ingredient rows have been
+              transcribed yet. Prices will become editable here as the NRC ingredients are added.
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ingredient</TableHead>
+                  <TableHead className="w-44 text-right">
+                    {config.project.currency} / kg
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {INGREDIENT_LIBRARY.ingredients.map((ingredient) => {
+                  const current = config.nutrition.ingredientPrices.find(
+                    (price) => price.ingredientId === ingredient.id,
+                  );
+                  return (
+                    <TableRow key={ingredient.id}>
+                      <TableCell>
+                        <div className="font-medium text-ink">{ingredient.name}</div>
+                        <div className="text-xs text-ink-faint">{ingredient.category.replaceAll("_", " ")}</div>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className="text-right"
+                          value={current?.pricePerKg ?? ""}
+                          placeholder="—"
+                          onChange={(event) => {
+                            const raw = event.target.value;
+                            const without = config.nutrition.ingredientPrices.filter(
+                              (price) => price.ingredientId !== ingredient.id,
+                            );
+                            const ingredientPrices =
+                              raw === ""
+                                ? without
+                                : [
+                                    ...without,
+                                    {
+                                      ingredientId: ingredient.id,
+                                      pricePerKg: Math.max(0, Number(raw) || 0),
+                                    },
+                                  ];
+                            update("nutrition", "ingredientPrices", ingredientPrices);
+                          }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
