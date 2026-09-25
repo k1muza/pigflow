@@ -11,6 +11,13 @@ export type FormulationNutrientProfile = {
   sidLysinePct: number;
 };
 
+export type FormulationRequirementTarget = {
+  programmeId: string;
+  phaseId: string;
+  provenance: "source" | "pigflow";
+  note?: string;
+};
+
 export type FeedFormulation = {
   id: string;
   name: string;
@@ -22,6 +29,7 @@ export type FeedFormulation = {
   reportedTotalPct: number;
   ingredients: readonly FormulationIngredient[];
   nutrientProfiles: readonly FormulationNutrientProfile[];
+  requirementTarget?: FormulationRequirementTarget;
   featured: boolean;
 };
 
