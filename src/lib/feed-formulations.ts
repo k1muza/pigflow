@@ -4,13 +4,6 @@ export type FormulationIngredient = {
   inclusionPct: number;
 };
 
-export type FormulationNutrientProfile = {
-  basis: string;
-  metabolizableEnergyKcalKg: number;
-  netEnergyKcalKg: number;
-  sidLysinePct: number;
-};
-
 export type FormulationRequirementTarget = {
   programmeId: string;
   phaseId: string;
@@ -25,10 +18,8 @@ export type FeedFormulation = {
   sourceTable: string;
   sourcePage: number;
   sourceUrl: string;
-  ingredientDatabase: string;
   reportedTotalPct: number;
   ingredients: readonly FormulationIngredient[];
-  nutrientProfiles: readonly FormulationNutrientProfile[];
   requirementTarget?: FormulationRequirementTarget;
   featured: boolean;
 };
@@ -62,38 +53,22 @@ export const PIC_EXAMPLE_FORMULATIONS: readonly FeedFormulation[] = [
     id: "pic-corn-soybean-meal",
     name: "PIC Corn–Soybean Meal Diet",
     description:
-      "PIC reference corn-soybean meal formulation used to demonstrate ingredient-database and energy-system effects.",
+      "PIC reference corn-soybean meal ingredient ratios. PigFlow calculates the resulting nutrient profile from the ingredient library rather than copying PIC's reported output values.",
     sourceTable: "Tables B1 and B2",
     sourcePage: 14,
     sourceUrl: PIC_MANUAL_URL,
-    ingredientDatabase: "NRC 2012",
     reportedTotalPct: 100,
     ingredients: CORN_SOY_INGREDIENTS,
-    nutrientProfiles: [
-      {
-        basis: "NRC 2012",
-        metabolizableEnergyKcalKg: 3342,
-        netEnergyKcalKg: 2515,
-        sidLysinePct: 0.93,
-      },
-      {
-        basis: "CVB 2008 — same ingredient ratios",
-        metabolizableEnergyKcalKg: 3232,
-        netEnergyKcalKg: 2414,
-        sidLysinePct: 0.91,
-      },
-    ],
     featured: true,
   },
   {
     id: "pic-high-fiber",
     name: "PIC High-Fiber Ingredient Diet",
     description:
-      "PIC high-fiber example formulated to the same ME and SID lysine as the corn-soy diet while producing lower NE.",
+      "PIC high-fiber example ration. PigFlow calculates the resulting nutrient profile from the ingredient library rather than copying PIC's reported output values.",
     sourceTable: "Table B2",
     sourcePage: 15,
     sourceUrl: PIC_MANUAL_URL,
-    ingredientDatabase: "NRC 2012",
     reportedTotalPct: 100,
     ingredients: [
       { ingredientId: "corn-yellow-dent", sourceName: "Corn, yellow", inclusionPct: 37.48 },
@@ -115,14 +90,6 @@ export const PIC_EXAMPLE_FORMULATIONS: readonly FeedFormulation[] = [
         ingredientId: "vitamin-trace-mineral-premix",
         sourceName: "Vitamin and trace mineral premix",
         inclusionPct: 0.5,
-      },
-    ],
-    nutrientProfiles: [
-      {
-        basis: "NRC 2012",
-        metabolizableEnergyKcalKg: 3342,
-        netEnergyKcalKg: 2452,
-        sidLysinePct: 0.93,
       },
     ],
     featured: true,
