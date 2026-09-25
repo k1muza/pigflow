@@ -83,6 +83,15 @@ const ingredientSchema = z.object({
       sourceIngredientName: z.string().optional(),
       sourcePage: z.number().optional(),
       sourceTable: z.string().optional(),
+      source: z
+        .object({
+          publisher: z.string(),
+          title: z.string(),
+          year: z.number().int().optional(),
+          url: z.string().url(),
+          basis: z.string().optional(),
+        })
+        .optional(),
       notes: z.array(z.string()).default([]),
     })
     .default({ notes: [] }),
