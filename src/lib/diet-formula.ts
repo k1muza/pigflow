@@ -565,7 +565,8 @@ function structuralZero(
 ): boolean {
   return (
     (ingredient.category === "mineral" ||
-      ingredient.category === "vitamin_mineral_premix") &&
+      ingredient.category === "vitamin_mineral_premix" ||
+      (family === "crudeProtein" && ingredient.category === "oil_fat")) &&
     (family === "energy" || family === "crudeProtein")
   );
 }
@@ -597,7 +598,8 @@ function addSid(
       if (
         ingredient.category !== "mineral" &&
         ingredient.category !== "amino_acid" &&
-        ingredient.category !== "vitamin_mineral_premix"
+        ingredient.category !== "vitamin_mineral_premix" &&
+        ingredient.category !== "oil_fat"
       ) {
         markMissing(target, ingredient.id);
         return;
