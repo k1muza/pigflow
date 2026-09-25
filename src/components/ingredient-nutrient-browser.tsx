@@ -52,7 +52,7 @@ export function IngredientNutrientBrowser() {
           <CardTitle>NRC ingredient nutrient database</CardTitle>
           <CardDescription>
             Browse the checked-in NRC 2012 ingredient matrix. Open an ingredient for its complete
-            composition, SID digestibility, minerals, source record, and farm-local price.
+            composition, SID digestibility, minerals, and source provenance.
           </CardDescription>
         </div>
         <div className="relative max-w-xl">
