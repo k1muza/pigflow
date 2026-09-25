@@ -84,9 +84,17 @@ const ingredientLibrarySchema = z.object({
   source: z.object({
     publisher: z.string(),
     title: z.string(),
-    version: z.string(),
-    url: z.string(),
+    edition: z.string(),
+    year: z.number().int(),
+    chapter: z.string(),
+    doi: z.string(),
+    url: z.string().url(),
+    companionModel: z.object({
+      title: z.string(),
+      url: z.string().url(),
+    }),
   }),
+  notes: z.array(z.string()).default([]),
   ingredients: z.array(ingredientSchema),
 });
 
