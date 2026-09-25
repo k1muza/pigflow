@@ -424,7 +424,6 @@ describe("what the plan says its weaner cost", () => {
       c.herd.maxSows = 20;
       c.herd.startMode = "staggered";
       c.feed.procurementMode = "operational";
-      c.feed.operationalPolicy = "balanced-load";
       c.feed.truckCapacityKg = 200;
       c.feed.maxSupplyTripsPerDay = 1;
     });
