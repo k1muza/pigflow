@@ -1,10 +1,12 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams } from "next/navigation";
+import { feedIngredientHref } from "@/lib/routes";
 
-import { IngredientDetail } from "@/components/ingredient-detail";
-
-export default function IngredientPage() {
-  const params = useParams<{ ingredientId: string }>();
-  return <IngredientDetail ingredientId={params.ingredientId} />;
+export default async function LegacyProjectIngredientPage({
+  params,
+}: {
+  params: Promise<{ ingredientId: string }>;
+}) {
+  const { ingredientId } = await params;
+  redirect(feedIngredientHref(ingredientId));
 }
