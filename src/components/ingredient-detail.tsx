@@ -10,6 +10,7 @@ import {
   type IngredientNutrientRecord,
 } from "@/lib/ingredient-nutrients";
 import { feedFormulationHref } from "@/lib/routes";
+import { ingredientDefaultPrice } from "@/lib/feed-ingredient-prices";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -43,6 +44,7 @@ function ValueRows({ rows }: { rows: Array<[string, string]> }) {
 
 export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
   const ingredient = INGREDIENT_LIBRARY.ingredients.find((row) => row.id === ingredientId);
+  const defaultPrice = ingredientDefaultPrice(ingredientId);
 
   if (!ingredient) {
     return (
@@ -86,6 +88,47 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           {ingredient.aliases.length > 0 ? ingredient.aliases.join(" · ") : "NRC feed ingredient"}
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Default market price</CardTitle>
+          <CardDescription>
+            Pricing is kept separate from NRC nutrient composition and is only shown when PigFlow
+            has a sourced market reference.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {defaultPrice ? (
+            <div className="space-y-3">
+              <div>
+                <div className="text-3xl font-semibold tracking-tight text-ink">
+                  US${defaultPrice.usdPerTonne.toLocaleString()}
+                </div>
+                <div className="text-sm text-ink-muted">per tonne</div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <SourceFact label="Market" value={defaultPrice.market} />
+                <SourceFact label="Reference date" value={defaultPrice.asOf} />
+              </div>
+              {defaultPrice.note ? (
+                <p className="text-xs leading-5 text-ink-muted">{defaultPrice.note}</p>
+              ) : null}
+              <a
+                href={defaultPrice.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex text-sm font-medium text-brand underline underline-offset-4"
+              >
+                {defaultPrice.sourceLabel}
+              </a>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-hairline px-4 py-5 text-sm text-ink-muted">
+              No sourced default price has been loaded for this ingredient yet.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
