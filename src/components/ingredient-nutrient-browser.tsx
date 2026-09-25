@@ -1,20 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { Search } from "lucide-react";
 
-import {
-  INGREDIENT_LIBRARY,
-  sidAminoAcidPct,
-  sttdPhosphorusPctOf,
-} from "@/lib/ingredient-nutrients";
+import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
+import { usePlanner } from "@/components/planner-shell";
+import { ingredientHref } from "@/lib/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -28,159 +23,124 @@ const library = INGREDIENT_LIBRARY;
 
 function display(value: number | undefined, unit = ""): string {
   if (value === undefined) return "—";
-  return `${Number(value.toFixed(4))}${unit ? ` ${unit}` : ""}`;
+  return `${Number(value.toFixed(3))}${unit ? ` ${unit}` : ""}`;
 }
 
 export function IngredientNutrientBrowser() {
-  const [ingredientId, setIngredientId] = useState(library.ingredients[0]?.id ?? "");
-  const ingredient =
-    library.ingredients.find((candidate) => candidate.id === ingredientId) ??
-    library.ingredients[0];
+  const { projectId, config } = usePlanner();
+  const [query, setQuery] = useState("");
 
-  if (!ingredient) return null;
+  const priceById = useMemo(
+    () => new Map(config.nutrition.ingredientPrices.map((row) => [row.ingredientId, row.pricePerKg])),
+    [config.nutrition.ingredientPrices],
+  );
 
-  const aminoAcids = Object.keys(ingredient.aminoAcids.totalPct);
+  const ingredients = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return library.ingredients;
+
+    return library.ingredients.filter((ingredient) => {
+      const haystack = [
+        ingredient.name,
+        ingredient.id,
+        ingredient.category,
+        ...ingredient.aliases,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalized);
+    });
+  }, [query]);
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>NRC ingredient nutrient database</CardTitle>
-        <CardDescription>
-          Raw NRC 2012 loading values are preserved separately from PigFlow&apos;s derived SID
-          concentrations.
-        </CardDescription>
+      <CardHeader className="gap-3">
+        <div>
+          <CardTitle>NRC ingredient nutrient database</CardTitle>
+          <CardDescription>
+            Browse the checked-in NRC 2012 ingredient matrix. Open an ingredient for its complete
+            composition, SID digestibility, minerals, source record, and farm-local price.
+          </CardDescription>
+        </div>
+        <div className="relative max-w-xl">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+          <Input
+            aria-label="Search ingredients"
+            placeholder="Search maize, soybean meal, limestone…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            className="pl-9"
+          />
+        </div>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid gap-4 lg:grid-cols-[minmax(280px,420px)_1fr]">
-          <div className="space-y-2">
-            <label htmlFor="ingredient-browser" className="text-xs font-medium text-ink-muted">
-              Ingredient
-            </label>
-            <Select value={ingredient.id} onValueChange={setIngredientId}>
-              <SelectTrigger id="ingredient-browser" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {library.ingredients.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="rounded-lg border border-hairline bg-raised/40 p-4 text-xs leading-5 text-ink-muted">
-            <div className="font-medium text-ink">{library.source.title}</div>
-            <div>
-              {library.source.edition} · {library.source.year} · {ingredient.provenance.sourceTable ?? "source table"}
-            </div>
-            <div>
-              NRC name: {ingredient.provenance.sourceIngredientName ?? ingredient.name}
-              {ingredient.provenance.sourcePage ? ` · p. ${ingredient.provenance.sourcePage}` : ""}
-            </div>
-          </div>
+
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+          <Badge variant="secondary">{library.ingredients.length} ingredients</Badge>
+          <span>{library.source.title}</span>
+          <span>·</span>
+          <span>{library.source.edition}</span>
+          <span>·</span>
+          <span>{library.source.year}</span>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Composition & energy</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableBody>
-                  {[
-                    ["Dry matter", display(ingredient.composition.dryMatterPct, "%")],
-                    ["Crude protein", display(ingredient.composition.crudeProteinPct, "%")],
-                    ["Crude fat", display(ingredient.composition.crudeFatPct, "%")],
-                    ["Crude fibre", display(ingredient.composition.crudeFibrePct, "%")],
-                    ["NDF", display(ingredient.composition.neutralDetergentFibrePct, "%")],
-                    ["ADF", display(ingredient.composition.acidDetergentFibrePct, "%")],
-                    ["Starch", display(ingredient.composition.starchPct, "%")],
-                    ["DE", display(ingredient.energy.digestibleKcalKg, "kcal/kg")],
-                    ["ME", display(ingredient.energy.metabolizableKcalKg, "kcal/kg")],
-                    ["NE", display(ingredient.energy.netKcalKg, "kcal/kg")],
-                  ].map(([label, value]) => (
-                    <TableRow key={label}>
-                      <TableCell className="text-sm text-ink-muted">{label}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{value}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Macro minerals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableBody>
-                  {[
-                    ["Calcium", display(ingredient.macroMinerals.calciumPct, "%")],
-                    ["Total phosphorus", display(ingredient.macroMinerals.totalPhosphorusPct, "%")],
-                    [
-                      "STTD P digestibility",
-                      display(ingredient.macroMinerals.sttdPhosphorusDigestibilityPct, "%"),
-                    ],
-                    ["Derived STTD phosphorus", display(sttdPhosphorusPctOf(ingredient), "%")],
-                    ["Sodium", display(ingredient.macroMinerals.sodiumPct, "%")],
-                    ["Chloride", display(ingredient.macroMinerals.chloridePct, "%")],
-                    ["Potassium", display(ingredient.macroMinerals.potassiumPct, "%")],
-                    ["Magnesium", display(ingredient.macroMinerals.magnesiumPct, "%")],
-                  ].map(([label, value]) => (
-                    <TableRow key={label}>
-                      <TableCell className="text-sm text-ink-muted">{label}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{value}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-
-        {aminoAcids.length > 0 ? (
-          <div>
-            <h3 className="mb-2 text-sm font-semibold text-ink">Amino acids</h3>
-            <div className="overflow-x-auto rounded-lg border border-hairline">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Amino acid</TableHead>
-                    <TableHead className="text-right">Total %</TableHead>
-                    <TableHead className="text-right">SID digestibility %</TableHead>
-                    <TableHead className="text-right">Derived SID %</TableHead>
+        <div className="overflow-x-auto rounded-lg border border-hairline">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ingredient</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">CP</TableHead>
+                <TableHead className="text-right">ME</TableHead>
+                <TableHead className="text-right">NE</TableHead>
+                <TableHead className="text-right">Farm price</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ingredients.map((ingredient) => {
+                const price = priceById.get(ingredient.id);
+                return (
+                  <TableRow key={ingredient.id}>
+                    <TableCell>
+                      <Link
+                        href={ingredientHref(projectId, ingredient.id)}
+                        className="font-medium text-ink underline-offset-4 hover:underline"
+                      >
+                        {ingredient.name}
+                      </Link>
+                      {ingredient.aliases.length > 0 ? (
+                        <div className="mt-1 text-xs text-ink-faint">
+                          {ingredient.aliases.slice(0, 3).join(", ")}
+                        </div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="capitalize text-ink-muted">
+                      {ingredient.category.replaceAll("_", " ")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {display(ingredient.composition.crudeProteinPct, "%")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {display(ingredient.energy.metabolizableKcalKg, "kcal/kg")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {display(ingredient.energy.netKcalKg, "kcal/kg")}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {price === undefined
+                        ? "—"
+                        : `${config.project.currency} ${price.toFixed(2)}/kg`}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {aminoAcids.map((name) => (
-                    <TableRow key={name}>
-                      <TableCell className="capitalize text-ink-muted">{name}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {display(ingredient.aminoAcids.totalPct[name])}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {display(ingredient.aminoAcids.sidDigestibilityPct[name])}
-                      </TableCell>
-                      <TableCell className="text-right font-mono">
-                        {display(sidAminoAcidPct(ingredient, name))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        ) : null}
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
 
-        {ingredient.provenance.notes.length > 0 || ingredient.constraints.notes.length > 0 ? (
-          <div className="rounded-lg border border-hairline bg-raised/40 px-4 py-3 text-xs leading-5 text-ink-muted">
-            {[...ingredient.provenance.notes, ...ingredient.constraints.notes].map((note) => (
-              <p key={note}>{note}</p>
-            ))}
+        {ingredients.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-hairline px-4 py-8 text-center text-sm text-ink-muted">
+            No NRC ingredients match “{query}”.
           </div>
         ) : null}
       </CardContent>
