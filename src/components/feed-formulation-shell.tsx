@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   FlaskConical,
+  Layers3,
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,6 +21,7 @@ import { feedFormulationHref } from "@/lib/routes";
 const NAV = [
   { href: feedFormulationHref(), label: "Dashboard", icon: LayoutDashboard },
   { href: feedFormulationHref("programmes"), label: "Programmes", icon: BookOpen },
+  { href: feedFormulationHref("formulations"), label: "Formulations", icon: Layers3 },
   { href: feedFormulationHref("ingredients"), label: "Ingredients", icon: Wheat },
   { href: feedFormulationHref("nutrients"), label: "Nutrients", icon: FlaskConical },
 ];
