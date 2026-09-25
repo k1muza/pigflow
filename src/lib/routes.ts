@@ -13,6 +13,7 @@ export const PLAN_TABS = [
   "overview",
   "simulator",
   "pedigree",
+  "nutrition",
   "money",
   "method",
   "cashflow",
