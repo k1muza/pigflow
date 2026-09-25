@@ -50,6 +50,21 @@ describe("PIC growing-pig nutrition programme", () => {
     expect(attached.phase.id).toBe("pic-grow-finish-23-41");
   });
 
+  it("is attached directly to a growing pig", () => {
+    const pig = new GrowingPig({
+      id: "p",
+      tag: "p",
+      sex: "female",
+      birthDay: 0,
+      weightKg: 30,
+      stage: "grower",
+    });
+
+    expect(pig.nutritionRequirements()?.phase.id).toBe("pic-grow-finish-23-41");
+    pig.weightKg = 60;
+    expect(pig.nutritionRequirements()?.phase.id).toBe("pic-grow-finish-59-82");
+  });
+
   it("rejects impossible liveweights instead of silently choosing a phase", () => {
     expect(() => nutritionPhaseAtWeight(-1)).toThrow(/non-negative finite liveweight/);
     expect(() => nutritionPhaseAtWeight(Number.NaN)).toThrow(/non-negative finite liveweight/);
