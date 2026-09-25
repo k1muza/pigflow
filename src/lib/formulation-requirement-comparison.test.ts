@@ -53,12 +53,12 @@ describe("formulation requirement comparison", () => {
 
     expect(result.rows.find((row) => row.id === "me")).toMatchObject({
       actual: "3,342 kcal/kg",
-      requirement: "3,395 kcal/kg",
+      requirement: "≥ 3,395 kcal/kg",
       status: "fail",
     });
     expect(result.rows.find((row) => row.id === "ne")).toMatchObject({
       actual: "2,515 kcal/kg",
-      requirement: "2,545 kcal/kg",
+      requirement: "≥ 2,545 kcal/kg",
       status: "fail",
     });
     expect(result.rows.find((row) => row.id === "soybean-meal")?.status).toBe("fail");
@@ -72,6 +72,12 @@ describe("formulation requirement comparison", () => {
 
     expect(result.incompleteCount).toBeGreaterThan(0);
     expect(result.rows.find((row) => row.id === "sid-threonine")).toMatchObject({
+      status: "incomplete",
+    });
+    expect(result.rows.find((row) => row.id === "zinc")).toMatchObject({
+      status: "incomplete",
+    });
+    expect(result.rows.find((row) => row.id === "vitamin-a")).toMatchObject({
       status: "incomplete",
     });
   });
