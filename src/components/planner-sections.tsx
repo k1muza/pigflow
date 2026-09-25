@@ -3461,14 +3461,14 @@ export function FarmInputs({
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field
-            label="Suckling daily gain"
-            value={config.growth.pigletDailyGainKg}
-            onChange={(v) => update("growth", "pigletDailyGainKg", v)}
-            suffix="kg/day at most"
-            min={0.05}
-            max={0.6}
-            step={0.01}
-            hint="What a piglet of this genotype puts on in a day when its dam's milk and the creep feeder cover everything it is trying to grow. A ceiling, not a rate it is given: what each litter actually makes is worked out from the sow feed she was handed and the creep the piglets ate, so a thin lactation ration shows up as a lighter weaner rather than a bigger bill."
+            label="Piglet growth potential"
+            value={config.growth.pigletGrowthPotentialPct}
+            onChange={(v) => update("growth", "pigletGrowthPotentialPct", v)}
+            suffix="% of reference curve"
+            min={50}
+            max={150}
+            step={1}
+            hint="100% uses the age-dependent biological-potential curve from ad-libitum artificial-rearing data. The curve rises as the piglet ages; milk and creep still decide how much of that potential a litter actually reaches."
           />
           <Field
             label="Weaning weight target"
