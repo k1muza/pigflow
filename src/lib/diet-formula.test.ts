@@ -34,8 +34,8 @@ function completeLibrary(): IngredientLibrary {
         },
         energy: {
           digestibleKcalKg: 3600,
-          metabolizableKcalKg: 3395,
-          netKcalKg: 2545,
+          metabolizableKcalKg: 3450,
+          netKcalKg: 2600,
         },
         aminoAcids: {
           totalPct: {},
@@ -55,10 +55,10 @@ function completeLibrary(): IngredientLibrary {
           },
         },
         macroMinerals: {
-          calciumPct: 0.7,
-          totalPhosphorusPct: 0.5,
-          availablePhosphorusPct: 0.45,
-          sttdPhosphorusPct: 0.5,
+          calciumPct: 1.1,
+          totalPhosphorusPct: 0.6,
+          availablePhosphorusPct: 0.52,
+          sttdPhosphorusPct: 0.55,
           sodiumPct: 0.4,
           chloridePct: 0.36,
         },
@@ -121,26 +121,22 @@ describe("diet formula analysis", () => {
     expect(result.missingPriceIngredientIds).toHaveLength(simple.ingredients.length);
   });
 
-  it("marks evaluation incomplete when micronutrient data is missing", () => {
+  it("keeps missing ingredient nutrient values explicit without adding Chapter 7 checks", () => {
     const result = evaluateDietForPhase(
       simple,
       nutritionPhaseAtWeight(30),
       "ME",
     );
 
-    expect(result.status).toBe("incomplete");
     expect(result.passes).toBe(false);
     expect(result.energyKcalKg).toBeGreaterThan(3000);
+    expect(result.checks.some((check) => check.status === "incomplete")).toBe(true);
     expect(result.checks.find((check) => check.id === "energy-basis")).toBeUndefined();
-    expect(result.checks.find((check) => check.id === "vitamin-a")?.status).toBe(
-      "incomplete",
-    );
-    expect(result.checks.find((check) => check.id === "iodine")?.status).toBe(
-      "incomplete",
-    );
+    expect(result.checks.find((check) => check.id === "vitamin-a")).toBeUndefined();
+    expect(result.checks.find((check) => check.id === "iodine")).toBeUndefined();
   });
 
-  it("checks prestarter published energy and available phosphorus directly", () => {
+  it("checks Brazilian pre-starter energy and available phosphorus directly", () => {
     const library = completeLibrary();
     const formula = {
       ingredients: [{ ingredientId: "complete-test-feed", inclusionPct: 100 }],
@@ -155,20 +151,20 @@ describe("diet formula analysis", () => {
     );
 
     expect(result.checks.find((check) => check.id === "energy-me")).toMatchObject({
-      actual: 3395,
-      bound: 3395,
+      actual: 3450,
+      bound: 3400,
       status: "pass",
     });
     expect(
       result.checks.find((check) => check.id === "available-phosphorus"),
     ).toMatchObject({
-      actual: 0.45,
-      bound: 0.4,
+      actual: 0.52,
+      bound: 0.443,
       status: "pass",
     });
   });
 
-  it("checks PIC trace-mineral and vitamin requirements instead of omitting them", () => {
+  it("does not treat Brazilian Chapter 7 supplementation guidance as Chapter 5 requirements", () => {
     const library = completeLibrary();
     const formula = {
       ingredients: [{ ingredientId: "complete-test-feed", inclusionPct: 100 }],
@@ -182,14 +178,10 @@ describe("diet formula analysis", () => {
       library,
     );
 
-    expect(result.checks.find((check) => check.id === "zinc")?.status).toBe("pass");
-    expect(result.checks.find((check) => check.id === "iodine")?.status).toBe("pass");
-    expect(result.checks.find((check) => check.id === "vitamin-a")?.status).toBe(
-      "pass",
-    );
-    expect(result.checks.find((check) => check.id === "vitamin-b12")?.status).toBe(
-      "pass",
-    );
+    expect(result.checks.find((check) => check.id === "zinc")).toBeUndefined();
+    expect(result.checks.find((check) => check.id === "iodine")).toBeUndefined();
+    expect(result.checks.find((check) => check.id === "vitamin-a")).toBeUndefined();
+    expect(result.checks.find((check) => check.id === "vitamin-b12")).toBeUndefined();
   });
 
   it("can return valid when every required grow-finish nutrient is known and passes", () => {
