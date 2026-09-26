@@ -31,6 +31,8 @@ function completeLibrary(): IngredientLibrary {
         composition: {
           dryMatterPct: 90,
           crudeProteinPct: 25,
+          digestibleProteinPct: 22,
+          linoleicAcidPct: 2,
         },
         energy: {
           digestibleKcalKg: 3600,
@@ -59,6 +61,7 @@ function completeLibrary(): IngredientLibrary {
           totalPhosphorusPct: 0.6,
           availablePhosphorusPct: 0.52,
           sttdPhosphorusPct: 0.55,
+          potassiumPct: 1,
           sodiumPct: 0.4,
           chloridePct: 0.36,
         },
@@ -160,6 +163,18 @@ describe("diet formula analysis", () => {
     ).toMatchObject({
       actual: 0.52,
       bound: 0.443,
+      status: "pass",
+    });
+    expect(result.checks.find((check) => check.id === "digestible-protein")).toMatchObject({
+      actual: 22,
+      status: "pass",
+    });
+    expect(result.checks.find((check) => check.id === "potassium")).toMatchObject({
+      actual: 1,
+      status: "pass",
+    });
+    expect(result.checks.find((check) => check.id === "linoleic-acid")).toMatchObject({
+      actual: 2,
       status: "pass",
     });
   });
