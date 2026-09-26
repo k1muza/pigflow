@@ -1,6 +1,12 @@
 import { z } from "zod";
 
-import {\n  feedSportIngredientRowsJson,\n  feedSportManifestJson,\n  feedSportNutrientsJson,\n} from "@/data/nutrition/feedsport/snapshot";\n\nconst compositionSchema = z.object({
+import {
+  feedSportIngredientRowsJson,
+  feedSportManifestJson,
+  feedSportNutrientsJson,
+} from "@/data/nutrition/feedsport/snapshot";
+
+const compositionSchema = z.object({
   nutrientId: z.union([z.string(), z.number()]),
   value: z.number().finite(),
   table: z.string(),
@@ -47,29 +53,11 @@ export type FeedSportIngredient = z.infer<typeof ingredientSchema>;
 export type FeedSportNutrient = z.infer<typeof nutrientSchema>;
 export type FeedSportSnapshotManifest = z.infer<typeof manifestSchema>;
 
-const ingredientRows = [
-  ...ingredients01,
-  ...ingredients02,
-  ...ingredients03,
-  ...ingredients04,
-  ...ingredients05,
-  ...ingredients06,
-  ...ingredients07,
-  ...ingredients08,
-  ...ingredients09,
-  ...ingredients10,
-  ...ingredients11,
-  ...ingredients12,
-  ...ingredients13,
-  ...ingredients14,
-  ...ingredients15,
-  ...ingredients16,
-  ...ingredients17,
-];
-
 export const FEEDSPORT_MANIFEST = manifestSchema.parse(feedSportManifestJson);
 export const FEEDSPORT_NUTRIENTS = z.array(nutrientSchema).parse(feedSportNutrientsJson);
-export const FEEDSPORT_INGREDIENTS = z.array(ingredientSchema).parse(feedSportIngredientRowsJson);
+export const FEEDSPORT_INGREDIENTS = z
+  .array(ingredientSchema)
+  .parse(feedSportIngredientRowsJson);
 
 export const FEEDSPORT_NUTRIENT_BY_ID = new Map(
   FEEDSPORT_NUTRIENTS.map((nutrient) => [String(nutrient.id), nutrient]),
@@ -80,9 +68,11 @@ export const FEEDSPORT_INGREDIENT_BY_ID = new Map(
 );
 
 /**
- * Returns the composition rows for one FeedSport nutrient without choosing
- * between competing source tables. The mapping layer can make that policy
- * explicitly later; this import boundary intentionally preserves the source.
+ * Returns every source row for one nutrient on one ingredient.
+ *
+ * FeedSport can legitimately carry more than one source table for a nutrient,
+ * so the import boundary does not choose a preferred value. The formulation
+ * mapping layer will make that policy explicitly.
  */
 export function feedSportCompositions(
   ingredientId: string,
