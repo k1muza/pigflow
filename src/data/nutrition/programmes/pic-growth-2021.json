@@ -1,0 +1,662 @@
+{
+  "schemaVersion": 1,
+  "id": "pic-growth-2021-04-14",
+  "name": "PIC growing pig nutrient specifications",
+  "source": {
+    "publisher": "PIC",
+    "title": "PIC Nutrition and Feeding Guidelines",
+    "version": "Metric Version 2021.04.14",
+    "sections": [
+      "Q — Nutrient Specifications for Prestart Pigs",
+      "R — Nutrient Specifications for Late Nursery and Grow-Finish Gilts and Barrows"
+    ],
+    "url": "https://www.pic.com/wp-content/uploads/sites/3/2021/03/PIC_Nutrition-Guidelines_English-Metric.pdf"
+  },
+  "phases": [
+    {
+      "id": "pic-prestart-weaning-7.5",
+      "label": "Prestart: weaning to ~7.5 kg",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 0,
+        "maxKg": 7.5,
+        "label": "Weaning to ~7.5 kg"
+      },
+      "lookupWeight": {
+        "minKg": 0,
+        "maxKg": 7.5
+      },
+      "requirements": {
+        "energy": {
+          "netKcalKg": 2545,
+          "metabolizableKcalKg": 3395
+        },
+        "aminoAcids": {
+          "sidLysinePct": 1.46,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 65,
+            "tryptophan": 20,
+            "valine": 67,
+            "isoleucine": 55,
+            "leucine": 100,
+            "histidine": 32,
+            "phenylalanineTyrosine": 92
+          }
+        },
+        "macroMinerals": {
+          "availablePhosphorusPct": 0.45,
+          "sttdPhosphorusPct": 0.5,
+          "calciumPct": 0.65,
+          "sodiumPct": 0.4,
+          "chloridePctRange": {
+            "min": 0.35,
+            "max": 0.4
+          }
+        },
+        "traceMineralsPpm": {
+          "zinc": 130,
+          "iron": 130,
+          "manganese": 50,
+          "copper": 18,
+          "iodine": 0.65,
+          "selenium": 0.3
+        },
+        "vitamins": {
+          "vitaminAIuKg": 5000,
+          "vitaminDIuKg": 1600,
+          "vitaminEIuKg": 50,
+          "vitaminKMgKg": 3,
+          "niacinMgKg": 50,
+          "riboflavinMgKg": 8,
+          "pantothenicAcidMgKg": 28,
+          "vitaminB12McgKg": 38,
+          "totalCholineMgKg": 1325
+        },
+        "practical": {
+          "soybeanMealMaxPct": 20,
+          "sidLysineToCrudeProteinMaxPct": 6.4,
+          "highlyDigestibleProteinPctRange": {
+            "min": 5,
+            "max": 10
+          },
+          "highlyDigestibleCarbohydratePct": 15
+        }
+      }
+    },
+    {
+      "id": "pic-prestart-7.5-11.5",
+      "label": "Prestart: ~7.5 to 11.5 kg",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 7.5,
+        "maxKg": 11.5,
+        "label": "~7.5 to 11.5 kg"
+      },
+      "lookupWeight": {
+        "minKg": 7.5,
+        "maxKg": 11.5
+      },
+      "requirements": {
+        "energy": {
+          "netKcalKg": 2545,
+          "metabolizableKcalKg": 3395
+        },
+        "aminoAcids": {
+          "sidLysinePct": 1.42,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 65,
+            "tryptophan": 19,
+            "valine": 67,
+            "isoleucine": 55,
+            "leucine": 100,
+            "histidine": 32,
+            "phenylalanineTyrosine": 92
+          }
+        },
+        "macroMinerals": {
+          "availablePhosphorusPct": 0.4,
+          "sttdPhosphorusPct": 0.45,
+          "calciumPct": 0.65,
+          "sodiumPct": 0.35,
+          "chloridePct": 0.32
+        },
+        "traceMineralsPpm": {
+          "zinc": 130,
+          "iron": 130,
+          "manganese": 50,
+          "copper": 18,
+          "iodine": 0.65,
+          "selenium": 0.3
+        },
+        "vitamins": {
+          "vitaminAIuKg": 5000,
+          "vitaminDIuKg": 1600,
+          "vitaminEIuKg": 50,
+          "vitaminKMgKg": 3,
+          "niacinMgKg": 50,
+          "riboflavinMgKg": 8,
+          "pantothenicAcidMgKg": 28,
+          "vitaminB12McgKg": 38,
+          "totalCholineMgKg": 1325
+        },
+        "practical": {
+          "soybeanMealMaxPct": 28,
+          "sidLysineToCrudeProteinMaxPct": 6.4,
+          "highlyDigestibleProteinPctRange": {
+            "min": 3,
+            "max": 5
+          },
+          "highlyDigestibleCarbohydratePct": 7.5
+        }
+      }
+    },
+    {
+      "id": "pic-late-nursery-11-23",
+      "label": "Late nursery: 11–23 kg",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 11,
+        "maxKg": 23,
+        "label": "11–23 kg"
+      },
+      "lookupWeight": {
+        "minKg": 11.5,
+        "maxKg": 23
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 5.32,
+          "sidLysineGPerMcalME": 3.9,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 65,
+            "tryptophan": 19,
+            "valine": 68,
+            "isoleucine": 55,
+            "leucine": 100,
+            "histidine": 32,
+            "phenylalanineTyrosine": 92
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 1.8,
+          "sttdPhosphorusGPerMcalME": 1.32,
+          "availablePhosphorusGPerMcalNE": 1.54,
+          "availablePhosphorusGPerMcalME": 1.14,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.28,
+          "chloridePct": 0.32
+        },
+        "traceMineralsPpm": {
+          "zinc": 130,
+          "iron": 130,
+          "manganese": 50,
+          "copper": 18,
+          "iodine": 0.65,
+          "selenium": 0.3
+        },
+        "vitamins": {
+          "vitaminAIuKg": 5000,
+          "vitaminDIuKg": 1600,
+          "vitaminEIuKg": 51,
+          "vitaminKMgKg": 3.1,
+          "niacinMgKg": 51,
+          "riboflavinMgKg": 8,
+          "pantothenicAcidMgKg": 28,
+          "vitaminB12McgKg": 38,
+          "totalCholineMgKg": 1325
+        },
+        "practical": {
+          "sidLysineToCrudeProteinMaxPct": 6.4
+        }
+      }
+    },
+    {
+      "id": "pic-grow-finish-23-41",
+      "label": "Grow-finish: 23–41 kg",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 23,
+        "maxKg": 41,
+        "label": "23–41 kg"
+      },
+      "lookupWeight": {
+        "minKg": 23,
+        "maxKg": 41
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 4.74,
+          "sidLysineGPerMcalME": 3.47,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 65,
+            "tryptophan": 18,
+            "valine": 68,
+            "isoleucine": 56,
+            "leucine": 101,
+            "histidine": 34,
+            "phenylalanineTyrosine": 94
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 1.62,
+          "sttdPhosphorusGPerMcalME": 1.2,
+          "availablePhosphorusGPerMcalNE": 1.39,
+          "availablePhosphorusGPerMcalME": 1.03,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.25,
+          "chloridePct": 0.25
+        },
+        "traceMineralsPpm": {
+          "zinc": 111,
+          "iron": 111,
+          "manganese": 43,
+          "copper": 15,
+          "iodine": 0.55,
+          "selenium": 0.3
+        },
+        "vitamins": {
+          "vitaminAIuKg": 4250,
+          "vitaminDIuKg": 1360,
+          "vitaminEIuKg": 44,
+          "vitaminKMgKg": 2.6,
+          "niacinMgKg": 44,
+          "riboflavinMgKg": 7,
+          "pantothenicAcidMgKg": 24,
+          "vitaminB12McgKg": 33
+        },
+        "practical": {
+          "lLysineHclMaxPct": 0.45
+        }
+      }
+    },
+    {
+      "id": "pic-grow-finish-41-59",
+      "label": "Grow-finish: 41–59 kg",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 41,
+        "maxKg": 59,
+        "label": "41–59 kg"
+      },
+      "lookupWeight": {
+        "minKg": 41,
+        "maxKg": 59
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 4.11,
+          "sidLysineGPerMcalME": 3.03,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 65,
+            "tryptophan": 18,
+            "valine": 68,
+            "isoleucine": 56,
+            "leucine": 101,
+            "histidine": 34,
+            "phenylalanineTyrosine": 94
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 1.43,
+          "sttdPhosphorusGPerMcalME": 1.07,
+          "availablePhosphorusGPerMcalNE": 1.23,
+          "availablePhosphorusGPerMcalME": 0.92,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.25,
+          "chloridePct": 0.25
+        },
+        "traceMineralsPpm": {
+          "zinc": 98,
+          "iron": 98,
+          "manganese": 38,
+          "copper": 14,
+          "iodine": 0.49,
+          "selenium": 0.3
+        },
+        "vitamins": {
+          "vitaminAIuKg": 3750,
+          "vitaminDIuKg": 1200,
+          "vitaminEIuKg": 37,
+          "vitaminKMgKg": 2.4,
+          "niacinMgKg": 37,
+          "riboflavinMgKg": 7,
+          "pantothenicAcidMgKg": 22,
+          "vitaminB12McgKg": 29
+        },
+        "practical": {
+          "lLysineHclMaxPct": 0.4
+        }
+      }
+    },
+    {
+      "id": "pic-grow-finish-59-82",
+      "label": "Grow-finish: 59–82 kg",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 59,
+        "maxKg": 82,
+        "label": "59–82 kg"
+      },
+      "lookupWeight": {
+        "minKg": 59,
+        "maxKg": 82
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 3.54,
+          "sidLysineGPerMcalME": 2.62,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 65,
+            "tryptophan": 18,
+            "valine": 68,
+            "isoleucine": 56,
+            "leucine": 101,
+            "histidine": 34,
+            "phenylalanineTyrosine": 94
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 1.25,
+          "sttdPhosphorusGPerMcalME": 0.95,
+          "availablePhosphorusGPerMcalNE": 1.07,
+          "availablePhosphorusGPerMcalME": 0.82,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.25,
+          "chloridePct": 0.25
+        },
+        "traceMineralsPpm": {
+          "zinc": 78,
+          "iron": 78,
+          "manganese": 30,
+          "copper": 11,
+          "iodine": 0.39,
+          "selenium": 0.3
+        },
+        "vitamins": {
+          "vitaminAIuKg": 3000,
+          "vitaminDIuKg": 960,
+          "vitaminEIuKg": 31,
+          "vitaminKMgKg": 1.8,
+          "niacinMgKg": 31,
+          "riboflavinMgKg": 4,
+          "pantothenicAcidMgKg": 18,
+          "vitaminB12McgKg": 22
+        },
+        "practical": {
+          "lLysineHclMaxPct": 0.35
+        }
+      }
+    },
+    {
+      "id": "pic-grow-finish-82-104",
+      "label": "Grow-finish: 82–104 kg",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 82,
+        "maxKg": 104,
+        "label": "82–104 kg"
+      },
+      "lookupWeight": {
+        "minKg": 82,
+        "maxKg": 104
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 3.06,
+          "sidLysineGPerMcalME": 2.29,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 65,
+            "tryptophan": 18,
+            "valine": 68,
+            "isoleucine": 56,
+            "leucine": 101,
+            "histidine": 34,
+            "phenylalanineTyrosine": 95
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 1.1,
+          "sttdPhosphorusGPerMcalME": 0.84,
+          "availablePhosphorusGPerMcalNE": 0.94,
+          "availablePhosphorusGPerMcalME": 0.72,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.25,
+          "chloridePct": 0.25
+        },
+        "traceMineralsPpm": {
+          "zinc": 65,
+          "iron": 65,
+          "manganese": 25,
+          "copper": 9,
+          "iodine": 0.33,
+          "selenium": 0.25
+        },
+        "vitamins": {
+          "vitaminAIuKg": 2500,
+          "vitaminDIuKg": 800,
+          "vitaminEIuKg": 26,
+          "vitaminKMgKg": 1.5,
+          "niacinMgKg": 26,
+          "riboflavinMgKg": 4,
+          "pantothenicAcidMgKg": 14,
+          "vitaminB12McgKg": 20
+        },
+        "practical": {
+          "lLysineHclMaxPct": 0.28
+        }
+      }
+    },
+    {
+      "id": "pic-grow-finish-104-market",
+      "label": "Grow-finish: 104 kg to market",
+      "variant": "standard",
+      "sourceWeight": {
+        "minKg": 104,
+        "maxKg": null,
+        "label": "104 kg to market"
+      },
+      "lookupWeight": {
+        "minKg": 104,
+        "maxKg": null
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 2.72,
+          "sidLysineGPerMcalME": 2.08,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 66,
+            "tryptophan": 18,
+            "valine": 68,
+            "isoleucine": 56,
+            "leucine": 102,
+            "histidine": 34,
+            "phenylalanineTyrosine": 96
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 0.99,
+          "sttdPhosphorusGPerMcalME": 0.77,
+          "availablePhosphorusGPerMcalNE": 0.85,
+          "availablePhosphorusGPerMcalME": 0.66,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.25,
+          "chloridePct": 0.25
+        },
+        "traceMineralsPpm": {
+          "zinc": 65,
+          "iron": 65,
+          "manganese": 25,
+          "copper": 9,
+          "iodine": 0.33,
+          "selenium": 0.25
+        },
+        "vitamins": {
+          "vitaminAIuKg": 2500,
+          "vitaminDIuKg": 800,
+          "vitaminEIuKg": 26,
+          "vitaminKMgKg": 1.5,
+          "niacinMgKg": 26,
+          "riboflavinMgKg": 4,
+          "pantothenicAcidMgKg": 14,
+          "vitaminB12McgKg": 20
+        },
+        "practical": {
+          "lLysineHclMaxPct": 0.25,
+          "crudeProteinMinPct": 13
+        }
+      }
+    },
+    {
+      "id": "pic-grow-finish-104-market-ractopamine-lt21d",
+      "label": "104 kg to market with ractopamine (<21 days)",
+      "variant": "ractopamine_lt_21d",
+      "sourceWeight": {
+        "minKg": 104,
+        "maxKg": null,
+        "label": "104 kg to market with ractopamine, <21 days"
+      },
+      "lookupWeight": {
+        "minKg": 104,
+        "maxKg": null
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 3.92,
+          "sidLysineGPerMcalME": 2.99,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 68,
+            "tryptophan": 20,
+            "valine": 68,
+            "isoleucine": 56,
+            "leucine": 100,
+            "histidine": 33,
+            "phenylalanineTyrosine": 94
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 1.2,
+          "sttdPhosphorusGPerMcalME": 0.93,
+          "availablePhosphorusGPerMcalNE": 0.99,
+          "availablePhosphorusGPerMcalME": 0.77,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.25,
+          "chloridePct": 0.25
+        },
+        "traceMineralsPpm": {
+          "zinc": 65,
+          "iron": 65,
+          "manganese": 25,
+          "copper": 9,
+          "iodine": 0.33,
+          "selenium": 0.25
+        },
+        "vitamins": {
+          "vitaminAIuKg": 2500,
+          "vitaminDIuKg": 800,
+          "vitaminEIuKg": 26,
+          "vitaminKMgKg": 1.5,
+          "niacinMgKg": 26,
+          "riboflavinMgKg": 4,
+          "pantothenicAcidMgKg": 14,
+          "vitaminB12McgKg": 20
+        },
+        "practical": {
+          "lLysineHclMaxPct": 0.45
+        }
+      }
+    },
+    {
+      "id": "pic-grow-finish-104-market-ractopamine-gt21d",
+      "label": "104 kg to market with ractopamine (>21 days)",
+      "variant": "ractopamine_gt_21d",
+      "sourceWeight": {
+        "minKg": 104,
+        "maxKg": null,
+        "label": "104 kg to market with ractopamine, >21 days"
+      },
+      "lookupWeight": {
+        "minKg": 104,
+        "maxKg": null
+      },
+      "requirements": {
+        "aminoAcids": {
+          "sidLysineGPerMcalNE": 3.81,
+          "sidLysineGPerMcalME": 2.91,
+          "ratiosToSidLysinePct": {
+            "methionineCysteine": 58,
+            "threonine": 68,
+            "tryptophan": 20,
+            "valine": 68,
+            "isoleucine": 56,
+            "leucine": 100,
+            "histidine": 33,
+            "phenylalanineTyrosine": 95
+          }
+        },
+        "macroMinerals": {
+          "sttdPhosphorusGPerMcalNE": 1.16,
+          "sttdPhosphorusGPerMcalME": 0.9,
+          "availablePhosphorusGPerMcalNE": 0.96,
+          "availablePhosphorusGPerMcalME": 0.74,
+          "analyzedCalciumToPhosphorusRange": {
+            "min": 1.25,
+            "max": 1.5
+          },
+          "sodiumPct": 0.25,
+          "chloridePct": 0.25
+        },
+        "traceMineralsPpm": {
+          "zinc": 65,
+          "iron": 65,
+          "manganese": 25,
+          "copper": 9,
+          "iodine": 0.33,
+          "selenium": 0.25
+        },
+        "vitamins": {
+          "vitaminAIuKg": 2500,
+          "vitaminDIuKg": 800,
+          "vitaminEIuKg": 26,
+          "vitaminKMgKg": 1.5,
+          "niacinMgKg": 26,
+          "riboflavinMgKg": 4,
+          "pantothenicAcidMgKg": 14,
+          "vitaminB12McgKg": 20
+        },
+        "practical": {
+          "lLysineHclMaxPct": 0.45
+        }
+      }
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import {
   type PlannerConfig,
 } from "../config";
 import { achievedGainKg, dailyFeedKg, growthAccountOf } from "../growth-curve";
+import { nutritionForGrowthStage, type GrowthStageNutrition } from "../nutrition";
 import {
   lactationDemandOf,
   potentialPigletGainKg,
@@ -352,6 +353,20 @@ export class GrowingPig extends Animal {
 
   get suckling(): boolean {
     return this.stage === "piglet";
+  }
+
+  /**
+   * The nutrient specification this growing pig should be formulated to today.
+   *
+   * Nutrition follows liveweight rather than PigFlow's configurable housing
+   * stage thresholds. That keeps a dietary phase from changing merely because
+   * a farmer calls a room "grower" earlier or later than the reference manual.
+   * Suckling piglets and selected replacement gilts use different feeding
+   * models and are intentionally outside this growing-pig programme.
+   */
+  nutritionRequirements(): GrowthStageNutrition | null {
+    if (this.stage === "piglet" || this.stage === "gilt") return null;
+    return nutritionForGrowthStage(this.stage, this.weightKg);
   }
 
   dailyGainKg(config: PlannerConfig, day?: number): number {

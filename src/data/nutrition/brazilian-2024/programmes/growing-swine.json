@@ -1,0 +1,839 @@
+{
+  "schemaVersion": 1,
+  "id": "brazilian-2024-growing-swine",
+  "sourceId": "brazilian-tables-2024",
+  "chapter": 5,
+  "title": "Nutritional Requirements of Growing Swine",
+  "aminoAcidRatios": {
+    "sourceTable": "5.30",
+    "printedPage": 417,
+    "basis": "ratio to lysine (%)",
+    "phases": {
+      "preStarter": {
+        "ageDays": {
+          "max": 49
+        },
+        "sid": {
+          "lysine": 100,
+          "methionine": 33,
+          "methionineCysteine": 60,
+          "threonine": 68,
+          "tryptophan": 21,
+          "arginine": 100,
+          "valine": 70,
+          "isoleucine": 55,
+          "leucine": 102,
+          "histidine": 33,
+          "phenylalanine": 54,
+          "phenylalanineTyrosine": 100
+        },
+        "total": {
+          "lysine": 100,
+          "methionine": 32,
+          "methionineCysteine": 59,
+          "threonine": 71,
+          "tryptophan": 21,
+          "arginine": 99,
+          "valine": 71,
+          "isoleucine": 55,
+          "leucine": 99,
+          "histidine": 32,
+          "phenylalanine": 53,
+          "phenylalanineTyrosine": 98
+        }
+      },
+      "starter": {
+        "ageDays": {
+          "min": 49,
+          "max": 63
+        },
+        "sid": {
+          "lysine": 100,
+          "methionine": 33,
+          "methionineCysteine": 60,
+          "threonine": 68,
+          "tryptophan": 20,
+          "arginine": 45,
+          "valine": 70,
+          "isoleucine": 55,
+          "leucine": 102,
+          "histidine": 33,
+          "phenylalanine": 54,
+          "phenylalanineTyrosine": 100
+        },
+        "total": {
+          "lysine": 100,
+          "methionine": 32,
+          "methionineCysteine": 59,
+          "threonine": 71,
+          "tryptophan": 20,
+          "arginine": 44,
+          "valine": 71,
+          "isoleucine": 55,
+          "leucine": 99,
+          "histidine": 32,
+          "phenylalanine": 53,
+          "phenylalanineTyrosine": 98
+        }
+      },
+      "grower": {
+        "ageDays": {
+          "min": 63,
+          "max": 119
+        },
+        "sid": {
+          "lysine": 100,
+          "methionine": 33,
+          "methionineCysteine": 60,
+          "threonine": 68,
+          "tryptophan": 20,
+          "arginine": 42,
+          "valine": 69,
+          "isoleucine": 55,
+          "leucine": 100,
+          "histidine": 33,
+          "phenylalanine": 54,
+          "phenylalanineTyrosine": 100
+        },
+        "total": {
+          "lysine": 100,
+          "methionine": 32,
+          "methionineCysteine": 59,
+          "threonine": 71,
+          "tryptophan": 20,
+          "arginine": 40,
+          "valine": 70,
+          "isoleucine": 55,
+          "leucine": 97,
+          "histidine": 32,
+          "phenylalanine": 53,
+          "phenylalanineTyrosine": 98
+        }
+      },
+      "finisher": {
+        "ageDays": {
+          "min": 119,
+          "max": 175
+        },
+        "sid": {
+          "lysine": 100,
+          "methionine": 33,
+          "methionineCysteine": 60,
+          "threonine": 68,
+          "tryptophan": 20,
+          "arginine": 40,
+          "valine": 69,
+          "isoleucine": 55,
+          "leucine": 100,
+          "histidine": 33,
+          "phenylalanine": 54,
+          "phenylalanineTyrosine": 100
+        },
+        "total": {
+          "lysine": 100,
+          "methionine": 32,
+          "methionineCysteine": 59,
+          "threonine": 71,
+          "tryptophan": 20,
+          "arginine": 38,
+          "valine": 70,
+          "isoleucine": 55,
+          "leucine": 97,
+          "histidine": 32,
+          "phenylalanine": 53,
+          "phenylalanineTyrosine": 98
+        }
+      }
+    }
+  },
+  "programmes": [
+    {
+      "id": "prestarter-high-genetic-potential",
+      "sourceTable": "5.32",
+      "printedPage": 419,
+      "population": {
+        "geneticPotential": "high",
+        "sexes": [
+          "barrow",
+          "gilt",
+          "entire-male"
+        ],
+        "performance": "not-separated"
+      },
+      "phases": [
+        {
+          "id": "14-21d-4.4-6.2kg",
+          "phase": "pre-starter",
+          "ageDays": {
+            "min": 14,
+            "max": 21
+          },
+          "weightKg": {
+            "min": 4.4,
+            "max": 6.2
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3450,
+            "netEnergyKcalKg": 2588
+          },
+          "nutrientsPct": {
+            "calcium": 1.086,
+            "availablePhosphorus": 0.514,
+            "digestiblePhosphorus": 0.535,
+            "potassium": 0.527,
+            "sodium": 0.23,
+            "chloride": 0.219,
+            "linoleicAcid": 0.554,
+            "digestibleProtein": 20.94,
+            "crudeProtein": 23.68
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 1.493,
+            "methionine": 0.493,
+            "methionineCysteine": 0.896,
+            "threonine": 1.015,
+            "tryptophan": 0.313,
+            "arginine": 1.493,
+            "valine": 1.045,
+            "isoleucine": 0.821,
+            "leucine": 1.522,
+            "histidine": 0.493,
+            "phenylalanine": 0.806,
+            "phenylalanineTyrosine": 1.493
+          }
+        },
+        {
+          "id": "21-35d-6.2-8.4kg",
+          "phase": "pre-starter",
+          "ageDays": {
+            "min": 21,
+            "max": 35
+          },
+          "weightKg": {
+            "min": 6.2,
+            "max": 8.4
+          },
+          "averageWeightKg": 8.37,
+          "gainKgDay": 0.309,
+          "feedIntakeKgDay": 0.388,
+          "dailyRequirements": {
+            "sidLysineG": 5.61,
+            "digestiblePhosphorusG": 1.9,
+            "availablePhosphorusG": 1.98,
+            "metabolizableEnergyKcal": 1338
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3450,
+            "netEnergyKcalKg": 2588
+          },
+          "nutrientsPct": {
+            "calcium": 1.038,
+            "availablePhosphorus": 0.491,
+            "digestiblePhosphorus": 0.512,
+            "potassium": 0.522,
+            "sodium": 0.226,
+            "chloride": 0.216,
+            "linoleicAcid": 0.38,
+            "digestibleProtein": 20.29,
+            "crudeProtein": 22.94
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 1.446,
+            "methionine": 0.477,
+            "methionineCysteine": 0.868,
+            "threonine": 0.984,
+            "tryptophan": 0.304,
+            "arginine": 1.446,
+            "valine": 1.012,
+            "isoleucine": 0.796,
+            "leucine": 1.475,
+            "histidine": 0.477,
+            "phenylalanine": 0.781,
+            "phenylalanineTyrosine": 1.446
+          }
+        },
+        {
+          "id": "35-49d-8.4-17.9kg",
+          "phase": "pre-starter",
+          "ageDays": {
+            "min": 35,
+            "max": 49
+          },
+          "weightKg": {
+            "min": 8.4,
+            "max": 17.9
+          },
+          "averageWeightKg": 14.2,
+          "gainKgDay": 0.454,
+          "feedIntakeKgDay": 0.631,
+          "dailyRequirements": {
+            "sidLysineG": 8.43,
+            "digestiblePhosphorusG": 2.8,
+            "availablePhosphorusG": 2.92,
+            "metabolizableEnergyKcal": 2145
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3400,
+            "netEnergyKcalKg": 2550
+          },
+          "nutrientsPct": {
+            "calcium": 0.938,
+            "availablePhosphorus": 0.443,
+            "digestiblePhosphorus": 0.462,
+            "potassium": 0.506,
+            "sodium": 0.217,
+            "chloride": 0.207,
+            "linoleicAcid": 0.248,
+            "digestibleProtein": 18.75,
+            "crudeProtein": 21.2
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 1.336,
+            "methionine": 0.441,
+            "methionineCysteine": 0.802,
+            "threonine": 0.909,
+            "tryptophan": 0.281,
+            "arginine": 1.336,
+            "valine": 0.936,
+            "isoleucine": 0.735,
+            "leucine": 1.363,
+            "histidine": 0.441,
+            "phenylalanine": 0.722,
+            "phenylalanineTyrosine": 1.336
+          }
+        }
+      ],
+      "notes": [
+        "Table footnote recommends considering lower total calcium values (0.800–0.700%) to reduce diarrhea incidence."
+      ]
+    },
+    {
+      "id": "high-performance-mixed-sex",
+      "sourceTable": "5.41",
+      "printedPage": 428,
+      "population": {
+        "geneticPotential": "high",
+        "sexes": [
+          "mixed"
+        ],
+        "performance": "high"
+      },
+      "phases": [
+        {
+          "id": "49-63d-18-27kg",
+          "phase": "starter",
+          "ageDays": {
+            "min": 49,
+            "max": 63
+          },
+          "weightKg": {
+            "min": 18,
+            "max": 27
+          },
+          "averageWeightKg": 22.19,
+          "gainKgDay": 0.593,
+          "feedIntakeKgDay": 0.93,
+          "dailyRequirements": {
+            "sidLysineG": 11.45,
+            "digestiblePhosphorusG": 3.68,
+            "availablePhosphorusG": 3.84,
+            "metabolizableEnergyKcal": 3115
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3350,
+            "netEnergyKcalKg": 2482
+          },
+          "nutrientsPct": {
+            "calcium": 0.838,
+            "availablePhosphorus": 0.396,
+            "digestiblePhosphorus": 0.413,
+            "potassium": 0.488,
+            "sodium": 0.206,
+            "chloride": 0.196,
+            "linoleicAcid": 0.182,
+            "digestibleProtein": 17.92,
+            "crudeProtein": 20.22
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 1.232,
+            "methionine": 0.407,
+            "methionineCysteine": 0.739,
+            "threonine": 0.838,
+            "tryptophan": 0.247,
+            "arginine": 0.554,
+            "valine": 0.863,
+            "isoleucine": 0.678,
+            "leucine": 1.256,
+            "histidine": 0.407,
+            "phenylalanine": 0.665,
+            "phenylalanineTyrosine": 1.232
+          }
+        },
+        {
+          "id": "63-91d-27-50kg",
+          "phase": "grower",
+          "ageDays": {
+            "min": 63,
+            "max": 91
+          },
+          "weightKg": {
+            "min": 27,
+            "max": 50
+          },
+          "averageWeightKg": 37.7,
+          "gainKgDay": 0.809,
+          "feedIntakeKgDay": 1.507,
+          "dailyRequirements": {
+            "sidLysineG": 16.54,
+            "digestiblePhosphorusG": 5.09,
+            "availablePhosphorusG": 5.3,
+            "metabolizableEnergyKcal": 5047
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3350,
+            "netEnergyKcalKg": 2535
+          },
+          "nutrientsPct": {
+            "calcium": 0.714,
+            "availablePhosphorus": 0.338,
+            "digestiblePhosphorus": 0.352,
+            "potassium": 0.468,
+            "sodium": 0.192,
+            "chloride": 0.183,
+            "linoleicAcid": 0.128,
+            "digestibleProtein": 15.77,
+            "crudeProtein": 17.72
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 1.101,
+            "methionine": 0.363,
+            "methionineCysteine": 0.66,
+            "threonine": 0.748,
+            "tryptophan": 0.22,
+            "arginine": 0.463,
+            "valine": 0.76,
+            "isoleucine": 0.605,
+            "leucine": 1.101,
+            "histidine": 0.363,
+            "phenylalanine": 0.595,
+            "phenylalanineTyrosine": 1.101
+          }
+        },
+        {
+          "id": "91-119d-50-80kg",
+          "phase": "grower",
+          "ageDays": {
+            "min": 91,
+            "max": 119
+          },
+          "weightKg": {
+            "min": 50,
+            "max": 80
+          },
+          "averageWeightKg": 64.33,
+          "gainKgDay": 1.023,
+          "feedIntakeKgDay": 2.377,
+          "dailyRequirements": {
+            "sidLysineG": 22.25,
+            "digestiblePhosphorusG": 6.59,
+            "availablePhosphorusG": 6.86,
+            "metabolizableEnergyKcal": 7963
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3350,
+            "netEnergyKcalKg": 2564
+          },
+          "nutrientsPct": {
+            "calcium": 0.588,
+            "availablePhosphorus": 0.278,
+            "digestiblePhosphorus": 0.29,
+            "potassium": 0.435,
+            "sodium": 0.172,
+            "chloride": 0.158,
+            "linoleicAcid": 0.099,
+            "digestibleProtein": 13.46,
+            "crudeProtein": 15.13
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 0.939,
+            "methionine": 0.31,
+            "methionineCysteine": 0.564,
+            "threonine": 0.639,
+            "tryptophan": 0.188,
+            "arginine": 0.395,
+            "valine": 0.648,
+            "isoleucine": 0.517,
+            "leucine": 0.939,
+            "histidine": 0.31,
+            "phenylalanine": 0.507,
+            "phenylalanineTyrosine": 0.939
+          }
+        },
+        {
+          "id": "119-147d-80-110kg",
+          "phase": "finisher",
+          "ageDays": {
+            "min": 119,
+            "max": 147
+          },
+          "weightKg": {
+            "min": 80,
+            "max": 110
+          },
+          "averageWeightKg": 94.78,
+          "gainKgDay": 1.11,
+          "feedIntakeKgDay": 3.095,
+          "dailyRequirements": {
+            "sidLysineG": 24.64,
+            "digestiblePhosphorusG": 7.42,
+            "availablePhosphorusG": 7.7,
+            "metabolizableEnergyKcal": 10367
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3350,
+            "netEnergyKcalKg": 2579
+          },
+          "nutrientsPct": {
+            "calcium": 0.507,
+            "availablePhosphorus": 0.241,
+            "digestiblePhosphorus": 0.25,
+            "potassium": 0.401,
+            "sodium": 0.158,
+            "chloride": 0.15,
+            "linoleicAcid": 0.091,
+            "digestibleProtein": 11.35,
+            "crudeProtein": 12.76
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 0.798,
+            "methionine": 0.263,
+            "methionineCysteine": 0.479,
+            "threonine": 0.543,
+            "tryptophan": 0.16,
+            "arginine": 0.319,
+            "valine": 0.551,
+            "isoleucine": 0.439,
+            "leucine": 0.798,
+            "histidine": 0.263,
+            "phenylalanine": 0.431,
+            "phenylalanineTyrosine": 0.798
+          }
+        },
+        {
+          "id": "147-175d-110-141kg",
+          "phase": "finisher",
+          "ageDays": {
+            "min": 147,
+            "max": 175
+          },
+          "weightKg": {
+            "min": 110,
+            "max": 141
+          },
+          "averageWeightKg": 125.54,
+          "gainKgDay": 1.079,
+          "feedIntakeKgDay": 3.466,
+          "dailyRequirements": {
+            "sidLysineG": 23.23,
+            "digestiblePhosphorusG": 7.58,
+            "availablePhosphorusG": 7.85,
+            "metabolizableEnergyKcal": 11613
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3350,
+            "netEnergyKcalKg": 2613
+          },
+          "nutrientsPct": {
+            "calcium": 0.462,
+            "availablePhosphorus": 0.219,
+            "digestiblePhosphorus": 0.227,
+            "potassium": 0.371,
+            "sodium": 0.154,
+            "chloride": 0.147,
+            "linoleicAcid": 0.095,
+            "digestibleProtein": 9.53,
+            "crudeProtein": 10.71
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 0.67,
+            "methionine": 0.221,
+            "methionineCysteine": 0.402,
+            "threonine": 0.456,
+            "tryptophan": 0.134,
+            "arginine": 0.268,
+            "valine": 0.463,
+            "isoleucine": 0.369,
+            "leucine": 0.67,
+            "histidine": 0.221,
+            "phenylalanine": 0.362,
+            "phenylalanineTyrosine": 0.67
+          }
+        }
+      ]
+    },
+    {
+      "id": "standard-performance-mixed-sex",
+      "sourceTable": "5.43",
+      "printedPage": 430,
+      "population": {
+        "geneticPotential": "high",
+        "sexes": [
+          "mixed"
+        ],
+        "performance": "standard"
+      },
+      "phases": [
+        {
+          "id": "49-63d-16-26kg",
+          "phase": "starter",
+          "ageDays": {
+            "min": 49,
+            "max": 63
+          },
+          "weightKg": {
+            "min": 16,
+            "max": 26
+          },
+          "averageWeightKg": 21.32,
+          "gainKgDay": 0.564,
+          "feedIntakeKgDay": 0.939,
+          "dailyRequirements": {
+            "sidLysineG": 10.85,
+            "digestiblePhosphorusG": 3.51,
+            "availablePhosphorusG": 3.66,
+            "metabolizableEnergyKcal": 3051
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3250,
+            "netEnergyKcalKg": 2427
+          },
+          "nutrientsPct": {
+            "calcium": 0.792,
+            "availablePhosphorus": 0.375,
+            "digestiblePhosphorus": 0.391,
+            "potassium": 0.475,
+            "sodium": 0.2,
+            "chloride": 0.191,
+            "linoleicAcid": 0.179,
+            "digestibleProtein": 16.85,
+            "crudeProtein": 19.01
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 1.158,
+            "methionine": 0.382,
+            "methionineCysteine": 0.695,
+            "threonine": 0.787,
+            "tryptophan": 0.232,
+            "arginine": 0.521,
+            "valine": 0.811,
+            "isoleucine": 0.637,
+            "leucine": 1.181,
+            "histidine": 0.382,
+            "phenylalanine": 0.625,
+            "phenylalanineTyrosine": 1.158
+          }
+        },
+        {
+          "id": "63-91d-26-47kg",
+          "phase": "grower",
+          "ageDays": {
+            "min": 63,
+            "max": 91
+          },
+          "weightKg": {
+            "min": 26,
+            "max": 47
+          },
+          "averageWeightKg": 35.97,
+          "gainKgDay": 0.762,
+          "feedIntakeKgDay": 1.5,
+          "dailyRequirements": {
+            "sidLysineG": 15.51,
+            "digestiblePhosphorusG": 4.81,
+            "availablePhosphorusG": 5.01,
+            "metabolizableEnergyKcal": 4876
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3250,
+            "netEnergyKcalKg": 2454
+          },
+          "nutrientsPct": {
+            "calcium": 0.679,
+            "availablePhosphorus": 0.321,
+            "digestiblePhosphorus": 0.335,
+            "potassium": 0.456,
+            "sodium": 0.188,
+            "chloride": 0.179,
+            "linoleicAcid": 0.127,
+            "digestibleProtein": 14.88,
+            "crudeProtein": 16.72
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 1.038,
+            "methionine": 0.343,
+            "methionineCysteine": 0.623,
+            "threonine": 0.706,
+            "tryptophan": 0.208,
+            "arginine": 0.436,
+            "valine": 0.716,
+            "isoleucine": 0.571,
+            "leucine": 1.038,
+            "histidine": 0.343,
+            "phenylalanine": 0.561,
+            "phenylalanineTyrosine": 1.038
+          }
+        },
+        {
+          "id": "91-119d-47-74kg",
+          "phase": "grower",
+          "ageDays": {
+            "min": 91,
+            "max": 119
+          },
+          "weightKg": {
+            "min": 47,
+            "max": 74
+          },
+          "averageWeightKg": 60.88,
+          "gainKgDay": 0.953,
+          "feedIntakeKgDay": 2.331,
+          "dailyRequirements": {
+            "sidLysineG": 20.66,
+            "digestiblePhosphorusG": 6.17,
+            "availablePhosphorusG": 6.42,
+            "metabolizableEnergyKcal": 7574
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3250,
+            "netEnergyKcalKg": 2486
+          },
+          "nutrientsPct": {
+            "calcium": 0.561,
+            "availablePhosphorus": 0.265,
+            "digestiblePhosphorus": 0.277,
+            "potassium": 0.426,
+            "sodium": 0.171,
+            "chloride": 0.161,
+            "linoleicAcid": 0.098,
+            "digestibleProtein": 12.76,
+            "crudeProtein": 14.34
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 0.891,
+            "methionine": 0.294,
+            "methionineCysteine": 0.534,
+            "threonine": 0.606,
+            "tryptophan": 0.178,
+            "arginine": 0.374,
+            "valine": 0.615,
+            "isoleucine": 0.49,
+            "leucine": 0.891,
+            "histidine": 0.294,
+            "phenylalanine": 0.481,
+            "phenylalanineTyrosine": 0.891
+          }
+        },
+        {
+          "id": "119-147d-74-103kg",
+          "phase": "finisher",
+          "ageDays": {
+            "min": 119,
+            "max": 147
+          },
+          "weightKg": {
+            "min": 74,
+            "max": 103
+          },
+          "averageWeightKg": 89.07,
+          "gainKgDay": 1.024,
+          "feedIntakeKgDay": 3.007,
+          "dailyRequirements": {
+            "sidLysineG": 22.82,
+            "digestiblePhosphorusG": 6.88,
+            "availablePhosphorusG": 7.15,
+            "metabolizableEnergyKcal": 9773
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3250,
+            "netEnergyKcalKg": 2479
+          },
+          "nutrientsPct": {
+            "calcium": 0.485,
+            "availablePhosphorus": 0.23,
+            "digestiblePhosphorus": 0.239,
+            "potassium": 0.396,
+            "sodium": 0.158,
+            "chloride": 0.149,
+            "linoleicAcid": 0.09,
+            "digestibleProtein": 10.82,
+            "crudeProtein": 12.16
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 0.761,
+            "methionine": 0.251,
+            "methionineCysteine": 0.457,
+            "threonine": 0.518,
+            "tryptophan": 0.152,
+            "arginine": 0.305,
+            "valine": 0.525,
+            "isoleucine": 0.419,
+            "leucine": 0.761,
+            "histidine": 0.251,
+            "phenylalanine": 0.411,
+            "phenylalanineTyrosine": 0.761
+          }
+        },
+        {
+          "id": "147-175d-103-131kg",
+          "phase": "finisher",
+          "ageDays": {
+            "min": 147,
+            "max": 175
+          },
+          "weightKg": {
+            "min": 103,
+            "max": 131
+          },
+          "averageWeightKg": 117.28,
+          "gainKgDay": 0.987,
+          "feedIntakeKgDay": 3.364,
+          "dailyRequirements": {
+            "sidLysineG": 21.63,
+            "digestiblePhosphorusG": 6.99,
+            "availablePhosphorusG": 7.25,
+            "metabolizableEnergyKcal": 10933
+          },
+          "diet": {
+            "metabolizableEnergyKcalKg": 3250,
+            "netEnergyKcalKg": 2501
+          },
+          "nutrientsPct": {
+            "calcium": 0.438,
+            "availablePhosphorus": 0.208,
+            "digestiblePhosphorus": 0.216,
+            "potassium": 0.368,
+            "sodium": 0.153,
+            "chloride": 0.143,
+            "linoleicAcid": 0.093,
+            "digestibleProtein": 9.15,
+            "crudeProtein": 10.28
+          },
+          "sidAminoAcidsPct": {
+            "lysine": 0.643,
+            "methionine": 0.213,
+            "methionineCysteine": 0.386,
+            "threonine": 0.438,
+            "tryptophan": 0.129,
+            "arginine": 0.258,
+            "valine": 0.444,
+            "isoleucine": 0.354,
+            "leucine": 0.643,
+            "histidine": 0.213,
+            "phenylalanine": 0.348,
+            "phenylalanineTyrosine": 0.643
+          }
+        }
+      ]
+    }
+  ]
+}

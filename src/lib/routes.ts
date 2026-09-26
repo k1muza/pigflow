@@ -13,6 +13,7 @@ export const PLAN_TABS = [
   "overview",
   "simulator",
   "pedigree",
+  "nutrition",
   "money",
   "method",
   "cashflow",
@@ -31,6 +32,12 @@ export function planHref(projectId: string, tab: Tab = "overview"): string {
   return tab === "overview" ? plan : plan + "/" + tab;
 }
 
+/** Browse ingredients, or open one ingredient, inside a plan's nutrition workspace. */
+export function ingredientHref(projectId: string, ingredientId?: string): string {
+  const base = planHref(projectId, "nutrition") + "/ingredients";
+  return ingredientId ? base + "/" + encodeURIComponent(ingredientId) : base;
+}
+
 /**
  * Which page an address is on. Anything that is not a page of a plan reads as
  * the overview, because that is what a plan opens on — the sidebar has to mark
@@ -41,4 +48,44 @@ export function tabFromPath(pathname: string): Tab {
   if (segments[0] !== "projects") return "overview";
   const tab = segments[2];
   return PLAN_TABS.some((known) => known === tab) ? (tab as Tab) : "overview";
+}
+
+
+/** App-level feed formulation workspace, deliberately outside any farm plan. */
+export type FeedFormulationSection =
+  | "programmes"
+  | "formulations"
+  | "ingredients"
+  | "nutrients";
+
+export function feedFormulationHref(section?: FeedFormulationSection): string {
+  return section ? `/feed-formulation/${section}` : "/feed-formulation";
+}
+
+/** One NRC ingredient in the app-level formulation workspace. */
+export function feedIngredientHref(ingredientId: string): string {
+  return feedFormulationHref("ingredients") + "/" + encodeURIComponent(ingredientId);
+}
+
+
+/** One feed programme in the app-level formulation workspace. */
+export function feedProgrammeHref(programmeId: string): string {
+  return feedFormulationHref("programmes") + "/" + encodeURIComponent(programmeId);
+}
+
+/** One phase/requirement set inside one feed programme. */
+export function feedProgrammePhaseHref(programmeId: string, phaseId: string): string {
+  return feedProgrammeHref(programmeId) + "/phases/" + encodeURIComponent(phaseId);
+}
+
+
+/** One source-backed formulation strategy in the feed workspace. */
+export function feedFormulationStrategyHref(formulationId: string): string {
+  return feedFormulationHref("formulations") + "/" + encodeURIComponent(formulationId);
+}
+
+
+/** One nutrient concept in the feed reference catalogue. */
+export function feedNutrientHref(nutrientId: string): string {
+  return feedFormulationHref("nutrients") + "/" + encodeURIComponent(nutrientId);
 }
