@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { LeastCostFormulationResult } from "@/lib/feed-optimizer";
+import type { FormulationIngredientOption, LeastCostFormulationResult } from "@/lib/feed-optimizer";
 
 type ProgrammeOption = {
   id: string;
@@ -127,7 +127,7 @@ export function FeedFormulationWorkbench({
       return;
     }
 
-    let requestIngredients;
+    let requestIngredients: FormulationIngredientOption[];
     try {
       requestIngredients = rows.map((row) => {
         const pricePerKg = Number(row.price);
