@@ -33,7 +33,7 @@ export type ResolvedNutritionTargets = {
   crudeProteinPct: number;
   digestibleProteinPct: number;
   potassiumPct: number;
-  linoleicAcidPct: number;
+  linoleicAcidPct?: number;
   aminoAcids: ResolvedAminoAcidTargets;
   minerals: ResolvedMineralTargets;
 };
