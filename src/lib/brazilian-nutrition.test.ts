@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BRAZILIAN_2024_BREEDER_SWINE,
   BRAZILIAN_2024_CORE_FEEDSTUFFS,
   BRAZILIAN_2024_CRYSTALLINE_AMINO_ACIDS,
   BRAZILIAN_2024_GROWING_SWINE,
@@ -34,6 +35,52 @@ describe("Brazilian Tables 2024 source data", () => {
     expect(high?.phases[4]).toMatchObject({
       weightKg: { min: 110, max: 141 },
       sidAminoAcidsPct: { lysine: 0.67 },
+    });
+  });
+
+  it("loads the extracted gilt programmes from Tables 5.36 and 5.38", () => {
+    const high = BRAZILIAN_2024_GROWING_SWINE.programmes.find(
+      (programme) => programme.id === "high-performance-gilts",
+    );
+    const standard = BRAZILIAN_2024_GROWING_SWINE.programmes.find(
+      (programme) => programme.id === "standard-performance-gilts",
+    );
+
+    expect(high?.sourceTable).toBe("5.36");
+    expect(high?.phases[0]).toMatchObject({
+      weightKg: { min: 18, max: 27 },
+      sidAminoAcidsPct: { lysine: 1.249 },
+    });
+    expect(standard?.sourceTable).toBe("5.38");
+    expect(standard?.phases[4]).toMatchObject({
+      weightKg: { min: 100, max: 129 },
+      sidAminoAcidsPct: { lysine: 0.657 },
+    });
+  });
+
+  it("loads Chapter 6 gestation and lactation source tables", () => {
+    expect(BRAZILIAN_2024_BREEDER_SWINE.gestation).toMatchObject({
+      sourceTable: "6.08",
+      aminoAcidRatios: { sourceTable: "6.04" },
+    });
+    expect(BRAZILIAN_2024_BREEDER_SWINE.gestation.phases).toHaveLength(8);
+    expect(BRAZILIAN_2024_BREEDER_SWINE.gestation.phases[0]).toMatchObject({
+      parity: "nulliparous",
+      gestationDays: { min: 0, max: 85 },
+      nutrientsPct: { crudeProtein: 12.29 },
+      sidAminoAcidsPct: { lysine: 0.583 },
+    });
+
+    expect(BRAZILIAN_2024_BREEDER_SWINE.lactation).toMatchObject({
+      sourceTable: "6.15",
+      aminoAcidRatios: { sourceTable: "6.11" },
+    });
+    expect(BRAZILIAN_2024_BREEDER_SWINE.lactation.phases).toHaveLength(6);
+    expect(BRAZILIAN_2024_BREEDER_SWINE.lactation.phases[5]).toMatchObject({
+      parity: "PO3+",
+      litterWeightGainKgDay: 3.1,
+      nutrientsPct: { crudeProtein: 21.48 },
+      sidAminoAcidsPct: { lysine: 1.09 },
     });
   });
 
