@@ -1,26 +1,6 @@
 import { z } from "zod";
 
-import manifestJson from "@/data/nutrition/feedsport/manifest.json";
-import nutrientsJson from "@/data/nutrition/feedsport/nutrients.json";
-import ingredients01 from "@/data/nutrition/feedsport/ingredients/ingredients-01.json";
-import ingredients02 from "@/data/nutrition/feedsport/ingredients/ingredients-02.json";
-import ingredients03 from "@/data/nutrition/feedsport/ingredients/ingredients-03.json";
-import ingredients04 from "@/data/nutrition/feedsport/ingredients/ingredients-04.json";
-import ingredients05 from "@/data/nutrition/feedsport/ingredients/ingredients-05.json";
-import ingredients06 from "@/data/nutrition/feedsport/ingredients/ingredients-06.json";
-import ingredients07 from "@/data/nutrition/feedsport/ingredients/ingredients-07.json";
-import ingredients08 from "@/data/nutrition/feedsport/ingredients/ingredients-08.json";
-import ingredients09 from "@/data/nutrition/feedsport/ingredients/ingredients-09.json";
-import ingredients10 from "@/data/nutrition/feedsport/ingredients/ingredients-10.json";
-import ingredients11 from "@/data/nutrition/feedsport/ingredients/ingredients-11.json";
-import ingredients12 from "@/data/nutrition/feedsport/ingredients/ingredients-12.json";
-import ingredients13 from "@/data/nutrition/feedsport/ingredients/ingredients-13.json";
-import ingredients14 from "@/data/nutrition/feedsport/ingredients/ingredients-14.json";
-import ingredients15 from "@/data/nutrition/feedsport/ingredients/ingredients-15.json";
-import ingredients16 from "@/data/nutrition/feedsport/ingredients/ingredients-16.json";
-import ingredients17 from "@/data/nutrition/feedsport/ingredients/ingredients-17.json";
-
-const compositionSchema = z.object({
+import {\n  feedSportIngredientRowsJson,\n  feedSportManifestJson,\n  feedSportNutrientsJson,\n} from "@/data/nutrition/feedsport/snapshot";\n\nconst compositionSchema = z.object({
   nutrientId: z.union([z.string(), z.number()]),
   value: z.number().finite(),
   table: z.string(),
@@ -87,9 +67,9 @@ const ingredientRows = [
   ...ingredients17,
 ];
 
-export const FEEDSPORT_MANIFEST = manifestSchema.parse(manifestJson);
-export const FEEDSPORT_NUTRIENTS = z.array(nutrientSchema).parse(nutrientsJson);
-export const FEEDSPORT_INGREDIENTS = z.array(ingredientSchema).parse(ingredientRows);
+export const FEEDSPORT_MANIFEST = manifestSchema.parse(feedSportManifestJson);
+export const FEEDSPORT_NUTRIENTS = z.array(nutrientSchema).parse(feedSportNutrientsJson);
+export const FEEDSPORT_INGREDIENTS = z.array(ingredientSchema).parse(feedSportIngredientRowsJson);
 
 export const FEEDSPORT_NUTRIENT_BY_ID = new Map(
   FEEDSPORT_NUTRIENTS.map((nutrient) => [String(nutrient.id), nutrient]),
