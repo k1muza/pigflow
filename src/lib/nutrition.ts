@@ -243,7 +243,7 @@ function buildGrowingProgramme(
     const lookupMin =
       index === 0
         ? 0
-        : requireBoundary(previous.weightKg.max, "previous maximum liveweight");
+        : requireBoundary(previous!.weightKg.max, "previous maximum liveweight");
     const lookupMax =
       next === undefined
         ? sourceMax
