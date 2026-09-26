@@ -3,9 +3,15 @@ import { describe, expect, it } from "vitest";
 import { GrowingPig } from "./sim/animals";
 import {
   BRAZILIAN_2024_GESTATION_NUTRITION,
+  BRAZILIAN_2024_HIGH_BARROW_HOT_NUTRITION,
+  BRAZILIAN_2024_HIGH_BARROW_NUTRITION,
   BRAZILIAN_2024_HIGH_GILT_NUTRITION,
   BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+  BRAZILIAN_2024_HIGH_MIXED_SEX_HOT_NUTRITION,
+  BRAZILIAN_2024_LACTATION_25C_NUTRITION,
   BRAZILIAN_2024_LACTATION_NUTRITION,
+  BRAZILIAN_2024_STANDARD_BARROW_NUTRITION,
+  BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION,
   BRAZILIAN_2024_STANDARD_GILT_NUTRITION,
   BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
   nutritionForGrowthStage,
@@ -76,6 +82,45 @@ describe("Brazilian Tables 2024 growing-pig nutrition programmes", () => {
       requirements: {
         metabolizableEnergyKcalKg: 3400,
         sidLysinePct: 1.066,
+      },
+    });
+  });
+
+  it("loads barrow, entire-male and hot-environment programmes", () => {
+    expect(BRAZILIAN_2024_HIGH_BARROW_NUTRITION.phases[0]).toMatchObject({
+      sourceTable: "5.33",
+      sourceWeightRange: "18–27 kg",
+      requirements: { sidLysinePct: 1.214 },
+    });
+    expect(BRAZILIAN_2024_STANDARD_BARROW_NUTRITION.phases[4]).toMatchObject({
+      sourceTable: "5.35",
+      sourceWeightRange: "106–133 kg",
+      requirements: { crudeProteinPct: 10.05 },
+    });
+    expect(BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION.phases[0]).toMatchObject({
+      sourceTable: "5.39",
+      requirements: { sidLysinePct: 1.279 },
+    });
+    expect(BRAZILIAN_2024_HIGH_BARROW_HOT_NUTRITION.phases).toHaveLength(4);
+    expect(BRAZILIAN_2024_HIGH_BARROW_HOT_NUTRITION.phases[0]).toMatchObject({
+      sourceTable: "5.34",
+      requirements: { metabolizableEnergyKcalKg: 3350, sidLysinePct: 1.099 },
+    });
+    expect(BRAZILIAN_2024_HIGH_MIXED_SEX_HOT_NUTRITION.phases[0]).toMatchObject({
+      sourceTable: "5.42",
+      requirements: { sidLysinePct: 1.142 },
+    });
+  });
+
+  it("loads the 25C lactation variant separately", () => {
+    expect(BRAZILIAN_2024_LACTATION_25C_NUTRITION.phases).toHaveLength(6);
+    expect(BRAZILIAN_2024_LACTATION_25C_NUTRITION.phases[0]).toMatchObject({
+      sourceTable: "6.16",
+      parity: "PO1",
+      dailyFeedIntakeKg: 5.448,
+      requirements: {
+        sidLysinePct: 1.101,
+        crudeProteinPct: 21.7,
       },
     });
   });
