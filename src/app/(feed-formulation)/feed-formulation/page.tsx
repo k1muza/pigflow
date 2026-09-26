@@ -48,7 +48,7 @@ export default function FeedFormulationDashboard() {
         <SummaryCard
           label="Loaded programmes"
           value={loadedProgrammes.toString()}
-          detail="standard and high-performance tracks"
+          detail="growing, gilt and breeder programmes"
         />
         <SummaryCard
           label="Standard phases"
