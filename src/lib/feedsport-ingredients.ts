@@ -46,6 +46,7 @@ const manifestSchema = z.object({
   ingredientsWithSwineData: z.number().int().nonnegative(),
   shardSize: z.number().int().positive(),
   ingredientShards: z.array(z.string()),
+  unresolvedNutrientIds: z.array(z.string()).default([]),
 });
 
 export type FeedSportComposition = z.infer<typeof compositionSchema>;
