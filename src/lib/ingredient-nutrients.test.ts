@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   INGREDIENT_LIBRARY,
+  availablePhosphorusPctOf,
   loadIngredientLibrary,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
@@ -111,6 +112,14 @@ describe("ingredient nutrient JSON library", () => {
     expect(maize?.aminoAcids.totalPct.lysine).toBe(0.25);
     expect(maize?.aminoAcids.sidDigestibilityPct.lysine).toBe(74);
     expect(sidAminoAcidPct(maize!, "lysine")).toBeCloseTo(0.185, 6);
+  });
+
+  it("treats explicit zero total phosphorus as zero available phosphorus", () => {
+    const salt = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "sodium-chloride",
+    );
+    expect(salt).toBeDefined();
+    expect(availablePhosphorusPctOf(salt!)).toBe(0);
   });
 
   it("derives STTD phosphorus concentration from NRC total P and digestibility", () => {
