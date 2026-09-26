@@ -19,10 +19,9 @@ export type FeedFormulationAnalysis = {
 };
 
 /**
- * PIC prints individual inclusion rows rounded to two decimal places. Those
- * rows can sum to 100.01% or 100.02% even though the source reports a 100%
- * ration. Preserve the published ratios in FeedFormulation, but normalize the
- * weights used by calculation back to exactly 100%.
+ * Imported or manually entered formulation rows can carry rounding residue.
+ * Preserve the stored inclusion values, but normalize calculation weights back
+ * to exactly 100%.
  */
 export function formulationDietFormula(formulation: FeedFormulation): {
   sourceInclusionTotalPct: number;
