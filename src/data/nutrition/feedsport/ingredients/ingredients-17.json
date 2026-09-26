@@ -1,0 +1,2494 @@
+[
+  {
+    "id": "rice-bran-oil-5-crude-fibre-11-20",
+    "name": "Rice bran, oil < 5%, crude fibre 11-20%",
+    "description": "Byproduct of the processing of rice grain (Oryza sativaL.), consisting in envelopes, germs and fragments of endosperm. This product has been defatted. Other name: defatted rice bran.",
+    "category": "Cereal byproducts",
+    "compositions": [
+      {
+        "nutrientId": "1",
+        "value": 88.9,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "2",
+        "value": 14.5,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "4",
+        "value": 13.5,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "3",
+        "value": 1.2,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "52",
+        "value": 12.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "53",
+        "value": 3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "54",
+        "value": 29,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "55",
+        "value": 16.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "56",
+        "value": 5.6,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "57",
+        "value": 30.1,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "58",
+        "value": 23.4,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "59",
+        "value": 21,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "60",
+        "value": 2.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "61",
+        "value": 3650,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "62",
+        "value": 15.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "5",
+        "value": 0.12,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "6",
+        "value": 1.52,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "63",
+        "value": 12.9,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "64",
+        "value": 0.32,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "10",
+        "value": 0.6799999999999999,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "8",
+        "value": 0.027000000000000003,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "9",
+        "value": 0.06999999999999999,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "65",
+        "value": 0.18,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "66",
+        "value": 58,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "67",
+        "value": 168,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "36",
+        "value": 134,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "38",
+        "value": 70,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "33",
+        "value": 10,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "35",
+        "value": 2271,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "37",
+        "value": 0.1,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "68",
+        "value": 0.9,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "69",
+        "value": 0.9,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "34",
+        "value": 0.3,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "71",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "72",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "73",
+        "value": 0.003,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "74",
+        "value": 0.15,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "88",
+        "value": 0.001,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "75",
+        "value": 0.02,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "76",
+        "value": 0.32999999999999996,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "15",
+        "value": 0.29,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "77",
+        "value": 0.01,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "89",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "79",
+        "value": 0.004,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "80",
+        "value": 0.005,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "83",
+        "value": 0.004,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "90",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "91",
+        "value": 0.002,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "92",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "118",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "85",
+        "value": 0.002,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "86",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "87",
+        "value": 0.8,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "39",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "40",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "41",
+        "value": 48.8,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "42",
+        "value": 0.02,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "43",
+        "value": 27.3,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "44",
+        "value": 2.8,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "47",
+        "value": 40.4,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "50",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "45",
+        "value": 337,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "46",
+        "value": 73.3,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "49",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "48",
+        "value": 0.3,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "93",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "16",
+        "value": 1121,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "13",
+        "value": 1660,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "14",
+        "value": 7,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "7",
+        "value": 0.38,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "17",
+        "value": 0.65,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "23",
+        "value": 0.54,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "19",
+        "value": 0.31,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "94",
+        "value": 0.21000000000000002,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "21",
+        "value": 0.52,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "25",
+        "value": 0.22999999999999998,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "29",
+        "value": 0.74,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "31",
+        "value": 0.8,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "51",
+        "value": 1.01,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "95",
+        "value": 0.67,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "96",
+        "value": 0.53,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "97",
+        "value": 1.2,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "98",
+        "value": 0.38,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "27",
+        "value": 1.09,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "99",
+        "value": 0.89,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "100",
+        "value": 1.28,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "101",
+        "value": 1.9899999999999998,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "102",
+        "value": 0.75,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "103",
+        "value": 0.67,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "104",
+        "value": 0.7,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "18",
+        "value": 0.4,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "24",
+        "value": 0.32999999999999996,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "20",
+        "value": 0.22999999999999998,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "105",
+        "value": 0.11000000000000001,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "22",
+        "value": 0.32999999999999996,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "26",
+        "value": 0.16999999999999998,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "30",
+        "value": 0.49000000000000005,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "32",
+        "value": 0.54,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "106",
+        "value": 0.67,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "107",
+        "value": 0.45,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "108",
+        "value": 0.37,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "109",
+        "value": 0.82,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "110",
+        "value": 0.25,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "28",
+        "value": 0.8400000000000001,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "111",
+        "value": 0.61,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "112",
+        "value": 0.8,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "113",
+        "value": 1.4300000000000002,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "114",
+        "value": 0.45,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "115",
+        "value": 0.45,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "116",
+        "value": 0.41,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      }
+    ]
+  },
+  {
+    "id": "rapeseed-oil",
+    "name": "Rapeseed oil",
+    "description": "Oil extracted from rapeseeds (Brassica napusL.,Brassica rapaL. andBrassica junceaL., and their crosses) from varieties having a low content in erucic acid and glucosinolates. Other name: canola oil (for North American rapeseed varieties).",
+    "category": "Oils and fats",
+    "compositions": [
+      {
+        "nutrientId": "1",
+        "value": 99.9,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "2",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "4",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "3",
+        "value": 99.6,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "52",
+        "value": 0.2,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "53",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "54",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "55",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "56",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "57",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "58",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "59",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "60",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "61",
+        "value": 9370,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "62",
+        "value": 39.2,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "5",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "6",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "63",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "64",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "10",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "8",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "9",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "65",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "66",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "67",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "36",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "38",
+        "value": 0.3,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "33",
+        "value": 0.05,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "35",
+        "value": 0.2,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "37",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "68",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "69",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "34",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "71",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "72",
+        "value": 0.02,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "73",
+        "value": 0.03,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "74",
+        "value": 4.68,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "88",
+        "value": 0.18,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "75",
+        "value": 1.6199999999999999,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "76",
+        "value": 60.2,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "15",
+        "value": 19.9,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "77",
+        "value": 9.17,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "89",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "79",
+        "value": 0.76,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "80",
+        "value": 2.04,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "83",
+        "value": 0.13,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "90",
+        "value": 0.003,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "91",
+        "value": 0.31,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "92",
+        "value": 0.37,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "118",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "85",
+        "value": 0.1,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "86",
+        "value": 0.08,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "87",
+        "value": 99.6,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "39",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "40",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "41",
+        "value": 277,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "42",
+        "value": 0.7,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "43",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "44",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "47",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "50",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "45",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "46",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "49",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "48",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "93",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "16",
+        "value": 2,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "13",
+        "value": 8990,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "14",
+        "value": 37.6,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "7",
+        "value": 0,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "17",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "23",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "19",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "94",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "21",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "25",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "29",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "31",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "51",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "95",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "96",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "97",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "98",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "27",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "99",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "100",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "101",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "102",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "103",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "104",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "18",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "24",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "20",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "105",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "22",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "26",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "30",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "32",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "106",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "107",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "108",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "109",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "110",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "28",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "111",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "112",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "113",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "114",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "115",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "116",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      }
+    ]
+  },
+  {
+    "id": "rice-distillers-grains-solubles-protein-40-50-dried",
+    "name": "Rice distillers grains with solubles, protein 40-50%, dried",
+    "description": "Dehydrated byproduct of rice distillation (Oryza sativa L.) for the fabrication of alcohol (ethanol), consisting of spent grains and steepwater solubles in variable proportions.",
+    "category": "Cereal byproducts",
+    "compositions": [
+      {
+        "nutrientId": "1",
+        "value": 89.7,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "2",
+        "value": 43.7,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "4",
+        "value": 5.8,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "3",
+        "value": 4.1,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "52",
+        "value": 4.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "53",
+        "value": 2.4,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "54",
+        "value": 37,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "55",
+        "value": 14.2,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "56",
+        "value": 8.5,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "57",
+        "value": 26.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "58",
+        "value": 2.4,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "59",
+        "value": 2.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "60",
+        "value": 0.8,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "61",
+        "value": 4430,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "62",
+        "value": 18.6,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "5",
+        "value": 0.45999999999999996,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "6",
+        "value": 0.58,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "63",
+        "value": 2.3,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "71",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "72",
+        "value": 0.001,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "73",
+        "value": 0.01,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "74",
+        "value": 0.58,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "88",
+        "value": 0.005,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "75",
+        "value": 0.06,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "76",
+        "value": 1.23,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "15",
+        "value": 1.1,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "77",
+        "value": 0.05,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "89",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "79",
+        "value": 0.02,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "80",
+        "value": 0.02,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "83",
+        "value": 0.01,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "90",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "91",
+        "value": 0.008,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "92",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "118",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "85",
+        "value": 0.009,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "86",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "87",
+        "value": 3.1,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "13",
+        "value": 2520,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "14",
+        "value": 10.5,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "17",
+        "value": 1.19,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "23",
+        "value": 1.53,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "19",
+        "value": 1.09,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "94",
+        "value": 0.9199999999999999,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "21",
+        "value": 2.0100000000000002,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "25",
+        "value": 0.41,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "29",
+        "value": 1.73,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "31",
+        "value": 2.42,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "51",
+        "value": 3.5700000000000003,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "95",
+        "value": 2.16,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "96",
+        "value": 1.08,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "97",
+        "value": 3.2399999999999998,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "98",
+        "value": 1.04,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "27",
+        "value": 2.8,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "99",
+        "value": 2.3600000000000003,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "100",
+        "value": 3.56,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "101",
+        "value": 6.959999999999999,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "102",
+        "value": 1.7899999999999998,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "103",
+        "value": 2.04,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "104",
+        "value": 2.1100000000000003,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "18",
+        "value": 0.86,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "24",
+        "value": 1.04,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "20",
+        "value": 0.86,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "105",
+        "value": 0.61,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "22",
+        "value": 1.47,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "26",
+        "value": 0.3,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "30",
+        "value": 1.3,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "32",
+        "value": 1.77,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "106",
+        "value": 2.65,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "107",
+        "value": 1.64,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "108",
+        "value": 0.77,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "109",
+        "value": 2.41,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "110",
+        "value": 0.75,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "28",
+        "value": 2.1399999999999997,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "111",
+        "value": 1.73,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "112",
+        "value": 2.4899999999999998,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "113",
+        "value": 5.37,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "114",
+        "value": 1.23,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "115",
+        "value": 1.47,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "116",
+        "value": 1.55,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      }
+    ]
+  },
+  {
+    "id": "ethylenediamine-dihydroiodide",
+    "name": "Ethylenediamine dihydroiodide",
+    "description": "Organic chemical compound composed of ethylenediammonium dication (C2H4(NH3)22+) and iodide anions. It is a water-soluble salt used as an additive with high biovavailability to prevent iodine deficiency in animals feeds. Abbreviation: EDDI.",
+    "category": "Mineral products",
+    "compositions": [
+      {
+        "nutrientId": "1",
+        "value": 99.9,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "2",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "4",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "3",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "52",
+        "value": 0.3,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "53",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "54",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "55",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "56",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "57",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "58",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "59",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "60",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "61",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "62",
+        "value": 0,
+        "table": "Main constituents",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "5",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "6",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "63",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "64",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "10",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "8",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "9",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "65",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "66",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "67",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "36",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "38",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "33",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "35",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "37",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "68",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "69",
+        "value": 0,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "34",
+        "value": 799200,
+        "table": "Mineral elements",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "71",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "72",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "73",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "74",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "88",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "75",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "76",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "15",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "77",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "89",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "79",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "80",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "83",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "90",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "91",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "92",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "118",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "85",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "86",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "87",
+        "value": 0,
+        "table": "Fatty acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "39",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "40",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "41",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "42",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "43",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "44",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "47",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "50",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "45",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "46",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "49",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "48",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "93",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "16",
+        "value": 0,
+        "table": "Vitamins and pigments",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "13",
+        "value": 0,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "14",
+        "value": 0,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "7",
+        "value": 0,
+        "table": "Poultry",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "17",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "23",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "19",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "94",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "21",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "25",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "29",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "31",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "51",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "95",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "96",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "97",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "98",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "27",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "99",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "100",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "101",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "102",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "103",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "104",
+        "value": 0,
+        "table": "Amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "18",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "24",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "20",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "105",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "22",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "26",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "30",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "32",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "106",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "107",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "108",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "109",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "110",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "28",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "111",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "112",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "113",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "114",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "115",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      },
+      {
+        "nutrientId": "116",
+        "value": 0,
+        "table": "Poultry, amino acids",
+        "basis": "as-fed"
+      }
+    ]
+  }
+]
