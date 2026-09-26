@@ -1,4 +1,4 @@
-import type { NutritionPhase, Range } from "./nutrition";
+import type { NutritionPhase } from "./nutrition";
 
 export type EnergySystem = "ME" | "NE";
 
@@ -25,135 +25,65 @@ export type ResolvedMineralTargets = {
   availablePhosphorusPct?: number;
   sodiumPct: number;
   chloridePct?: number;
-  chloridePctRange?: Range;
-  analyzedCalciumToPhosphorus?: Range;
 };
 
 export type ResolvedNutritionTargets = {
   phaseId: string;
   energy: DietEnergy;
+  crudeProteinPct: number;
+  digestibleProteinPct: number;
+  potassiumPct: number;
+  linoleicAcidPct: number;
   aminoAcids: ResolvedAminoAcidTargets;
   minerals: ResolvedMineralTargets;
 };
 
 /**
- * Turn PIC's source representation into concentrations a formulation solver can
- * constrain against at a particular diet energy density.
+ * Normalize one Brazilian Tables phase into the target shape consumed by the
+ * formulation evaluator.
  *
- * Prestart phases publish direct percentages. Later phases publish grams of
- * nutrient per Mcal, so the actual percentage depends on the candidate diet's
- * ME or NE density.
+ * Chapter 5 publishes diet energy and SID amino-acid concentrations directly,
+ * so no PIC-style nutrient-per-Mcal conversion is performed here.
  */
 export function resolveNutritionTargets(
   phase: NutritionPhase,
   energy?: DietEnergy,
 ): ResolvedNutritionTargets {
-  const resolvedEnergy = energy ?? publishedEnergyOf(phase);
-  assertEnergy(resolvedEnergy);
+  const publishedEnergy: DietEnergy =
+    energy ?? {
+      system: "ME",
+      kcalKg: phase.requirements.metabolizableEnergyKcalKg,
+    };
+  assertEnergy(publishedEnergy);
 
-  const sidLysinePct =
-    phase.requirements.sidLysinePct ??
-    ratioToDietPct(
-      nutrientRatioForEnergy(
-        resolvedEnergy.system,
-        phase.requirements.sidLysineGPerMcalME,
-        phase.requirements.sidLysineGPerMcalNE,
-        "SID lysine",
-      ),
-      resolvedEnergy.kcalKg,
-    );
-
-  const aa = phase.requirements.aminoAcids;
-  const fraction = (ratioPct: number) => sidLysinePct * (ratioPct / 100);
-
-  const minerals = phase.requirements.minerals;
-  const sttdPhosphorusPct =
-    minerals.sttdPhosphorusPct ??
-    optionalRatioToDietPct(
-      resolvedEnergy.system === "ME"
-        ? minerals.sttdPhosphorusGPerMcalME
-        : minerals.sttdPhosphorusGPerMcalNE,
-      resolvedEnergy.kcalKg,
-    );
-  const availablePhosphorusPct =
-    minerals.availablePhosphorusPct ??
-    optionalRatioToDietPct(
-      resolvedEnergy.system === "ME"
-        ? minerals.availablePhosphorusGPerMcalME
-        : minerals.availablePhosphorusGPerMcalNE,
-      resolvedEnergy.kcalKg,
-    );
+  const sid = phase.requirements.sidAminoAcidsPct;
 
   return {
     phaseId: phase.id,
-    energy: resolvedEnergy,
+    energy: publishedEnergy,
+    crudeProteinPct: phase.requirements.crudeProteinPct,
+    digestibleProteinPct: phase.requirements.digestibleProteinPct,
+    potassiumPct: phase.requirements.potassiumPct,
+    linoleicAcidPct: phase.requirements.linoleicAcidPct,
     aminoAcids: {
-      sidLysinePct,
-      sidMethionineCysteinePct: fraction(aa.methionineCysteineToLysPct),
-      sidThreoninePct: fraction(aa.threonineToLysPct),
-      sidTryptophanPct: fraction(aa.tryptophanToLysPct),
-      sidValinePct: fraction(aa.valineToLysPct),
-      sidIsoleucinePct: fraction(aa.isoleucineToLysPct),
-      sidLeucinePct: fraction(aa.leucineToLysPct),
-      sidHistidinePct: fraction(aa.histidineToLysPct),
-      sidPhenylalanineTyrosinePct: fraction(aa.phenylalanineTyrosineToLysPct),
+      sidLysinePct: sid.lysine,
+      sidMethionineCysteinePct: sid.methionineCysteine,
+      sidThreoninePct: sid.threonine,
+      sidTryptophanPct: sid.tryptophan,
+      sidValinePct: sid.valine,
+      sidIsoleucinePct: sid.isoleucine,
+      sidLeucinePct: sid.leucine,
+      sidHistidinePct: sid.histidine,
+      sidPhenylalanineTyrosinePct: sid.phenylalanineTyrosine,
     },
     minerals: {
-      calciumPct: minerals.calciumPct,
-      sttdPhosphorusPct,
-      availablePhosphorusPct,
-      sodiumPct: minerals.sodiumPct,
-      chloridePct: minerals.chloridePct,
-      chloridePctRange: minerals.chloridePctRange,
-      analyzedCalciumToPhosphorus: minerals.analyzedCalciumToPhosphorus,
+      calciumPct: phase.requirements.minerals.calciumPct,
+      sttdPhosphorusPct: phase.requirements.minerals.sttdPhosphorusPct,
+      availablePhosphorusPct: phase.requirements.minerals.availablePhosphorusPct,
+      sodiumPct: phase.requirements.minerals.sodiumPct,
+      chloridePct: phase.requirements.minerals.chloridePct,
     },
   };
-}
-
-function publishedEnergyOf(phase: NutritionPhase): DietEnergy {
-  if (phase.requirements.metabolizableEnergyKcalKg !== undefined) {
-    return { system: "ME", kcalKg: phase.requirements.metabolizableEnergyKcalKg };
-  }
-  if (phase.requirements.netEnergyKcalKg !== undefined) {
-    return { system: "NE", kcalKg: phase.requirements.netEnergyKcalKg };
-  }
-  throw new Error(
-    `${phase.id} expresses nutrient requirements relative to energy; provide candidate-diet ME or NE.`,
-  );
-}
-
-function nutrientRatioForEnergy(
-  system: EnergySystem,
-  me: number | undefined,
-  ne: number | undefined,
-  nutrient: string,
-): number {
-  const value = system === "ME" ? me : ne;
-  if (value === undefined) {
-    throw new Error(`${nutrient} has no ${system} ratio in this phase.`);
-  }
-  return value;
-}
-
-/**
- * g/Mcal × kcal/kg → g/kg, then g/kg ÷ 10 → percent of diet.
- * Algebraically: ratio × kcal/kg ÷ 10,000.
- */
-export function ratioToDietPct(gPerMcal: number, kcalKg: number): number {
-  if (!Number.isFinite(gPerMcal) || gPerMcal < 0) {
-    throw new Error("Nutrient-to-energy ratio must be a non-negative finite number.");
-  }
-  if (!Number.isFinite(kcalKg) || kcalKg <= 0) {
-    throw new Error("Diet energy must be a positive finite number.");
-  }
-  return (gPerMcal * kcalKg) / 10_000;
-}
-
-function optionalRatioToDietPct(
-  gPerMcal: number | undefined,
-  kcalKg: number,
-): number | undefined {
-  return gPerMcal === undefined ? undefined : ratioToDietPct(gPerMcal, kcalKg);
 }
 
 function assertEnergy(energy: DietEnergy): void {
