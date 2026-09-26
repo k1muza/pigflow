@@ -27,7 +27,9 @@ function ingredient(
     composition: {
       dryMatterPct: 90,
       crudeProteinPct,
+      digestibleProteinPct: r.digestibleProteinPct * 2,
       crudeFatPct: 5 + priceMarker,
+      linoleicAcidPct: (r.linoleicAcidPct ?? 0) * 2,
     },
     energy: {
       digestibleKcalKg: 3800,
@@ -105,6 +107,19 @@ describe("least-cost feed optimizer", () => {
     expect(protein?.inclusionPct).toBeCloseTo(20, 4);
     expect(result.solution.analysis.crudeProteinPct.value).toBeCloseTo(target, 5);
     expect(result.solution.costPerKg).toBeCloseTo(0.28, 5);
+    expect(result.unsupportedRequirements).toEqual([]);
+    expect(result.solution.analysis.digestibleProteinPct.value).toBeGreaterThanOrEqual(
+      phase.requirements.digestibleProteinPct,
+    );
+    expect(result.solution.analysis.minerals.availablePhosphorusPct.value).toBeGreaterThanOrEqual(
+      phase.requirements.minerals.availablePhosphorusPct ?? 0,
+    );
+    expect(result.solution.analysis.minerals.potassiumPct.value).toBeGreaterThanOrEqual(
+      phase.requirements.potassiumPct,
+    );
+    expect(result.solution.analysis.linoleicAcidPct.value).toBeGreaterThanOrEqual(
+      phase.requirements.linoleicAcidPct ?? 0,
+    );
   });
 
   it("does not silently substitute zero for missing nutrient composition", async () => {
