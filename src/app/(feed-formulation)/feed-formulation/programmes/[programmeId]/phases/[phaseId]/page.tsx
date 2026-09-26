@@ -34,6 +34,12 @@ export default async function FeedProgrammePhasePage({
         ["Net energy", value(r.netEnergyKcalKg, " kcal/kg")],
         ["Crude protein", value(r.crudeProteinPct, "%")],
         ["Digestible protein", value(r.digestibleProteinPct, "%")],
+        ...(phase.dailyMetabolizableEnergyKcal !== undefined
+          ? [["Daily metabolizable energy", value(phase.dailyMetabolizableEnergyKcal, " kcal/day")]]
+          : []),
+        ...(phase.dailyFeedIntakeKg !== undefined
+          ? [["Reference feed intake", value(phase.dailyFeedIntakeKg, " kg/day")]]
+          : []),
       ],
     },
     {
@@ -98,9 +104,21 @@ export default async function FeedProgrammePhasePage({
           {programme.sourceProgramme?.source} · {programme.sourceProgramme?.sourceVersion} ·
           printed page {phase.sourcePage}
         </p>
-        {phase.ageMinDays !== undefined && phase.ageMaxDays !== undefined ? (
+        {phase.periodLabel ? (
+          <p className="mt-1 text-xs text-ink-faint">
+            Published period: {phase.periodLabel}
+          </p>
+        ) : phase.ageMinDays !== undefined && phase.ageMaxDays !== undefined ? (
           <p className="mt-1 text-xs text-ink-faint">
             Published age range: {phase.ageMinDays}–{phase.ageMaxDays} days
+          </p>
+        ) : null}
+        {phase.parity ? (
+          <p className="mt-1 text-xs text-ink-faint">
+            Parity: {phase.parity}
+            {phase.femaleWeightLossKgDay !== undefined
+              ? ` · female weight loss ${phase.femaleWeightLossKgDay} kg/day`
+              : ""}
           </p>
         ) : null}
       </div>
@@ -133,9 +151,10 @@ export default async function FeedProgrammePhasePage({
         <CardHeader>
           <CardTitle className="text-base">Source semantics</CardTitle>
           <CardDescription>
-            These are Chapter 5 growing-swine requirements from the Brazilian Tables 2024.
-            Vitamin and trace-mineral values are intentionally not shown as requirements here:
-            Chapter 7 describes those values as suggested supplementation levels.
+            These are direct {phase.sourceTable.startsWith("6.") ? "Chapter 6 breeder" : "Chapter 5 growing-swine"} requirements
+            from the Brazilian Tables 2024. Vitamin and trace-mineral values are intentionally not
+            shown as requirements here: Chapter 7 describes those values as suggested supplementation
+            levels.
           </CardDescription>
         </CardHeader>
       </Card>
