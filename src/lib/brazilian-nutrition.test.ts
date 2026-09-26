@@ -58,6 +58,35 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
+  it("loads the remaining sex-specific and hot-environment growing tables", () => {
+    const tables = new Map(
+      BRAZILIAN_2024_GROWING_SWINE.programmes.map((programme) => [
+        programme.sourceTable,
+        programme,
+      ]),
+    );
+
+    expect(tables.get("5.33")?.phases[0]).toMatchObject({
+      weightKg: { min: 18, max: 27 },
+      sidAminoAcidsPct: { lysine: 1.214 },
+    });
+    expect(tables.get("5.34")?.population.environment).toBe("+5C-above-thermoneutral");
+    expect(tables.get("5.35")?.phases[4]).toMatchObject({
+      weightKg: { min: 106, max: 133 },
+      nutrientsPct: { crudeProtein: 10.05 },
+    });
+    expect(tables.get("5.37")?.phases).toHaveLength(4);
+    expect(tables.get("5.39")?.phases[0]).toMatchObject({
+      weightKg: { min: 17, max: 26 },
+      sidAminoAcidsPct: { lysine: 1.279 },
+    });
+    expect(tables.get("5.40")?.population.environment).toBe("+5C-above-thermoneutral");
+    expect(tables.get("5.42")?.phases[0]).toMatchObject({
+      weightKg: { min: 27, max: 50 },
+      sidAminoAcidsPct: { lysine: 1.142 },
+    });
+  });
+
   it("loads Chapter 6 gestation and lactation source tables", () => {
     expect(BRAZILIAN_2024_BREEDER_SWINE.gestation).toMatchObject({
       sourceTable: "6.08",
@@ -81,6 +110,18 @@ describe("Brazilian Tables 2024 source data", () => {
       litterWeightGainKgDay: 3.1,
       nutrientsPct: { crudeProtein: 21.48 },
       sidAminoAcidsPct: { lysine: 1.09 },
+    });
+
+    expect(BRAZILIAN_2024_BREEDER_SWINE.lactation25C).toMatchObject({
+      sourceTable: "6.16",
+      averageTemperatureC: 25,
+      aminoAcidRatios: { sourceTable: "6.11" },
+    });
+    expect(BRAZILIAN_2024_BREEDER_SWINE.lactation25C.phases[0]).toMatchObject({
+      parity: "PO1",
+      litterWeightGainKgDay: 2.63,
+      daily: { feedIntakeKgDay: 5.448 },
+      sidAminoAcidsPct: { lysine: 1.101 },
     });
   });
 
