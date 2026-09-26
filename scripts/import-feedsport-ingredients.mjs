@@ -73,6 +73,10 @@ function writeJson(filePath, value) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2) + "\n");
 }
 
+function writeCompactJson(filePath, value) {
+  fs.writeFileSync(filePath, JSON.stringify(value) + "\n");
+}
+
 function generateSnapshotIndex(shardFiles) {
   const imports = shardFiles
     .map(
@@ -124,7 +128,10 @@ async function main() {
   for (let start = 0; start < ingredients.length; start += args.shardSize) {
     const number = String(Math.floor(start / args.shardSize) + 1).padStart(2, "0");
     const file = `ingredients-${number}.json`;
-    writeJson(path.join(ingredientDir, file), ingredients.slice(start, start + args.shardSize));
+    writeCompactJson(
+      path.join(ingredientDir, file),
+      ingredients.slice(start, start + args.shardSize),
+    );
     shardFiles.push(file);
   }
 
