@@ -1,4 +1,5 @@
 import {
+  BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
   BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
   type NutritionPhase,
   type NutritionProgramme,
@@ -24,6 +25,7 @@ function isGrowFinishPhase(phase: NutritionPhase): boolean {
 }
 
 const DEFAULT_PROGRAMME = BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION;
+const HIGH_PERFORMANCE_PROGRAMME = BRAZILIAN_2024_HIGH_GROWTH_NUTRITION;
 
 export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
   {
@@ -78,6 +80,24 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     status: "loaded",
     sourceProgramme: DEFAULT_PROGRAMME,
     phases: DEFAULT_PROGRAMME.phases.filter(isGrowFinishPhase),
+  },
+  {
+    id: "nursery-pig-high-performance",
+    name: "Nursery Pig — High Performance",
+    description:
+      "Brazilian Tables 2024 pre-starter and starter requirements paired with the high-performance mixed-sex programme.",
+    status: "loaded",
+    sourceProgramme: HIGH_PERFORMANCE_PROGRAMME,
+    phases: HIGH_PERFORMANCE_PROGRAMME.phases.filter(isNurseryPhase),
+  },
+  {
+    id: "grow-finish-pig-high-performance",
+    name: "Grow-Finish Pig — High Performance",
+    description:
+      "Brazilian Tables 2024 high-performance mixed-sex grower and finisher requirements.",
+    status: "loaded",
+    sourceProgramme: HIGH_PERFORMANCE_PROGRAMME,
+    phases: HIGH_PERFORMANCE_PROGRAMME.phases.filter(isGrowFinishPhase),
   },
 ];
 
