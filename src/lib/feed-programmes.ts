@@ -1,5 +1,9 @@
 import {
+  BRAZILIAN_2024_GESTATION_NUTRITION,
+  BRAZILIAN_2024_HIGH_GILT_NUTRITION,
   BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+  BRAZILIAN_2024_LACTATION_NUTRITION,
+  BRAZILIAN_2024_STANDARD_GILT_NUTRITION,
   BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
   type NutritionPhase,
   type NutritionProgramme,
@@ -29,39 +33,31 @@ const HIGH_PERFORMANCE_PROGRAMME = BRAZILIAN_2024_HIGH_GROWTH_NUTRITION;
 
 export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
   {
-    id: "mature-boar",
-    name: "Mature Boar",
-    description: "Feeding and nutrient guidance for mature breeding boars.",
-    status: "not_loaded",
-    phases: [],
-  },
-  {
     id: "developing-gilt",
     name: "Developing Gilt",
-    description: "Development feeding programme for replacement gilts before breeding.",
-    status: "not_loaded",
-    phases: [],
+    description:
+      "Brazilian Tables 2024 standard-performance gilt requirements from Table 5.38.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_STANDARD_GILT_NUTRITION,
+    phases: BRAZILIAN_2024_STANDARD_GILT_NUTRITION.phases,
   },
   {
     id: "gestating-gilt-sow",
     name: "Gestating Gilt & Sow",
-    description: "Gestation feeding and nutrient specifications for gilts and sows.",
-    status: "not_loaded",
-    phases: [],
+    description:
+      "Brazilian Tables 2024 breeder requirements by parity and gestation period from Table 6.08.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_GESTATION_NUTRITION,
+    phases: BRAZILIAN_2024_GESTATION_NUTRITION.phases,
   },
   {
     id: "lactating-gilt-sow",
     name: "Lactating Gilt & Sow",
-    description: "Lactation feeding and nutrient specifications for gilts and sows.",
-    status: "not_loaded",
-    phases: [],
-  },
-  {
-    id: "weaned-sow",
-    name: "Weaned Sow",
-    description: "Post-weaning feeding management before the next service.",
-    status: "not_loaded",
-    phases: [],
+    description:
+      "Brazilian Tables 2024 lactation requirements by parity and litter-weight gain from Table 6.15.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_LACTATION_NUTRITION,
+    phases: BRAZILIAN_2024_LACTATION_NUTRITION.phases,
   },
   {
     id: "nursery-pig",
@@ -80,6 +76,15 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     status: "loaded",
     sourceProgramme: DEFAULT_PROGRAMME,
     phases: DEFAULT_PROGRAMME.phases.filter(isGrowFinishPhase),
+  },
+  {
+    id: "developing-gilt-high-performance",
+    name: "Developing Gilt — High Performance",
+    description:
+      "Brazilian Tables 2024 high-performance gilt requirements from Table 5.36.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_GILT_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_GILT_NUTRITION.phases,
   },
   {
     id: "nursery-pig-high-performance",
