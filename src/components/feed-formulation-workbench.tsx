@@ -127,28 +127,34 @@ export function FeedFormulationWorkbench({
       return;
     }
 
-    const requestIngredients = rows.map((row) => {
-      const pricePerKg = Number(row.price);
-      if (!Number.isFinite(pricePerKg) || pricePerKg < 0 || row.price.trim() === "") {
-        throw new Error(
-          `Enter a valid price per kg for ${ingredientById.get(row.ingredientId)?.name ?? row.ingredientId}.`,
-        );
-      }
-      const min = row.min.trim() === "" ? undefined : Number(row.min);
-      const max = row.max.trim() === "" ? undefined : Number(row.max);
-      if (min !== undefined && (!Number.isFinite(min) || min < 0 || min > 100)) {
-        throw new Error("Minimum inclusion must be between 0% and 100%.");
-      }
-      if (max !== undefined && (!Number.isFinite(max) || max < 0 || max > 100)) {
-        throw new Error("Maximum inclusion must be between 0% and 100%.");
-      }
-      return {
-        ingredientId: row.ingredientId,
-        pricePerKg,
-        minInclusionPct: min,
-        maxInclusionPct: max,
-      };
-    });
+    let requestIngredients;
+    try {
+      requestIngredients = rows.map((row) => {
+        const pricePerKg = Number(row.price);
+        if (!Number.isFinite(pricePerKg) || pricePerKg < 0 || row.price.trim() === "") {
+          throw new Error(
+            `Enter a valid price per kg for ${ingredientById.get(row.ingredientId)?.name ?? row.ingredientId}.`,
+          );
+        }
+        const min = row.min.trim() === "" ? undefined : Number(row.min);
+        const max = row.max.trim() === "" ? undefined : Number(row.max);
+        if (min !== undefined && (!Number.isFinite(min) || min < 0 || min > 100)) {
+          throw new Error("Minimum inclusion must be between 0% and 100%.");
+        }
+        if (max !== undefined && (!Number.isFinite(max) || max < 0 || max > 100)) {
+          throw new Error("Maximum inclusion must be between 0% and 100%.");
+        }
+        return {
+          ingredientId: row.ingredientId,
+          pricePerKg,
+          minInclusionPct: min,
+          maxInclusionPct: max,
+        };
+      });
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : String(error));
+      return;
+    }
 
     setRunning(true);
     try {
