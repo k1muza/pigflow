@@ -29,7 +29,9 @@ const ingredientSchema = z.object({
   composition: z.object({
     dryMatterPct: z.number().optional(),
     crudeProteinPct: z.number().optional(),
+    digestibleProteinPct: z.number().optional(),
     crudeFatPct: z.number().optional(),
+    linoleicAcidPct: z.number().optional(),
     crudeFibrePct: z.number().optional(),
     ashPct: z.number().optional(),
     starchPct: z.number().optional(),
@@ -185,4 +187,36 @@ export function nutrientValueSource(
   nutrientPath: string,
 ): NutrientValueSource | undefined {
   return ingredient.provenance.nutrientSources[nutrientPath];
+}
+
+
+export type FormulationPriorityNutrient =
+  | "digestible-protein"
+  | "available-phosphorus"
+  | "potassium"
+  | "linoleic-acid";
+
+/**
+ * Nutrients that make an ingredient especially useful when closing the
+ * currently incomplete Brazilian formulation matrix. Only explicit positive
+ * source values count here; structural zeros do not make an ingredient a
+ * nutrient carrier.
+ */
+export function formulationPriorityNutrients(
+  ingredient: IngredientNutrientRecord,
+): FormulationPriorityNutrient[] {
+  const nutrients: FormulationPriorityNutrient[] = [];
+  if ((ingredient.composition.digestibleProteinPct ?? 0) > 0) {
+    nutrients.push("digestible-protein");
+  }
+  if ((ingredient.macroMinerals.availablePhosphorusPct ?? 0) > 0) {
+    nutrients.push("available-phosphorus");
+  }
+  if ((ingredient.macroMinerals.potassiumPct ?? 0) > 0) {
+    nutrients.push("potassium");
+  }
+  if ((ingredient.composition.linoleicAcidPct ?? 0) > 0) {
+    nutrients.push("linoleic-acid");
+  }
+  return nutrients;
 }

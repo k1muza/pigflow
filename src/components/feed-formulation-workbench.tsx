@@ -21,6 +21,7 @@ type IngredientOption = {
   category: string;
   minInclusionPct?: number;
   maxInclusionPct?: number;
+  priorityNutrients: string[];
 };
 
 type Row = {
@@ -42,6 +43,32 @@ const DEFAULT_INGREDIENT_IDS = [
   "corn-oil",
 ];
 
+const PRIORITY_NUTRIENT_LABELS: Record<string, string> = {
+  "digestible-protein": "Dig. protein",
+  "available-phosphorus": "Avail. P",
+  potassium: "K",
+  "linoleic-acid": "Linoleic",
+};
+
+function initialIngredientIds(ingredients: IngredientOption[]): string[] {
+  const ids = new Set(
+    DEFAULT_INGREDIENT_IDS.filter((id) =>
+      ingredients.some((ingredient) => ingredient.id === id),
+    ),
+  );
+
+  // Automatically surface ingredients with source-backed coverage for at
+  // least two of the formulation nutrients that are still sparse in the
+  // ingredient matrix. This avoids adding every potassium-only ingredient.
+  for (const ingredient of ingredients) {
+    if (ingredient.priorityNutrients.length >= 2) {
+      ids.add(ingredient.id);
+    }
+  }
+
+  return Array.from(ids);
+}
+
 export function FeedFormulationWorkbench({
   programmes,
   ingredients,
@@ -60,15 +87,13 @@ export function FeedFormulationWorkbench({
   const [nextKey, setNextKey] = useState(100);
   const [addIngredientId, setAddIngredientId] = useState("");
   const [rows, setRows] = useState<Row[]>(() =>
-    DEFAULT_INGREDIENT_IDS.filter((id) => ingredients.some((ingredient) => ingredient.id === id)).map(
-      (ingredientId, index) => ({
-        key: index,
-        ingredientId,
-        price: "",
-        min: "",
-        max: "",
-      }),
-    ),
+    initialIngredientIds(ingredients).map((ingredientId, index) => ({
+      key: index,
+      ingredientId,
+      price: "",
+      min: "",
+      max: "",
+    })),
   );
   const [result, setResult] = useState<LeastCostFormulationResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -256,7 +281,14 @@ export function FeedFormulationWorkbench({
                     <tr key={row.key} className="border-t border-hairline">
                       <td className="px-3 py-2.5">
                         <div className="font-medium text-ink">{ingredient?.name ?? row.ingredientId}</div>
-                        <div className="mt-0.5 text-xs text-ink-faint">{ingredient?.category}</div>
+                        <div className="mt-0.5 text-xs text-ink-faint">
+                          {ingredient?.category}
+                          {ingredient && ingredient.priorityNutrients.length > 0
+                            ? ` · ${ingredient.priorityNutrients
+                                .map((id) => PRIORITY_NUTRIENT_LABELS[id] ?? id)
+                                .join(", ")}`
+                            : ""}
+                        </div>
                       </td>
                       <td className="px-3 py-2.5">
                         <Input
@@ -321,6 +353,11 @@ export function FeedFormulationWorkbench({
               {availableToAdd.map((ingredient) => (
                 <option key={ingredient.id} value={ingredient.id}>
                   {ingredient.name}
+                  {ingredient.priorityNutrients.length > 0
+                    ? ` · ${ingredient.priorityNutrients
+                        .map((id) => PRIORITY_NUTRIENT_LABELS[id] ?? id)
+                        .join(", ")}`
+                    : ""}
                 </option>
               ))}
             </select>
