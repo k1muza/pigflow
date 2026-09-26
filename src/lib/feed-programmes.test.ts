@@ -9,14 +9,14 @@ import {
 describe("feed programme catalogue", () => {
   it("contains only programmes backed by extracted Brazilian Tables data", () => {
     expect(FEED_PROGRAMMES.map((programme) => programme.id)).toEqual([
+      "nursery-pig",
+      "grow-finish-pig",
       "developing-gilt",
       "gestating-gilt-sow",
       "lactating-gilt-sow",
-      "nursery-pig",
-      "grow-finish-pig",
-      "developing-gilt-high-performance",
       "nursery-pig-high-performance",
       "grow-finish-pig-high-performance",
+      "developing-gilt-high-performance",
     ]);
     expect(FEED_PROGRAMMES.every((programme) => programme.status === "loaded")).toBe(true);
     expect(feedProgrammeById("mature-boar")).toBeUndefined();
