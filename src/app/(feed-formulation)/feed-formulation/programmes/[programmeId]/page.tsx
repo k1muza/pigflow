@@ -73,7 +73,7 @@ export default async function FeedProgrammePage({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Phase</TableHead>
-                      <TableHead>Published weight</TableHead>
+                      <TableHead>Published basis</TableHead>
                       <TableHead>Stage</TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
@@ -108,8 +108,7 @@ export default async function FeedProgrammePage({
           <CardHeader>
             <CardTitle>Programme data not loaded yet</CardTitle>
             <CardDescription>
-              This programme is not loaded yet. The current Brazilian Tables extraction covers
-              growing pigs; breeder requirements from Chapter 6 are still pending extraction.
+              This programme is not currently available from the checked-in Brazilian Tables dataset.
             </CardDescription>
           </CardHeader>
         </Card>

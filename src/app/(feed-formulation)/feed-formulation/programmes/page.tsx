@@ -14,12 +14,13 @@ export default function FeedProgrammesPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Programmes</h1>
           <Badge variant="secondary">
-            {loaded} of {FEED_PROGRAMMES.length} loaded
+            {loaded} Brazilian-backed programmes
           </Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-          Animal feeding programmes backed by the Brazilian Tables 2024. Growing-pig programmes
-          are loaded now; breeder programmes remain placeholders until Chapter 6 is extracted.
+          Every programme shown here is backed directly by the Brazilian Tables 2024. Unsupported
+          placeholder programmes have been removed; Chapter 5 covers growing pigs and gilts, while
+          Chapter 6 supplies gestation and lactation requirements.
         </p>
       </div>
 

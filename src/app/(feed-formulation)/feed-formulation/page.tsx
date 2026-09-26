@@ -48,7 +48,7 @@ export default function FeedFormulationDashboard() {
         <SummaryCard
           label="Loaded programmes"
           value={loadedProgrammes.toString()}
-          detail="standard and high-performance tracks"
+          detail="growing, gilt and breeder programmes"
         />
         <SummaryCard
           label="Standard phases"
@@ -117,8 +117,9 @@ export default function FeedFormulationDashboard() {
             detail="Diet checks compare calculated profiles against the selected Brazilian requirement phase."
           />
           <StatusRow
+            ready
             label="Least-cost formulation solver"
-            detail="The constraint/data layer is ready; the LP solver has not yet been connected."
+            detail="GLPK solves modeled Brazilian nutrient requirements as hard constraints, with a diagnostic pass when no exact diet is feasible."
           />
           <StatusRow
             label="Maximum-profit formulation"

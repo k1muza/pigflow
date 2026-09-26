@@ -33,7 +33,7 @@ export type ResolvedNutritionTargets = {
   crudeProteinPct: number;
   digestibleProteinPct: number;
   potassiumPct: number;
-  linoleicAcidPct: number;
+  linoleicAcidPct?: number;
   aminoAcids: ResolvedAminoAcidTargets;
   minerals: ResolvedMineralTargets;
 };
@@ -42,8 +42,9 @@ export type ResolvedNutritionTargets = {
  * Normalize one Brazilian Tables phase into the target shape consumed by the
  * formulation evaluator.
  *
- * Chapter 5 publishes diet energy and SID amino-acid concentrations directly,
- * so no PIC-style nutrient-per-Mcal conversion is performed here.
+ * The Brazilian Tables publish diet energy and SID amino-acid concentrations
+ * directly for the loaded Chapter 5 and Chapter 6 phases, so no nutrient-per-Mcal
+ * conversion is performed here.
  */
 export function resolveNutritionTargets(
   phase: NutritionPhase,

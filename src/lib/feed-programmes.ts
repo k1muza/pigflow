@@ -1,5 +1,17 @@
 import {
+  BRAZILIAN_2024_GESTATION_NUTRITION,
+  BRAZILIAN_2024_HIGH_BARROW_HOT_NUTRITION,
+  BRAZILIAN_2024_HIGH_BARROW_NUTRITION,
+  BRAZILIAN_2024_HIGH_ENTIRE_MALE_HOT_NUTRITION,
+  BRAZILIAN_2024_HIGH_GILT_HOT_NUTRITION,
+  BRAZILIAN_2024_HIGH_GILT_NUTRITION,
   BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+  BRAZILIAN_2024_HIGH_MIXED_SEX_HOT_NUTRITION,
+  BRAZILIAN_2024_LACTATION_25C_NUTRITION,
+  BRAZILIAN_2024_LACTATION_NUTRITION,
+  BRAZILIAN_2024_STANDARD_BARROW_NUTRITION,
+  BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION,
+  BRAZILIAN_2024_STANDARD_GILT_NUTRITION,
   BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
   type NutritionPhase,
   type NutritionProgramme,
@@ -29,41 +41,6 @@ const HIGH_PERFORMANCE_PROGRAMME = BRAZILIAN_2024_HIGH_GROWTH_NUTRITION;
 
 export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
   {
-    id: "mature-boar",
-    name: "Mature Boar",
-    description: "Feeding and nutrient guidance for mature breeding boars.",
-    status: "not_loaded",
-    phases: [],
-  },
-  {
-    id: "developing-gilt",
-    name: "Developing Gilt",
-    description: "Development feeding programme for replacement gilts before breeding.",
-    status: "not_loaded",
-    phases: [],
-  },
-  {
-    id: "gestating-gilt-sow",
-    name: "Gestating Gilt & Sow",
-    description: "Gestation feeding and nutrient specifications for gilts and sows.",
-    status: "not_loaded",
-    phases: [],
-  },
-  {
-    id: "lactating-gilt-sow",
-    name: "Lactating Gilt & Sow",
-    description: "Lactation feeding and nutrient specifications for gilts and sows.",
-    status: "not_loaded",
-    phases: [],
-  },
-  {
-    id: "weaned-sow",
-    name: "Weaned Sow",
-    description: "Post-weaning feeding management before the next service.",
-    status: "not_loaded",
-    phases: [],
-  },
-  {
     id: "nursery-pig",
     name: "Nursery Pig",
     description:
@@ -82,6 +59,60 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     phases: DEFAULT_PROGRAMME.phases.filter(isGrowFinishPhase),
   },
   {
+    id: "developing-gilt",
+    name: "Developing Gilt",
+    description:
+      "Brazilian Tables 2024 standard-performance gilt requirements from Table 5.38.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_STANDARD_GILT_NUTRITION,
+    phases: BRAZILIAN_2024_STANDARD_GILT_NUTRITION.phases,
+  },
+  {
+    id: "growing-barrows-standard",
+    name: "Growing Barrows — Standard Performance",
+    description:
+      "Brazilian Tables 2024 standard-performance barrow requirements from Table 5.35.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_STANDARD_BARROW_NUTRITION,
+    phases: BRAZILIAN_2024_STANDARD_BARROW_NUTRITION.phases,
+  },
+  {
+    id: "growing-entire-immunocastrated-males-standard",
+    name: "Entire / Immunocastrated Males — Standard Performance",
+    description:
+      "Brazilian Tables 2024 standard-performance entire and immunocastrated male requirements from Table 5.39.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION,
+    phases: BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION.phases,
+  },
+  {
+    id: "gestating-gilt-sow",
+    name: "Gestating Gilt & Sow",
+    description:
+      "Brazilian Tables 2024 breeder requirements by parity and gestation period from Table 6.08.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_GESTATION_NUTRITION,
+    phases: BRAZILIAN_2024_GESTATION_NUTRITION.phases,
+  },
+  {
+    id: "lactating-gilt-sow",
+    name: "Lactating Gilt & Sow",
+    description:
+      "Brazilian Tables 2024 lactation requirements by parity and litter-weight gain from Table 6.15.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_LACTATION_NUTRITION,
+    phases: BRAZILIAN_2024_LACTATION_NUTRITION.phases,
+  },
+  {
+    id: "lactating-gilt-sow-25c",
+    name: "Lactating Gilt & Sow — 25 °C",
+    description:
+      "Brazilian Tables 2024 lactation requirements adjusted for an average temperature of 25 °C from Table 6.16.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_LACTATION_25C_NUTRITION,
+    phases: BRAZILIAN_2024_LACTATION_25C_NUTRITION.phases,
+  },
+  {
     id: "nursery-pig-high-performance",
     name: "Nursery Pig — High Performance",
     description:
@@ -98,6 +129,60 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     status: "loaded",
     sourceProgramme: HIGH_PERFORMANCE_PROGRAMME,
     phases: HIGH_PERFORMANCE_PROGRAMME.phases.filter(isGrowFinishPhase),
+  },
+  {
+    id: "developing-gilt-high-performance",
+    name: "Developing Gilt — High Performance",
+    description:
+      "Brazilian Tables 2024 high-performance gilt requirements from Table 5.36.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_GILT_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_GILT_NUTRITION.phases,
+  },
+  {
+    id: "growing-barrows-high-performance",
+    name: "Growing Barrows — High Performance",
+    description:
+      "Brazilian Tables 2024 high-performance barrow requirements from Table 5.33.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_BARROW_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_BARROW_NUTRITION.phases,
+  },
+  {
+    id: "growing-barrows-high-performance-hot",
+    name: "Growing Barrows — High Performance (+5 °C)",
+    description:
+      "Brazilian Tables 2024 high-performance barrow requirements at 5 °C above thermoneutral from Table 5.34.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_BARROW_HOT_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_BARROW_HOT_NUTRITION.phases,
+  },
+  {
+    id: "developing-gilt-high-performance-hot",
+    name: "Developing Gilt — High Performance (+5 °C)",
+    description:
+      "Brazilian Tables 2024 high-performance gilt requirements at 5 °C above thermoneutral from Table 5.37.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_GILT_HOT_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_GILT_HOT_NUTRITION.phases,
+  },
+  {
+    id: "growing-entire-immunocastrated-males-high-performance-hot",
+    name: "Entire / Immunocastrated Males — High Performance (+5 °C)",
+    description:
+      "Brazilian Tables 2024 high-performance entire and immunocastrated male requirements at 5 °C above thermoneutral from Table 5.40.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_ENTIRE_MALE_HOT_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_ENTIRE_MALE_HOT_NUTRITION.phases,
+  },
+  {
+    id: "grow-finish-pig-high-performance-hot",
+    name: "Grow-Finish Pig — High Performance (+5 °C)",
+    description:
+      "Brazilian Tables 2024 high-performance mixed-sex grower and finisher requirements at 5 °C above thermoneutral from Table 5.42.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_MIXED_SEX_HOT_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_MIXED_SEX_HOT_NUTRITION.phases,
   },
 ];
 

@@ -285,7 +285,9 @@ export function nutrientRequirementValue(
         ? undefined
         : minimum(`${r.minerals.chloridePct}%`, "diet");
     case "linoleic-acid":
-      return minimum(`${r.linoleicAcidPct}%`, "diet");
+      return r.linoleicAcidPct === undefined
+        ? undefined
+        : minimum(`${r.linoleicAcidPct}%`, "diet");
     default:
       return undefined;
   }

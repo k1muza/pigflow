@@ -172,6 +172,8 @@ export function sttdPhosphorusPctOf(
     return ingredient.macroMinerals.sttdPhosphorusPct;
   }
   const total = ingredient.macroMinerals.totalPhosphorusPct;
+  if (total === 0) return 0;
+
   const digestibility = ingredient.macroMinerals.sttdPhosphorusDigestibilityPct;
   if (total === undefined || digestibility === undefined) return undefined;
   return total * (digestibility / 100);
