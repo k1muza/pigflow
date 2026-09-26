@@ -1,5 +1,6 @@
 import {
   INGREDIENT_LIBRARY,
+  availablePhosphorusPctOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientLibrary,
@@ -40,6 +41,8 @@ export type DietAnalysis = {
     netKcalKg: AnalyzedNutrient;
   };
   crudeProteinPct: AnalyzedNutrient;
+  digestibleProteinPct: AnalyzedNutrient;
+  linoleicAcidPct: AnalyzedNutrient;
   sidAminoAcidsPct: {
     lysine: AnalyzedNutrient;
     methionineCysteine: AnalyzedNutrient;
@@ -56,6 +59,7 @@ export type DietAnalysis = {
     totalPhosphorusPct: AnalyzedNutrient;
     availablePhosphorusPct: AnalyzedNutrient;
     sttdPhosphorusPct: AnalyzedNutrient;
+    potassiumPct: AnalyzedNutrient;
     sodiumPct: AnalyzedNutrient;
     chloridePct: AnalyzedNutrient;
   };
@@ -139,6 +143,8 @@ export function analyzeDiet(
       netKcalKg: measure(),
     },
     crudeProteinPct: measure(),
+    digestibleProteinPct: measure(),
+    linoleicAcidPct: measure(),
     sidAminoAcidsPct: {
       lysine: measure(),
       methionineCysteine: measure(),
@@ -155,6 +161,7 @@ export function analyzeDiet(
       totalPhosphorusPct: measure(),
       availablePhosphorusPct: measure(),
       sttdPhosphorusPct: measure(),
+      potassiumPct: measure(),
       sodiumPct: measure(),
       chloridePct: measure(),
     },
@@ -221,6 +228,20 @@ export function analyzeDiet(
       ingredient.composition.crudeProteinPct,
       structuralZero(ingredient, "crudeProtein"),
     );
+    add(
+      result.digestibleProteinPct,
+      ingredient,
+      share,
+      ingredient.composition.digestibleProteinPct,
+      structuralZero(ingredient, "digestibleProtein"),
+    );
+    add(
+      result.linoleicAcidPct,
+      ingredient,
+      share,
+      ingredient.composition.linoleicAcidPct,
+      structuralZero(ingredient, "linoleicAcid"),
+    );
 
     addSid(result.sidAminoAcidsPct.lysine, ingredient, share, ["lysine"]);
     addSid(
@@ -260,7 +281,7 @@ export function analyzeDiet(
       result.minerals.availablePhosphorusPct,
       ingredient,
       share,
-      ingredient.macroMinerals.availablePhosphorusPct,
+      availablePhosphorusPctOf(ingredient),
       structuralZero(ingredient, "macroMineral"),
     );
     add(
@@ -268,6 +289,13 @@ export function analyzeDiet(
       ingredient,
       share,
       sttdPhosphorusPctOf(ingredient),
+      structuralZero(ingredient, "macroMineral"),
+    );
+    add(
+      result.minerals.potassiumPct,
+      ingredient,
+      share,
+      ingredient.macroMinerals.potassiumPct,
       structuralZero(ingredient, "macroMineral"),
     );
     add(
@@ -472,6 +500,32 @@ export function evaluateDietForPhase(
     targets.crudeProteinPct,
     "%",
   );
+  checkMin(
+    checks,
+    "digestible-protein",
+    "Digestible protein",
+    analysis.digestibleProteinPct,
+    targets.digestibleProteinPct,
+    "%",
+  );
+  checkMin(
+    checks,
+    "potassium",
+    "Potassium",
+    analysis.minerals.potassiumPct,
+    targets.potassiumPct,
+    "%",
+  );
+  if (targets.linoleicAcidPct !== undefined) {
+    checkMin(
+      checks,
+      "linoleic-acid",
+      "Linoleic acid",
+      analysis.linoleicAcidPct,
+      targets.linoleicAcidPct,
+      "%",
+    );
+  }
 
   const trace = phase.requirements.traceMinerals;
   if (trace) {
@@ -583,6 +637,8 @@ export function evaluateDietForPhase(
 type NutrientFamily =
   | "energy"
   | "crudeProtein"
+  | "digestibleProtein"
+  | "linoleicAcid"
   | "aminoAcid"
   | "macroMineral"
   | "traceMineral"
@@ -610,6 +666,19 @@ function structuralZero(
       return (
         ingredient.category === "mineral" ||
         ingredient.category === "oil_fat" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "digestibleProtein":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "linoleicAcid":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "amino_acid" ||
         ingredient.category === "vitamin_mineral_premix"
       );
     case "aminoAcid":
