@@ -104,6 +104,31 @@ describe("ingredient nutrient JSON library", () => {
     expect(cornOil?.composition.linoleicAcidPct).toBe(51.9);
   });
 
+  it("backfills strict formulation nutrients for NRC soybean meal and wheat bran", () => {
+    const soybean = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-meal-dehulled-solvent-extracted",
+    );
+    const wheatBran = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "wheat-bran",
+    );
+
+    expect(soybean?.composition.digestibleProteinPct).toBe(44);
+    expect(soybean?.macroMinerals.availablePhosphorusPct).toBe(0.23);
+    expect(soybean?.composition.linoleicAcidPct).toBe(0.77);
+    expect(nutrientValueSource(soybean!, "composition.digestibleProteinPct")).toMatchObject({
+      publisher: "Federal University of Viçosa, Department of Animal Science",
+      priority: "fallback",
+    });
+
+    expect(wheatBran?.composition.digestibleProteinPct).toBe(11.7);
+    expect(wheatBran?.macroMinerals.availablePhosphorusPct).toBe(0.49);
+    expect(wheatBran?.composition.linoleicAcidPct).toBe(1.54);
+    expect(nutrientValueSource(wheatBran!, "macroMinerals.availablePhosphorusPct")).toMatchObject({
+      publisher: "Federal University of Viçosa, Department of Animal Science",
+      priority: "fallback",
+    });
+  });
+
   it("preserves NRC total lysine and SID digestibility separately", () => {
     const maize = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "corn-yellow-dent",
