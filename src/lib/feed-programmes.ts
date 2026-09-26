@@ -1,5 +1,6 @@
 import {
-  PIC_GROWTH_NUTRITION_2021,
+  BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+  BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
   type NutritionPhase,
   type NutritionProgramme,
 } from "./nutrition";
@@ -16,11 +17,28 @@ export type FeedProgrammeDefinition = {
 };
 
 function isNurseryPhase(phase: NutritionPhase): boolean {
-  return phase.lookupMinWeightKg < 23;
+  return phase.phaseClass === "pre-starter" || phase.phaseClass === "starter";
 }
 
 function isGrowFinishPhase(phase: NutritionPhase): boolean {
-  return phase.lookupMinWeightKg >= 23;
+  return phase.phaseClass === "grower" || phase.phaseClass === "finisher";
+}
+
+function loadedProgramme(
+  id: string,
+  name: string,
+  description: string,
+  sourceProgramme: NutritionProgramme,
+  predicate: (phase: NutritionPhase) => boolean,
+): FeedProgrammeDefinition {
+  return {
+    id,
+    name,
+    description,
+    status: "loaded",
+    sourceProgramme,
+    phases: sourceProgramme.phases.filter(predicate),
+  };
 }
 
 export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
@@ -59,22 +77,34 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     status: "not_loaded",
     phases: [],
   },
-  {
-    id: "nursery-pig",
-    name: "Nursery Pig",
-    description: "Prestart and late-nursery nutrient specifications by liveweight.",
-    status: "loaded",
-    sourceProgramme: PIC_GROWTH_NUTRITION_2021,
-    phases: PIC_GROWTH_NUTRITION_2021.phases.filter(isNurseryPhase),
-  },
-  {
-    id: "grow-finish-pig",
-    name: "Grow-Finish Pig",
-    description: "Grow-finish nutrient specifications from 23 kg through market weight.",
-    status: "loaded",
-    sourceProgramme: PIC_GROWTH_NUTRITION_2021,
-    phases: PIC_GROWTH_NUTRITION_2021.phases.filter(isGrowFinishPhase),
-  },
+  loadedProgramme(
+    "nursery-pig",
+    "Nursery Pig — Standard performance",
+    "Brazilian Tables 2024 pre-starter and starter requirements for standard-performance mixed-sex pigs with high genetic potential.",
+    BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
+    isNurseryPhase,
+  ),
+  loadedProgramme(
+    "grow-finish-pig",
+    "Grow-Finish Pig — Standard performance",
+    "Brazilian Tables 2024 grower and finisher requirements for standard-performance mixed-sex pigs with high genetic potential.",
+    BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
+    isGrowFinishPhase,
+  ),
+  loadedProgramme(
+    "nursery-pig-high-performance",
+    "Nursery Pig — High performance",
+    "Brazilian Tables 2024 pre-starter and starter requirements for high-performance mixed-sex pigs with high genetic potential.",
+    BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+    isNurseryPhase,
+  ),
+  loadedProgramme(
+    "grow-finish-pig-high-performance",
+    "Grow-Finish Pig — High performance",
+    "Brazilian Tables 2024 grower and finisher requirements for high-performance mixed-sex pigs with high genetic potential.",
+    BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+    isGrowFinishPhase,
+  ),
 ];
 
 export function feedProgrammeById(id: string): FeedProgrammeDefinition | undefined {
