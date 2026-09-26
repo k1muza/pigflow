@@ -92,16 +92,16 @@ export default async function FeedNutrientPage({
         <CardHeader>
           <CardTitle>Ingredients rich in {nutrient.shortName}</CardTitle>
           <CardDescription>
-            Highest concentrations among ingredients currently loaded in the NRC ingredient library.
+            Highest quantified concentrations among ingredients currently loaded in PigFlow.
             Ranking is by nutrient concentration, not cost or recommended inclusion rate.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {nutrient.group === "Trace minerals" || nutrient.group === "Vitamins" ? (
             <div className="rounded-lg border border-hairline bg-raised/30 px-4 py-3 text-xs leading-5 text-ink-muted">
-              Ingredient concentrations are shown for reference. PIC&apos;s trace-mineral and vitamin
-              specifications are added-supplementation values and do not give credit for nutrient
-              content already present in ingredients.
+              Ingredient concentrations are shown for reference. Brazilian Tables Chapter 7
+              supplementation guidance is intentionally kept separate from the Chapter 5 animal
+              requirement catalogue.
             </div>
           ) : null}
           {abundantIngredients.length > 0 ? (
@@ -138,7 +138,7 @@ export default async function FeedNutrientPage({
             </div>
           ) : (
             <div className="rounded-lg border border-dashed border-hairline px-4 py-6 text-sm text-ink-muted">
-              None of the currently loaded NRC ingredients has a quantified value for this nutrient.
+              None of the currently loaded ingredients has a quantified value for this nutrient.
             </div>
           )}
         </CardContent>
@@ -146,10 +146,10 @@ export default async function FeedNutrientPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Loaded PIC requirements</CardTitle>
+          <CardTitle>Loaded Brazilian Tables requirements</CardTitle>
           <CardDescription>
-            Programme- and phase-specific PIC constraints. Minimums, targets and maximum caps are
-            kept separate so a recommendation is not accidentally treated as a hard upper bound.
+            Programme- and phase-specific Chapter 5 values. Dietary minimums and published energy
+            targets remain distinct in the catalogue.
           </CardDescription>
         </CardHeader>
         <CardContent>
