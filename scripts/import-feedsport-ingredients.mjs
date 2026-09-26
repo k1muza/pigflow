@@ -137,11 +137,19 @@ async function main() {
 
   writeJson(path.join(baseDir, "nutrients.json"), nutrients);
 
+  const nutrientIds = new Set(nutrients.map((nutrient) => String(nutrient.id)));
   const swineNutrientIds = new Set(
-    nutrients
-      .map((nutrient) => String(nutrient.id))
-      .filter((id) => id.startsWith("swine-") || id.startsWith("sow-")),
+    [...nutrientIds].filter((id) => id.startsWith("swine-") || id.startsWith("sow-")),
   );
+  const unresolvedNutrientIds = [
+    ...new Set(
+      ingredients.flatMap((ingredient) =>
+        (ingredient.compositions ?? [])
+          .map((composition) => String(composition.nutrientId))
+          .filter((id) => !nutrientIds.has(id)),
+      ),
+    ),
+  ].sort();
   const ingredientsWithSwineData = ingredients.filter((ingredient) =>
     (ingredient.compositions ?? []).some((composition) =>
       swineNutrientIds.has(String(composition.nutrientId)),
@@ -166,6 +174,7 @@ async function main() {
     ingredientsWithSwineData,
     shardSize: args.shardSize,
     ingredientShards: shardFiles,
+    unresolvedNutrientIds,
   };
   writeJson(path.join(baseDir, "manifest.json"), manifest);
   fs.writeFileSync(path.join(baseDir, "snapshot.ts"), generateSnapshotIndex(shardFiles));
@@ -180,6 +189,7 @@ async function main() {
         nutrientCount: nutrients.length,
         swineNutrientCount: swineNutrientIds.size,
         ingredientsWithSwineData,
+        unresolvedNutrientIds,
         shards: shardFiles.length,
       },
       null,
