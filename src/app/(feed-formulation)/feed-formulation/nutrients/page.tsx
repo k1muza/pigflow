@@ -17,7 +17,7 @@ export default function FeedNutrientsPage() {
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
           Reference catalogue of nutrient concepts used by programmes, ingredients and diet
-          validation. Open any nutrient for its role and loaded PIC requirement values.
+          validation. Open any nutrient for its role and loaded Brazilian Tables requirement values.
         </p>
       </div>
 

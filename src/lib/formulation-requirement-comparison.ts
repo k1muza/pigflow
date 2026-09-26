@@ -54,9 +54,9 @@ function comparisonNote(check: DietConstraintCheck): string | undefined {
 }
 
 /**
- * Compare a formulation against one PIC phase using PigFlow's calculated
- * ingredient-weighted nutrient profile. PIC contributes requirement ratios and
- * limits only; no source-reported formulation output values are used here.
+ * Compare a formulation against one published requirement phase using PigFlow's
+ * calculated ingredient-weighted nutrient profile. Requirement values come
+ * from the Brazilian Tables; formulation outputs are always calculated.
  */
 export function compareFormulationToPhase(
   formulation: FeedFormulation,
@@ -88,7 +88,7 @@ export function compareFormulationToPhase(
             : unsupported,
       relation: "min",
       status: "incomplete",
-      note: "This practical PIC constraint is not yet calculable from the ingredient nutrient schema.",
+      note: "This practical constraint is not yet calculable from the ingredient nutrient schema.",
     });
   }
 

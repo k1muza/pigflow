@@ -30,7 +30,7 @@ function display(value: number | undefined, unit = ""): string {
 function sourceLabel(ingredient: (typeof library.ingredients)[number]): string {
   if (ingredient.provenance.source) {
     if (ingredient.provenance.source.publisher === "Pork Information Gateway") return "NSNG";
-    if (ingredient.provenance.source.publisher === "PIC") return "PIC";
+
     return ingredient.provenance.source.publisher;
   }
   return "NRC 2012";

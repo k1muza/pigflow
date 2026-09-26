@@ -60,7 +60,7 @@ export function formulationEconomicsContext(
  * Scores one biologically valid formulation candidate.
  *
  * This does not predict ADG/FCR from nutrient density. That response belongs to
- * the PIC response model. This function starts once a candidate has an expected
+ * a separate, sourced biological response model. This function starts once a candidate has an expected
  * ADG, FCR and feed cost, and puts the farm's economics around those outcomes.
  */
 export function scoreFormulationCandidate(

@@ -74,7 +74,7 @@ export default async function FeedProgrammePage({
                     <TableRow>
                       <TableHead>Phase</TableHead>
                       <TableHead>Published weight</TableHead>
-                      <TableHead>Variant</TableHead>
+                      <TableHead>Stage</TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
@@ -84,7 +84,7 @@ export default async function FeedProgrammePage({
                         <TableCell className="font-medium text-ink">{phase.label}</TableCell>
                         <TableCell className="text-ink-muted">{phase.sourceWeightRange}</TableCell>
                         <TableCell className="capitalize text-ink-muted">
-                          {phase.variant.replaceAll("_", " ")}
+                          {phase.phaseClass}
                         </TableCell>
                         <TableCell>
                           <Link
@@ -108,8 +108,8 @@ export default async function FeedProgrammePage({
           <CardHeader>
             <CardTitle>Programme data not loaded yet</CardTitle>
             <CardDescription>
-              The programme exists in the PIC source material, but PigFlow does not yet contain its
-              transcribed nutrient specification.
+              This programme is not loaded yet. The current Brazilian Tables extraction covers
+              growing pigs; breeder requirements from Chapter 6 are still pending extraction.
             </CardDescription>
           </CardHeader>
         </Card>

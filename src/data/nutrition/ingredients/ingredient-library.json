@@ -671,7 +671,7 @@
       "traceMineralsPpm": {},
       "constraints": {
         "notes": [
-          "PIC phase-specific maximum inclusion limits remain formulation constraints and are not stored as an NRC ingredient property."
+          "Phase-specific maximum inclusion limits belong in formulation constraints, not ingredient nutrient properties."
         ]
       },
       "provenance": {
@@ -1551,7 +1551,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -1659,7 +1659,7 @@
           "basis": "Analyzed as-fed composition of the study's low-oil corn DDGS source"
         },
         "notes": [
-          "PIC Tables B1/B2 specify corn DDGS with <4% oil.",
+          "Low-oil corn DDGS is retained as a distinct ingredient identity.",
           "Pig-specific low-oil DDGS fallback values are drawn from INRAE–CIRAD–AFZ only where the primary record lacked that nutrient."
         ],
         "nutrientSources": {
@@ -2043,16 +2043,8 @@
       },
       "provenance": {
         "sourceIngredientName": "Vitamin and trace mineral premix",
-        "sourceTable": "PIC Tables B1/B2",
-        "source": {
-          "publisher": "PIC",
-          "title": "PIC Nutrition and Feeding Guidelines",
-          "year": 2021,
-          "url": "https://www.pic.com/wp-content/uploads/sites/3/2021/03/PIC_Nutrition-Guidelines_English-Metric.pdf",
-          "basis": "Ingredient identity from PIC Tables B1/B2; premix composition is product-specific"
-        },
         "notes": [
-          "Ingredient is present at 0.50% in both PIC example diets."
+          "Generic placeholder retained for supplier-specific premix products; no universal nutrient profile or inclusion rate is assumed."
         ]
       }
     },
@@ -2127,7 +2119,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2214,7 +2206,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2301,7 +2293,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2387,7 +2379,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2473,7 +2465,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2558,7 +2550,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2643,7 +2635,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2730,7 +2722,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2817,7 +2809,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2898,7 +2890,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -2984,7 +2976,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3070,7 +3062,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3158,7 +3150,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3244,7 +3236,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3331,7 +3323,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3401,7 +3393,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3476,7 +3468,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3562,7 +3554,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3648,7 +3640,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3734,7 +3726,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3819,7 +3811,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3905,7 +3897,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -3992,7 +3984,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -4077,7 +4069,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -4162,7 +4154,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -4246,7 +4238,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -4331,7 +4323,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -4414,7 +4406,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -4484,7 +4476,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {
@@ -4525,7 +4517,7 @@
       "vitamins": {},
       "constraints": {
         "notes": [
-          "Supplemental catalogue record from the National Swine Nutrition Guide; do not treat it as an NRC 2012 row when reproducing PIC NRC-2012 diet calculations."
+          "Supplemental catalogue record from the National Swine Nutrition Guide; it is not an NRC 2012 ingredient row."
         ]
       },
       "provenance": {

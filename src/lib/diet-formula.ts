@@ -406,30 +406,9 @@ export function evaluateDietForPhase(
     );
   }
 
-  const directNutrientPhase = phase.requirements.sidLysinePct !== undefined;
-  const targets =
-    directNutrientPhase
-      ? resolveNutritionTargets(phase)
-      : energyMeasure.complete && energyMeasure.value > 0
-        ? resolveNutritionTargets(phase, { system: energySystem, kcalKg: energyMeasure.value })
-        : null;
+  const targets = resolveNutritionTargets(phase);
 
-  if (!directNutrientPhase && targets === null) {
-    checks.push({
-      id: "energy-basis",
-      label: `${energySystem} required to resolve energy-relative PIC targets`,
-      actual: null,
-      knownSubtotal: energyMeasure.value,
-      bound: 0,
-      relation: "min",
-      status: "incomplete",
-      passes: null,
-      unit: "kcal/kg",
-      missingIngredientIds: energyMeasure.missingIngredientIds,
-    });
-  }
-
-  if (targets) {
+  {
     const aa = targets.aminoAcids;
     checkMin(checks, "sid-lysine", "SID lysine", analysis.sidAminoAcidsPct.lysine, aa.sidLysinePct, "%");
     checkMin(
@@ -483,82 +462,64 @@ export function evaluateDietForPhase(
     if (targets.minerals.chloridePct !== undefined) {
       checkMin(checks, "chloride", "Chloride", analysis.minerals.chloridePct, targets.minerals.chloridePct, "%");
     }
-    if (targets.minerals.chloridePctRange) {
-      checkRange(
-        checks,
-        "chloride",
-        "Chloride",
-        analysis.minerals.chloridePct,
-        targets.minerals.chloridePctRange,
-        "%",
-      );
-    }
-
-    if (targets.minerals.analyzedCalciumToPhosphorus) {
-      checkRatioRange(
-        checks,
-        "calcium-phosphorus-ratio",
-        "Analyzed calcium : phosphorus",
-        analysis.minerals.calciumPct,
-        analysis.minerals.totalPhosphorusPct,
-        targets.minerals.analyzedCalciumToPhosphorus,
-      );
-    }
   }
 
+  checkMin(
+    checks,
+    "crude-protein",
+    "Crude protein",
+    analysis.crudeProteinPct,
+    targets.crudeProteinPct,
+    "%",
+  );
+
   const trace = phase.requirements.traceMinerals;
-  checkMin(checks, "zinc", "Zinc", analysis.traceMineralsPpm.zinc, trace.zincPpm, "ppm");
-  checkMin(checks, "iron", "Iron", analysis.traceMineralsPpm.iron, trace.ironPpm, "ppm");
-  checkMin(checks, "manganese", "Manganese", analysis.traceMineralsPpm.manganese, trace.manganesePpm, "ppm");
-  checkMin(checks, "copper", "Copper", analysis.traceMineralsPpm.copper, trace.copperPpm, "ppm");
-  checkMin(checks, "iodine", "Iodine", analysis.traceMineralsPpm.iodine, trace.iodinePpm, "ppm");
-  checkMin(checks, "selenium", "Selenium", analysis.traceMineralsPpm.selenium, trace.seleniumPpm, "ppm");
+  if (trace) {
+    checkMin(checks, "zinc", "Zinc", analysis.traceMineralsPpm.zinc, trace.zincPpm, "ppm");
+    checkMin(checks, "iron", "Iron", analysis.traceMineralsPpm.iron, trace.ironPpm, "ppm");
+    checkMin(checks, "manganese", "Manganese", analysis.traceMineralsPpm.manganese, trace.manganesePpm, "ppm");
+    checkMin(checks, "copper", "Copper", analysis.traceMineralsPpm.copper, trace.copperPpm, "ppm");
+    checkMin(checks, "iodine", "Iodine", analysis.traceMineralsPpm.iodine, trace.iodinePpm, "ppm");
+    checkMin(checks, "selenium", "Selenium", analysis.traceMineralsPpm.selenium, trace.seleniumPpm, "ppm");
+  }
 
   const vitamins = phase.requirements.vitamins;
-  checkMin(checks, "vitamin-a", "Vitamin A", analysis.vitamins.vitaminAIuKg, vitamins.vitaminAIuKg, "IU/kg");
-  checkMin(checks, "vitamin-d", "Vitamin D", analysis.vitamins.vitaminDIuKg, vitamins.vitaminDIuKg, "IU/kg");
-  checkMin(checks, "vitamin-e", "Vitamin E", analysis.vitamins.vitaminEIuKg, vitamins.vitaminEIuKg, "IU/kg");
-  checkMin(checks, "vitamin-k", "Vitamin K", analysis.vitamins.vitaminKMgKg, vitamins.vitaminKMgKg, "mg/kg");
-  checkMin(checks, "niacin", "Niacin", analysis.vitamins.niacinMgKg, vitamins.niacinMgKg, "mg/kg");
-  checkMin(checks, "riboflavin", "Riboflavin", analysis.vitamins.riboflavinMgKg, vitamins.riboflavinMgKg, "mg/kg");
-  checkMin(
-    checks,
-    "pantothenic-acid",
-    "Pantothenic acid",
-    analysis.vitamins.pantothenicAcidMgKg,
-    vitamins.pantothenicAcidMgKg,
-    "mg/kg",
-  );
-  checkMin(
-    checks,
-    "vitamin-b12",
-    "Vitamin B12",
-    analysis.vitamins.vitaminB12McgKg,
-    vitamins.vitaminB12McgKg,
-    "mcg/kg",
-  );
-  if (vitamins.totalCholineMgKg !== undefined) {
+  if (vitamins) {
+    checkMin(checks, "vitamin-a", "Vitamin A", analysis.vitamins.vitaminAIuKg, vitamins.vitaminAIuKg, "IU/kg");
+    checkMin(checks, "vitamin-d", "Vitamin D", analysis.vitamins.vitaminDIuKg, vitamins.vitaminDIuKg, "IU/kg");
+    checkMin(checks, "vitamin-e", "Vitamin E", analysis.vitamins.vitaminEIuKg, vitamins.vitaminEIuKg, "IU/kg");
+    checkMin(checks, "vitamin-k", "Vitamin K", analysis.vitamins.vitaminKMgKg, vitamins.vitaminKMgKg, "mg/kg");
+    checkMin(checks, "niacin", "Niacin", analysis.vitamins.niacinMgKg, vitamins.niacinMgKg, "mg/kg");
+    checkMin(checks, "riboflavin", "Riboflavin", analysis.vitamins.riboflavinMgKg, vitamins.riboflavinMgKg, "mg/kg");
     checkMin(
       checks,
-      "total-choline",
-      "Total choline",
-      analysis.vitamins.totalCholineMgKg,
-      vitamins.totalCholineMgKg,
+      "pantothenic-acid",
+      "Pantothenic acid",
+      analysis.vitamins.pantothenicAcidMgKg,
+      vitamins.pantothenicAcidMgKg,
       "mg/kg",
     );
+    checkMin(
+      checks,
+      "vitamin-b12",
+      "Vitamin B12",
+      analysis.vitamins.vitaminB12McgKg,
+      vitamins.vitaminB12McgKg,
+      "mcg/kg",
+    );
+    if (vitamins.totalCholineMgKg !== undefined) {
+      checkMin(
+        checks,
+        "total-choline",
+        "Total choline",
+        analysis.vitamins.totalCholineMgKg,
+        vitamins.totalCholineMgKg,
+        "mg/kg",
+      );
+    }
   }
 
   const practical = phase.requirements.practical;
-  if (practical.crudeProteinMinPct !== undefined) {
-    checkMin(
-      checks,
-      "crude-protein",
-      "Crude protein",
-      analysis.crudeProteinPct,
-      practical.crudeProteinMinPct,
-      "%",
-    );
-  }
   if (practical.soybeanMealMaxPct !== undefined) {
     checkKnownMax(
       checks,

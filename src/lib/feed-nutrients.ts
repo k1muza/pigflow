@@ -10,6 +10,7 @@ export type NutrientGroup =
   | "Energy & protein"
   | "Amino acids"
   | "Macro minerals"
+  | "Fatty acids"
   | "Trace minerals"
   | "Vitamins";
 
@@ -31,7 +32,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Energy & protein",
     units: ["kcal/kg"],
     description: "Digestible energy less urinary and gaseous energy losses.",
-    formulationRole: "Energy basis used by PIC for nutrient-to-calorie ratios and diet comparisons.",
+    formulationRole: "Dietary energy concentration published for each Brazilian Tables phase.",
   },
   {
     id: "net-energy",
@@ -40,7 +41,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Energy & protein",
     units: ["kcal/kg"],
     description: "Metabolizable energy less the heat increment of feeding.",
-    formulationRole: "Useful when ingredient heat increment differs, especially with high-fiber diets.",
+    formulationRole: "Alternative energy expression published alongside metabolizable energy.",
   },
   {
     id: "crude-protein",
@@ -49,89 +50,44 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Energy & protein",
     units: ["%"],
     description: "Conventional estimate of total dietary protein from nitrogen content.",
-    formulationRole: "Used as a practical minimum and as the denominator for PIC's SID Lys:CP limit.",
+    formulationRole: "Published dietary concentration used with the amino-acid requirements.",
+  },
+  {
+    id: "digestible-protein",
+    name: "Digestible Protein",
+    shortName: "Dig. protein",
+    group: "Energy & protein",
+    units: ["%"],
+    description: "Dietary protein expressed on the digestible-protein basis used by the Brazilian Tables.",
+    formulationRole: "Published alongside crude protein in the growing-swine requirement tables.",
   },
   {
     id: "sid-lysine",
     name: "SID Lysine",
     shortName: "SID Lys",
     group: "Amino acids",
-    units: ["%", "g/Mcal ME", "g/Mcal NE"],
+    units: ["%", "% of SID Lys"],
     description: "Standardized ileal digestible lysine.",
-    formulationRole: "PIC uses SID lysine as the reference amino acid and sets other amino acids relative to it.",
+    formulationRole: "Reference amino acid for the Brazilian Tables ideal-protein ratios.",
   },
-  {
-    id: "sid-methionine-cysteine",
-    name: "SID Methionine + Cysteine",
-    shortName: "SID Met+Cys",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Combined standardized ileal digestible sulfur amino acids.",
-    formulationRole: "Ideal-protein ratio relative to SID lysine.",
-  },
-  {
-    id: "sid-threonine",
-    name: "SID Threonine",
-    shortName: "SID Thr",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Standardized ileal digestible threonine.",
-    formulationRole: "Ideal-protein ratio relative to SID lysine.",
-  },
-  {
-    id: "sid-tryptophan",
-    name: "SID Tryptophan",
-    shortName: "SID Trp",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Standardized ileal digestible tryptophan.",
-    formulationRole: "Ideal-protein ratio relative to SID lysine; can materially affect growth rate.",
-  },
-  {
-    id: "sid-valine",
-    name: "SID Valine",
-    shortName: "SID Val",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Standardized ileal digestible valine.",
-    formulationRole: "Ideal-protein ratio relative to SID lysine.",
-  },
-  {
-    id: "sid-isoleucine",
-    name: "SID Isoleucine",
-    shortName: "SID Ile",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Standardized ileal digestible isoleucine.",
-    formulationRole: "Ideal-protein ratio relative to SID lysine.",
-  },
-  {
-    id: "sid-leucine",
-    name: "SID Leucine",
-    shortName: "SID Leu",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Standardized ileal digestible leucine.",
-    formulationRole: "Ideal-protein ratio; excessive leucine can disturb branched-chain amino-acid balance.",
-  },
-  {
-    id: "sid-histidine",
-    name: "SID Histidine",
-    shortName: "SID His",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Standardized ileal digestible histidine.",
-    formulationRole: "Ideal-protein ratio relative to SID lysine.",
-  },
-  {
-    id: "sid-phenylalanine-tyrosine",
-    name: "SID Phenylalanine + Tyrosine",
-    shortName: "SID Phe+Tyr",
-    group: "Amino acids",
-    units: ["% of SID Lys"],
-    description: "Combined standardized ileal digestible aromatic amino acids.",
-    formulationRole: "Ideal-protein ratio relative to SID lysine.",
-  },
+  ...[
+    ["sid-methionine-cysteine", "SID Methionine + Cysteine", "SID Met+Cys"],
+    ["sid-threonine", "SID Threonine", "SID Thr"],
+    ["sid-tryptophan", "SID Tryptophan", "SID Trp"],
+    ["sid-valine", "SID Valine", "SID Val"],
+    ["sid-isoleucine", "SID Isoleucine", "SID Ile"],
+    ["sid-leucine", "SID Leucine", "SID Leu"],
+    ["sid-histidine", "SID Histidine", "SID His"],
+    ["sid-phenylalanine-tyrosine", "SID Phenylalanine + Tyrosine", "SID Phe+Tyr"],
+  ].map(([id, name, shortName]) => ({
+    id,
+    name,
+    shortName,
+    group: "Amino acids" as const,
+    units: ["%", "% of SID Lys"],
+    description: `${name} concentration on a standardized ileal digestible basis.`,
+    formulationRole: "Direct dietary concentration with an ideal-protein ratio to SID lysine.",
+  })),
   {
     id: "calcium",
     name: "Calcium",
@@ -139,7 +95,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Macro minerals",
     units: ["%"],
     description: "Dietary calcium concentration.",
-    formulationRole: "Balanced with phosphorus to support bone mineralization and performance.",
+    formulationRole: "Published phase requirement for bone mineralization and performance.",
   },
   {
     id: "total-phosphorus",
@@ -147,26 +103,35 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     shortName: "P",
     group: "Macro minerals",
     units: ["%"],
-    description: "Total phosphorus present in the diet before digestibility adjustment.",
-    formulationRole: "Used with calcium for analyzed Ca:P ratio checks.",
+    description: "Total phosphorus present in an ingredient or diet before digestibility adjustment.",
+    formulationRole: "Ingredient-analysis value; Chapter 5 requirements use digestible and available phosphorus.",
   },
   {
     id: "sttd-phosphorus",
-    name: "STTD Phosphorus",
-    shortName: "STTD P",
+    name: "Standardized Digestible Phosphorus",
+    shortName: "Dig. P",
     group: "Macro minerals",
-    units: ["%", "g/Mcal ME", "g/Mcal NE"],
-    description: "Standardized total tract digestible phosphorus.",
-    formulationRole: "PIC's preferred digestible phosphorus expression for formulation.",
+    units: ["%"],
+    description: "Standardized digestible phosphorus concentration.",
+    formulationRole: "Primary digestible-phosphorus requirement published in the Brazilian Tables.",
   },
   {
     id: "available-phosphorus",
     name: "Available Phosphorus",
     shortName: "Avail. P",
     group: "Macro minerals",
-    units: ["%", "g/Mcal ME", "g/Mcal NE"],
+    units: ["%"],
     description: "Estimate of phosphorus biologically available to the pig.",
-    formulationRole: "Alternative phosphorus expression retained in PIC specification tables.",
+    formulationRole: "Published alongside standardized digestible phosphorus.",
+  },
+  {
+    id: "potassium",
+    name: "Potassium",
+    shortName: "K",
+    group: "Macro minerals",
+    units: ["%"],
+    description: "Dietary potassium concentration.",
+    formulationRole: "Published electrolyte requirement for each growing-pig phase.",
   },
   {
     id: "sodium",
@@ -175,16 +140,25 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Macro minerals",
     units: ["%"],
     description: "Dietary sodium concentration.",
-    formulationRole: "Electrolyte requirement commonly supplied with salt and ingredient sodium.",
+    formulationRole: "Published electrolyte requirement commonly supplied with salt and ingredient sodium.",
   },
   {
     id: "chloride",
-    name: "Chloride",
+    name: "Chlorine",
     shortName: "Cl",
     group: "Macro minerals",
     units: ["%"],
-    description: "Dietary chloride concentration.",
-    formulationRole: "Electrolyte requirement commonly supplied with sodium chloride.",
+    description: "Dietary chlorine concentration.",
+    formulationRole: "Published electrolyte requirement in the Brazilian Tables.",
+  },
+  {
+    id: "linoleic-acid",
+    name: "Linoleic Acid",
+    shortName: "C18:2",
+    group: "Fatty acids",
+    units: ["%"],
+    description: "Dietary linoleic-acid concentration.",
+    formulationRole: "Published phase requirement in the Brazilian growing-swine tables.",
   },
   ...[
     ["zinc", "Zinc", "Zn"],
@@ -200,7 +174,8 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Trace minerals" as const,
     units: ["ppm"],
     description: `${name} trace-mineral concentration.`,
-    formulationRole: "Micronutrient target normally supplied through ingredients and/or premix.",
+    formulationRole:
+      "Ingredient composition can be tracked here; Chapter 7 supplementation guidance is kept separate from Chapter 5 animal requirements.",
   })),
   ...[
     ["vitamin-a", "Vitamin A", "Vit A", "IU/kg"],
@@ -218,8 +193,9 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     shortName,
     group: "Vitamins" as const,
     units: [unit],
-    description: `${name} dietary specification.`,
-    formulationRole: "Vitamin target normally delivered through a vitamin-mineral premix and ingredient contribution.",
+    description: `${name} dietary concentration.`,
+    formulationRole:
+      "Ingredient composition can be tracked here; supplementation guidance is not treated as a Chapter 5 animal requirement.",
   })),
 ];
 
@@ -228,7 +204,6 @@ export function feedNutrientById(id: string): FeedNutrient | undefined {
 }
 
 export type NutrientRequirementConstraint = {
-  /** Human-readable compact form retained for simple consumers. */
   value: string;
   basis: string;
   minimum?: string;
@@ -244,36 +219,12 @@ export type NutrientIngredientAbundance = {
   unit: string;
 };
 
-function energyRelativeValue(
-  me: number | undefined,
-  ne: number | undefined,
-): string | undefined {
-  const values = [
-    me === undefined ? undefined : `${me} g/Mcal ME`,
-    ne === undefined ? undefined : `${ne} g/Mcal NE`,
-  ].filter((value): value is string => value !== undefined);
-  return values.length > 0 ? values.join(" · ") : undefined;
-}
-
-function minimum(value: string, basis: string, maximum?: string): NutrientRequirementConstraint {
-  return { value, basis, minimum: value, maximum };
+function minimum(value: string, basis: string): NutrientRequirementConstraint {
+  return { value, basis, minimum: value };
 }
 
 function target(value: string, basis: string): NutrientRequirementConstraint {
   return { value, basis, target: value };
-}
-
-function rangeConstraint(
-  min: string,
-  max: string,
-  basis: string,
-): NutrientRequirementConstraint {
-  return {
-    value: `${min}–${max}`,
-    basis,
-    minimum: min,
-    maximum: max,
-  };
 }
 
 export function nutrientRequirementValue(
@@ -281,124 +232,60 @@ export function nutrientRequirementValue(
   phase: NutritionPhase,
 ): NutrientRequirementConstraint | undefined {
   const r = phase.requirements;
-  const ratio = (value: number) =>
-    minimum(`${value}%`, "minimum ratio to SID Lys");
+  const sid = r.sidAminoAcidsPct;
+  const ratios = r.aminoAcids;
+  const directAa = (value: number, ratio: number) =>
+    minimum(`${value}%`, `diet · ${ratio}% of SID Lys`);
 
   switch (nutrientId) {
     case "metabolizable-energy":
-      return r.metabolizableEnergyKcalKg === undefined
-        ? undefined
-        : target(`${r.metabolizableEnergyKcalKg} kcal/kg`, "dietary energy level");
+      return target(`${r.metabolizableEnergyKcalKg} kcal/kg`, "published diet energy");
     case "net-energy":
-      return r.netEnergyKcalKg === undefined
-        ? undefined
-        : target(`${r.netEnergyKcalKg} kcal/kg`, "dietary energy level");
+      return target(`${r.netEnergyKcalKg} kcal/kg`, "published diet energy");
     case "crude-protein":
-      return r.practical.crudeProteinMinPct === undefined
-        ? undefined
-        : minimum(`${r.practical.crudeProteinMinPct}%`, "minimum crude protein");
-    case "sid-lysine": {
-      const maxLysCp =
-        r.practical.sidLysineToCrudeProteinMaxPct === undefined
-          ? undefined
-          : `${r.practical.sidLysineToCrudeProteinMaxPct}% of crude protein (SID Lys:CP)`;
-      if (r.sidLysinePct !== undefined) {
-        return minimum(`${r.sidLysinePct}%`, "diet", maxLysCp);
-      }
-      const value = energyRelativeValue(r.sidLysineGPerMcalME, r.sidLysineGPerMcalNE);
-      return value === undefined
-        ? undefined
-        : minimum(value, "energy-relative requirement", maxLysCp);
-    }
+      return minimum(`${r.crudeProteinPct}%`, "diet");
+    case "digestible-protein":
+      return minimum(`${r.digestibleProteinPct}%`, "diet");
+    case "sid-lysine":
+      return minimum(`${sid.lysine}%`, "diet · reference SID amino acid");
     case "sid-methionine-cysteine":
-      return ratio(r.aminoAcids.methionineCysteineToLysPct);
+      return directAa(sid.methionineCysteine, ratios.methionineCysteineToLysPct);
     case "sid-threonine":
-      return ratio(r.aminoAcids.threonineToLysPct);
+      return directAa(sid.threonine, ratios.threonineToLysPct);
     case "sid-tryptophan":
-      return ratio(r.aminoAcids.tryptophanToLysPct);
+      return directAa(sid.tryptophan, ratios.tryptophanToLysPct);
     case "sid-valine":
-      return ratio(r.aminoAcids.valineToLysPct);
+      return directAa(sid.valine, ratios.valineToLysPct);
     case "sid-isoleucine":
-      return ratio(r.aminoAcids.isoleucineToLysPct);
+      return directAa(sid.isoleucine, ratios.isoleucineToLysPct);
     case "sid-leucine":
-      return ratio(r.aminoAcids.leucineToLysPct);
+      return directAa(sid.leucine, ratios.leucineToLysPct);
     case "sid-histidine":
-      return ratio(r.aminoAcids.histidineToLysPct);
+      return directAa(sid.histidine, ratios.histidineToLysPct);
     case "sid-phenylalanine-tyrosine":
-      return ratio(r.aminoAcids.phenylalanineTyrosineToLysPct);
+      return directAa(sid.phenylalanineTyrosine, ratios.phenylalanineTyrosineToLysPct);
     case "calcium":
       return r.minerals.calciumPct === undefined
         ? undefined
         : minimum(`${r.minerals.calciumPct}%`, "diet");
-    case "sttd-phosphorus": {
-      if (r.minerals.sttdPhosphorusPct !== undefined) {
-        return minimum(`${r.minerals.sttdPhosphorusPct}%`, "diet");
-      }
-      const value = energyRelativeValue(
-        r.minerals.sttdPhosphorusGPerMcalME,
-        r.minerals.sttdPhosphorusGPerMcalNE,
-      );
-      return value === undefined
+    case "sttd-phosphorus":
+      return r.minerals.sttdPhosphorusPct === undefined
         ? undefined
-        : minimum(value, "energy-relative requirement");
-    }
-    case "available-phosphorus": {
-      if (r.minerals.availablePhosphorusPct !== undefined) {
-        return minimum(`${r.minerals.availablePhosphorusPct}%`, "diet");
-      }
-      const value = energyRelativeValue(
-        r.minerals.availablePhosphorusGPerMcalME,
-        r.minerals.availablePhosphorusGPerMcalNE,
-      );
-      return value === undefined
+        : minimum(`${r.minerals.sttdPhosphorusPct}%`, "diet");
+    case "available-phosphorus":
+      return r.minerals.availablePhosphorusPct === undefined
         ? undefined
-        : minimum(value, "energy-relative requirement");
-    }
+        : minimum(`${r.minerals.availablePhosphorusPct}%`, "diet");
+    case "potassium":
+      return minimum(`${r.potassiumPct}%`, "diet");
     case "sodium":
       return minimum(`${r.minerals.sodiumPct}%`, "diet");
     case "chloride":
-      if (r.minerals.chloridePctRange) {
-        return rangeConstraint(
-          `${r.minerals.chloridePctRange.min}%`,
-          `${r.minerals.chloridePctRange.max}%`,
-          "diet range",
-        );
-      }
       return r.minerals.chloridePct === undefined
         ? undefined
         : minimum(`${r.minerals.chloridePct}%`, "diet");
-    case "zinc":
-      return target(`${r.traceMinerals.zincPpm} ppm`, "added supplementation");
-    case "iron":
-      return target(`${r.traceMinerals.ironPpm} ppm`, "added supplementation");
-    case "manganese":
-      return target(`${r.traceMinerals.manganesePpm} ppm`, "added supplementation");
-    case "copper":
-      return target(`${r.traceMinerals.copperPpm} ppm`, "added supplementation");
-    case "iodine":
-      return target(`${r.traceMinerals.iodinePpm} ppm`, "added supplementation");
-    case "selenium":
-      return target(`${r.traceMinerals.seleniumPpm} ppm`, "added supplementation");
-    case "vitamin-a":
-      return target(`${r.vitamins.vitaminAIuKg} IU/kg`, "added supplementation");
-    case "vitamin-d":
-      return target(`${r.vitamins.vitaminDIuKg} IU/kg`, "added supplementation");
-    case "vitamin-e":
-      return target(`${r.vitamins.vitaminEIuKg} IU/kg`, "added supplementation");
-    case "vitamin-k":
-      return target(`${r.vitamins.vitaminKMgKg} mg/kg`, "added supplementation");
-    case "niacin":
-      return target(`${r.vitamins.niacinMgKg} mg/kg`, "added supplementation");
-    case "riboflavin":
-      return target(`${r.vitamins.riboflavinMgKg} mg/kg`, "added supplementation");
-    case "pantothenic-acid":
-      return target(`${r.vitamins.pantothenicAcidMgKg} mg/kg`, "added supplementation");
-    case "vitamin-b12":
-      return target(`${r.vitamins.vitaminB12McgKg} mcg/kg`, "added supplementation");
-    case "choline":
-      return r.vitamins.totalCholineMgKg === undefined
-        ? undefined
-        : target(`${r.vitamins.totalCholineMgKg} mg/kg`, "total dietary concentration");
+    case "linoleic-acid":
+      return minimum(`${r.linoleicAcidPct}%`, "diet");
     default:
       return undefined;
   }
@@ -469,6 +356,9 @@ function ingredientValueForNutrient(
       break;
     case "available-phosphorus":
       value = ingredient.macroMinerals.availablePhosphorusPct;
+      break;
+    case "potassium":
+      value = ingredient.macroMinerals.potassiumPct;
       break;
     case "sodium":
       value = ingredient.macroMinerals.sodiumPct;
