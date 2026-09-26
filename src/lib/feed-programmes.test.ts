@@ -7,8 +7,7 @@ import {
 } from "./feed-programmes";
 
 describe("feed programme catalogue", () => {
-  it("exposes all seven PIC source programme families", () => {
-    expect(FEED_PROGRAMMES).toHaveLength(7);
+  it("keeps breeder placeholders and exposes both Brazilian growing-pig performance tracks", () => {
     expect(FEED_PROGRAMMES.map((programme) => programme.id)).toEqual([
       "mature-boar",
       "developing-gilt",
@@ -17,31 +16,45 @@ describe("feed programme catalogue", () => {
       "weaned-sow",
       "nursery-pig",
       "grow-finish-pig",
+      "nursery-pig-high-performance",
+      "grow-finish-pig-high-performance",
     ]);
   });
 
-  it("splits the loaded PIC growth data into nursery and grow-finish programmes", () => {
+  it("splits Brazilian phases by source stage rather than a PIC liveweight boundary", () => {
     const nursery = feedProgrammeById("nursery-pig");
     const growFinish = feedProgrammeById("grow-finish-pig");
 
     expect(nursery?.status).toBe("loaded");
-    expect(nursery?.phases.map((phase) => phase.id)).toEqual([
-      "pic-prestart-weaning-7.5",
-      "pic-prestart-7.5-11.5",
-      "pic-late-nursery-11-23",
-    ]);
+    expect(nursery?.phases).toHaveLength(4);
+    expect(
+      nursery?.phases.every(
+        (phase) => phase.phaseClass === "pre-starter" || phase.phaseClass === "starter",
+      ),
+    ).toBe(true);
 
     expect(growFinish?.status).toBe("loaded");
-    expect(growFinish?.phases).toHaveLength(7);
-    expect(growFinish?.phases.every((phase) => phase.lookupMinWeightKg >= 23)).toBe(true);
+    expect(growFinish?.phases).toHaveLength(4);
+    expect(
+      growFinish?.phases.every(
+        (phase) => phase.phaseClass === "grower" || phase.phaseClass === "finisher",
+      ),
+    ).toBe(true);
+  });
+
+  it("loads high-performance programme URLs separately", () => {
+    expect(feedProgrammeById("nursery-pig-high-performance")?.sourceProgramme?.performance).toBe(
+      "high",
+    );
+    expect(
+      feedProgrammeById("grow-finish-pig-high-performance")?.sourceProgramme?.performance,
+    ).toBe("high");
   });
 
   it("resolves phases only inside their owning programme URL", () => {
-    expect(
-      feedProgrammePhaseById("nursery-pig", "pic-prestart-7.5-11.5")?.label,
-    ).toContain("7.5");
-    expect(
-      feedProgrammePhaseById("grow-finish-pig", "pic-prestart-7.5-11.5"),
-    ).toBeUndefined();
+    const nurseryPhase = feedProgrammeById("nursery-pig")?.phases[0];
+    expect(nurseryPhase).toBeDefined();
+    expect(feedProgrammePhaseById("nursery-pig", nurseryPhase!.id)).toBeDefined();
+    expect(feedProgrammePhaseById("grow-finish-pig", nurseryPhase!.id)).toBeUndefined();
   });
 });
