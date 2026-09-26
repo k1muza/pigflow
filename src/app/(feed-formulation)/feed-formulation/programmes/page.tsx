@@ -18,8 +18,8 @@ export default function FeedProgrammesPage() {
           </Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-          PIC&apos;s feeding programmes. Each programme has its own URL and owns its nutrient
-          requirement phases.
+          Animal feeding programmes backed by the Brazilian Tables 2024. Growing-pig programmes
+          are loaded now; breeder programmes remain placeholders until Chapter 6 is extracted.
         </p>
       </div>
 
