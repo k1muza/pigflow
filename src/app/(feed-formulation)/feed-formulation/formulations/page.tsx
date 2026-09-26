@@ -1,47 +1,44 @@
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FEED_FORMULATIONS } from "@/lib/feed-formulations";
-import { feedFormulationHref } from "@/lib/routes";
+import { FeedFormulationWorkbench } from "@/components/feed-formulation-workbench";
+import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
+import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 
 export default function FeedFormulationsPage() {
+  const programmes = FEED_PROGRAMMES
+    .filter((programme) => programme.status === "loaded" && programme.phases.length > 0)
+    .map((programme) => ({
+      id: programme.id,
+      name: programme.name,
+      phases: programme.phases.map((phase) => ({
+        id: phase.id,
+        label: phase.label,
+        sourceTable: phase.sourceTable,
+      })),
+    }));
+
+  const ingredients = INGREDIENT_LIBRARY.ingredients.map((ingredient) => ({
+    id: ingredient.id,
+    name: ingredient.name,
+    category: ingredient.category,
+    minInclusionPct: ingredient.constraints.minInclusionPct,
+    maxInclusionPct: ingredient.constraints.maxInclusionPct,
+  }));
+
   return (
     <div className="space-y-6">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Formulations</h1>
-          <Badge variant="secondary">{FEED_FORMULATIONS.length} saved</Badge>
+          <Badge variant="secondary">GLPK least-cost solver</Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-          Formulations should be generated from PigFlow&apos;s ingredient data and evaluated against
-          a selected Brazilian Tables 2024 requirement phase. No source-company example ration is
-          used as a built-in formulation.
+          Generate diets from your available ingredients and local prices, using Brazilian Tables
+          2024 nutrient targets as hard constraints. If no exact diet exists, PigFlow runs a
+          diagnostic model to show the limiting nutrients instead of quietly weakening the target.
         </p>
       </div>
 
-      {FEED_FORMULATIONS.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>No static formulations loaded</CardTitle>
-            <CardDescription>
-              The previous source-company demonstration rations have been removed. The next step is
-              to connect the formulation solver so PigFlow can create diets from your available
-              ingredients, prices and Brazilian requirement constraints.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link
-              href={feedFormulationHref("programmes")}
-              className="inline-flex items-center gap-2 text-sm font-medium text-brand hover:underline"
-            >
-              Browse requirement programmes
-              <ArrowRight size={14} />
-            </Link>
-          </CardContent>
-        </Card>
-      ) : null}
+      <FeedFormulationWorkbench programmes={programmes} ingredients={ingredients} />
     </div>
   );
 }
