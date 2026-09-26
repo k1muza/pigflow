@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { GrowingPig } from "./sim/animals";
 import {
+  BRAZILIAN_2024_GESTATION_NUTRITION,
+  BRAZILIAN_2024_HIGH_GILT_NUTRITION,
   BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+  BRAZILIAN_2024_LACTATION_NUTRITION,
+  BRAZILIAN_2024_STANDARD_GILT_NUTRITION,
   BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
   nutritionForGrowthStage,
   nutritionPhaseAtWeight,
@@ -29,6 +33,51 @@ describe("Brazilian Tables 2024 growing-pig nutrition programmes", () => {
     );
     expect(phase?.requirements.metabolizableEnergyKcalKg).toBe(3350);
     expect(phase?.requirements.sidLysinePct).toBe(1.232);
+  });
+
+  it("loads Brazilian gilt and breeder programmes", () => {
+    expect(BRAZILIAN_2024_STANDARD_GILT_NUTRITION.phases).toHaveLength(5);
+    expect(BRAZILIAN_2024_STANDARD_GILT_NUTRITION.phases[0]).toMatchObject({
+      sourceTable: "5.38",
+      sourceWeightRange: "15–25 kg",
+      requirements: {
+        metabolizableEnergyKcalKg: 3250,
+        sidLysinePct: 1.185,
+      },
+    });
+
+    expect(BRAZILIAN_2024_HIGH_GILT_NUTRITION.phases[0]).toMatchObject({
+      sourceTable: "5.36",
+      sourceWeightRange: "18–27 kg",
+      requirements: {
+        metabolizableEnergyKcalKg: 3350,
+        sidLysinePct: 1.249,
+      },
+    });
+
+    expect(BRAZILIAN_2024_GESTATION_NUTRITION.phases).toHaveLength(8);
+    expect(BRAZILIAN_2024_GESTATION_NUTRITION.phases[0]).toMatchObject({
+      phaseClass: "gestation",
+      parity: "nulliparous",
+      sourceTable: "6.08",
+      sourceWeightRange: "150 kg average body weight",
+      requirements: {
+        metabolizableEnergyKcalKg: 3100,
+        sidLysinePct: 0.583,
+      },
+    });
+
+    expect(BRAZILIAN_2024_LACTATION_NUTRITION.phases).toHaveLength(6);
+    expect(BRAZILIAN_2024_LACTATION_NUTRITION.phases[0]).toMatchObject({
+      phaseClass: "lactation",
+      parity: "PO1",
+      sourceTable: "6.15",
+      sourceWeightRange: "185 kg postpartum body weight",
+      requirements: {
+        metabolizableEnergyKcalKg: 3400,
+        sidLysinePct: 1.066,
+      },
+    });
   });
 
   it("uses Brazilian pre-starter concentrations directly", () => {
