@@ -33,6 +33,24 @@ const HIGH_PERFORMANCE_PROGRAMME = BRAZILIAN_2024_HIGH_GROWTH_NUTRITION;
 
 export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
   {
+    id: "nursery-pig",
+    name: "Nursery Pig",
+    description:
+      "Brazilian Tables 2024 pre-starter and starter requirements for high-genetic-potential pigs.",
+    status: "loaded",
+    sourceProgramme: DEFAULT_PROGRAMME,
+    phases: DEFAULT_PROGRAMME.phases.filter(isNurseryPhase),
+  },
+  {
+    id: "grow-finish-pig",
+    name: "Grow-Finish Pig",
+    description:
+      "Brazilian Tables 2024 standard-performance mixed-sex grower and finisher requirements.",
+    status: "loaded",
+    sourceProgramme: DEFAULT_PROGRAMME,
+    phases: DEFAULT_PROGRAMME.phases.filter(isGrowFinishPhase),
+  },
+  {
     id: "developing-gilt",
     name: "Developing Gilt",
     description:
@@ -60,33 +78,6 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     phases: BRAZILIAN_2024_LACTATION_NUTRITION.phases,
   },
   {
-    id: "nursery-pig",
-    name: "Nursery Pig",
-    description:
-      "Brazilian Tables 2024 pre-starter and starter requirements for high-genetic-potential pigs.",
-    status: "loaded",
-    sourceProgramme: DEFAULT_PROGRAMME,
-    phases: DEFAULT_PROGRAMME.phases.filter(isNurseryPhase),
-  },
-  {
-    id: "grow-finish-pig",
-    name: "Grow-Finish Pig",
-    description:
-      "Brazilian Tables 2024 standard-performance mixed-sex grower and finisher requirements.",
-    status: "loaded",
-    sourceProgramme: DEFAULT_PROGRAMME,
-    phases: DEFAULT_PROGRAMME.phases.filter(isGrowFinishPhase),
-  },
-  {
-    id: "developing-gilt-high-performance",
-    name: "Developing Gilt — High Performance",
-    description:
-      "Brazilian Tables 2024 high-performance gilt requirements from Table 5.36.",
-    status: "loaded",
-    sourceProgramme: BRAZILIAN_2024_HIGH_GILT_NUTRITION,
-    phases: BRAZILIAN_2024_HIGH_GILT_NUTRITION.phases,
-  },
-  {
     id: "nursery-pig-high-performance",
     name: "Nursery Pig — High Performance",
     description:
@@ -103,6 +94,15 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     status: "loaded",
     sourceProgramme: HIGH_PERFORMANCE_PROGRAMME,
     phases: HIGH_PERFORMANCE_PROGRAMME.phases.filter(isGrowFinishPhase),
+  },
+  {
+    id: "developing-gilt-high-performance",
+    name: "Developing Gilt — High Performance",
+    description:
+      "Brazilian Tables 2024 high-performance gilt requirements from Table 5.36.",
+    status: "loaded",
+    sourceProgramme: BRAZILIAN_2024_HIGH_GILT_NUTRITION,
+    phases: BRAZILIAN_2024_HIGH_GILT_NUTRITION.phases,
   },
 ];
 
