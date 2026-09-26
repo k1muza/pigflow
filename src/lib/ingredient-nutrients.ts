@@ -166,6 +166,22 @@ export function sidAminoAcidPct(
   return total * (digestibility / 100);
 }
 
+/**
+ * Available phosphorus concentration.
+ *
+ * An explicit source value wins. A source total-phosphorus value of exactly
+ * zero is a defensible structural zero; otherwise missing available-P remains
+ * unknown and must not be silently coerced to zero.
+ */
+export function availablePhosphorusPctOf(
+  ingredient: IngredientNutrientRecord,
+): number | undefined {
+  if (ingredient.macroMinerals.availablePhosphorusPct !== undefined) {
+    return ingredient.macroMinerals.availablePhosphorusPct;
+  }
+  return ingredient.macroMinerals.totalPhosphorusPct === 0 ? 0 : undefined;
+}
+
 /** STTD phosphorus concentration derived from the NRC total-P row and coefficient. */
 export function sttdPhosphorusPctOf(
   ingredient: IngredientNutrientRecord,
