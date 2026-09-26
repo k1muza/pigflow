@@ -13,45 +13,55 @@ describe("feed nutrient catalogue", () => {
     const ids = FEED_NUTRIENTS.map((nutrient) => nutrient.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(feedNutrientById("sid-lysine")?.shortName).toBe("SID Lys");
+    expect(feedNutrientById("potassium")?.shortName).toBe("K");
+    expect(feedNutrientById("linoleic-acid")?.shortName).toBe("C18:2");
   });
 
-  it("separates minimums, targets and maximum caps", () => {
+  it("exposes direct Brazilian dietary concentrations", () => {
     const grower = nutritionPhaseAtWeight(30);
+
     expect(nutrientRequirementValue("sid-lysine", grower)).toEqual({
-      value: "3.47 g/Mcal ME · 4.74 g/Mcal NE",
-      basis: "energy-relative requirement",
-      minimum: "3.47 g/Mcal ME · 4.74 g/Mcal NE",
-      maximum: undefined,
+      value: "1.038%",
+      basis: "diet · reference SID amino acid",
+      minimum: "1.038%",
     });
 
     expect(nutrientRequirementValue("sid-threonine", grower)).toEqual({
-      value: "65%",
-      basis: "minimum ratio to SID Lys",
-      minimum: "65%",
+      value: "0.706%",
+      basis: "diet · 68% of SID Lys",
+      minimum: "0.706%",
     });
 
-    expect(nutrientRequirementValue("zinc", grower)).toEqual({
-      value: "111 ppm",
-      basis: "added supplementation",
-      target: "111 ppm",
+    expect(nutrientRequirementValue("crude-protein", grower)).toEqual({
+      value: "16.72%",
+      basis: "diet",
+      minimum: "16.72%",
     });
   });
 
-  it("exposes source ranges and related maximum caps where PIC provides them", () => {
-    const prestart = nutritionPhaseAtWeight(5);
-    expect(nutrientRequirementValue("chloride", prestart)).toEqual({
-      value: "0.35%–0.4%",
-      basis: "diet range",
-      minimum: "0.35%",
-      maximum: "0.4%",
-    });
+  it("keeps Chapter 7 supplementation separate from Chapter 5 requirements", () => {
+    const grower = nutritionPhaseAtWeight(30);
+    expect(nutrientRequirementValue("zinc", grower)).toBeUndefined();
+    expect(nutrientRequirementValue("vitamin-a", grower)).toBeUndefined();
+  });
 
-    const lateNursery = nutritionPhaseAtWeight(20);
-    expect(nutrientRequirementValue("sid-lysine", lateNursery)).toEqual({
-      value: "3.9 g/Mcal ME · 5.32 g/Mcal NE",
-      basis: "energy-relative requirement",
-      minimum: "3.9 g/Mcal ME · 5.32 g/Mcal NE",
-      maximum: "6.4% of crude protein (SID Lys:CP)",
+  it("exposes Brazilian electrolyte and fatty-acid requirements", () => {
+    const prestart = nutritionPhaseAtWeight(5);
+
+    expect(nutrientRequirementValue("chloride", prestart)).toEqual({
+      value: "0.219%",
+      basis: "diet",
+      minimum: "0.219%",
+    });
+    expect(nutrientRequirementValue("potassium", prestart)).toEqual({
+      value: "0.527%",
+      basis: "diet",
+      minimum: "0.527%",
+    });
+    expect(nutrientRequirementValue("linoleic-acid", prestart)).toEqual({
+      value: "0.554%",
+      basis: "diet",
+      minimum: "0.554%",
     });
   });
 
