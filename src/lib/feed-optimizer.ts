@@ -143,7 +143,7 @@ export async function formulateLeastCostDiet(
     }
 
     const glpk = await loadGlpk();
-    const strict = solveStrict(glpk, prepared, constraints);
+    const strict = await solveStrict(glpk, prepared, constraints);
 
     if (strict.status === "optimal") {
       const solution = buildSolution(strict.vars, prepared, library);
@@ -154,7 +154,7 @@ export async function formulateLeastCostDiet(
       };
     }
 
-    const diagnostic = solveDiagnostic(glpk, prepared, constraints);
+    const diagnostic = await solveDiagnostic(glpk, prepared, constraints);
     if (diagnostic.status !== "optimal") {
       return {
         status: "infeasible",
@@ -393,11 +393,11 @@ function collectMissingData(
   });
 }
 
-function solveStrict(
+async function solveStrict(
   glpk: GLPK,
   ingredients: readonly PreparedIngredient[],
   constraints: readonly ConstraintSpec[],
-): { status: "optimal"; vars: Record<string, number> } | { status: "infeasible" } {
+): Promise<{ status: "optimal"; vars: Record<string, number> } | { status: "infeasible" }> {
   const {
     GLP_DB,
     GLP_FX,
@@ -446,7 +446,7 @@ function solveStrict(
     })),
   };
 
-  const result = glpk.solve(lp, {
+  const result = await glpk.solve(lp, {
     msglev: GLP_MSG_OFF,
     presol: true,
   });
@@ -458,11 +458,11 @@ function solveStrict(
   return { status: "optimal", vars: result.result.vars };
 }
 
-function solveDiagnostic(
+async function solveDiagnostic(
   glpk: GLPK,
   ingredients: readonly PreparedIngredient[],
   constraints: readonly ConstraintSpec[],
-): { status: "optimal"; vars: Record<string, number> } | { status: "infeasible" } {
+): Promise<{ status: "optimal"; vars: Record<string, number> } | { status: "infeasible" }> {
   const {
     GLP_DB,
     GLP_FX,
@@ -537,7 +537,7 @@ function solveDiagnostic(
     ],
   };
 
-  const result = glpk.solve(lp, {
+  const result = await glpk.solve(lp, {
     msglev: GLP_MSG_OFF,
     presol: true,
   });
