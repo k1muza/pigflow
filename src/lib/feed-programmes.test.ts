@@ -7,25 +7,26 @@ import {
 } from "./feed-programmes";
 
 describe("feed programme catalogue", () => {
-  it("keeps breeder placeholders and exposes both Brazilian growing-pig performance tracks", () => {
+  it("contains only programmes backed by extracted Brazilian Tables data", () => {
     expect(FEED_PROGRAMMES.map((programme) => programme.id)).toEqual([
-      "mature-boar",
       "developing-gilt",
       "gestating-gilt-sow",
       "lactating-gilt-sow",
-      "weaned-sow",
       "nursery-pig",
       "grow-finish-pig",
+      "developing-gilt-high-performance",
       "nursery-pig-high-performance",
       "grow-finish-pig-high-performance",
     ]);
+    expect(FEED_PROGRAMMES.every((programme) => programme.status === "loaded")).toBe(true);
+    expect(feedProgrammeById("mature-boar")).toBeUndefined();
+    expect(feedProgrammeById("weaned-sow")).toBeUndefined();
   });
 
-  it("splits Brazilian phases by source stage rather than a PIC liveweight boundary", () => {
+  it("splits Brazilian growing phases by source stage", () => {
     const nursery = feedProgrammeById("nursery-pig");
     const growFinish = feedProgrammeById("grow-finish-pig");
 
-    expect(nursery?.status).toBe("loaded");
     expect(nursery?.phases).toHaveLength(4);
     expect(
       nursery?.phases.every(
@@ -33,7 +34,6 @@ describe("feed programme catalogue", () => {
       ),
     ).toBe(true);
 
-    expect(growFinish?.status).toBe("loaded");
     expect(growFinish?.phases).toHaveLength(4);
     expect(
       growFinish?.phases.every(
@@ -42,7 +42,30 @@ describe("feed programme catalogue", () => {
     ).toBe(true);
   });
 
-  it("loads high-performance programme URLs separately", () => {
+  it("loads developing gilt requirements from Brazilian Tables 5.38 and 5.36", () => {
+    const standard = feedProgrammeById("developing-gilt");
+    const high = feedProgrammeById("developing-gilt-high-performance");
+
+    expect(standard?.phases).toHaveLength(5);
+    expect(standard?.phases.every((phase) => phase.sourceTable === "5.38")).toBe(true);
+    expect(high?.phases).toHaveLength(5);
+    expect(high?.phases.every((phase) => phase.sourceTable === "5.36")).toBe(true);
+  });
+
+  it("loads Chapter 6 gestation and lactation programmes", () => {
+    const gestation = feedProgrammeById("gestating-gilt-sow");
+    const lactation = feedProgrammeById("lactating-gilt-sow");
+
+    expect(gestation?.phases).toHaveLength(8);
+    expect(gestation?.phases.every((phase) => phase.sourceTable === "6.08")).toBe(true);
+    expect(gestation?.phases.every((phase) => phase.phaseClass === "gestation")).toBe(true);
+
+    expect(lactation?.phases).toHaveLength(6);
+    expect(lactation?.phases.every((phase) => phase.sourceTable === "6.15")).toBe(true);
+    expect(lactation?.phases.every((phase) => phase.phaseClass === "lactation")).toBe(true);
+  });
+
+  it("loads high-performance mixed-sex programme URLs separately", () => {
     expect(feedProgrammeById("nursery-pig-high-performance")?.sourceProgramme?.performance).toBe(
       "high",
     );
