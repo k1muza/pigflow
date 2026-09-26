@@ -91,15 +91,22 @@ type PreparedIngredient = {
   coefficients: Map<string, number>;
 };
 
-const UNSUPPORTED_REQUIREMENTS: FormulationUnsupportedRequirement[] = [
+function unsupportedRequirementsForPhase(
+  phase: NutritionPhase,
+): FormulationUnsupportedRequirement[] {
   // The current checked-in ingredient matrix does not expose these on the same
   // basis required for a hard LP constraint. Keep them explicit rather than
   // silently treating them as zero.
-  "digestible-protein",
-  "available-phosphorus",
-  "potassium",
-  "linoleic-acid",
-];
+  const unsupported: FormulationUnsupportedRequirement[] = [
+    "digestible-protein",
+    "available-phosphorus",
+    "potassium",
+  ];
+  if (phase.requirements.linoleicAcidPct !== undefined) {
+    unsupported.push("linoleic-acid");
+  }
+  return unsupported;
+}
 
 /**
  * Least-cost formulation against Brazilian Tables requirements.
@@ -115,7 +122,7 @@ export async function formulateLeastCostDiet(
   options: readonly FormulationIngredientOption[],
   library: IngredientLibrary = INGREDIENT_LIBRARY,
 ): Promise<LeastCostFormulationResult> {
-  const unsupportedRequirements = [...UNSUPPORTED_REQUIREMENTS];
+  const unsupportedRequirements = unsupportedRequirementsForPhase(phase);
 
   if (options.length === 0) {
     return {
