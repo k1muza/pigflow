@@ -1,40 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  PIC_EXAMPLE_FORMULATIONS,
-  feedFormulationById,
-} from "./feed-formulations";
+import { FEED_FORMULATIONS, feedFormulationById } from "./feed-formulations";
 
-describe("PIC example formulation library", () => {
-  it("stores the two PIC example ingredient-ratio sets", () => {
-    expect(PIC_EXAMPLE_FORMULATIONS.map((formulation) => formulation.id)).toEqual([
-      "pic-corn-soybean-meal",
-      "pic-high-fiber",
-    ]);
+describe("feed formulation library", () => {
+  it("does not ship source-company demonstration rations as PigFlow formulations", () => {
+    expect(FEED_FORMULATIONS).toEqual([]);
   });
 
-  it("preserves the corn-soybean meal ingredient ratios", () => {
-    const formulation = feedFormulationById("pic-corn-soybean-meal");
-    expect(formulation?.reportedTotalPct).toBe(100);
-    expect(formulation?.ingredients.reduce((sum, row) => sum + row.inclusionPct, 0)).toBeCloseTo(
-      100,
-      1,
-    );
-    expect(
-      formulation?.ingredients.find((row) => row.ingredientId === "corn-yellow-dent")
-        ?.inclusionPct,
-    ).toBe(70.99);
-    expect(
-      formulation?.ingredients.find(
-        (row) => row.ingredientId === "soybean-meal-dehulled-solvent-extracted",
-      )?.inclusionPct,
-    ).toBe(25.19);
-  });
-
-  it("does not store PIC's reported resulting nutrient profile", () => {
-    const formulation = feedFormulationById("pic-corn-soybean-meal");
-    expect(formulation).toBeDefined();
-    expect("nutrientProfiles" in formulation!).toBe(false);
-    expect("ingredientDatabase" in formulation!).toBe(false);
+  it("does not resolve removed static formulation ids", () => {
+    expect(feedFormulationById("pic-corn-soybean-meal")).toBeUndefined();
+    expect(feedFormulationById("pic-high-fiber")).toBeUndefined();
   });
 });
