@@ -2,98 +2,88 @@ import { describe, expect, it } from "vitest";
 
 import { GrowingPig } from "./sim/animals";
 import {
-  PIC_GROWTH_NUTRITION_2021,
+  BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+  BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
   nutritionForGrowthStage,
   nutritionPhaseAtWeight,
+  nutritionPhasesAtSourceWeight,
 } from "./nutrition";
 
-describe("PIC growing-pig nutrition programme", () => {
-  it("keeps the source and version with the extracted requirements", () => {
-    expect(PIC_GROWTH_NUTRITION_2021.source).toBe("PIC Nutrition and Feeding Guidelines");
-    expect(PIC_GROWTH_NUTRITION_2021.sourceVersion).toBe("Metric Version 2021.04.14");
-    expect(PIC_GROWTH_NUTRITION_2021.phases).toHaveLength(10);
+describe("Brazilian Tables 2024 growing-pig nutrition programmes", () => {
+  it("uses the standard-performance mixed-sex programme by default", () => {
+    expect(BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION.source).toMatch(
+      /Brazilian Tables for Poultry and Swine/,
+    );
+    expect(BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION.sourceVersion).toBe(
+      "5th edition (2024)",
+    );
+    expect(BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION.phases).toHaveLength(8);
   });
 
-  it("uses the PIC prestarter specifications through 11.5 kg", () => {
-    expect(nutritionPhaseAtWeight(6).id).toBe("pic-prestart-weaning-7.5");
-    expect(nutritionPhaseAtWeight(7.5).id).toBe("pic-prestart-7.5-11.5");
+  it("loads the high-performance mixed-sex programme separately", () => {
+    expect(BRAZILIAN_2024_HIGH_GROWTH_NUTRITION.performance).toBe("high");
+    expect(BRAZILIAN_2024_HIGH_GROWTH_NUTRITION.phases).toHaveLength(8);
 
+    const phase = BRAZILIAN_2024_HIGH_GROWTH_NUTRITION.phases.find(
+      (item) => item.sourceTable === "5.41" && item.sourceMinWeightKg === 18,
+    );
+    expect(phase?.requirements.metabolizableEnergyKcalKg).toBe(3350);
+    expect(phase?.requirements.sidLysinePct).toBe(1.232);
+  });
+
+  it("uses Brazilian pre-starter concentrations directly", () => {
     const phase = nutritionPhaseAtWeight(10);
-    expect(phase.requirements.netEnergyKcalKg).toBe(2545);
-    expect(phase.requirements.metabolizableEnergyKcalKg).toBe(3395);
-    expect(phase.requirements.sidLysinePct).toBe(1.42);
-    expect(phase.requirements.minerals.sttdPhosphorusPct).toBe(0.45);
+
+    expect(phase.sourceTable).toBe("5.32");
+    expect(phase.requirements.metabolizableEnergyKcalKg).toBe(3400);
+    expect(phase.requirements.netEnergyKcalKg).toBe(2550);
+    expect(phase.requirements.sidLysinePct).toBe(1.336);
+    expect(phase.requirements.minerals.sttdPhosphorusPct).toBe(0.462);
+    expect(phase.requirements.crudeProteinPct).toBe(21.2);
   });
 
-  it("moves through late-nursery and grow-finish requirements by liveweight", () => {
-    expect(nutritionPhaseAtWeight(11.5).id).toBe("pic-late-nursery-11-23");
-    expect(nutritionPhaseAtWeight(23).id).toBe("pic-grow-finish-23-41");
-    expect(nutritionPhaseAtWeight(41).id).toBe("pic-grow-finish-41-59");
-    expect(nutritionPhaseAtWeight(59).id).toBe("pic-grow-finish-59-82");
-    expect(nutritionPhaseAtWeight(82).id).toBe("pic-grow-finish-82-104");
-    expect(nutritionPhaseAtWeight(104).id).toBe("pic-grow-finish-104-market");
+  it("moves through the standard-performance phases by liveweight", () => {
+    expect(nutritionPhaseAtWeight(6.1).sourceWeightRange).toBe("4.4–6.2 kg");
+    expect(nutritionPhaseAtWeight(8).sourceWeightRange).toBe("6.2–8.4 kg");
+    expect(nutritionPhaseAtWeight(17).sourceWeightRange).toBe("8.4–17.9 kg");
+    expect(nutritionPhaseAtWeight(18).sourceWeightRange).toBe("16–26 kg");
+    expect(nutritionPhaseAtWeight(30).sourceWeightRange).toBe("26–47 kg");
+    expect(nutritionPhaseAtWeight(60).sourceWeightRange).toBe("47–74 kg");
+    expect(nutritionPhaseAtWeight(90).sourceWeightRange).toBe("74–103 kg");
+    expect(nutritionPhaseAtWeight(110).sourceWeightRange).toBe("103–131 kg");
   });
 
-  it("preserves the full PIC nutrient rows, not only lysine and phosphorus", () => {
+  it("preserves direct SID amino-acid concentrations and ideal-protein ratios", () => {
     const phase = nutritionPhaseAtWeight(30).requirements;
-    expect(phase.sidLysineGPerMcalNE).toBe(4.74);
-    expect(phase.sidLysineGPerMcalME).toBe(3.47);
-    expect(phase.minerals.sttdPhosphorusGPerMcalNE).toBe(1.62);
-    expect(phase.minerals.sttdPhosphorusGPerMcalME).toBe(1.2);
-    expect(phase.traceMinerals).toEqual({
-      zincPpm: 111,
-      ironPpm: 111,
-      manganesePpm: 43,
-      copperPpm: 15,
-      iodinePpm: 0.55,
-      seleniumPpm: 0.3,
+
+    expect(phase.sidAminoAcidsPct).toMatchObject({
+      lysine: 1.038,
+      methionineCysteine: 0.623,
+      threonine: 0.706,
+      tryptophan: 0.208,
+      valine: 0.716,
     });
-    expect(phase.vitamins.vitaminAIuKg).toBe(4250);
-    expect(phase.vitamins.vitaminB12McgKg).toBe(33);
+    expect(phase.aminoAcids).toMatchObject({
+      methionineCysteineToLysPct: 60,
+      threonineToLysPct: 68,
+      tryptophanToLysPct: 20,
+      valineToLysPct: 69,
+    });
   });
 
-  it("keeps source-table overlap separate from the operational lookup", () => {
-    const sourceMatches = PIC_GROWTH_NUTRITION_2021.phases.filter(
-      (phase) =>
-        phase.variant === "standard" &&
-        11.25 >= phase.sourceMinWeightKg &&
-        (phase.sourceMaxWeightKg === null || 11.25 < phase.sourceMaxWeightKg),
-    );
-    expect(sourceMatches.map((phase) => phase.id)).toEqual([
-      "pic-prestart-7.5-11.5",
-      "pic-late-nursery-11-23",
-    ]);
-    expect(nutritionPhaseAtWeight(11.25).id).toBe("pic-prestart-7.5-11.5");
+  it("keeps published overlap separate from deterministic liveweight lookup", () => {
+    const sourceMatches = nutritionPhasesAtSourceWeight(17);
+    expect(sourceMatches.map((phase) => phase.sourceTable)).toEqual(["5.32", "5.43"]);
+
+    expect(nutritionPhaseAtWeight(17).sourceTable).toBe("5.32");
+    expect(nutritionPhaseAtWeight(17.9).sourceTable).toBe("5.43");
   });
 
-  it("preserves PIC's prestarter practical formulation constraints", () => {
-    const phase = nutritionPhaseAtWeight(6).requirements;
-    expect(phase.practical.soybeanMealMaxPct).toBe(20);
-    expect(phase.practical.highlyDigestibleProteinPct).toEqual({ min: 5, max: 10 });
-    expect(phase.practical.highlyDigestibleCarbohydratePct).toBe(15);
-    expect(phase.minerals.chloridePctRange).toEqual({ min: 0.35, max: 0.4 });
-  });
-
-  it("stores special 104 kg-to-market source variants without selecting them by default", () => {
-    const standard = nutritionPhaseAtWeight(110);
-    expect(standard.id).toBe("pic-grow-finish-104-market");
-    const variants = PIC_GROWTH_NUTRITION_2021.phases.filter(
-      (phase) => phase.sourceMinWeightKg === 104,
-    );
-    expect(variants.map((phase) => phase.variant)).toEqual([
-      "standard",
-      "ractopamine_lt_21d",
-      "ractopamine_gt_21d",
-    ]);
-  });
-
-  it("attaches a dietary phase without redefining the farm's growth stage", () => {
-    // PigFlow currently lets stage thresholds be configured. Nutrition follows
-    // liveweight independently, so a pig can still be a weaner while eating a
-    // later PIC phase.
-    const attached = nutritionForGrowthStage("weaner", 25);
+  it("attaches nutrition independently of the farm growth-stage label", () => {
+    const attached = nutritionForGrowthStage("weaner", 30);
     expect(attached.growthStage).toBe("weaner");
-    expect(attached.phase.id).toBe("pic-grow-finish-23-41");
+    expect(attached.phase.sourceTable).toBe("5.43");
+    expect(attached.phase.phaseClass).toBe("grower");
   });
 
   it("is attached directly to a growing pig", () => {
@@ -106,13 +96,14 @@ describe("PIC growing-pig nutrition programme", () => {
       stage: "grower",
     });
 
-    expect(pig.nutritionRequirements()?.phase.id).toBe("pic-grow-finish-23-41");
+    expect(pig.nutritionRequirements()?.phase.sourceWeightRange).toBe("26–47 kg");
     pig.weightKg = 60;
-    expect(pig.nutritionRequirements()?.phase.id).toBe("pic-grow-finish-59-82");
+    expect(pig.nutritionRequirements()?.phase.sourceWeightRange).toBe("47–74 kg");
   });
 
-  it("rejects impossible liveweights instead of silently choosing a phase", () => {
+  it("rejects liveweights outside the loaded Brazilian range", () => {
     expect(() => nutritionPhaseAtWeight(-1)).toThrow(/non-negative finite liveweight/);
     expect(() => nutritionPhaseAtWeight(Number.NaN)).toThrow(/non-negative finite liveweight/);
+    expect(() => nutritionPhaseAtWeight(132)).toThrow(/No Brazilian 2024 nutrition phase/);
   });
 });
