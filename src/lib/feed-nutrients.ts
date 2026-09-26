@@ -31,7 +31,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Energy & protein",
     units: ["kcal/kg"],
     description: "Digestible energy less urinary and gaseous energy losses.",
-    formulationRole: "Energy basis used by PIC for nutrient-to-calorie ratios and diet comparisons.",
+    formulationRole: "Energy concentration used to evaluate a formulated diet against the selected requirement phase.",
   },
   {
     id: "net-energy",
@@ -49,7 +49,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Energy & protein",
     units: ["%"],
     description: "Conventional estimate of total dietary protein from nitrogen content.",
-    formulationRole: "Used as a practical minimum and as the denominator for PIC's SID Lys:CP limit.",
+    formulationRole: "Used to evaluate dietary protein concentration and amino-acid balance.",
   },
   {
     id: "sid-lysine",
@@ -58,7 +58,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Amino acids",
     units: ["%", "g/Mcal ME", "g/Mcal NE"],
     description: "Standardized ileal digestible lysine.",
-    formulationRole: "PIC uses SID lysine as the reference amino acid and sets other amino acids relative to it.",
+    formulationRole: "The Brazilian Tables use SID lysine as the reference amino acid for ideal-protein ratios.",
   },
   {
     id: "sid-methionine-cysteine",
@@ -157,7 +157,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Macro minerals",
     units: ["%", "g/Mcal ME", "g/Mcal NE"],
     description: "Standardized total tract digestible phosphorus.",
-    formulationRole: "PIC's preferred digestible phosphorus expression for formulation.",
+    formulationRole: "Standardized digestible phosphorus used in the Brazilian Tables for growing-swine requirements.",
   },
   {
     id: "available-phosphorus",
@@ -166,7 +166,7 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     group: "Macro minerals",
     units: ["%", "g/Mcal ME", "g/Mcal NE"],
     description: "Estimate of phosphorus biologically available to the pig.",
-    formulationRole: "Alternative phosphorus expression retained in PIC specification tables.",
+    formulationRole: "Available-phosphorus requirement retained alongside standardized digestible phosphorus.",
   },
   {
     id: "sodium",
