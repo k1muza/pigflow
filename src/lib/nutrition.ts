@@ -1,113 +1,13 @@
-import { z } from "zod";
-
-import picGrowth2021Json from "@/data/nutrition/programmes/pic-growth-2021.json";
+import {
+  BRAZILIAN_2024_GROWING_SWINE,
+  BRAZILIAN_2024_SOURCE,
+} from "./brazilian-nutrition";
 
 export type NutritionGrowthStage = "weaner" | "grower" | "finisher";
-export type NutritionVariant = "standard" | "ractopamine_lt_21d" | "ractopamine_gt_21d";
+export type NutritionVariant = "default";
+export type NutritionPerformance = "standard" | "high";
+export type NutritionPhaseClass = "pre-starter" | "starter" | "grower" | "finisher";
 export type Range = { min: number; max: number };
-
-const rangeSchema = z.object({ min: z.number(), max: z.number() });
-const nullableNumber = z.number().nullable();
-
-const ratiosSchema = z.object({
-  methionineCysteine: z.number(),
-  threonine: z.number(),
-  tryptophan: z.number(),
-  valine: z.number(),
-  isoleucine: z.number(),
-  leucine: z.number(),
-  histidine: z.number(),
-  phenylalanineTyrosine: z.number(),
-});
-
-const requirementsSchema = z.object({
-  energy: z
-    .object({
-      netKcalKg: z.number().optional(),
-      metabolizableKcalKg: z.number().optional(),
-    })
-    .optional()
-    .default({}),
-  aminoAcids: z.object({
-    sidLysinePct: z.number().optional(),
-    sidLysineGPerMcalNE: z.number().optional(),
-    sidLysineGPerMcalME: z.number().optional(),
-    ratiosToSidLysinePct: ratiosSchema,
-  }),
-  macroMinerals: z.object({
-    sodiumPct: z.number(),
-    chloridePct: z.number().optional(),
-    chloridePctRange: rangeSchema.optional(),
-    calciumPct: z.number().optional(),
-    sttdPhosphorusPct: z.number().optional(),
-    availablePhosphorusPct: z.number().optional(),
-    sttdPhosphorusGPerMcalNE: z.number().optional(),
-    sttdPhosphorusGPerMcalME: z.number().optional(),
-    availablePhosphorusGPerMcalNE: z.number().optional(),
-    availablePhosphorusGPerMcalME: z.number().optional(),
-    analyzedCalciumToPhosphorusRange: rangeSchema.optional(),
-  }),
-  traceMineralsPpm: z.object({
-    zinc: z.number(),
-    iron: z.number(),
-    manganese: z.number(),
-    copper: z.number(),
-    iodine: z.number(),
-    selenium: z.number(),
-  }),
-  vitamins: z.object({
-    vitaminAIuKg: z.number(),
-    vitaminDIuKg: z.number(),
-    vitaminEIuKg: z.number(),
-    vitaminKMgKg: z.number(),
-    niacinMgKg: z.number(),
-    riboflavinMgKg: z.number(),
-    pantothenicAcidMgKg: z.number(),
-    vitaminB12McgKg: z.number(),
-    totalCholineMgKg: z.number().optional(),
-  }),
-  practical: z.object({
-    soybeanMealMaxPct: z.number().optional(),
-    sidLysineToCrudeProteinMaxPct: z.number().optional(),
-    highlyDigestibleProteinPctRange: rangeSchema.optional(),
-    highlyDigestibleCarbohydratePct: z.number().optional(),
-    lLysineHclMaxPct: z.number().optional(),
-    crudeProteinMinPct: z.number().optional(),
-  }),
-});
-
-const phaseSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  variant: z.enum(["standard", "ractopamine_lt_21d", "ractopamine_gt_21d"]),
-  sourceWeight: z.object({
-    minKg: z.number(),
-    maxKg: nullableNumber,
-    label: z.string(),
-  }),
-  lookupWeight: z.object({
-    minKg: z.number(),
-    maxKg: nullableNumber,
-  }),
-  requirements: requirementsSchema,
-});
-
-const nutritionProgrammeFileSchema = z.object({
-  schemaVersion: z.literal(1),
-  id: z.string(),
-  name: z.string(),
-  source: z.object({
-    publisher: z.string(),
-    title: z.string(),
-    version: z.string(),
-    sections: z.array(z.string()),
-    url: z.string().url(),
-  }),
-  phases: z.array(phaseSchema).min(1),
-});
-
-export type NutritionProgrammeFile = z.infer<typeof nutritionProgrammeFileSchema>;
-type RawPhase = z.infer<typeof phaseSchema>;
 
 export type AminoAcidRequirements = {
   methionineCysteineToLysPct: number;
@@ -118,6 +18,18 @@ export type AminoAcidRequirements = {
   leucineToLysPct: number;
   histidineToLysPct: number;
   phenylalanineTyrosineToLysPct: number;
+};
+
+export type SidAminoAcidConcentrations = {
+  lysine: number;
+  methionineCysteine: number;
+  threonine: number;
+  tryptophan: number;
+  valine: number;
+  isoleucine: number;
+  leucine: number;
+  histidine: number;
+  phenylalanineTyrosine: number;
 };
 
 export type TraceMinerals = {
@@ -144,15 +56,10 @@ export type Vitamins = {
 export type MineralRequirements = {
   sodiumPct: number;
   chloridePct?: number;
-  chloridePctRange?: Range;
   calciumPct?: number;
+  /** Brazilian Tables call this standardized digestible phosphorus (Dig. P). */
   sttdPhosphorusPct?: number;
   availablePhosphorusPct?: number;
-  sttdPhosphorusGPerMcalNE?: number;
-  sttdPhosphorusGPerMcalME?: number;
-  availablePhosphorusGPerMcalNE?: number;
-  availablePhosphorusGPerMcalME?: number;
-  analyzedCalciumToPhosphorus?: Range;
 };
 
 export type PracticalDietConstraints = {
@@ -161,19 +68,26 @@ export type PracticalDietConstraints = {
   highlyDigestibleProteinPct?: Range;
   highlyDigestibleCarbohydratePct?: number;
   lLysineHclMaxPct?: number;
-  crudeProteinMinPct?: number;
 };
 
 export type NutritionRequirements = {
-  netEnergyKcalKg?: number;
-  metabolizableEnergyKcalKg?: number;
-  sidLysinePct?: number;
-  sidLysineGPerMcalNE?: number;
-  sidLysineGPerMcalME?: number;
+  netEnergyKcalKg: number;
+  metabolizableEnergyKcalKg: number;
+  sidLysinePct: number;
+  sidAminoAcidsPct: SidAminoAcidConcentrations;
   aminoAcids: AminoAcidRequirements;
+  crudeProteinPct: number;
+  digestibleProteinPct: number;
+  potassiumPct: number;
+  linoleicAcidPct: number;
   minerals: MineralRequirements;
-  traceMinerals: TraceMinerals;
-  vitamins: Vitamins;
+  /**
+   * Chapter 7 of the Brazilian Tables publishes suggested supplementation,
+   * not nutritional requirements. Keep these optional until those tables are
+   * represented as supplementation guidance rather than requirement minima.
+   */
+  traceMinerals?: TraceMinerals;
+  vitamins?: Vitamins;
   practical: PracticalDietConstraints;
 };
 
@@ -181,11 +95,16 @@ export type NutritionPhase = {
   id: string;
   label: string;
   variant: NutritionVariant;
+  phaseClass: NutritionPhaseClass;
+  ageMinDays?: number;
+  ageMaxDays?: number;
+  sourceTable: string;
+  sourcePage: number;
   sourceMinWeightKg: number;
-  sourceMaxWeightKg: number | null;
+  sourceMaxWeightKg: number;
   sourceWeightRange: string;
   lookupMinWeightKg: number;
-  lookupMaxWeightKg: number | null;
+  lookupMaxWeightKg: number;
   requirements: NutritionRequirements;
 };
 
@@ -195,91 +114,182 @@ export type NutritionProgramme = {
   source: string;
   sourceVersion: string;
   sourceSections: readonly string[];
-  sourceUrl: string;
+  performance: NutritionPerformance;
   phases: readonly NutritionPhase[];
 };
 
-function phaseFromFile(phase: RawPhase): NutritionPhase {
-  const aa = phase.requirements.aminoAcids;
-  const minerals = phase.requirements.macroMinerals;
-  const trace = phase.requirements.traceMineralsPpm;
+type BrazilianProgramme = (typeof BRAZILIAN_2024_GROWING_SWINE.programmes)[number];
+type BrazilianPhase = BrazilianProgramme["phases"][number];
+
+const PRESTARTER_PROGRAMME_ID = "prestarter-high-genetic-potential";
+const HIGH_PERFORMANCE_PROGRAMME_ID = "high-performance-mixed-sex";
+const STANDARD_PERFORMANCE_PROGRAMME_ID = "standard-performance-mixed-sex";
+
+function programmeById(id: string): BrazilianProgramme {
+  const programme = BRAZILIAN_2024_GROWING_SWINE.programmes.find(
+    (candidate) => candidate.id === id,
+  );
+  if (!programme) throw new Error(`Brazilian 2024 programme not found: ${id}.`);
+  return programme;
+}
+
+function phaseRatioKey(
+  phase: NutritionPhaseClass,
+): keyof typeof BRAZILIAN_2024_GROWING_SWINE.aminoAcidRatios.phases {
+  switch (phase) {
+    case "pre-starter":
+      return "preStarter";
+    case "starter":
+      return "starter";
+    case "grower":
+      return "grower";
+    case "finisher":
+      return "finisher";
+  }
+}
+
+function requireBoundary(value: number | undefined, label: string): number {
+  if (value === undefined) {
+    throw new Error(`Brazilian 2024 phase is missing ${label}.`);
+  }
+  return value;
+}
+
+function normalizeBrazilianPhase(
+  sourceProgramme: BrazilianProgramme,
+  phase: BrazilianPhase,
+  lookupMinWeightKg: number,
+  lookupMaxWeightKg: number,
+): NutritionPhase {
+  const sourceMinWeightKg = requireBoundary(phase.weightKg.min, "minimum liveweight");
+  const sourceMaxWeightKg = requireBoundary(phase.weightKg.max, "maximum liveweight");
+  const ratios =
+    BRAZILIAN_2024_GROWING_SWINE.aminoAcidRatios.phases[phaseRatioKey(phase.phase)].sid;
+  const sid = phase.sidAminoAcidsPct;
+  const nutrients = phase.nutrientsPct;
+
   return {
-    id: phase.id,
-    label: phase.label,
-    variant: phase.variant,
-    sourceMinWeightKg: phase.sourceWeight.minKg,
-    sourceMaxWeightKg: phase.sourceWeight.maxKg,
-    sourceWeightRange: phase.sourceWeight.label,
-    lookupMinWeightKg: phase.lookupWeight.minKg,
-    lookupMaxWeightKg: phase.lookupWeight.maxKg,
+    id: `br2024-${sourceProgramme.sourceTable.replace(".", "-")}-${phase.id}`,
+    label: `${phase.phase.replace("-", " ")}: ${sourceMinWeightKg}–${sourceMaxWeightKg} kg`,
+    variant: "default",
+    phaseClass: phase.phase,
+    ageMinDays: phase.ageDays.min,
+    ageMaxDays: phase.ageDays.max,
+    sourceTable: sourceProgramme.sourceTable,
+    sourcePage: sourceProgramme.printedPage,
+    sourceMinWeightKg,
+    sourceMaxWeightKg,
+    sourceWeightRange: `${sourceMinWeightKg}–${sourceMaxWeightKg} kg`,
+    lookupMinWeightKg,
+    lookupMaxWeightKg,
     requirements: {
-      netEnergyKcalKg: phase.requirements.energy.netKcalKg,
-      metabolizableEnergyKcalKg: phase.requirements.energy.metabolizableKcalKg,
-      sidLysinePct: aa.sidLysinePct,
-      sidLysineGPerMcalNE: aa.sidLysineGPerMcalNE,
-      sidLysineGPerMcalME: aa.sidLysineGPerMcalME,
+      metabolizableEnergyKcalKg: phase.diet.metabolizableEnergyKcalKg,
+      netEnergyKcalKg: phase.diet.netEnergyKcalKg,
+      sidLysinePct: sid.lysine,
+      sidAminoAcidsPct: {
+        lysine: sid.lysine,
+        methionineCysteine: sid.methionineCysteine,
+        threonine: sid.threonine,
+        tryptophan: sid.tryptophan,
+        valine: sid.valine,
+        isoleucine: sid.isoleucine,
+        leucine: sid.leucine,
+        histidine: sid.histidine,
+        phenylalanineTyrosine: sid.phenylalanineTyrosine,
+      },
       aminoAcids: {
-        methionineCysteineToLysPct: aa.ratiosToSidLysinePct.methionineCysteine,
-        threonineToLysPct: aa.ratiosToSidLysinePct.threonine,
-        tryptophanToLysPct: aa.ratiosToSidLysinePct.tryptophan,
-        valineToLysPct: aa.ratiosToSidLysinePct.valine,
-        isoleucineToLysPct: aa.ratiosToSidLysinePct.isoleucine,
-        leucineToLysPct: aa.ratiosToSidLysinePct.leucine,
-        histidineToLysPct: aa.ratiosToSidLysinePct.histidine,
-        phenylalanineTyrosineToLysPct: aa.ratiosToSidLysinePct.phenylalanineTyrosine,
+        methionineCysteineToLysPct: ratios.methionineCysteine,
+        threonineToLysPct: ratios.threonine,
+        tryptophanToLysPct: ratios.tryptophan,
+        valineToLysPct: ratios.valine,
+        isoleucineToLysPct: ratios.isoleucine,
+        leucineToLysPct: ratios.leucine,
+        histidineToLysPct: ratios.histidine,
+        phenylalanineTyrosineToLysPct: ratios.phenylalanineTyrosine,
       },
+      crudeProteinPct: nutrients.crudeProtein,
+      digestibleProteinPct: nutrients.digestibleProtein,
+      potassiumPct: nutrients.potassium,
+      linoleicAcidPct: nutrients.linoleicAcid,
       minerals: {
-        sodiumPct: minerals.sodiumPct,
-        chloridePct: minerals.chloridePct,
-        chloridePctRange: minerals.chloridePctRange,
-        calciumPct: minerals.calciumPct,
-        sttdPhosphorusPct: minerals.sttdPhosphorusPct,
-        availablePhosphorusPct: minerals.availablePhosphorusPct,
-        sttdPhosphorusGPerMcalNE: minerals.sttdPhosphorusGPerMcalNE,
-        sttdPhosphorusGPerMcalME: minerals.sttdPhosphorusGPerMcalME,
-        availablePhosphorusGPerMcalNE: minerals.availablePhosphorusGPerMcalNE,
-        availablePhosphorusGPerMcalME: minerals.availablePhosphorusGPerMcalME,
-        analyzedCalciumToPhosphorus: minerals.analyzedCalciumToPhosphorusRange,
+        calciumPct: nutrients.calcium,
+        availablePhosphorusPct: nutrients.availablePhosphorus,
+        sttdPhosphorusPct: nutrients.digestiblePhosphorus,
+        sodiumPct: nutrients.sodium,
+        chloridePct: nutrients.chloride,
       },
-      traceMinerals: {
-        zincPpm: trace.zinc,
-        ironPpm: trace.iron,
-        manganesePpm: trace.manganese,
-        copperPpm: trace.copper,
-        iodinePpm: trace.iodine,
-        seleniumPpm: trace.selenium,
-      },
-      vitamins: phase.requirements.vitamins,
-      practical: {
-        soybeanMealMaxPct: phase.requirements.practical.soybeanMealMaxPct,
-        sidLysineToCrudeProteinMaxPct:
-          phase.requirements.practical.sidLysineToCrudeProteinMaxPct,
-        highlyDigestibleProteinPct:
-          phase.requirements.practical.highlyDigestibleProteinPctRange,
-        highlyDigestibleCarbohydratePct:
-          phase.requirements.practical.highlyDigestibleCarbohydratePct,
-        lLysineHclMaxPct: phase.requirements.practical.lLysineHclMaxPct,
-        crudeProteinMinPct: phase.requirements.practical.crudeProteinMinPct,
-      },
+      practical: {},
     },
   };
 }
 
-export function loadNutritionProgramme(input: unknown): NutritionProgramme {
-  const file = nutritionProgrammeFileSchema.parse(input);
+function buildGrowingProgramme(
+  performance: NutritionPerformance,
+  growthProgrammeId: string,
+): NutritionProgramme {
+  const prestarter = programmeById(PRESTARTER_PROGRAMME_ID);
+  const growth = programmeById(growthProgrammeId);
+  const sourcePhases = [...prestarter.phases, ...growth.phases];
+
+  const phases = sourcePhases.map((phase, index) => {
+    const sourceMin = requireBoundary(phase.weightKg.min, "minimum liveweight");
+    const sourceMax = requireBoundary(phase.weightKg.max, "maximum liveweight");
+    const previous = sourcePhases[index - 1];
+    const next = sourcePhases[index + 1];
+
+    // Preserve the published ranges separately. Operational lookup closes only
+    // the tiny 17.9-to-18.0 kg source gap so every post-weaning liveweight maps
+    // deterministically without inventing a nutrient concentration.
+    const lookupMin =
+      index === 0
+        ? 0
+        : requireBoundary(previous.weightKg.max, "previous maximum liveweight");
+    const lookupMax =
+      next === undefined
+        ? sourceMax
+        : requireBoundary(next.weightKg.min, "next minimum liveweight");
+
+    return normalizeBrazilianPhase(
+      index < prestarter.phases.length ? prestarter : growth,
+      phase,
+      Math.min(sourceMin, lookupMin),
+      Math.max(sourceMax, lookupMax),
+    );
+  });
+
   return {
-    id: file.id,
-    name: file.name,
-    source: file.source.title,
-    sourceVersion: file.source.version,
-    sourceSections: file.source.sections,
-    sourceUrl: file.source.url,
-    phases: file.phases.map(phaseFromFile),
+    id: `brazilian-2024-growing-swine-${performance}-performance-mixed-sex`,
+    name: `Brazilian Tables 2024 — ${performance === "high" ? "High" : "Standard"} performance mixed-sex pigs`,
+    source: BRAZILIAN_2024_SOURCE.title,
+    sourceVersion: `5th edition (${BRAZILIAN_2024_SOURCE.year})`,
+    sourceSections: [
+      "Chapter 5 — Nutritional Requirements of Growing Swine",
+      `Table ${prestarter.sourceTable}`,
+      `Table ${growth.sourceTable}`,
+      `Table ${BRAZILIAN_2024_GROWING_SWINE.aminoAcidRatios.sourceTable}`,
+    ],
+    performance,
+    phases,
   };
 }
 
-export const PIC_GROWTH_NUTRITION_2021 = loadNutritionProgramme(picGrowth2021Json);
-export const DEFAULT_GROWTH_NUTRITION_PROGRAMME = PIC_GROWTH_NUTRITION_2021;
+export const BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION = buildGrowingProgramme(
+  "standard",
+  STANDARD_PERFORMANCE_PROGRAMME_ID,
+);
+
+export const BRAZILIAN_2024_HIGH_GROWTH_NUTRITION = buildGrowingProgramme(
+  "high",
+  HIGH_PERFORMANCE_PROGRAMME_ID,
+);
+
+/**
+ * Until PigFlow exposes a project-level performance-programme selector, the
+ * standard-performance mixed-sex table is the default. Callers can pass the
+ * high-performance programme explicitly.
+ */
+export const DEFAULT_GROWTH_NUTRITION_PROGRAMME =
+  BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION;
 
 export function nutritionPhasesAtSourceWeight(
   weightKg: number,
@@ -288,8 +298,7 @@ export function nutritionPhasesAtSourceWeight(
   assertWeight(weightKg);
   return programme.phases.filter(
     ({ sourceMinWeightKg, sourceMaxWeightKg }) =>
-      weightKg >= sourceMinWeightKg &&
-      (sourceMaxWeightKg === null || weightKg < sourceMaxWeightKg),
+      weightKg >= sourceMinWeightKg && weightKg <= sourceMaxWeightKg,
   );
 }
 
@@ -299,12 +308,16 @@ export function nutritionPhaseAtWeight(
 ): NutritionPhase {
   assertWeight(weightKg);
   const phase = programme.phases.find(
-    ({ variant, lookupMinWeightKg, lookupMaxWeightKg }) =>
-      variant === "standard" &&
+    ({ lookupMinWeightKg, lookupMaxWeightKg }, index) =>
       weightKg >= lookupMinWeightKg &&
-      (lookupMaxWeightKg === null || weightKg < lookupMaxWeightKg),
+      (weightKg < lookupMaxWeightKg ||
+        (index === programme.phases.length - 1 && weightKg <= lookupMaxWeightKg)),
   );
-  if (!phase) throw new Error(`No standard nutrition phase covers ${weightKg} kg in ${programme.id}.`);
+  if (!phase) {
+    throw new Error(
+      `No Brazilian 2024 nutrition phase covers ${weightKg} kg in ${programme.id}.`,
+    );
+  }
   return phase;
 }
 
@@ -313,15 +326,10 @@ export function nutritionPhaseForVariant(
   variant: NutritionVariant,
   programme: NutritionProgramme = DEFAULT_GROWTH_NUTRITION_PROGRAMME,
 ): NutritionPhase {
-  assertWeight(weightKg);
-  const phase = programme.phases.find(
-    (candidate) =>
-      candidate.variant === variant &&
-      weightKg >= candidate.lookupMinWeightKg &&
-      (candidate.lookupMaxWeightKg === null || weightKg < candidate.lookupMaxWeightKg),
-  );
-  if (!phase) throw new Error(`No ${variant} nutrition phase covers ${weightKg} kg in ${programme.id}.`);
-  return phase;
+  if (variant !== "default") {
+    throw new Error(`Unsupported nutrition variant: ${variant}.`);
+  }
+  return nutritionPhaseAtWeight(weightKg, programme);
 }
 
 export type GrowthStageNutrition = {
@@ -336,7 +344,12 @@ export function nutritionForGrowthStage(
   weightKg: number,
   programme: NutritionProgramme = DEFAULT_GROWTH_NUTRITION_PROGRAMME,
 ): GrowthStageNutrition {
-  return { growthStage, weightKg, programmeId: programme.id, phase: nutritionPhaseAtWeight(weightKg, programme) };
+  return {
+    growthStage,
+    weightKg,
+    programmeId: programme.id,
+    phase: nutritionPhaseAtWeight(weightKg, programme),
+  };
 }
 
 function assertWeight(weightKg: number): void {
