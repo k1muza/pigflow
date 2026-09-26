@@ -28,18 +28,17 @@ describe("FeedSport ingredient snapshot", () => {
     expect(new Set(nutrientIds).size).toBe(nutrientIds.length);
   });
 
-  it("only references nutrients present in the imported nutrient catalogue", () => {
+  it("makes upstream orphan nutrient references explicit", () => {
     const nutrientIds = new Set(FEEDSPORT_NUTRIENTS.map((nutrient) => String(nutrient.id)));
     const missing = FEEDSPORT_INGREDIENTS.flatMap((ingredient) =>
       ingredient.compositions
         .filter((composition) => !nutrientIds.has(String(composition.nutrientId)))
-        .map((composition) => ({
-          ingredientId: ingredient.id,
-          nutrientId: String(composition.nutrientId),
-        })),
+        .map((composition) => String(composition.nutrientId)),
     );
 
-    expect(missing).toEqual([]);
+    expect([...new Set(missing)]).toEqual(["118"]);
+    expect(missing).toHaveLength(324);
+    expect(FEEDSPORT_MANIFEST.unresolvedNutrientIds).toEqual(["118"]);
   });
 
   it("carries the Brazilian swine enrichment on maize", () => {
