@@ -34,7 +34,7 @@ type Row = {
 
 const DEFAULT_INGREDIENT_IDS = [
   "corn-yellow-dent",
-  "soybean-meal-dehulled-solvent-extracted",
+  "soybean-meal-brazilian-45-6-cp-average",
   "dicalcium-phosphate",
   "sodium-chloride",
   "l-lysine-hcl",
