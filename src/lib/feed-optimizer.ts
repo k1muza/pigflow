@@ -440,7 +440,10 @@ async function solveStrict(
     ],
     bounds: ingredients.map((ingredient) => ({
       name: ingredient.variable,
-      type: GLP_DB,
+      type:
+        Math.abs(ingredient.minFraction - ingredient.maxFraction) <= 1e-12
+          ? GLP_FX
+          : GLP_DB,
       lb: ingredient.minFraction,
       ub: ingredient.maxFraction,
     })),
@@ -524,7 +527,10 @@ async function solveDiagnostic(
     bounds: [
       ...ingredients.map((ingredient) => ({
         name: ingredient.variable,
-        type: GLP_DB,
+        type:
+          Math.abs(ingredient.minFraction - ingredient.maxFraction) <= 1e-12
+            ? GLP_FX
+            : GLP_DB,
         lb: ingredient.minFraction,
         ub: ingredient.maxFraction,
       })),
