@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, Calculator, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -493,7 +493,7 @@ function Unsupported({ requirements }: { requirements: readonly string[] }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="space-y-1.5">
       <span className="text-xs font-medium uppercase tracking-wide text-ink-faint">{label}</span>
