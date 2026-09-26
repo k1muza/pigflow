@@ -12,50 +12,53 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
-import { PIC_GROWTH_NUTRITION_2021 } from "@/lib/nutrition";
+import {
+  BRAZILIAN_2024_HIGH_GROWTH_NUTRITION,
+  BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
+} from "@/lib/nutrition";
 import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
-import { PIC_EXAMPLE_FORMULATIONS } from "@/lib/feed-formulations";
-import { analyzeFeedFormulation } from "@/lib/formulation-analysis";
-import type { AnalyzedNutrient } from "@/lib/diet-formula";
-import { PIC_SID_LYSINE_RESPONSE_2021 } from "@/lib/nutrition-response";
-import { feedFormulationHref, feedFormulationStrategyHref } from "@/lib/routes";
+import { feedFormulationHref } from "@/lib/routes";
 
 export default function FeedFormulationDashboard() {
+  const loadedProgrammes = FEED_PROGRAMMES.filter(
+    (programme) => programme.status === "loaded",
+  ).length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">Feed formulation</h1>
-            <Badge variant="secondary">App workspace</Badge>
+            <Badge variant="secondary">Brazilian Tables 2024</Badge>
           </div>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-            Build feed decisions from source-backed ingredient composition and pig nutrient
-            requirements independently of any one farm plan.
+            Build feed decisions from source-backed ingredient composition and Brazilian
+            growing-pig nutrient requirements independently of any one farm plan.
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
-          label="NRC ingredient library"
+          label="Ingredient library"
           value={INGREDIENT_LIBRARY.ingredients.length.toString()}
           detail="checked-in ingredients"
         />
         <SummaryCard
-          label="PIC programmes"
-          value={FEED_PROGRAMMES.length.toString()}
-          detail={`${FEED_PROGRAMMES.filter((programme) => programme.status === "loaded").length} loaded · ${PIC_GROWTH_NUTRITION_2021.phases.length} phases`}
+          label="Loaded programmes"
+          value={loadedProgrammes.toString()}
+          detail="standard and high-performance tracks"
         />
         <SummaryCard
-          label="PIC formulations"
-          value={PIC_EXAMPLE_FORMULATIONS.length.toString()}
-          detail="source-backed example rations"
+          label="Standard phases"
+          value={BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION.phases.length.toString()}
+          detail="pre-starter through finisher"
         />
         <SummaryCard
-          label="Response evidence"
-          value={PIC_SID_LYSINE_RESPONSE_2021.population.pigs.toLocaleString()}
-          detail={`pigs across ${PIC_SID_LYSINE_RESPONSE_2021.population.trials} trials`}
+          label="High-performance phases"
+          value={BRAZILIAN_2024_HIGH_GROWTH_NUTRITION.phases.length.toString()}
+          detail="pre-starter through finisher"
         />
       </div>
 
@@ -64,21 +67,21 @@ export default function FeedFormulationDashboard() {
           href={feedFormulationHref("programmes")}
           icon={BookOpen}
           title="Programmes"
-          description="See the PIC feeding programmes in the source material and which ones PigFlow has loaded."
+          description="Browse Brazilian Tables 2024 nutrient requirements by performance track and phase."
           action="Browse programmes"
         />
         <WorkspaceLink
           href={feedFormulationHref("formulations")}
           icon={Layers3}
           title="Formulations"
-          description="Browse PIC example ingredient ratios with nutrient profiles calculated from the ingredient library."
-          action="Browse formulations"
+          description="Formulate diets and compare calculated nutrient profiles against a selected requirement phase."
+          action="Open formulations"
         />
         <WorkspaceLink
           href={feedFormulationHref("ingredients")}
           icon={Wheat}
           title="Ingredients"
-          description="Browse NRC energy, protein, SID amino acids, minerals and source provenance ingredient by ingredient."
+          description="Browse energy, protein, SID amino acids, minerals and source provenance ingredient by ingredient."
           action="Browse ingredients"
         />
         <WorkspaceLink
@@ -92,46 +95,17 @@ export default function FeedFormulationDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Featured PIC formulations</CardTitle>
-          <CardDescription>
-            PIC Tables B1/B2 provide the ingredient ratios; PigFlow calculates the resulting
-            nutrient profile from the ingredient library.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {PIC_EXAMPLE_FORMULATIONS.filter((formulation) => formulation.featured).map((formulation) => {
-            const profile = analyzeFeedFormulation(formulation).analysis;
-            return (
-              <Link
-                key={formulation.id}
-                href={feedFormulationStrategyHref(formulation.id)}
-                className="rounded-lg border border-hairline bg-raised/30 p-4 transition hover:border-ink-faint/40 hover:bg-raised"
-              >
-                <div className="text-sm font-medium text-ink">{formulation.name}</div>
-                <div className="mt-1 text-xs leading-5 text-ink-muted">
-                  {formulation.ingredients.length} ingredients · {formulation.sourceTable}
-                </div>
-                <div className="mt-3 text-lg font-semibold text-ink">
-                  {dashboardMetric(profile.energy.metabolizableKcalKg)} ME
-                </div>
-                <div className="mt-1 text-xs text-ink-faint">
-                  {dashboardMetric(profile.energy.netKcalKg)} NE ·{" "}
-                  {dashboardMetric(profile.sidAminoAcidsPct.lysine)}% SID Lys
-                </div>
-              </Link>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Formulation engine status</CardTitle>
           <CardDescription>
-            What the standalone workspace can support without overstating the science.
+            What the standalone workspace can support without introducing requirement values from another source.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <StatusRow
+            ready
+            label="Brazilian Tables requirement catalogue"
+            detail="Chapter 5 standard- and high-performance mixed-sex requirements are loaded from the checked-in Brazilian source dataset."
+          />
           <StatusRow
             ready
             label="Ingredient-weighted nutrient analysis"
@@ -139,8 +113,8 @@ export default function FeedFormulationDashboard() {
           />
           <StatusRow
             ready
-            label="PIC diet validation"
-            detail="Diet checks distinguish valid, invalid and incomplete nutrient coverage."
+            label="Diet validation"
+            detail="Diet checks compare calculated profiles against the selected Brazilian requirement phase."
           />
           <StatusRow
             label="Least-cost formulation solver"
@@ -148,7 +122,7 @@ export default function FeedFormulationDashboard() {
           />
           <StatusRow
             label="Maximum-profit formulation"
-            detail="Awaiting a sourced marginal ADG/FCR response model; PigFlow will not invent those coefficients."
+            detail="Requires a supported marginal ADG/FCR response model; PigFlow will not infer one from the requirement tables."
           />
         </CardContent>
       </Card>
@@ -230,10 +204,4 @@ function StatusRow({
       </div>
     </div>
   );
-}
-
-
-function dashboardMetric(nutrient: AnalyzedNutrient): string {
-  const value = Number(nutrient.value.toFixed(3));
-  return nutrient.complete ? value.toLocaleString() : `≥${value.toLocaleString()}`;
 }
