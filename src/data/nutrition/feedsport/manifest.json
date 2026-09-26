@@ -32,5 +32,8 @@
     "ingredients-15.json",
     "ingredients-16.json",
     "ingredients-17.json"
+  ],
+  "unresolvedNutrientIds": [
+    "118"
   ]
 }
