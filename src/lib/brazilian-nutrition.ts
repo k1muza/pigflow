@@ -123,6 +123,7 @@ const growingSwineSchema = z.object({
         geneticPotential: z.string(),
         sexes: z.array(z.string()),
         performance: z.string(),
+        environment: z.string().optional(),
       }),
       phases: z.array(growingPhaseSchema),
       notes: z.array(z.string()).optional(),
@@ -186,6 +187,18 @@ const breederSwineSchema = z.object({
   lactation: z.object({
     sourceTable: z.literal("6.15"),
     printedPages: z.array(z.number()),
+    aminoAcidRatios: z.object({
+      sourceTable: z.literal("6.11"),
+      printedPage: z.number(),
+      basis: z.string(),
+      sid: aaRatioSchema,
+    }),
+    phases: z.array(breederPhaseSchema),
+  }),
+  lactation25C: z.object({
+    sourceTable: z.literal("6.16"),
+    printedPages: z.array(z.number()),
+    averageTemperatureC: z.literal(25),
     aminoAcidRatios: z.object({
       sourceTable: z.literal("6.11"),
       printedPage: z.number(),
@@ -298,6 +311,10 @@ export const BRAZILIAN_2024_MINERAL_SOURCES = mineralSourcesSchema.parse(mineral
 assertUniqueIds(BRAZILIAN_2024_GROWING_SWINE.programmes, "Brazilian 2024 programmes");
 assertUniqueIds(BRAZILIAN_2024_BREEDER_SWINE.gestation.phases, "Brazilian 2024 gestation phases");
 assertUniqueIds(BRAZILIAN_2024_BREEDER_SWINE.lactation.phases, "Brazilian 2024 lactation phases");
+assertUniqueIds(
+  BRAZILIAN_2024_BREEDER_SWINE.lactation25C.phases,
+  "Brazilian 2024 25C lactation phases",
+);
 for (const programme of BRAZILIAN_2024_GROWING_SWINE.programmes) {
   assertUniqueIds(programme.phases, `Brazilian 2024 programme ${programme.id}`);
 }
