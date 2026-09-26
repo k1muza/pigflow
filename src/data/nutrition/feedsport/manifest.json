@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "feedsport-ingredient-snapshot",
+  "source": {
+    "repository": "k1muza/feedsport",
+    "ref": "feature/brazilian-swine-import",
+    "commit": "fde99cd2bbef3c7f0c1a72a16079c4ae60c4b69e",
+    "ingredientsPath": "src/data/ingredients.json",
+    "nutrientsPath": "src/data/nutrients.json"
+  },
+  "basisPolicy": "Composition entries retain FeedSport nutrient IDs, values, table/source labels and basis verbatim.",
+  "ingredientCount": 324,
+  "nutrientCount": 155,
+  "swineNutrientCount": 41,
+  "ingredientsWithSwineData": 53,
+  "shardSize": 20,
+  "ingredientShards": [
+    "ingredients-01.json",
+    "ingredients-02.json",
+    "ingredients-03.json",
+    "ingredients-04.json",
+    "ingredients-05.json",
+    "ingredients-06.json",
+    "ingredients-07.json",
+    "ingredients-08.json",
+    "ingredients-09.json",
+    "ingredients-10.json",
+    "ingredients-11.json",
+    "ingredients-12.json",
+    "ingredients-13.json",
+    "ingredients-14.json",
+    "ingredients-15.json",
+    "ingredients-16.json",
+    "ingredients-17.json"
+  ],
+  "unresolvedNutrientIds": [
+    "118"
+  ]
+}
