@@ -23,3 +23,7 @@ npm run data:import-feedsport -- --ref main
 The importer resolves the ref to an exact commit, rewrites the JSON shards, updates `manifest.json`, and regenerates `snapshot.ts`. Set `GITHUB_TOKEN` if unauthenticated GitHub API rate limits are a problem.
 
 Do not edit the generated JSON shards or `snapshot.ts` by hand.
+
+## Known upstream issue
+
+FeedSport currently has one nutrient ID referenced by ingredient compositions but absent from its nutrient catalogue: `118`. It appears on the source "Fatty acids" rows. PigFlow preserves the source rows and records the unresolved ID in `manifest.json`; it does not guess a nutrient name.
