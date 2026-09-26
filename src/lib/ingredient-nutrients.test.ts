@@ -19,7 +19,7 @@ describe("ingredient nutrient JSON library", () => {
     expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(48);
   });
 
-  it("has unique ingredient ids and includes every ingredient used by the PIC example diets", () => {
+  it("has unique ingredient ids and includes the core formulation ingredient classes", () => {
     const ids = INGREDIENT_LIBRARY.ingredients.map((ingredient) => ingredient.id);
     expect(new Set(ids).size).toBe(ids.length);
 
