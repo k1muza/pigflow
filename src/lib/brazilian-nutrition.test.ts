@@ -37,7 +37,7 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
-  it("keeps the Brazilian amino-acid ratios independently of PIC", () => {
+  it("keeps the Brazilian amino-acid ratios as source-native data", () => {
     expect(BRAZILIAN_2024_GROWING_SWINE.aminoAcidRatios.phases.grower.sid).toMatchObject({
       methionineCysteine: 60,
       threonine: 68,
