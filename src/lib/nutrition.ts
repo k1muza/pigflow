@@ -237,23 +237,29 @@ function buildGrowingProgramme(
     const previous = sourcePhases[index - 1];
     const next = sourcePhases[index + 1];
 
-    // Preserve the published ranges separately. Operational lookup closes only
-    // the tiny 17.9-to-18.0 kg source gap so every post-weaning liveweight maps
-    // deterministically without inventing a nutrient concentration.
+    // Keep published ranges untouched. For liveweight-only lookup, use the
+    // end of the preceding source phase as the hand-off point when tables
+    // overlap, and the start of the following phase when there is a small gap.
     const lookupMin =
       index === 0
         ? 0
-        : requireBoundary(previous!.weightKg.max, "previous maximum liveweight");
+        : Math.max(
+            requireBoundary(previous!.weightKg.max, "previous maximum liveweight"),
+            sourceMin,
+          );
     const lookupMax =
       next === undefined
         ? sourceMax
-        : requireBoundary(next.weightKg.min, "next minimum liveweight");
+        : Math.max(
+            sourceMax,
+            requireBoundary(next.weightKg.min, "next minimum liveweight"),
+          );
 
     return normalizeBrazilianPhase(
       index < prestarter.phases.length ? prestarter : growth,
       phase,
-      Math.min(sourceMin, lookupMin),
-      Math.max(sourceMax, lookupMax),
+      lookupMin,
+      lookupMax,
     );
   });
 
