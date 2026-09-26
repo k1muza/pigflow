@@ -132,13 +132,23 @@ type BrazilianProgramme = (typeof BRAZILIAN_2024_GROWING_SWINE.programmes)[numbe
 type BrazilianPhase = BrazilianProgramme["phases"][number];
 type BrazilianBreederPhase =
   | (typeof BRAZILIAN_2024_BREEDER_SWINE.gestation.phases)[number]
-  | (typeof BRAZILIAN_2024_BREEDER_SWINE.lactation.phases)[number];
+  | (typeof BRAZILIAN_2024_BREEDER_SWINE.lactation.phases)[number]
+  | (typeof BRAZILIAN_2024_BREEDER_SWINE.lactation25C.phases)[number];
 
 const PRESTARTER_PROGRAMME_ID = "prestarter-high-genetic-potential";
 const HIGH_PERFORMANCE_PROGRAMME_ID = "high-performance-mixed-sex";
 const STANDARD_PERFORMANCE_PROGRAMME_ID = "standard-performance-mixed-sex";
 const HIGH_PERFORMANCE_GILT_PROGRAMME_ID = "high-performance-gilts";
 const STANDARD_PERFORMANCE_GILT_PROGRAMME_ID = "standard-performance-gilts";
+const HIGH_PERFORMANCE_BARROW_PROGRAMME_ID = "high-performance-barrows";
+const HIGH_PERFORMANCE_BARROW_HOT_PROGRAMME_ID = "high-performance-barrows-hot-5c";
+const STANDARD_PERFORMANCE_BARROW_PROGRAMME_ID = "standard-performance-barrows";
+const HIGH_PERFORMANCE_GILT_HOT_PROGRAMME_ID = "high-performance-gilts-hot-5c";
+const STANDARD_PERFORMANCE_ENTIRE_MALE_PROGRAMME_ID =
+  "standard-performance-entire-immunocastrated-males";
+const HIGH_PERFORMANCE_ENTIRE_MALE_HOT_PROGRAMME_ID =
+  "high-performance-entire-immunocastrated-males-hot-5c";
+const HIGH_PERFORMANCE_MIXED_SEX_HOT_PROGRAMME_ID = "high-performance-mixed-sex-hot-5c";
 
 function programmeById(id: string): BrazilianProgramme {
   const programme = BRAZILIAN_2024_GROWING_SWINE.programmes.find(
@@ -301,6 +311,31 @@ function buildGrowingProgramme(
     ],
     performance,
     phases,
+  };
+}
+
+function buildStandaloneGrowingProgramme(
+  id: string,
+  name: string,
+  performance: GrowingPerformance,
+  sourceProgrammeId: string,
+): NutritionProgramme {
+  const sourceProgramme = programmeById(sourceProgrammeId);
+  return {
+    id,
+    name,
+    source: BRAZILIAN_2024_SOURCE.title,
+    sourceVersion: `5th edition (${BRAZILIAN_2024_SOURCE.year})`,
+    sourceSections: [
+      "Chapter 5 — Nutritional Requirements of Growing Swine",
+      `Table ${sourceProgramme.sourceTable}`,
+      `Table ${BRAZILIAN_2024_GROWING_SWINE.aminoAcidRatios.sourceTable}`,
+    ],
+    performance,
+    phases: normalizeGrowingSourcePhases(
+      sourceProgramme.phases,
+      () => sourceProgramme,
+    ),
   };
 }
 
@@ -474,8 +509,80 @@ export const BRAZILIAN_2024_HIGH_GILT_NUTRITION = buildGiltProgramme(
   HIGH_PERFORMANCE_GILT_PROGRAMME_ID,
 );
 
+export const BRAZILIAN_2024_HIGH_BARROW_NUTRITION =
+  buildStandaloneGrowingProgramme(
+    "brazilian-2024-growing-barrows-high-performance",
+    "Brazilian Tables 2024 — High performance barrows",
+    "high",
+    HIGH_PERFORMANCE_BARROW_PROGRAMME_ID,
+  );
+
+export const BRAZILIAN_2024_STANDARD_BARROW_NUTRITION =
+  buildStandaloneGrowingProgramme(
+    "brazilian-2024-growing-barrows-standard-performance",
+    "Brazilian Tables 2024 — Standard performance barrows",
+    "standard",
+    STANDARD_PERFORMANCE_BARROW_PROGRAMME_ID,
+  );
+
+export const BRAZILIAN_2024_HIGH_BARROW_HOT_NUTRITION =
+  buildStandaloneGrowingProgramme(
+    "brazilian-2024-growing-barrows-high-performance-hot-5c",
+    "Brazilian Tables 2024 — High performance barrows (+5 °C)",
+    "high",
+    HIGH_PERFORMANCE_BARROW_HOT_PROGRAMME_ID,
+  );
+
+export const BRAZILIAN_2024_HIGH_GILT_HOT_NUTRITION =
+  buildStandaloneGrowingProgramme(
+    "brazilian-2024-growing-gilts-high-performance-hot-5c",
+    "Brazilian Tables 2024 — High performance gilts (+5 °C)",
+    "high",
+    HIGH_PERFORMANCE_GILT_HOT_PROGRAMME_ID,
+  );
+
+export const BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION =
+  buildStandaloneGrowingProgramme(
+    "brazilian-2024-growing-entire-immunocastrated-males-standard-performance",
+    "Brazilian Tables 2024 — Standard performance entire/immunocastrated males",
+    "standard",
+    STANDARD_PERFORMANCE_ENTIRE_MALE_PROGRAMME_ID,
+  );
+
+export const BRAZILIAN_2024_HIGH_ENTIRE_MALE_HOT_NUTRITION =
+  buildStandaloneGrowingProgramme(
+    "brazilian-2024-growing-entire-immunocastrated-males-high-performance-hot-5c",
+    "Brazilian Tables 2024 — High performance entire/immunocastrated males (+5 °C)",
+    "high",
+    HIGH_PERFORMANCE_ENTIRE_MALE_HOT_PROGRAMME_ID,
+  );
+
+export const BRAZILIAN_2024_HIGH_MIXED_SEX_HOT_NUTRITION =
+  buildStandaloneGrowingProgramme(
+    "brazilian-2024-growing-mixed-sex-high-performance-hot-5c",
+    "Brazilian Tables 2024 — High performance mixed-sex pigs (+5 °C)",
+    "high",
+    HIGH_PERFORMANCE_MIXED_SEX_HOT_PROGRAMME_ID,
+  );
+
 export const BRAZILIAN_2024_GESTATION_NUTRITION = buildBreederProgramme("gestation");
 export const BRAZILIAN_2024_LACTATION_NUTRITION = buildBreederProgramme("lactation");
+
+export const BRAZILIAN_2024_LACTATION_25C_NUTRITION: NutritionProgramme = {
+  id: "brazilian-2024-breeder-lactation-25c",
+  name: "Brazilian Tables 2024 — Lactating gilts and sows (25 °C)",
+  source: BRAZILIAN_2024_SOURCE.title,
+  sourceVersion: `5th edition (${BRAZILIAN_2024_SOURCE.year})`,
+  sourceSections: [
+    "Chapter 6 — Nutritional Requirements of Swine Breeders",
+    `Table ${BRAZILIAN_2024_BREEDER_SWINE.lactation25C.sourceTable}`,
+    `Table ${BRAZILIAN_2024_BREEDER_SWINE.lactation25C.aminoAcidRatios.sourceTable}`,
+  ],
+  performance: "breeder",
+  phases: BRAZILIAN_2024_BREEDER_SWINE.lactation25C.phases.map((phase) =>
+    normalizeBreederPhase(BRAZILIAN_2024_BREEDER_SWINE.lactation25C.sourceTable, phase),
+  ),
+};
 
 /**
  * Until PigFlow exposes a project-level performance-programme selector, the
