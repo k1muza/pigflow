@@ -6,6 +6,7 @@ import {
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   nutrientValueSource,
+  formulationPriorityNutrients,
 } from "./ingredient-nutrients";
 
 describe("ingredient nutrient JSON library", () => {
@@ -16,7 +17,7 @@ describe("ingredient nutrient JSON library", () => {
     expect(INGREDIENT_LIBRARY.source.edition).toBe("11th Revised Edition");
     expect(INGREDIENT_LIBRARY.source.year).toBe(2012);
     expect(INGREDIENT_LIBRARY.source.chapter).toBe("17 — Feed Ingredient Composition");
-    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(48);
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(49);
   });
 
   it("has unique ingredient ids and includes the core formulation ingredient classes", () => {
@@ -27,6 +28,7 @@ describe("ingredient nutrient JSON library", () => {
       expect.arrayContaining([
         "corn-yellow-dent",
         "soybean-meal-dehulled-solvent-extracted",
+        "soybean-meal-brazilian-45-6-cp-average",
         "corn-oil",
         "calcium-carbonate",
         "monocalcium-phosphate",
@@ -70,6 +72,35 @@ describe("ingredient nutrient JSON library", () => {
       publisher: "INRAE–CIRAD–AFZ",
       priority: "fallback",
     });
+  });
+
+  it("surfaces Brazilian source-backed formulation nutrient coverage", () => {
+    const corn = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-yellow-dent",
+    );
+    const soybean = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-meal-brazilian-45-6-cp-average",
+    );
+    const dcp = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "dicalcium-phosphate",
+    );
+    const cornOil = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-oil",
+    );
+
+    expect(formulationPriorityNutrients(corn!)).toEqual([
+      "digestible-protein",
+      "available-phosphorus",
+      "potassium",
+      "linoleic-acid",
+    ]);
+    expect(soybean?.composition.digestibleProteinPct).toBe(40.8);
+    expect(soybean?.macroMinerals.availablePhosphorusPct).toBe(0.22);
+    expect(soybean?.macroMinerals.potassiumPct).toBe(1.97);
+    expect(soybean?.composition.linoleicAcidPct).toBe(0.67);
+    expect(formulationPriorityNutrients(soybean!)).toHaveLength(4);
+    expect(dcp?.macroMinerals.availablePhosphorusPct).toBe(18.5);
+    expect(cornOil?.composition.linoleicAcidPct).toBe(51.9);
   });
 
   it("preserves NRC total lysine and SID digestibility separately", () => {
