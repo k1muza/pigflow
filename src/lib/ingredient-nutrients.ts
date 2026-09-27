@@ -453,6 +453,22 @@ const canonicalIngredients = [
     .filter((row): row is IngredientNutrientRecord => row !== null),
 ];
 
+for (const ingredient of canonicalIngredients) {
+  if (
+    ingredient.provenance.source?.title !== BRAZILIAN_SOURCE.title ||
+    ingredient.provenance.source?.year !== BRAZILIAN_SOURCE.year
+  ) {
+    throw new Error(
+      `Non-Brazilian canonical ingredient source detected: ${ingredient.id}.`,
+    );
+  }
+  if (Object.keys(ingredient.provenance.nutrientSources).length > 0) {
+    throw new Error(
+      `Canonical ingredient ${ingredient.id} contains nutrient-level fallback sources.`,
+    );
+  }
+}
+
 export const INGREDIENT_LIBRARY = loadIngredientLibrary({
   schemaVersion: 1,
   id: "brazilian-tables-2024-swine-ingredient-library",
