@@ -1,6 +1,7 @@
 import type { NutritionPhase } from "./nutrition";
 import {
   INGREDIENT_LIBRARY,
+  metabolizableEnergyKcalKgOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientNutrientRecord,
