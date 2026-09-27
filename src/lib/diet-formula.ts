@@ -690,7 +690,17 @@ function structuralZero(
         ingredient.category === "vitamin_mineral_premix"
       );
     case "macroMineral":
-      return ingredient.category === "oil_fat";
+      // Brazilian Tables 1.09/1.10 publish purified crystalline amino-acid and
+      // inorganic-mineral sources around their nutritionally relevant
+      // constituents. For minimum LP constraints, an unlisted macro mineral
+      // is used as a conservative zero lower bound rather than being borrowed
+      // from NRC or another ingredient table. Explicit published values still
+      // contribute normally.
+      return (
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "mineral"
+      );
     case "traceMineral":
       return (
         ingredient.category === "oil_fat" ||
