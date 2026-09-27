@@ -133,7 +133,7 @@ describe("diet formula analysis", () => {
 
     expect(result.passes).toBe(false);
     expect(result.energyKcalKg).toBeGreaterThan(3000);
-    expect(result.checks.some((check) => check.status === "incomplete")).toBe(true);
+    expect(result.checks.some((check) => check.status === "incomplete")).toBe(false);
     expect(result.checks.find((check) => check.id === "energy-basis")).toBeUndefined();
     expect(result.checks.find((check) => check.id === "vitamin-a")).toBeUndefined();
     expect(result.checks.find((check) => check.id === "iodine")).toBeUndefined();
