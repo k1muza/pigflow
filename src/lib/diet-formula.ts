@@ -1,6 +1,7 @@
 import {
   INGREDIENT_LIBRARY,
   availablePhosphorusPctOf,
+  metabolizableEnergyKcalKgOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientLibrary,
@@ -211,7 +212,7 @@ export function analyzeDiet(
       result.energy.metabolizableKcalKg,
       ingredient,
       share,
-      ingredient.energy.metabolizableKcalKg,
+      metabolizableEnergyKcalKgOf(ingredient),
       structuralZero(ingredient, "energy"),
     );
     add(
