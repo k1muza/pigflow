@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
-import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
+import { INGREDIENT_LIBRARY, metabolizableEnergyKcalKgOf } from "@/lib/ingredient-nutrients";
 import { ingredientDefaultPrice } from "@/lib/feed-ingredient-prices";
 import { feedIngredientHref } from "@/lib/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,13 +27,8 @@ function display(value: number | undefined, unit = ""): string {
   return `${Number(value.toFixed(3))}${unit ? ` ${unit}` : ""}`;
 }
 
-function sourceLabel(ingredient: (typeof library.ingredients)[number]): string {
-  if (ingredient.provenance.source) {
-    if (ingredient.provenance.source.publisher === "Pork Information Gateway") return "NSNG";
-
-    return ingredient.provenance.source.publisher;
-  }
-  return "NRC 2012";
+function sourceLabel(): string {
+  return "Brazilian Tables 2024";
 }
 
 export function IngredientNutrientBrowser() {
@@ -85,8 +80,7 @@ export function IngredientNutrientBrowser() {
         <div>
           <CardTitle>Feed ingredient nutrient library</CardTitle>
           <CardDescription>
-            Browse source-backed swine-feed ingredients. Original NRC 2012 rows retain their NRC
-            provenance; supplemental records identify their source independently.
+            Browse the Brazilian Tables 2024 ingredient matrix used by PigFlow formulation.
           </CardDescription>
         </div>
         <div className="relative max-w-xl">
@@ -107,7 +101,7 @@ export function IngredientNutrientBrowser() {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
           <Badge variant="secondary">{library.ingredients.length} ingredients</Badge>
-          <span>NRC 2012 + explicitly sourced supplemental records</span>
+          <span>Canonical source: Brazilian Tables 2024</span>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-hairline">
@@ -140,7 +134,7 @@ export function IngredientNutrientBrowser() {
                     ) : null}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{sourceLabel(ingredient)}</Badge>
+                    <Badge variant="secondary">{sourceLabel()}</Badge>
                   </TableCell>
                   <TableCell className="capitalize text-ink-muted">
                     {ingredient.category.replaceAll("_", " ")}
@@ -149,7 +143,7 @@ export function IngredientNutrientBrowser() {
                     {display(ingredient.composition.crudeProteinPct, "%")}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {display(ingredient.energy.metabolizableKcalKg, "kcal/kg")}
+                    {display(metabolizableEnergyKcalKgOf(ingredient), "kcal/kg")}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {display(ingredient.energy.netKcalKg, "kcal/kg")}
