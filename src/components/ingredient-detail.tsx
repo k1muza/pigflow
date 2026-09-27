@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import {
   INGREDIENT_LIBRARY,
+  metabolizableEnergyKcalKgOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientNutrientRecord,
@@ -64,7 +65,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           <CardHeader>
             <CardTitle>Ingredient not found</CardTitle>
             <CardDescription>
-              “{ingredientId}” is not present in the checked-in NRC ingredient library.
+              “{ingredientId}” is not present in the canonical Brazilian Tables ingredient library.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -89,7 +90,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           </Badge>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
-          {ingredient.aliases.length > 0 ? ingredient.aliases.join(" · ") : "NRC feed ingredient"}
+          {ingredient.aliases.length > 0 ? ingredient.aliases.join(" · ") : "Brazilian Tables feed ingredient"}
         </p>
       </div>
 
@@ -97,7 +98,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
         <CardHeader>
           <CardTitle className="text-base">Default market price</CardTitle>
           <CardDescription>
-            Pricing is kept separate from NRC nutrient composition and is only shown when PigFlow
+            Pricing is kept separate from Brazilian Tables nutrient composition and is only shown when PigFlow
             has a sourced market reference.
           </CardDescription>
         </CardHeader>
@@ -151,7 +152,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
                 ["NDF", display(ingredient.composition.neutralDetergentFibrePct, "%")],
                 ["ADF", display(ingredient.composition.acidDetergentFibrePct, "%")],
                 ["DE", display(ingredient.energy.digestibleKcalKg, "kcal/kg")],
-                ["ME", display(ingredient.energy.metabolizableKcalKg, "kcal/kg")],
+                ["ME / std. ME", display(metabolizableEnergyKcalKgOf(ingredient), "kcal/kg")],
                 ["NE", display(ingredient.energy.netKcalKg, "kcal/kg")],
               ]}
             />
@@ -247,7 +248,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           {nutrientSources.length > 0 ? (
             <div className="space-y-2 pt-2">
               <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">
-                Nutrient-specific fallback sources
+                Nutrient-specific source records
               </div>
               <div className="overflow-x-auto rounded-lg border border-hairline">
                 <Table>
@@ -317,8 +318,8 @@ function AminoAcids({ ingredient }: { ingredient: IngredientNutrientRecord }) {
       <CardHeader>
         <CardTitle className="text-base">Amino acids</CardTitle>
         <CardDescription>
-          NRC total concentration and SID digestibility are shown independently. Derived SID %
-          is calculated by PigFlow.
+          Brazilian Tables total concentration and SID digestibility are shown independently. SID %
+          uses the source value when published and is otherwise derived by PigFlow.
         </CardDescription>
       </CardHeader>
       <CardContent>
