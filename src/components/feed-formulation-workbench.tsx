@@ -57,11 +57,13 @@ function initialIngredientIds(ingredients: IngredientOption[]): string[] {
     ),
   );
 
-  // Automatically surface ingredients with source-backed coverage for at
-  // least two of the formulation nutrients that are still sparse in the
-  // ingredient matrix. This avoids adding every potassium-only ingredient.
+  // Automatically surface feed ingredients only when the Brazilian source
+  // provides all four of the previously sparse hard-constraint coefficients.
+  // Partial rows remain available in the picker but are not injected into a
+  // new formulation where they would immediately make the strict matrix
+  // incomplete.
   for (const ingredient of ingredients) {
-    if (ingredient.priorityNutrients.length >= 2) {
+    if (ingredient.priorityNutrients.length === 4) {
       ids.add(ingredient.id);
     }
   }
