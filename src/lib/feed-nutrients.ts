@@ -311,7 +311,7 @@ function ingredientValueForNutrient(
 
   switch (nutrientId) {
     case "metabolizable-energy":
-      value = ingredient.energy.metabolizableKcalKg;
+      value = metabolizableEnergyKcalKgOf(ingredient);
       unit = "kcal/kg";
       break;
     case "net-energy":
