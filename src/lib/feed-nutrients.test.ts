@@ -79,13 +79,13 @@ describe("feed nutrient catalogue", () => {
       "sodium-chloride",
     );
     expect(abundantIngredientsForNutrient("digestible-protein")[0]).toMatchObject({
-      ingredientId: "corn-gluten-meal-60",
-      value: 56.4,
+      ingredientId: "l-tryptophan",
+      value: 84.8727,
       unit: "%",
     });
     expect(abundantIngredientsForNutrient("available-phosphorus")[0]).toMatchObject({
-      ingredientId: "dicalcium-phosphate",
-      value: 18.5,
+      ingredientId: "monocalcium-phosphate",
+      value: 22,
       unit: "%",
     });
     expect(abundantIngredientsForNutrient("linoleic-acid")[0]).toMatchObject({
