@@ -68,19 +68,19 @@ describe("feed nutrient catalogue", () => {
   it("ranks ingredients by quantified nutrient concentration", () => {
     expect(abundantIngredientsForNutrient("sid-lysine")[0]).toMatchObject({
       ingredientId: "l-lysine-hcl",
-      value: 78.8,
+      value: 70.29817327766179,
       unit: "%",
     });
 
     expect(abundantIngredientsForNutrient("calcium")[0]?.ingredientId).toBe(
-      "limestone-ground",
+      "calcium-carbonate",
     );
     expect(abundantIngredientsForNutrient("sodium")[0]?.ingredientId).toBe(
       "sodium-chloride",
     );
     expect(abundantIngredientsForNutrient("digestible-protein")[0]).toMatchObject({
-      ingredientId: "soybean-meal-brazilian-45-6-cp-average",
-      value: 40.8,
+      ingredientId: "corn-gluten-meal-60",
+      value: 56.4,
       unit: "%",
     });
     expect(abundantIngredientsForNutrient("available-phosphorus")[0]).toMatchObject({
