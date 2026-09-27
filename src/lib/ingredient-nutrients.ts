@@ -373,15 +373,11 @@ const CRYSTALLINE_TARGET: Record<
 function crystallineAminoAcidConcentrationPct(raw: CrystallineRow): number {
   if (raw.id !== "lysine-hcl") return 100;
 
-  // Table 1.09 gives the nitrogen fraction of pure lysine (19.16%) and
-  // Lysine-HCl (13.73%). Their ratio gives the lysine-equivalent concentration
-  // on the table's dry-matter basis.
-  const pureLysine = crystallineAminoAcids.ingredients.find(
-    (row) => row.id === "lysine",
-  );
-  const pureLysineNitrogen =
-    pureLysine && "nitrogenPct" in pureLysine ? pureLysine.nitrogenPct : 19.16;
-  return (raw.nitrogenPct / pureLysineNitrogen) * 100;
+  // Table 1.09 publishes pure lysine at 19.16% N and Lysine-HCl at 13.73% N.
+  // Their ratio gives the lysine-equivalent concentration on the table's
+  // dry-matter basis.
+  const pureLysineNitrogenPct = 19.16;
+  return (raw.nitrogenPct / pureLysineNitrogenPct) * 100;
 }
 
 function crystallineRecord(raw: CrystallineRow): IngredientNutrientRecord | null {
