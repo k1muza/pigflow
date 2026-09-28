@@ -721,6 +721,10 @@ export function PedigreeGraph({ records, config, startDate, horizonDay }: Props)
   const [downloadingTag, setDownloadingTag] = useState<string | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
   const flow = useRef<ReactFlowInstance<PedigreeFlowNode, Edge> | null>(null);
+  const pendingExpansionViewportFit = useRef<{
+    anchorNodeId: string;
+    visibleNodeIds: Set<string>;
+  } | null>(null);
 
   const graph = useMemo(
     () => visibleGraph(index, expandedAnimals, expandedLitters, expandedSiblingGroups),
@@ -807,6 +811,33 @@ export function PedigreeGraph({ records, config, startDate, horizonDay }: Props)
   );
 
   useEffect(() => {
+    const pending = pendingExpansionViewportFit.current;
+    const instance = flow.current;
+    if (!pending || !instance) return;
+
+    const newlyVisibleNodes = nodes.filter((node) => !pending.visibleNodeIds.has(node.id));
+    const fitNodes = [
+      { id: pending.anchorNodeId },
+      ...newlyVisibleNodes.map((node) => ({ id: node.id })),
+    ];
+
+    requestAnimationFrame(() => {
+      if (newlyVisibleNodes.length > 0) {
+        const currentZoom = instance.getViewport().zoom;
+        void instance.fitView({
+          nodes: fitNodes,
+          padding: 0.18,
+          minZoom: 0.08,
+          maxZoom: Math.max(0.08, Math.min(currentZoom, 1.1)),
+          duration: 350,
+        });
+      }
+      pendingExpansionViewportFit.current = null;
+    });
+  }, [nodes]);
+
+  useEffect(() => {
+    if (pendingExpansionViewportFit.current) return;
     if (!selectedNodeId || !flow.current) return;
     const node = flow.current.getNode(selectedNodeId);
     if (!node) return;
@@ -864,6 +895,16 @@ export function PedigreeGraph({ records, config, startDate, horizonDay }: Props)
       return;
     }
     if (childSummary(index, tag) === null) return;
+
+    const anchorNodeId = graph.tagToNode.get(tag);
+    const instance = flow.current;
+    if (anchorNodeId && instance) {
+      pendingExpansionViewportFit.current = {
+        anchorNodeId,
+        visibleNodeIds: new Set(instance.getNodes().map((node) => node.id)),
+      };
+    }
+
     setExpandedAnimals((current) => new Set(current).add(tag));
   }
 
