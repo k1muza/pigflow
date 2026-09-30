@@ -159,6 +159,7 @@ describe("Brazilian Tables 2024 source data", () => {
       net: 2667,
     });
     expect(corn?.aminoAcids.sidSwinePct.lysine).toBe(0.2);
+    expect(corn?.digestibleProteinSwinePct).toBe(6.72);
 
     const soy = BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.find(
       (ingredient) => ingredient.id === "soybean-meal-45.6-cp-average",
@@ -177,6 +178,7 @@ describe("Brazilian Tables 2024 source data", () => {
       standardizedMetabolizable: 4546,
       net: 3523,
     });
+    expect(lysine?.digestibleProteinEquivalentPct).toBeCloseTo(84.1816, 4);
   });
 
   it("loads exact inorganic mineral-source values separately from feedstuffs", () => {
