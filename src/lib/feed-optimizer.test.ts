@@ -303,6 +303,25 @@ describe("least-cost feed optimizer", () => {
       opportunity?.points.find((point) => point.costTolerancePct === 3)
         ?.maxInclusionPct,
     ).toBeCloseTo(100, 4);
+
+    const onePercentPoint = opportunity?.points.find(
+      (point) => point.costTolerancePct === 1,
+    );
+    expect(onePercentPoint?.recipe.costPerKg).toBeCloseTo(
+      onePercentPoint?.resultingCostPerKg ?? 0,
+      8,
+    );
+    expect(
+      onePercentPoint?.recipe.formula.ingredients.find(
+        (row) => row.ingredientId === "local-alternative",
+      )?.inclusionPct,
+    ).toBeCloseTo(onePercentPoint?.maxInclusionPct ?? 0, 5);
+    expect(
+      onePercentPoint?.recipe.formula.ingredients.reduce(
+        (sum, row) => sum + row.inclusionPct,
+        0,
+      ),
+    ).toBeCloseTo(100, 6);
   });
 
   it("returns the hard-constraint nutrient profile used by the optimizer", async () => {
