@@ -267,18 +267,20 @@ export function FeedFormulationWorkbench({
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList variant="line" className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="setup">Setup</TabsTrigger>
-          <TabsTrigger value="recipes" disabled={!result}>
-            Recipes
-          </TabsTrigger>
-          <TabsTrigger value="opportunities" disabled={result?.status !== "optimal"}>
-            Opportunities
-          </TabsTrigger>
-          <TabsTrigger value="nutrition" disabled={result?.status !== "optimal"}>
-            Nutrition
-          </TabsTrigger>
-        </TabsList>
+        <div className="sticky top-[58px] z-10 -mx-4 border-b border-hairline bg-plane/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
+          <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+            <TabsTrigger value="setup">Setup</TabsTrigger>
+            <TabsTrigger value="recipes" disabled={!result}>
+              Recipes
+            </TabsTrigger>
+            <TabsTrigger value="opportunities" disabled={result?.status !== "optimal"}>
+              Opportunities
+            </TabsTrigger>
+            <TabsTrigger value="nutrition" disabled={result?.status !== "optimal"}>
+              Nutrition
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="setup" className="mt-4">
           <Card>
