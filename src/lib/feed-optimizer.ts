@@ -663,7 +663,7 @@ async function solveAlternativeObjective(
   } = glpk;
 
   const lp = {
-    name: \`PigFlowAlternative_\${objective.name}\`,
+    name: `PigFlowAlternative_${objective.name}`,
     objective: {
       direction: GLP_MIN,
       name: objective.name,
@@ -693,7 +693,7 @@ async function solveAlternativeObjective(
         bnds: { type: GLP_UP, lb: 0, ub: costCapPerKg },
       },
       ...constraints.map((constraint) => ({
-        name: \`nutrient_\${constraint.id}\`,
+        name: `nutrient_${constraint.id}`,
         vars: ingredients.map((ingredient) => ({
           name: ingredient.variable,
           coef: ingredient.coefficients.get(constraint.id) ?? 0,
