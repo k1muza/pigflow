@@ -168,6 +168,8 @@ describe("least-cost feed optimizer", () => {
         "dl-methionine",
         "l-threonine",
         "l-tryptophan",
+        "l-valine",
+        "l-isoleucine",
       ]),
     );
   });
