@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Activity, AlertTriangle, Calculator, Eye, Plus, Trash2 } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Calculator,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +24,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { downloadFile, XLSX_MIME } from "@/lib/download";
+import {
+  feedRecipeFormulaReportRows,
+  feedRecipeReportFilename,
+  type FeedRecipeReportInput,
+} from "@/lib/feed-formulation-report";
 import {
   Tabs,
   TabsContent,
@@ -56,6 +71,23 @@ type Row = {
   max: string;
 };
 
+type RecipeReportContext = {
+  programmeName: string;
+  phaseLabel: string;
+  sourceTable?: string;
+  energySystem: "ME" | "NE";
+  ingredients: FeedRecipeReportInput["ingredients"];
+};
+
+type RecipeView = {
+  id: string;
+  label: string;
+  description: string;
+  solution: Extract<LeastCostFormulationResult, { status: "optimal" }>["solution"];
+  nutrientProfile: readonly FormulationNutrientComparison[];
+  costIncreasePct: number;
+};
+
 function defaultPriceInput(ingredientId: string): string {
   const price = ingredientDefaultPricePerKg(ingredientId);
   return price === undefined ? "" : price.toFixed(4);
@@ -75,6 +107,12 @@ export function FeedFormulationWorkbench({
     [programmeId, programmes],
   );
   const [phaseId, setPhaseId] = useState(firstProgramme?.phases[0]?.id ?? "");
+  const selectedPhase = useMemo(
+    () =>
+      selectedProgramme?.phases.find((phase) => phase.id === phaseId) ??
+      selectedProgramme?.phases[0],
+    [selectedProgramme, phaseId],
+  );
   const [energySystem, setEnergySystem] = useState<"ME" | "NE">("ME");
   const [nextKey, setNextKey] = useState(100);
   const [addIngredientId, setAddIngredientId] = useState("");
@@ -478,6 +516,17 @@ export function FeedFormulationWorkbench({
               ingredientById={ingredientById}
               selectedRecipeId={selectedRecipeId}
               onSelectedRecipeChange={setSelectedRecipeId}
+              reportContext={{
+                programmeName: selectedProgramme?.name ?? programmeId,
+                phaseLabel: selectedPhase?.label ?? phaseId,
+                sourceTable: selectedPhase?.sourceTable,
+                energySystem,
+                ingredients: rows.map((row) => ({
+                  ingredientId: row.ingredientId,
+                  name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
+                  pricePerKg: Number(row.price),
+                })),
+              }}
             />
           ) : null}
         </TabsContent>
@@ -503,15 +552,17 @@ function ResultPanel({
   ingredientById,
   selectedRecipeId,
   onSelectedRecipeChange,
+  reportContext,
 }: {
   result: LeastCostFormulationResult;
   ingredientById: Map<string, IngredientOption>;
   selectedRecipeId: string;
   onSelectedRecipeChange: (recipeId: string) => void;
+  reportContext: RecipeReportContext;
 }) {
 
   if (result.status === "optimal") {
-    const recipes = [
+    const recipes: RecipeView[] = [
       {
         id: "least-cost",
         label: "Least cost",
@@ -533,10 +584,13 @@ function ResultPanel({
               <CardTitle>{selectedRecipe.label}</CardTitle>
               <Badge variant="secondary">Hard constraints satisfied</Badge>
             </div>
-            <NutrientProfileDialog
-              recipeLabel={selectedRecipe.label}
-              profile={selectedRecipe.nutrientProfile}
-            />
+            <div className="flex flex-wrap gap-2">
+              <RecipeReportActions recipe={selectedRecipe} context={reportContext} />
+              <NutrientProfileDialog
+                recipeLabel={selectedRecipe.label}
+                profile={selectedRecipe.nutrientProfile}
+              />
+            </div>
           </div>
           <CardDescription>
             {selectedRecipe.description} Cost: {selectedRecipe.solution.costPerKg.toFixed(4)} per kg
@@ -670,6 +724,176 @@ function ResultPanel({
         <CardDescription>{result.message}</CardDescription>
       </CardHeader>
     </Card>
+  );
+}
+
+function recipeReportInput(
+  recipe: RecipeView,
+  context: RecipeReportContext,
+): FeedRecipeReportInput {
+  return {
+    recipeLabel: recipe.label,
+    recipeDescription: recipe.description,
+    programmeName: context.programmeName,
+    phaseLabel: context.phaseLabel,
+    sourceTable: context.sourceTable,
+    energySystem: context.energySystem,
+    formula: recipe.solution.formula,
+    nutrientProfile: recipe.nutrientProfile,
+    ingredients: context.ingredients,
+    costPerKg: recipe.solution.costPerKg,
+    costIncreasePct: recipe.costIncreasePct,
+    generatedAt: new Date(),
+  };
+}
+
+function RecipeReportActions({
+  recipe,
+  context,
+}: {
+  recipe: RecipeView;
+  context: RecipeReportContext;
+}) {
+  const [busy, setBusy] = useState(false);
+  const input = recipeReportInput(recipe, context);
+
+  async function downloadReport() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { buildFeedRecipeReport } = await import("@/lib/feed-formulation-report");
+      const output = await buildFeedRecipeReport({
+        ...input,
+        generatedAt: new Date(),
+      });
+      downloadFile(
+        output,
+        feedRecipeReportFilename({
+          phaseLabel: input.phaseLabel,
+          recipeLabel: input.recipeLabel,
+        }),
+        XLSX_MIME,
+      );
+    } catch (error) {
+      console.error(error);
+      window.alert("The recipe report could not be generated. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <RecipeReportPreviewDialog recipe={recipe} context={context} />
+      <Button type="button" size="sm" onClick={() => void downloadReport()} disabled={busy}>
+        <Download />
+        {busy ? "Preparing…" : "Download report"}
+      </Button>
+    </>
+  );
+}
+
+function RecipeReportPreviewDialog({
+  recipe,
+  context,
+}: {
+  recipe: RecipeView;
+  context: RecipeReportContext;
+}) {
+  const input = recipeReportInput(recipe, context);
+  const rows = feedRecipeFormulaReportRows(input);
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          <FileSpreadsheet />
+          Preview report
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="flex h-[calc(100dvh-4rem)] max-h-[900px] max-w-[min(1000px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="shrink-0 border-b border-hairline px-5 py-4 pr-14">
+          <DialogTitle>{recipe.label} · recipe report</DialogTitle>
+          <DialogDescription>
+            {context.programmeName} · {context.phaseLabel} · {context.energySystem}. This preview
+            uses the same recipe, prices and nutritional profile as the Excel export.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 space-y-6 overflow-auto p-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ReportFact label="Cost / kg" value={`${recipe.solution.costPerKg.toFixed(4)}`} />
+            <ReportFact
+              label="Cost / tonne"
+              value={`${(recipe.solution.costPerKg * 1000).toFixed(2)}`}
+            />
+            <ReportFact
+              label="Premium vs least cost"
+              value={recipe.costIncreasePct === 0 ? "Baseline" : `+${recipe.costIncreasePct.toFixed(2)}%`}
+            />
+            <ReportFact label="Ingredients" value={String(rows.length)} />
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-ink">Recipe composition</h3>
+            <div className="overflow-x-auto rounded-lg border border-hairline">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
+                  <tr>
+                    <th className="px-3 py-2.5">Ingredient</th>
+                    <th className="px-3 py-2.5 text-right">Inclusion</th>
+                    <th className="px-3 py-2.5 text-right">kg / tonne</th>
+                    <th className="px-3 py-2.5 text-right">Price / kg</th>
+                    <th className="px-3 py-2.5 text-right">Cost / tonne</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.ingredientId} className="border-t border-hairline">
+                      <td className="px-3 py-2.5 text-ink">{row.name}</td>
+                      <td className="px-3 py-2.5 text-right">{row.inclusionPct.toFixed(3)}%</td>
+                      <td className="px-3 py-2.5 text-right">{row.kgPerTonne.toFixed(1)}</td>
+                      <td className="px-3 py-2.5 text-right">${row.pricePerKg.toFixed(4)}</td>
+                      <td className="px-3 py-2.5 text-right">
+                        ${row.costPerTonneContribution.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-hairline font-semibold text-ink">
+                    <td className="px-3 py-2.5">Total</td>
+                    <td className="px-3 py-2.5 text-right">
+                      {rows.reduce((sum, row) => sum + row.inclusionPct, 0).toFixed(3)}%
+                    </td>
+                    <td className="px-3 py-2.5 text-right">1000.0</td>
+                    <td />
+                    <td className="px-3 py-2.5 text-right">
+                      ${rows
+                        .reduce((sum, row) => sum + row.costPerTonneContribution, 0)
+                        .toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-ink">Nutritional compliance</h3>
+            <NutrientProfileTable profile={recipe.nutrientProfile} />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ReportFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-hairline bg-raised/30 p-3">
+      <div className="text-xs text-ink-faint">{label}</div>
+      <div className="mt-1 font-mono text-base font-semibold text-ink">{value}</div>
+    </div>
   );
 }
 
