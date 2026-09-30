@@ -300,7 +300,7 @@ function buildConstraintSpecs(
     },
     {
       id: "digestible-protein",
-      label: "Digestible protein",
+      label: "Digestible protein (swine SID)",
       unit: "%",
       relation: "min",
       bound: phase.requirements.digestibleProteinPct,
