@@ -29,6 +29,8 @@ const ingredientSchema = z.object({
   composition: z.object({
     dryMatterPct: z.number().optional(),
     crudeProteinPct: z.number().optional(),
+    /** Swine standardized ileal digestible crude-protein concentration. */
+    digestibleProteinPct: z.number().optional(),
     crudeFatPct: z.number().optional(),
     crudeFibrePct: z.number().optional(),
     ashPct: z.number().optional(),
@@ -36,6 +38,7 @@ const ingredientSchema = z.object({
     sugarPct: z.number().optional(),
     neutralDetergentFibrePct: z.number().optional(),
     acidDetergentFibrePct: z.number().optional(),
+    linoleicAcidPct: z.number().optional(),
   }),
   energy: z.object({
     digestibleKcalKg: z.number().optional(),
