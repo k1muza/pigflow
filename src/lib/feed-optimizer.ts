@@ -112,20 +112,9 @@ type PreparedIngredient = {
 };
 
 function unsupportedRequirementsForPhase(
-  phase: NutritionPhase,
+  _phase: NutritionPhase,
 ): FormulationUnsupportedRequirement[] {
-  // The current checked-in ingredient matrix does not expose these on the same
-  // basis required for a hard LP constraint. Keep them explicit rather than
-  // silently treating them as zero.
-  const unsupported: FormulationUnsupportedRequirement[] = [
-    "digestible-protein",
-    "available-phosphorus",
-    "potassium",
-  ];
-  if (phase.requirements.linoleicAcidPct !== undefined) {
-    unsupported.push("linoleic-acid");
-  }
-  return unsupported;
+  return [];
 }
 
 /**
@@ -310,6 +299,14 @@ function buildConstraintSpecs(
       measure: (analysis) => analysis.crudeProteinPct,
     },
     {
+      id: "digestible-protein",
+      label: "Digestible protein",
+      unit: "%",
+      relation: "min",
+      bound: phase.requirements.digestibleProteinPct,
+      measure: (analysis) => analysis.digestibleProteinPct,
+    },
+    {
       id: "sid-lysine",
       label: "SID lysine",
       unit: "%",
@@ -389,6 +386,14 @@ function buildConstraintSpecs(
       bound: targets.minerals.sodiumPct,
       measure: (analysis) => analysis.minerals.sodiumPct,
     },
+    {
+      id: "potassium",
+      label: "Potassium",
+      unit: "%",
+      relation: "min",
+      bound: phase.requirements.potassiumPct,
+      measure: (analysis) => analysis.minerals.potassiumPct,
+    },
   ];
 
   if (targets.minerals.calciumPct !== undefined) {
@@ -413,6 +418,17 @@ function buildConstraintSpecs(
     });
   }
 
+  if (targets.minerals.availablePhosphorusPct !== undefined) {
+    constraints.push({
+      id: "available-phosphorus",
+      label: "Available phosphorus",
+      unit: "%",
+      relation: "min",
+      bound: targets.minerals.availablePhosphorusPct,
+      measure: (analysis) => analysis.minerals.availablePhosphorusPct,
+    });
+  }
+
   if (targets.minerals.chloridePct !== undefined) {
     constraints.push({
       id: "chloride",
@@ -421,6 +437,17 @@ function buildConstraintSpecs(
       relation: "min",
       bound: targets.minerals.chloridePct,
       measure: (analysis) => analysis.minerals.chloridePct,
+    });
+  }
+
+  if (phase.requirements.linoleicAcidPct !== undefined) {
+    constraints.push({
+      id: "linoleic-acid",
+      label: "Linoleic acid",
+      unit: "%",
+      relation: "min",
+      bound: phase.requirements.linoleicAcidPct,
+      measure: (analysis) => analysis.fattyAcids.linoleicAcidPct,
     });
   }
 
