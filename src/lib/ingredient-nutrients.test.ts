@@ -90,6 +90,31 @@ describe("ingredient nutrient JSON library", () => {
     expect(sttdPhosphorusPctOf(soybeanMeal!)).toBeCloseTo(0.3408, 6);
   });
 
+  it("loads Brazilian hard-constraint nutrients with per-value provenance", () => {
+    const maize = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-yellow-dent",
+    );
+    const soybeanMeal = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-meal-dehulled-solvent-extracted",
+    );
+    const cornOil = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-oil",
+    );
+
+    expect(maize?.composition.digestibleProteinPct).toBe(6.72);
+    expect(maize?.macroMinerals.availablePhosphorusPct).toBe(0.05);
+    expect(maize?.composition.linoleicAcidPct).toBe(1.91);
+    expect(soybeanMeal?.composition.digestibleProteinPct).toBe(44);
+    expect(soybeanMeal?.macroMinerals.potassiumPct).toBe(2.13);
+    expect(cornOil?.composition.linoleicAcidPct).toBe(51.9);
+    expect(
+      nutrientValueSource(maize!, "composition.digestibleProteinPct"),
+    ).toMatchObject({
+      publisher: "Universidade Federal de Viçosa",
+      priority: "primary",
+    });
+  });
+
   it("uses explicit SID concentration for crystalline lysine", () => {
     const lysine = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "l-lysine-hcl",
