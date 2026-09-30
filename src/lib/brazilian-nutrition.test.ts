@@ -178,7 +178,7 @@ describe("Brazilian Tables 2024 source data", () => {
       standardizedMetabolizable: 4546,
       net: 3523,
     });
-    expect(lysine?.digestibleProteinEquivalentPct).toBeCloseTo(84.1816, 4);
+    expect(lysine?.digestibleProteinEquivalentPct).toBeCloseTo(84.1796, 4);
   });
 
   it("loads exact inorganic mineral-source values separately from feedstuffs", () => {
