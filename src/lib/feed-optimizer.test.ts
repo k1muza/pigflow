@@ -6,7 +6,10 @@ import {
   type IngredientLibrary,
   type IngredientNutrientRecord,
 } from "./ingredient-nutrients";
-import { formulateLeastCostDiet } from "./feed-optimizer";
+import {
+  formulateLeastCostDiet,
+  suggestFormulationIngredients,
+} from "./feed-optimizer";
 import { nutritionPhaseAtWeight } from "./nutrition";
 
 function ingredient(
@@ -81,6 +84,39 @@ function testLibrary(
 }
 
 describe("least-cost feed optimizer", () => {
+  it("derives a feasible starter basket from the supplied ingredient library", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const target = phase.requirements.crudeProteinPct;
+    const library = testLibrary(target - 4, target + 16);
+
+    const suggestion = await suggestFormulationIngredients(
+      phase,
+      "ME",
+      library,
+    );
+
+    expect(suggestion.status).toBe("suggested");
+    if (suggestion.status !== "suggested") return;
+
+    expect(suggestion.ingredientIds.length).toBeGreaterThan(0);
+    expect(
+      suggestion.ingredientIds.every((ingredientId) =>
+        ["cheap", "protein"].includes(ingredientId),
+      ),
+    ).toBe(true);
+
+    const validation = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      suggestion.ingredientIds.map((ingredientId) => ({
+        ingredientId,
+        pricePerKg: 1,
+      })),
+      library,
+    );
+    expect(validation.status).toBe("optimal");
+  });
+
   it("minimizes ingredient cost while keeping Brazilian requirements hard", async () => {
     const phase = nutritionPhaseAtWeight(30);
     const target = phase.requirements.crudeProteinPct;
