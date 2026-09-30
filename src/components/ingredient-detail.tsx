@@ -144,7 +144,9 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
               rows={[
                 ["Dry matter", display(ingredient.composition.dryMatterPct, "%")],
                 ["Crude protein", display(ingredient.composition.crudeProteinPct, "%")],
+                ["Digestible protein (swine SID)", display(ingredient.composition.digestibleProteinPct, "%")],
                 ["Crude fat", display(ingredient.composition.crudeFatPct, "%")],
+                ["Linoleic acid", display(ingredient.composition.linoleicAcidPct, "%")],
                 ["Crude fibre", display(ingredient.composition.crudeFibrePct, "%")],
                 ["Ash", display(ingredient.composition.ashPct, "%")],
                 ["Starch", display(ingredient.composition.starchPct, "%")],
