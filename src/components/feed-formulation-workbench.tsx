@@ -439,21 +439,82 @@ function ResultPanel({
   result: LeastCostFormulationResult;
   ingredientById: Map<string, IngredientOption>;
 }) {
+  const [selectedRecipeId, setSelectedRecipeId] = useState("least-cost");
+
   if (result.status === "optimal") {
+    const recipes = [
+      {
+        id: "least-cost",
+        label: "Least cost",
+        description: "The minimum-cost formula for the prices entered above.",
+        solution: result.solution,
+        costIncreasePct: 0,
+      },
+      ...result.alternatives,
+    ];
+    const selectedRecipe =
+      recipes.find((recipe) => recipe.id === selectedRecipeId) ?? recipes[0];
+
     return (
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>Optimal formula</CardTitle>
+            <CardTitle>{selectedRecipe.label}</CardTitle>
             <Badge variant="secondary">Hard constraints satisfied</Badge>
           </div>
           <CardDescription>
-            Calculated cost: {result.solution.costPerKg.toFixed(4)} per kg using the prices entered above.
+            {selectedRecipe.description} Cost: {selectedRecipe.solution.costPerKg.toFixed(4)} per kg
+            {selectedRecipe.costIncreasePct > 0
+              ? ` · +${selectedRecipe.costIncreasePct.toFixed(2)}% vs least cost`
+              : ""}.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
+          {recipes.length > 1 ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <div className="text-sm font-medium text-ink">Alternative formulations</div>
+                  <div className="text-xs text-ink-muted">
+                    Alternatives keep every hard nutrient constraint and stay within{" "}
+                    {result.alternativeCostTolerancePct}% of the least-cost formula.
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {recipes.map((recipe) => (
+                  <button
+                    key={recipe.id}
+                    type="button"
+                    onClick={() => setSelectedRecipeId(recipe.id)}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      selectedRecipe.id === recipe.id
+                        ? "border-brand bg-brand/5"
+                        : "border-hairline bg-raised/30 hover:bg-raised/60"
+                    }`}
+                  >
+                    <div className="font-medium text-ink">{recipe.label}</div>
+                    <div className="mt-1 font-mono text-sm text-ink">
+                      ${recipe.solution.costPerKg.toFixed(4)}/kg
+                    </div>
+                    <div className="mt-1 text-xs text-ink-muted">
+                      {recipe.costIncreasePct === 0
+                        ? "Baseline"
+                        : `+${recipe.costIncreasePct.toFixed(2)}%`}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-lg border border-hairline bg-raised/30 px-4 py-3 text-sm text-ink-muted">
+              No materially different formulation was found within{" "}
+              {result.alternativeCostTolerancePct}% of the optimum.
+            </div>
+          )}
+
           <FormulaTable
-            rows={result.solution.formula.ingredients}
+            rows={selectedRecipe.solution.formula.ingredients}
             ingredientById={ingredientById}
           />
           <Unsupported requirements={result.unsupportedRequirements} />
