@@ -95,6 +95,7 @@ describe("least-cost feed optimizer", () => {
       phase,
       "ME",
       library,
+      (ingredientId) => (ingredientId === "cheap" ? 0.2 : 0.6),
     );
 
     expect(suggestion.status).toBe("suggested");
@@ -117,6 +118,58 @@ describe("least-cost feed optimizer", () => {
       library,
     );
     expect(validation.status).toBe("optimal");
+  });
+
+  it("retains complete priced alternatives even when the default-price optimum does not use them", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const target = phase.requirements.crudeProteinPct;
+    const base = testLibrary(target + 5, target + 10);
+    const library = loadIngredientLibrary({
+      ...base,
+      ingredients: [
+        ...base.ingredients,
+        ingredient("corrective", "Alternative corrective", target + 8),
+      ],
+    });
+
+    const suggestion = await suggestFormulationIngredients(
+      phase,
+      "ME",
+      library,
+      (ingredientId) =>
+        ingredientId === "cheap"
+          ? 0.2
+          : ingredientId === "protein"
+            ? 0.6
+            : 10,
+    );
+
+    expect(suggestion.status).toBe("suggested");
+    if (suggestion.status !== "suggested") return;
+
+    expect(suggestion.ingredientIds).toEqual(
+      expect.arrayContaining(["cheap", "protein", "corrective"]),
+    );
+    expect(suggestion.candidateCount).toBe(3);
+  });
+
+  it("keeps priced amino-acid correctives in the real starter pool", async () => {
+    const suggestion = await suggestFormulationIngredients(
+      nutritionPhaseAtWeight(30),
+      "ME",
+    );
+
+    expect(suggestion.status).toBe("suggested");
+    if (suggestion.status !== "suggested") return;
+
+    expect(suggestion.ingredientIds).toEqual(
+      expect.arrayContaining([
+        "l-lysine-hcl",
+        "dl-methionine",
+        "l-threonine",
+        "l-tryptophan",
+      ]),
+    );
   });
 
   it("minimizes ingredient cost while keeping Brazilian requirements hard", async () => {
