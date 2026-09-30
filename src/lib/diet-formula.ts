@@ -40,6 +40,10 @@ export type DietAnalysis = {
     netKcalKg: AnalyzedNutrient;
   };
   crudeProteinPct: AnalyzedNutrient;
+  digestibleProteinPct: AnalyzedNutrient;
+  fattyAcids: {
+    linoleicAcidPct: AnalyzedNutrient;
+  };
   sidAminoAcidsPct: {
     lysine: AnalyzedNutrient;
     methionineCysteine: AnalyzedNutrient;
@@ -58,6 +62,7 @@ export type DietAnalysis = {
     sttdPhosphorusPct: AnalyzedNutrient;
     sodiumPct: AnalyzedNutrient;
     chloridePct: AnalyzedNutrient;
+    potassiumPct: AnalyzedNutrient;
   };
   traceMineralsPpm: {
     zinc: AnalyzedNutrient;
@@ -139,6 +144,10 @@ export function analyzeDiet(
       netKcalKg: measure(),
     },
     crudeProteinPct: measure(),
+    digestibleProteinPct: measure(),
+    fattyAcids: {
+      linoleicAcidPct: measure(),
+    },
     sidAminoAcidsPct: {
       lysine: measure(),
       methionineCysteine: measure(),
@@ -157,6 +166,7 @@ export function analyzeDiet(
       sttdPhosphorusPct: measure(),
       sodiumPct: measure(),
       chloridePct: measure(),
+      potassiumPct: measure(),
     },
     traceMineralsPpm: {
       zinc: measure(),
@@ -221,6 +231,20 @@ export function analyzeDiet(
       ingredient.composition.crudeProteinPct,
       structuralZero(ingredient, "crudeProtein"),
     );
+    add(
+      result.digestibleProteinPct,
+      ingredient,
+      share,
+      ingredient.composition.digestibleProteinPct,
+      structuralZero(ingredient, "digestibleProtein"),
+    );
+    add(
+      result.fattyAcids.linoleicAcidPct,
+      ingredient,
+      share,
+      ingredient.composition.linoleicAcidPct,
+      structuralZero(ingredient, "fattyAcid"),
+    );
 
     addSid(result.sidAminoAcidsPct.lysine, ingredient, share, ["lysine"]);
     addSid(
@@ -282,6 +306,13 @@ export function analyzeDiet(
       ingredient,
       share,
       ingredient.macroMinerals.chloridePct,
+      structuralZero(ingredient, "macroMineral"),
+    );
+    add(
+      result.minerals.potassiumPct,
+      ingredient,
+      share,
+      ingredient.macroMinerals.potassiumPct,
       structuralZero(ingredient, "macroMineral"),
     );
 
@@ -472,6 +503,32 @@ export function evaluateDietForPhase(
     targets.crudeProteinPct,
     "%",
   );
+  checkMin(
+    checks,
+    "digestible-protein",
+    "Digestible protein",
+    analysis.digestibleProteinPct,
+    phase.requirements.digestibleProteinPct,
+    "%",
+  );
+  checkMin(
+    checks,
+    "potassium",
+    "Potassium",
+    analysis.minerals.potassiumPct,
+    phase.requirements.potassiumPct,
+    "%",
+  );
+  if (phase.requirements.linoleicAcidPct !== undefined) {
+    checkMin(
+      checks,
+      "linoleic-acid",
+      "Linoleic acid",
+      analysis.fattyAcids.linoleicAcidPct,
+      phase.requirements.linoleicAcidPct,
+      "%",
+    );
+  }
 
   const trace = phase.requirements.traceMinerals;
   if (trace) {
@@ -583,6 +640,8 @@ export function evaluateDietForPhase(
 type NutrientFamily =
   | "energy"
   | "crudeProtein"
+  | "digestibleProtein"
+  | "fattyAcid"
   | "aminoAcid"
   | "macroMineral"
   | "traceMineral"
@@ -610,6 +669,18 @@ function structuralZero(
       return (
         ingredient.category === "mineral" ||
         ingredient.category === "oil_fat" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "digestibleProtein":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "fattyAcid":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "amino_acid" ||
         ingredient.category === "vitamin_mineral_premix"
       );
     case "aminoAcid":
