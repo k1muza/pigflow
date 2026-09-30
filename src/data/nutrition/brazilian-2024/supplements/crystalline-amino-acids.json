@@ -83,7 +83,8 @@
         "standardizedMetabolizable": 5527,
         "net": 4283
       },
-      "digestibleProteinEquivalentPct": 71.3671
+      "digestibleProteinEquivalentPct": 71.3671,
+      "pigflowIngredientId": "l-valine"
     },
     {
       "id": "isoleucine",
@@ -97,7 +98,8 @@
         "standardizedMetabolizable": 6210,
         "net": 4813
       },
-      "digestibleProteinEquivalentPct": 64.8045
+      "digestibleProteinEquivalentPct": 64.8045,
+      "pigflowIngredientId": "l-isoleucine"
     }
   ]
 }
