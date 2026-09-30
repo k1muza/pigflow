@@ -1798,6 +1798,370 @@
       }
     },
     {
+      "id": "l-isoleucine",
+      "name": "L-Isoleucine",
+      "aliases": [
+        "feed-grade isoleucine",
+        "isoleucine"
+      ],
+      "category": "amino_acid",
+      "composition": {
+        "dryMatterPct": 99.8,
+        "crudeProteinPct": 66.6,
+        "digestibleProteinPct": 64.6749,
+        "linoleicAcidPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 6720,
+        "metabolizableKcalKg": 6400,
+        "netKcalKg": 4750
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "isoleucine": 91.7
+        },
+        "sidDigestibilityPct": {},
+        "sidPct": {
+          "isoleucine": 91.7
+        }
+      },
+      "macroMinerals": {
+        "calciumPct": 0,
+        "totalPhosphorusPct": 0,
+        "magnesiumPct": 0,
+        "potassiumPct": 0,
+        "sodiumPct": 0,
+        "chloridePct": 0,
+        "availablePhosphorusPct": 0
+      },
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Crystalline feed-grade amino acid represented at its as-fed SID isoleucine concentration."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "L-isoleucine",
+        "sourceTable": "Table 1.09 + FeedTables L-isoleucine",
+        "source": {
+          "publisher": "INRAE–CIRAD–AFZ",
+          "title": "Tables of composition and nutritional values of feed materials",
+          "url": "https://www.feedtables.com/content/l-isoleucine",
+          "basis": "As-fed supplemental ingredient composition"
+        },
+        "notes": [
+          "FeedTables provides 91.7% as-fed SID isoleucine for pigs.",
+          "Brazilian Table 1.09 provides the crystalline isoleucine crude-protein equivalent and standardized digestibility used for digestible-protein contribution."
+        ],
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "aminoAcids.sidPct.isoleucine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "macroMinerals.calciumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "macroMinerals.totalPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID isoleucine concentration."
+          },
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Brazilian Table 1.09 dry-matter values converted to PigFlow as-fed basis",
+            "priority": "primary",
+            "note": "Derived as crude-protein equivalent × standardized digestibility coefficient × 99.8% dry matter."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "FeedTables reports zero phosphorus; available phosphorus is therefore explicitly zero."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-isoleucine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Crystalline amino-acid source; explicit structural zero for linoleic acid."
+          }
+        }
+      }
+    },
+    {
+      "id": "l-valine",
+      "name": "L-Valine",
+      "aliases": [
+        "feed-grade valine",
+        "valine"
+      ],
+      "category": "amino_acid",
+      "composition": {
+        "dryMatterPct": 98.5,
+        "crudeProteinPct": 72.1,
+        "digestibleProteinPct": 70.2966,
+        "linoleicAcidPct": 0
+      },
+      "energy": {
+        "digestibleKcalKg": 5830,
+        "metabolizableKcalKg": 5480,
+        "netKcalKg": 4230
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "valine": 96.5
+        },
+        "sidDigestibilityPct": {},
+        "sidPct": {
+          "valine": 96.5
+        }
+      },
+      "macroMinerals": {
+        "calciumPct": 0,
+        "totalPhosphorusPct": 0,
+        "magnesiumPct": 0,
+        "potassiumPct": 0,
+        "sodiumPct": 0,
+        "chloridePct": 0,
+        "availablePhosphorusPct": 0
+      },
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": [
+          "Crystalline feed-grade amino acid represented at its as-fed SID valine concentration."
+        ]
+      },
+      "provenance": {
+        "sourceIngredientName": "L-valine",
+        "sourceTable": "Table 1.09 + FeedTables L-valine",
+        "source": {
+          "publisher": "INRAE–CIRAD–AFZ",
+          "title": "Tables of composition and nutritional values of feed materials",
+          "url": "https://www.feedtables.com/content/l-valine",
+          "basis": "As-fed supplemental ingredient composition"
+        },
+        "notes": [
+          "FeedTables provides 96.5% as-fed SID valine for pigs.",
+          "Brazilian Table 1.09 provides the crystalline valine crude-protein equivalent and standardized digestibility used for digestible-protein contribution."
+        ],
+        "nutrientSources": {
+          "composition.dryMatterPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "composition.crudeProteinPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "energy.digestibleKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "energy.metabolizableKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "energy.netKcalKg": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "aminoAcids.sidPct.valine": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "macroMinerals.calciumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "macroMinerals.totalPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "macroMinerals.magnesiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "macroMinerals.sodiumPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "macroMinerals.chloridePct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "As-fed composition, pig energy, zero mineral values and SID valine concentration."
+          },
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Brazilian Table 1.09 dry-matter values converted to PigFlow as-fed basis",
+            "priority": "primary",
+            "note": "Derived as crude-protein equivalent × standardized digestibility coefficient × 98.5% dry matter."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "FeedTables reports zero phosphorus; available phosphorus is therefore explicitly zero."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials",
+            "url": "https://www.feedtables.com/content/l-valine",
+            "basis": "As-fed; pig-specific values where available",
+            "priority": "fallback",
+            "note": "Crystalline amino-acid source; explicit structural zero for linoleic acid."
+          }
+        }
+      }
+    },
+    {
       "id": "wheat-middlings",
       "name": "Wheat Middlings, <9.5% Fiber",
       "aliases": [
