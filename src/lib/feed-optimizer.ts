@@ -11,7 +11,10 @@ import {
   INGREDIENT_LIBRARY,
   type IngredientLibrary,
 } from "./ingredient-nutrients";
-import { ingredientDefaultPricePerKg } from "./feed-ingredient-prices";
+import {
+  ingredientDefaultPrice,
+  ingredientDefaultPricePerKg,
+} from "./feed-ingredient-prices";
 import { resolveNutritionTargets, type EnergySystem } from "./nutrition-targets";
 import type { NutritionPhase } from "./nutrition";
 
@@ -50,10 +53,27 @@ export type FormulationSolution = {
   analysis: DietAnalysis;
 };
 
+export type FormulationAlternativeKind =
+  | "low-soy"
+  | "low-import"
+  | "simple";
+
+export type FormulationAlternative = {
+  id: FormulationAlternativeKind;
+  label: string;
+  description: string;
+  solution: FormulationSolution;
+  costIncreasePct: number;
+};
+
+export const ALTERNATIVE_COST_TOLERANCE_PCT = 3;
+
 export type LeastCostFormulationResult =
   | {
       status: "optimal";
       solution: FormulationSolution;
+      alternatives: FormulationAlternative[];
+      alternativeCostTolerancePct: number;
       unsupportedRequirements: FormulationUnsupportedRequirement[];
     }
   | {
@@ -168,9 +188,18 @@ export async function formulateLeastCostDiet(
 
     if (strict.status === "optimal") {
       const solution = buildSolution(strict.vars, prepared, library);
+      const alternatives = await buildAlternativeFormulations(
+        glpk,
+        prepared,
+        constraints,
+        solution,
+        library,
+      );
       return {
         status: "optimal",
         solution,
+        alternatives,
+        alternativeCostTolerancePct: ALTERNATIVE_COST_TOLERANCE_PCT,
         unsupportedRequirements,
       };
     }
@@ -608,6 +637,293 @@ async function solveStrict(
   }
 
   return { status: "optimal", vars: result.result.vars };
+}
+
+
+type LinearObjective = {
+  name: string;
+  coefficient: (ingredient: PreparedIngredient) => number;
+};
+
+async function solveAlternativeObjective(
+  glpk: GLPK,
+  ingredients: readonly PreparedIngredient[],
+  constraints: readonly ConstraintSpec[],
+  objective: LinearObjective,
+  costCapPerKg: number,
+): Promise<{ status: "optimal"; vars: Record<string, number> } | { status: "infeasible" }> {
+  const {
+    GLP_DB,
+    GLP_FX,
+    GLP_LO,
+    GLP_MIN,
+    GLP_MSG_OFF,
+    GLP_OPT,
+    GLP_UP,
+  } = glpk;
+
+  const lp = {
+    name: \`PigFlowAlternative_\${objective.name}\`,
+    objective: {
+      direction: GLP_MIN,
+      name: objective.name,
+      vars: ingredients.map((ingredient) => ({
+        name: ingredient.variable,
+        // A tiny cost term resolves ties without changing the requested strategy.
+        coef:
+          objective.coefficient(ingredient) +
+          ingredient.option.pricePerKg * 1e-8,
+      })),
+    },
+    subjectTo: [
+      {
+        name: "total_inclusion",
+        vars: ingredients.map((ingredient) => ({
+          name: ingredient.variable,
+          coef: 1,
+        })),
+        bnds: { type: GLP_FX, lb: 1, ub: 1 },
+      },
+      {
+        name: "alternative_cost_cap",
+        vars: ingredients.map((ingredient) => ({
+          name: ingredient.variable,
+          coef: ingredient.option.pricePerKg,
+        })),
+        bnds: { type: GLP_UP, lb: 0, ub: costCapPerKg },
+      },
+      ...constraints.map((constraint) => ({
+        name: \`nutrient_\${constraint.id}\`,
+        vars: ingredients.map((ingredient) => ({
+          name: ingredient.variable,
+          coef: ingredient.coefficients.get(constraint.id) ?? 0,
+        })),
+        bnds:
+          constraint.relation === "min"
+            ? { type: GLP_LO, lb: constraint.bound, ub: 0 }
+            : { type: GLP_UP, lb: 0, ub: constraint.bound },
+      })),
+    ],
+    bounds: ingredients.map((ingredient) => ({
+      name: ingredient.variable,
+      type:
+        Math.abs(ingredient.minFraction - ingredient.maxFraction) <= 1e-12
+          ? GLP_FX
+          : GLP_DB,
+      lb: ingredient.minFraction,
+      ub: ingredient.maxFraction,
+    })),
+  };
+
+  const result = await glpk.solve(lp, {
+    msglev: GLP_MSG_OFF,
+    presol: true,
+  });
+
+  if (result.result.status !== GLP_OPT) {
+    return { status: "infeasible" };
+  }
+
+  return { status: "optimal", vars: result.result.vars };
+}
+
+function costIncreasePct(
+  alternative: FormulationSolution,
+  optimum: FormulationSolution,
+): number {
+  if (optimum.costPerKg <= 0) return 0;
+  return ((alternative.costPerKg / optimum.costPerKg) - 1) * 100;
+}
+
+function importBurden(ingredientId: string): number {
+  const scope = ingredientDefaultPrice(ingredientId)?.sourceScope;
+  if (scope === "global-fallback") return 2;
+  if (scope === "regional") return 1;
+  if (scope === "harare" || scope === "zimbabwe") return 0;
+  // Unknown origin should not be rewarded as though it were verified local.
+  return 1;
+}
+
+function sameFormula(
+  a: FormulationSolution,
+  b: FormulationSolution,
+): boolean {
+  const byId = new Map(
+    a.formula.ingredients.map((row) => [row.ingredientId, row.inclusionPct]),
+  );
+  const ids = new Set([
+    ...a.formula.ingredients.map((row) => row.ingredientId),
+    ...b.formula.ingredients.map((row) => row.ingredientId),
+  ]);
+  return [...ids].every(
+    (id) =>
+      Math.abs(
+        (byId.get(id) ?? 0) -
+          (b.formula.ingredients.find((row) => row.ingredientId === id)
+            ?.inclusionPct ?? 0),
+      ) < 0.01,
+  );
+}
+
+async function buildSimplerAlternative(
+  glpk: GLPK,
+  ingredients: readonly PreparedIngredient[],
+  constraints: readonly ConstraintSpec[],
+  optimum: FormulationSolution,
+  costCapPerKg: number,
+  library: IngredientLibrary,
+): Promise<FormulationSolution | undefined> {
+  let active = [...ingredients];
+  let solved = await solveAlternativeObjective(
+    glpk,
+    active,
+    constraints,
+    {
+      name: "simplify_cost",
+      coefficient: (ingredient) => ingredient.option.pricePerKg,
+    },
+    costCapPerKg,
+  );
+  if (solved.status !== "optimal") return undefined;
+
+  let current = buildSolution(solved.vars, active, library);
+
+  while (true) {
+    const removable = current.formula.ingredients
+      .map((row) => ({
+        ...row,
+        prepared: active.find(
+          (ingredient) => ingredient.option.ingredientId === row.ingredientId,
+        ),
+      }))
+      .filter((row) => (row.prepared?.minFraction ?? 0) <= 1e-12)
+      .sort((a, b) => a.inclusionPct - b.inclusionPct);
+
+    let removed = false;
+    for (const row of removable) {
+      const trialIngredients = active.filter(
+        (ingredient) => ingredient.option.ingredientId !== row.ingredientId,
+      );
+      if (trialIngredients.length === 0) continue;
+
+      const trial = await solveAlternativeObjective(
+        glpk,
+        trialIngredients,
+        constraints,
+        {
+          name: "simplify_cost",
+          coefficient: (ingredient) => ingredient.option.pricePerKg,
+        },
+        costCapPerKg,
+      );
+      if (trial.status !== "optimal") continue;
+
+      active = trialIngredients;
+      current = buildSolution(trial.vars, active, library);
+      removed = true;
+      break;
+    }
+
+    if (!removed) break;
+  }
+
+  return sameFormula(current, optimum) ? undefined : current;
+}
+
+async function buildAlternativeFormulations(
+  glpk: GLPK,
+  ingredients: readonly PreparedIngredient[],
+  constraints: readonly ConstraintSpec[],
+  optimum: FormulationSolution,
+  library: IngredientLibrary,
+): Promise<FormulationAlternative[]> {
+  const costCapPerKg =
+    optimum.costPerKg * (1 + ALTERNATIVE_COST_TOLERANCE_PCT / 100);
+  const alternatives: FormulationAlternative[] = [];
+
+  const strategies: Array<{
+    id: Exclude<FormulationAlternativeKind, "simple">;
+    label: string;
+    description: string;
+    objective: LinearObjective;
+  }> = [
+    {
+      id: "low-soy",
+      label: "Lower soy",
+      description: "Minimizes total soybean-meal inclusion within the cost ceiling.",
+      objective: {
+        name: "low_soy",
+        coefficient: (ingredient) =>
+          ingredient.option.ingredientId.startsWith("soybean-meal-") ? 1 : 0,
+      },
+    },
+    {
+      id: "low-import",
+      label: "Lower imports",
+      description:
+        "Prefers local ingredients, penalizing global imports more heavily than regional imports.",
+      objective: {
+        name: "low_import",
+        coefficient: (ingredient) =>
+          importBurden(ingredient.option.ingredientId),
+      },
+    },
+  ];
+
+  for (const strategy of strategies) {
+    const solved = await solveAlternativeObjective(
+      glpk,
+      ingredients,
+      constraints,
+      strategy.objective,
+      costCapPerKg,
+    );
+    if (solved.status !== "optimal") continue;
+
+    const solution = buildSolution(solved.vars, ingredients, library);
+    if (
+      sameFormula(solution, optimum) ||
+      alternatives.some((alternative) =>
+        sameFormula(alternative.solution, solution),
+      )
+    ) {
+      continue;
+    }
+
+    alternatives.push({
+      id: strategy.id,
+      label: strategy.label,
+      description: strategy.description,
+      solution,
+      costIncreasePct: costIncreasePct(solution, optimum),
+    });
+  }
+
+  const simpler = await buildSimplerAlternative(
+    glpk,
+    ingredients,
+    constraints,
+    optimum,
+    costCapPerKg,
+    library,
+  );
+  if (
+    simpler &&
+    !alternatives.some((alternative) =>
+      sameFormula(alternative.solution, simpler),
+    )
+  ) {
+    alternatives.push({
+      id: "simple",
+      label: "Simpler recipe",
+      description:
+        "Greedily removes dispensable ingredients while keeping hard constraints and the cost ceiling.",
+      solution: simpler,
+      costIncreasePct: costIncreasePct(simpler, optimum),
+    });
+  }
+
+  return alternatives;
 }
 
 async function solveDiagnostic(
