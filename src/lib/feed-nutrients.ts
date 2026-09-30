@@ -320,6 +320,9 @@ function ingredientValueForNutrient(
     case "crude-protein":
       value = ingredient.composition.crudeProteinPct;
       break;
+    case "digestible-protein":
+      value = ingredient.composition.digestibleProteinPct;
+      break;
     case "sid-lysine":
       value = sid("lysine");
       break;
@@ -367,6 +370,9 @@ function ingredientValueForNutrient(
       break;
     case "chloride":
       value = ingredient.macroMinerals.chloridePct;
+      break;
+    case "linoleic-acid":
+      value = ingredient.composition.linoleicAcidPct;
       break;
     case "zinc":
     case "iron":
