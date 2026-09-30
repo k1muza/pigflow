@@ -7,6 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  ingredientDefaultPrice,
+  ingredientDefaultPricePerKg,
+} from "@/lib/feed-ingredient-prices";
 import type {
   FormulationIngredientOption,
   FormulationIngredientSuggestionResult,
@@ -34,6 +38,11 @@ type Row = {
   min: string;
   max: string;
 };
+
+function defaultPriceInput(ingredientId: string): string {
+  const price = ingredientDefaultPricePerKg(ingredientId);
+  return price === undefined ? "" : price.toFixed(4);
+}
 
 export function FeedFormulationWorkbench({
   programmes,
@@ -110,7 +119,7 @@ export function FeedFormulationWorkbench({
           suggestedIds.map((ingredientId, index) => ({
             key: index,
             ingredientId,
-            price: "",
+            price: defaultPriceInput(ingredientId),
             min: "",
             max: "",
           })),
@@ -150,7 +159,7 @@ export function FeedFormulationWorkbench({
       {
         key: nextKey,
         ingredientId: addIngredientId,
-        price: "",
+        price: defaultPriceInput(addIngredientId),
         min: "",
         max: "",
       },
@@ -305,6 +314,7 @@ export function FeedFormulationWorkbench({
               <tbody>
                 {rows.map((row) => {
                   const ingredient = ingredientById.get(row.ingredientId);
+                  const defaultPrice = ingredientDefaultPrice(row.ingredientId);
                   return (
                     <tr key={row.key} className="border-t border-hairline">
                       <td className="px-3 py-2.5">
@@ -320,6 +330,14 @@ export function FeedFormulationWorkbench({
                           placeholder="0.000"
                           onChange={(event) => updateRow(row.key, "price", event.target.value)}
                         />
+                        {defaultPrice ? (
+                          <div
+                            className="mt-1 text-[11px] leading-4 text-ink-faint"
+                            title={defaultPrice.note}
+                          >
+                            Default: {defaultPrice.market} · {defaultPrice.asOf}
+                          </div>
+                        ) : null}
                       </td>
                       <td className="px-3 py-2.5">
                         <Input
