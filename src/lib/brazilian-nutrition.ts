@@ -216,6 +216,7 @@ const coreFeedstuffSchema = z.object({
   mappingConfidence: z.enum(["high", "unmapped"]),
   sourcePage: z.number(),
   notes: z.array(z.string()).optional(),
+  digestibleProteinSwinePct: z.number().optional(),
   compositionPct: z.record(z.string(), z.number()),
   swineEnergyKcalKg: z.object({
     digestible: z.number(),
@@ -264,6 +265,7 @@ const crystallineAminoAcidsSchema = z.object({
       nitrogenPct: z.number(),
       crudeProteinEquivalentPct: z.number(),
       standardizedDigestibilityPct: z.number(),
+      digestibleProteinEquivalentPct: z.number().optional(),
       energyKcalKg: z.object({
         gross: z.number(),
         digestible: z.number(),
