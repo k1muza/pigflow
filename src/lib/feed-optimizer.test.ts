@@ -30,7 +30,9 @@ function ingredient(
     composition: {
       dryMatterPct: 90,
       crudeProteinPct,
+      digestibleProteinPct: r.digestibleProteinPct * 2,
       crudeFatPct: 5 + priceMarker,
+      linoleicAcidPct: (r.linoleicAcidPct ?? 0.5) * 2,
     },
     energy: {
       digestibleKcalKg: 3800,
@@ -141,6 +143,46 @@ describe("least-cost feed optimizer", () => {
     expect(protein?.inclusionPct).toBeCloseTo(20, 4);
     expect(result.solution.analysis.crudeProteinPct.value).toBeCloseTo(target, 5);
     expect(result.solution.costPerKg).toBeCloseTo(0.28, 5);
+  });
+
+  it.each([
+    ["digestible-protein", (record: IngredientNutrientRecord) => {
+      record.composition.digestibleProteinPct = 0;
+    }],
+    ["available-phosphorus", (record: IngredientNutrientRecord) => {
+      record.macroMinerals.availablePhosphorusPct = 0;
+    }],
+    ["potassium", (record: IngredientNutrientRecord) => {
+      record.macroMinerals.potassiumPct = 0;
+    }],
+    ["linoleic-acid", (record: IngredientNutrientRecord) => {
+      record.composition.linoleicAcidPct = 0;
+    }],
+  ] as const)("hard-constrains %s", async (constraintId, makeDeficient) => {
+    const phase = nutritionPhaseAtWeight(30);
+    const target = phase.requirements.crudeProteinPct;
+    const base = testLibrary(target + 5, target + 10);
+    const ingredients = base.ingredients.map((record) =>
+      structuredClone(record),
+    );
+    ingredients.forEach(makeDeficient);
+    const library = loadIngredientLibrary({ ...base, ingredients });
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      ingredients.map((record) => ({
+        ingredientId: record.id,
+        pricePerKg: 1,
+      })),
+      library,
+    );
+
+    expect(result.status).toBe("infeasible");
+    if (result.status !== "infeasible") return;
+    expect(
+      result.diagnostics.find((diagnostic) => diagnostic.constraintId === constraintId),
+    ).toBeDefined();
   });
 
   it("does not silently substitute zero for missing nutrient composition", async () => {
