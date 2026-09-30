@@ -74,6 +74,26 @@ export type LeastCostFormulationResult =
       message: string;
     };
 
+export type FormulationIngredientSuggestionResult =
+  | {
+      status: "suggested";
+      ingredientIds: string[];
+      candidateCount: number;
+      unsupportedRequirements: FormulationUnsupportedRequirement[];
+    }
+  | {
+      status: "infeasible";
+      candidateCount: number;
+      unsupportedRequirements: FormulationUnsupportedRequirement[];
+      message: string;
+    }
+  | {
+      status: "error";
+      candidateCount: number;
+      unsupportedRequirements: FormulationUnsupportedRequirement[];
+      message: string;
+    };
+
 type ConstraintSpec = {
   id: string;
   label: string;
@@ -184,6 +204,77 @@ export async function formulateLeastCostDiet(
   } catch (error) {
     return {
       status: "error",
+      unsupportedRequirements,
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * Build a phase-aware starter basket without assuming local ingredient prices.
+ *
+ * Candidates missing any nutrient value required by the strict LP are excluded.
+ * The remaining ingredients are assigned the same synthetic price, so GLPK is
+ * only asked for a feasible basic solution. The returned ingredient IDs are
+ * therefore a starting basket for the workbench, not a least-cost recommendation.
+ */
+export async function suggestFormulationIngredients(
+  phase: NutritionPhase,
+  energySystem: EnergySystem,
+  library: IngredientLibrary = INGREDIENT_LIBRARY,
+): Promise<FormulationIngredientSuggestionResult> {
+  const unsupportedRequirements = unsupportedRequirementsForPhase(phase);
+
+  try {
+    const constraints = buildConstraintSpecs(phase, energySystem);
+    const options: FormulationIngredientOption[] = library.ingredients.map(
+      (ingredient) => ({
+        ingredientId: ingredient.id,
+        pricePerKg: 1,
+      }),
+    );
+    const prepared = prepareIngredients(options, constraints, library).filter(
+      (ingredient) =>
+        constraints.every((constraint) =>
+          ingredient.coefficients.has(constraint.id),
+        ),
+    );
+
+    if (prepared.length === 0) {
+      return {
+        status: "error",
+        candidateCount: 0,
+        unsupportedRequirements,
+        message:
+          "No loaded ingredient has complete data for every modeled formulation constraint.",
+      };
+    }
+
+    const glpk = await loadGlpk();
+    const strict = await solveStrict(glpk, prepared, constraints);
+    if (strict.status !== "optimal") {
+      return {
+        status: "infeasible",
+        candidateCount: prepared.length,
+        unsupportedRequirements,
+        message:
+          "No feasible starter basket could be found from ingredients with complete modeled nutrient data.",
+      };
+    }
+
+    const solution = buildSolution(strict.vars, prepared, library);
+    return {
+      status: "suggested",
+      ingredientIds: solution.formula.ingredients.map(
+        (ingredient) => ingredient.ingredientId,
+      ),
+      candidateCount: prepared.length,
+      unsupportedRequirements,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      candidateCount: 0,
       unsupportedRequirements,
       message: error instanceof Error ? error.message : String(error),
     };
