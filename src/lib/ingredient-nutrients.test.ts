@@ -141,6 +141,54 @@ describe("ingredient nutrient JSON library", () => {
     expect(isoleucine?.energy.metabolizableKcalKg).toBe(6400);
   });
 
+  it("loads Brazilian hard-constraint fallbacks for locally useful ingredients", () => {
+    const wheatBran = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "wheat-bran",
+    );
+    const sunflowerMeal = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "sunflower-meal-solvent-extracted",
+    );
+    const sorghum = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "sorghum-grain",
+    );
+    const wheat = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "wheat-hard-red-winter",
+    );
+    const limestone = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "limestone-ground",
+    );
+    const mcp = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "monocalcium-phosphate",
+    );
+    const dcp = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "dicalcium-phosphate",
+    );
+
+    expect(wheatBran?.composition.digestibleProteinPct).toBe(11.7);
+    expect(wheatBran?.composition.linoleicAcidPct).toBe(1.54);
+    expect(wheatBran?.macroMinerals.availablePhosphorusPct).toBe(0.49);
+    expect(sttdPhosphorusPctOf(wheatBran!)).toBe(0.49);
+
+    expect(sunflowerMeal?.composition.digestibleProteinPct).toBe(27.9);
+    expect(sunflowerMeal?.macroMinerals.availablePhosphorusPct).toBe(0.32);
+    expect(sttdPhosphorusPctOf(sunflowerMeal!)).toBe(0.25);
+
+    expect(sorghum?.composition.digestibleProteinPct).toBe(7.07);
+    expect(sorghum?.composition.linoleicAcidPct).toBe(1.05);
+    expect(sorghum?.macroMinerals.availablePhosphorusPct).toBe(0.07);
+    expect(sttdPhosphorusPctOf(sorghum!)).toBe(0.08);
+
+    expect(wheat?.composition.digestibleProteinPct).toBe(12.3);
+    expect(wheat?.macroMinerals.availablePhosphorusPct).toBe(0.08);
+    expect(sttdPhosphorusPctOf(wheat!)).toBe(0.15);
+
+    expect(limestone?.macroMinerals.availablePhosphorusPct).toBe(0);
+    expect(sttdPhosphorusPctOf(limestone!)).toBe(0);
+
+    expect(sttdPhosphorusPctOf(mcp!)).toBe(16.4);
+    expect(sttdPhosphorusPctOf(dcp!)).toBe(13.9);
+  });
+
   it("uses explicit SID concentration for crystalline lysine", () => {
     const lysine = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "l-lysine-hcl",
