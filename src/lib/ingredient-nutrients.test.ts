@@ -113,6 +113,14 @@ describe("ingredient nutrient JSON library", () => {
       publisher: "Universidade Federal de Viçosa",
       priority: "primary",
     });
+
+    const lysine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "l-lysine-hcl",
+    );
+    expect(lysine?.composition.digestibleProteinPct).toBeCloseTo(83.7587, 4);
+    expect(
+      nutrientValueSource(lysine!, "composition.digestibleProteinPct")?.basis,
+    ).toMatch(/as-fed/i);
   });
 
   it("uses explicit SID concentration for crystalline lysine", () => {
