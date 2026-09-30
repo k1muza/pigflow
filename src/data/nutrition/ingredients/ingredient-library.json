@@ -790,7 +790,7 @@
       "composition": {
         "dryMatterPct": 99.5,
         "crudeProteinPct": 95.4,
-        "digestibleProteinPct": 84.1796,
+        "digestibleProteinPct": 83.7587,
         "linoleicAcidPct": 0
       },
       "energy": {
@@ -926,9 +926,9 @@
             "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
             "year": 2024,
             "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
-            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "basis": "Brazilian Table 1.09 dry-matter values converted to PigFlow as-fed basis",
             "priority": "primary",
-            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+            "note": "Derived as crude-protein equivalent × standardized digestibility coefficient × 99.5% dry matter."
           },
           "macroMinerals.availablePhosphorusPct": {
             "publisher": "Universidade Federal de Viçosa",
@@ -1291,7 +1291,7 @@
       "composition": {
         "dryMatterPct": 99.5,
         "crudeProteinPct": 58.4,
-        "digestibleProteinPct": 58.3766,
+        "digestibleProteinPct": 58.0848,
         "linoleicAcidPct": 0
       },
       "energy": {
@@ -1428,9 +1428,9 @@
             "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
             "year": 2024,
             "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
-            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "basis": "Brazilian Table 1.09 dry-matter values converted to PigFlow as-fed basis",
             "priority": "primary",
-            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+            "note": "Derived as crude-protein equivalent × standardized digestibility coefficient × 99.5% dry matter."
           },
           "macroMinerals.availablePhosphorusPct": {
             "publisher": "Universidade Federal de Viçosa",
@@ -1463,7 +1463,7 @@
       "composition": {
         "dryMatterPct": 99.5,
         "crudeProteinPct": 73.1,
-        "digestibleProteinPct": 71.1383,
+        "digestibleProteinPct": 70.7826,
         "linoleicAcidPct": 0
       },
       "energy": {
@@ -1600,9 +1600,9 @@
             "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
             "year": 2024,
             "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
-            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "basis": "Brazilian Table 1.09 dry-matter values converted to PigFlow as-fed basis",
             "priority": "primary",
-            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+            "note": "Derived as crude-protein equivalent × standardized digestibility coefficient × 99.5% dry matter."
           },
           "macroMinerals.availablePhosphorusPct": {
             "publisher": "Universidade Federal de Viçosa",
@@ -1635,7 +1635,7 @@
       "composition": {
         "dryMatterPct": 99.7,
         "crudeProteinPct": 84,
-        "digestibleProteinPct": 84.8727,
+        "digestibleProteinPct": 84.6181,
         "linoleicAcidPct": 0
       },
       "energy": {
@@ -1772,9 +1772,9 @@
             "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
             "year": 2024,
             "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
-            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "basis": "Brazilian Table 1.09 dry-matter values converted to PigFlow as-fed basis",
             "priority": "primary",
-            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+            "note": "Derived as crude-protein equivalent × standardized digestibility coefficient × 99.7% dry matter."
           },
           "macroMinerals.availablePhosphorusPct": {
             "publisher": "Universidade Federal de Viçosa",
