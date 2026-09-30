@@ -128,7 +128,8 @@
             "max": 70
           }
         }
-      }
+      },
+      "digestibleProteinSwinePct": 6.72
     },
     {
       "id": "soybean-meal-45.6-cp-average",
@@ -254,7 +255,8 @@
             "max": 25
           }
         }
-      }
+      },
+      "digestibleProteinSwinePct": 40.8
     },
     {
       "id": "corn-oil",
@@ -284,7 +286,8 @@
         "totalPct": {},
         "sidSwinePct": {},
         "sidSwineDigestibilityPct": {}
-      }
+      },
+      "digestibleProteinSwinePct": 0
     },
     {
       "id": "corn-ddgs-6-9-ee",
@@ -406,7 +409,8 @@
             "max": 18
           }
         }
-      }
+      },
+      "digestibleProteinSwinePct": 23.1
     }
   ]
 }
