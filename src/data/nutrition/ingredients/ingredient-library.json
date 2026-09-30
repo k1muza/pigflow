@@ -39,7 +39,9 @@
         "ashPct": 1.3,
         "starchPct": 62.55,
         "neutralDetergentFibrePct": 9.11,
-        "acidDetergentFibrePct": 2.88
+        "acidDetergentFibrePct": 2.88,
+        "digestibleProteinPct": 6.72,
+        "linoleicAcidPct": 1.91
       },
       "energy": {
         "digestibleKcalKg": 3451,
@@ -84,7 +86,8 @@
         "sodiumPct": 0.02,
         "chloridePct": 0.05,
         "potassiumPct": 0.32,
-        "magnesiumPct": 0.12
+        "magnesiumPct": 0.12,
+        "availablePhosphorusPct": 0.05
       },
       "traceMineralsPpm": {
         "copper": 3.41,
@@ -103,7 +106,45 @@
         "notes": [
           "IFN 4-02-861",
           "As-fed mean values from NRC 2012."
-        ]
+        ],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 73."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 73."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 73."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 73."
+          }
+        }
       }
     },
     {
@@ -123,7 +164,9 @@
         "ashPct": 6.27,
         "starchPct": 1.89,
         "neutralDetergentFibrePct": 8.21,
-        "acidDetergentFibrePct": 5.28
+        "acidDetergentFibrePct": 5.28,
+        "digestibleProteinPct": 44,
+        "linoleicAcidPct": 0.77
       },
       "energy": {
         "digestibleKcalKg": 3619,
@@ -167,8 +210,9 @@
         "sttdPhosphorusDigestibilityPct": 48,
         "sodiumPct": 0.08,
         "chloridePct": 0.49,
-        "potassiumPct": 2.24,
-        "magnesiumPct": 0.27
+        "potassiumPct": 2.13,
+        "magnesiumPct": 0.27,
+        "availablePhosphorusPct": 0.23
       },
       "traceMineralsPpm": {
         "copper": 15.13,
@@ -187,7 +231,45 @@
         "notes": [
           "IFN 5-04-612",
           "As-fed mean values from NRC 2012."
-        ]
+        ],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 48% CP as the closest explicit dehulled/high-protein soybean-meal class."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 48% CP as the closest explicit dehulled/high-protein soybean-meal class."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 48% CP as the closest explicit dehulled/high-protein soybean-meal class."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 48% CP as the closest explicit dehulled/high-protein soybean-meal class."
+          }
+        }
       }
     },
     {
@@ -207,7 +289,9 @@
         "ashPct": 6.38,
         "starchPct": 1.89,
         "neutralDetergentFibrePct": 9.82,
-        "acidDetergentFibrePct": 6.66
+        "acidDetergentFibrePct": 6.66,
+        "digestibleProteinPct": 39.4,
+        "linoleicAcidPct": 0.68
       },
       "energy": {
         "digestibleKcalKg": 3681,
@@ -251,8 +335,9 @@
         "sttdPhosphorusDigestibilityPct": 48,
         "sodiumPct": 0.01,
         "chloridePct": 0.05,
-        "potassiumPct": 1.96,
-        "magnesiumPct": 0.29
+        "potassiumPct": 1.94,
+        "magnesiumPct": 0.29,
+        "availablePhosphorusPct": 0.22
       },
       "traceMineralsPpm": {
         "copper": 17.38,
@@ -271,7 +356,45 @@
         "notes": [
           "IFN 5-04-604",
           "As-fed mean values from NRC 2012."
-        ]
+        ],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 44.5% CP because this canonical record is the non-dehulled solvent-extracted soybean-meal class."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 44.5% CP because this canonical record is the non-dehulled solvent-extracted soybean-meal class."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 44.5% CP because this canonical record is the non-dehulled solvent-extracted soybean-meal class."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Mapped to Brazilian Tables 2024 Soybean Meal 44.5% CP because this canonical record is the non-dehulled solvent-extracted soybean-meal class."
+          }
+        }
       }
     },
     {
@@ -500,7 +623,8 @@
         "sodiumPct": 0.2,
         "chloridePct": 0.47,
         "potassiumPct": 0.15,
-        "magnesiumPct": 0.5
+        "magnesiumPct": 0.5,
+        "availablePhosphorusPct": 18.5
       },
       "traceMineralsPpm": {},
       "constraints": {
@@ -513,7 +637,18 @@
         "notes": [
           "IFN 6-01-080",
           "Feed-grade material may contain some monocalcium phosphate; supplier analysis should be preferred when available."
-        ]
+        ],
+        "nutrientSources": {
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.10 inorganic mineral source value."
+          }
+        }
       }
     },
     {
@@ -545,7 +680,8 @@
         "chloridePct": 59,
         "potassiumPct": 0,
         "magnesiumPct": 0,
-        "totalPhosphorusPct": 0
+        "totalPhosphorusPct": 0,
+        "availablePhosphorusPct": 0
       },
       "traceMineralsPpm": {},
       "constraints": {
@@ -630,6 +766,15 @@
             "basis": "As-fed",
             "priority": "fallback",
             "note": "Fallback zeros and composition for feed-grade sodium chloride."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Feed salt contains no phosphorus; explicit zero prevents missing-data treatment."
           }
         }
       }
@@ -644,7 +789,9 @@
       "category": "amino_acid",
       "composition": {
         "dryMatterPct": 99.5,
-        "crudeProteinPct": 95.4
+        "crudeProteinPct": 95.4,
+        "digestibleProteinPct": 84.1796,
+        "linoleicAcidPct": 0
       },
       "energy": {
         "digestibleKcalKg": 4780,
@@ -666,7 +813,8 @@
         "magnesiumPct": 0,
         "potassiumPct": 0,
         "sodiumPct": 0,
-        "chloridePct": 19.1
+        "chloridePct": 19.1,
+        "availablePhosphorusPct": 0
       },
       "traceMineralsPpm": {},
       "constraints": {
@@ -772,6 +920,33 @@
             "basis": "As-fed; pig-specific values where available",
             "priority": "fallback",
             "note": "Fallback pig energy and mineral composition for L-lysine HCl."
+          },
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for available phosphorus."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for linoleic acid."
           }
         }
       }
@@ -785,7 +960,9 @@
       "category": "oil_fat",
       "composition": {
         "dryMatterPct": 100,
-        "crudeFatPct": 100
+        "crudeFatPct": 100,
+        "digestibleProteinPct": 0,
+        "linoleicAcidPct": 51.9
       },
       "energy": {
         "digestibleKcalKg": 8774,
@@ -797,7 +974,10 @@
         "sidDigestibilityPct": {},
         "sidPct": {}
       },
-      "macroMinerals": {},
+      "macroMinerals": {
+        "availablePhosphorusPct": 0,
+        "potassiumPct": 0
+      },
       "traceMineralsPpm": {},
       "vitamins": {},
       "constraints": {
@@ -814,7 +994,45 @@
         },
         "notes": [
           "Vegetable oil energy values from the National Swine Nutrition Guide."
-        ]
+        ],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 83."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 83."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 83."
+          },
+          "macroMinerals.potassiumPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.01, source page 83."
+          }
+        }
       }
     },
     {
@@ -893,7 +1111,8 @@
         "sodiumPct": 0.072,
         "magnesiumPct": 0.48,
         "potassiumPct": 0.23,
-        "chloridePct": 0.01
+        "chloridePct": 0.01,
+        "availablePhosphorusPct": 22
       },
       "traceMineralsPpm": {
         "iron": 6132,
@@ -1049,6 +1268,15 @@
             "basis": "As-fed",
             "priority": "fallback",
             "note": "Fallback mineral values for monocalcium phosphate; digestible P is not mapped to STTD P."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
+            "priority": "primary",
+            "note": "Brazilian Tables 2024 Table 1.10 inorganic mineral source value."
           }
         }
       }
@@ -1062,7 +1290,9 @@
       "category": "amino_acid",
       "composition": {
         "dryMatterPct": 99.5,
-        "crudeProteinPct": 58.4
+        "crudeProteinPct": 58.4,
+        "digestibleProteinPct": 58.3766,
+        "linoleicAcidPct": 0
       },
       "energy": {
         "digestibleKcalKg": 5640,
@@ -1084,7 +1314,8 @@
         "magnesiumPct": 0,
         "potassiumPct": 0,
         "sodiumPct": 0,
-        "chloridePct": 0
+        "chloridePct": 0,
+        "availablePhosphorusPct": 0
       },
       "traceMineralsPpm": {},
       "vitamins": {},
@@ -1191,6 +1422,33 @@
             "basis": "As-fed; pig-specific values where available",
             "priority": "fallback",
             "note": "Fallback pig energy and zero mineral values for DL-Methionine."
+          },
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for available phosphorus."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for linoleic acid."
           }
         }
       }
@@ -1204,7 +1462,9 @@
       "category": "amino_acid",
       "composition": {
         "dryMatterPct": 99.5,
-        "crudeProteinPct": 73.1
+        "crudeProteinPct": 73.1,
+        "digestibleProteinPct": 71.1383,
+        "linoleicAcidPct": 0
       },
       "energy": {
         "digestibleKcalKg": 4120,
@@ -1226,7 +1486,8 @@
         "magnesiumPct": 0,
         "potassiumPct": 0,
         "sodiumPct": 0,
-        "chloridePct": 0
+        "chloridePct": 0,
+        "availablePhosphorusPct": 0
       },
       "traceMineralsPpm": {},
       "vitamins": {},
@@ -1333,6 +1594,33 @@
             "basis": "As-fed; pig-specific values where available",
             "priority": "fallback",
             "note": "Fallback pig energy and zero mineral values for L-Threonine."
+          },
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for available phosphorus."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for linoleic acid."
           }
         }
       }
@@ -1346,7 +1634,9 @@
       "category": "amino_acid",
       "composition": {
         "dryMatterPct": 99.7,
-        "crudeProteinPct": 84
+        "crudeProteinPct": 84,
+        "digestibleProteinPct": 84.8727,
+        "linoleicAcidPct": 0
       },
       "energy": {
         "digestibleKcalKg": 6510,
@@ -1368,7 +1658,8 @@
         "magnesiumPct": 0,
         "potassiumPct": 0,
         "sodiumPct": 0,
-        "chloridePct": 0
+        "chloridePct": 0,
+        "availablePhosphorusPct": 0
       },
       "traceMineralsPpm": {},
       "vitamins": {},
@@ -1475,6 +1766,33 @@
             "basis": "As-fed; pig-specific values where available",
             "priority": "fallback",
             "note": "Fallback pig energy and zero mineral values for L-Tryptophan."
+          },
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Derived as Brazilian Table 1.09 crude-protein-equivalent × standardized digestibility coefficient."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for available phosphorus."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en.pdf",
+            "basis": "Table 1.09 crystalline amino acids; dry-matter source values converted only where explicitly derived",
+            "priority": "primary",
+            "note": "Crystalline amino-acid source; explicit structural zero for linoleic acid."
           }
         }
       }
