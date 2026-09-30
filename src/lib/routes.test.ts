@@ -7,7 +7,6 @@ import {
   feedNutrientHref,
   feedProgrammeHref,
   feedProgrammePhaseHref,
-  ingredientHref,
   planHref,
   tabFromPath,
 } from "./routes";
@@ -27,20 +26,11 @@ describe("the address of a plan", () => {
   it("puts every other page beneath the plan", () => {
     expect(planHref("abc", "cashflow")).toBe("/projects/abc/cashflow");
     expect(planHref("abc", "simulator")).toBe("/projects/abc/simulator");
-    expect(planHref("abc", "nutrition")).toBe("/projects/abc/nutrition");
   });
 
   it("escapes an id that would otherwise change the path", () => {
     // Plans made now are UUIDs, but plans saved before they were still open.
     expect(planHref("a/b", "cashflow")).toBe("/projects/a%2Fb/cashflow");
-  });
-
-  it("gives the ingredient catalog and each ingredient a stable address", () => {
-    expect(ingredientHref("abc")).toBe("/projects/abc/nutrition/ingredients");
-    expect(ingredientHref("abc", "corn/yellow")).toBe(
-      "/projects/abc/nutrition/ingredients/corn%2Fyellow",
-    );
-    expect(tabFromPath(ingredientHref("abc", "corn-yellow-dent"))).toBe("nutrition");
   });
 
   it("keeps feed formulation outside project routes", () => {

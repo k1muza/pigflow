@@ -13,7 +13,6 @@ export const PLAN_TABS = [
   "overview",
   "simulator",
   "pedigree",
-  "nutrition",
   "money",
   "method",
   "cashflow",
@@ -30,12 +29,6 @@ export type Tab = (typeof PLAN_TABS)[number];
 export function planHref(projectId: string, tab: Tab = "overview"): string {
   const plan = "/projects/" + encodeURIComponent(projectId);
   return tab === "overview" ? plan : plan + "/" + tab;
-}
-
-/** Browse ingredients, or open one ingredient, inside a plan's nutrition workspace. */
-export function ingredientHref(projectId: string, ingredientId?: string): string {
-  const base = planHref(projectId, "nutrition") + "/ingredients";
-  return ingredientId ? base + "/" + encodeURIComponent(ingredientId) : base;
 }
 
 /**
