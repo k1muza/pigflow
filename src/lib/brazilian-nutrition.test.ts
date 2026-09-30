@@ -168,6 +168,24 @@ describe("Brazilian Tables 2024 source data", () => {
     expect(soy?.macroMineralsPct.standardizedDigestiblePhosphorusSwine).toBe(0.26);
   });
 
+  it("maps Brazilian crystalline valine and isoleucine into the canonical library", () => {
+    const valine = BRAZILIAN_2024_CRYSTALLINE_AMINO_ACIDS.ingredients.find(
+      (ingredient) => ingredient.id === "valine",
+    );
+    const isoleucine = BRAZILIAN_2024_CRYSTALLINE_AMINO_ACIDS.ingredients.find(
+      (ingredient) => ingredient.id === "isoleucine",
+    );
+
+    expect(valine).toMatchObject({
+      pigflowIngredientId: "l-valine",
+      standardizedDigestibilityPct: 95.5,
+    });
+    expect(isoleucine).toMatchObject({
+      pigflowIngredientId: "l-isoleucine",
+      standardizedDigestibilityPct: 97.1,
+    });
+  });
+
   it("keeps crystalline amino-acid energy semantics explicit", () => {
     const lysine = BRAZILIAN_2024_CRYSTALLINE_AMINO_ACIDS.ingredients.find(
       (ingredient) => ingredient.id === "lysine-hcl",
