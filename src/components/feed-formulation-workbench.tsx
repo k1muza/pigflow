@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Activity, AlertTriangle, Calculator, Plus, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, Calculator, Eye, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -745,7 +745,21 @@ function IngredientOpportunitiesTable({
                       key={tolerance}
                       className="px-3 py-2.5 text-right font-medium text-ink"
                     >
-                      {point ? `${point.maxInclusionPct.toFixed(2)}%` : "—"}
+                      {point ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span>{point.maxInclusionPct.toFixed(2)}%</span>
+                          <OpportunityRecipeDialog
+                            ingredientName={
+                              ingredientById.get(opportunity.ingredientId)?.name ??
+                              opportunity.ingredientId
+                            }
+                            point={point}
+                            ingredientById={ingredientById}
+                          />
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </td>
                   );
                 })}
@@ -755,6 +769,46 @@ function IngredientOpportunitiesTable({
         </table>
       </div>
     </div>
+  );
+}
+
+function OpportunityRecipeDialog({
+  ingredientName,
+  point,
+  ingredientById,
+}: {
+  ingredientName: string;
+  point: IngredientOpportunity["points"][number];
+  ingredientById: Map<string, IngredientOption>;
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="link" size="xs" className="h-auto px-0 py-0 text-xs">
+          <Eye />
+          View recipe
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] max-w-3xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+        <DialogHeader className="px-5 pt-5">
+          <DialogTitle>
+            {ingredientName} · +{point.costTolerancePct}% cost recipe
+          </DialogTitle>
+          <DialogDescription>
+            This is the complete formulation that maximizes {ingredientName} while keeping every
+            hard nutrient requirement satisfied and staying within {point.costTolerancePct}% of
+            the least-cost formula. {ingredientName} reaches {point.maxInclusionPct.toFixed(2)}%.
+            Resulting cost: {point.resultingCostPerKg.toFixed(4)} per kg.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="min-h-0 overflow-auto px-5 pb-5">
+          <FormulaTable
+            rows={point.recipe.formula.ingredients}
+            ingredientById={ingredientById}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
