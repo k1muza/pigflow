@@ -188,6 +188,29 @@ export const INGREDIENT_DEFAULT_PRICES: readonly IngredientDefaultPrice[] = [
       "Older regional trade proxy derived from a 6,000 kg South Africa-origin shipment worth USD 11,457.08. Replace promptly with a current Harare/South African supplier quote.",
   },
   {
+    ingredientId: "l-valine",
+    usdPerTonne: 1980,
+    market: "Global import fallback — China FOB",
+    asOf: "2026-06-30",
+    sourceScope: "global-fallback",
+    sourceLabel: "ChemAnalyst — Valine Q2 2026 FOB China",
+    sourceUrl: "https://www.chemanalyst.com/Pricing-data/valine-1511",
+    note:
+      "No transparent current Harare/Southern-African bulk quote was found. China FOB feed-market benchmark is used as the global fallback and the 1.30× import multiplier is applied for planning.",
+  },
+  {
+    ingredientId: "l-isoleucine",
+    usdPerTonne: 6800,
+    market: "Global import fallback — China FOB",
+    asOf: "2026-09-30",
+    sourceScope: "global-fallback",
+    sourceLabel: "Made-in-China — L-Isoleucine feed-grade supplier listing",
+    sourceUrl:
+      "https://qdroyaldecor.en.made-in-china.com/product-group/nqFQMYdUCpVS/Amino-Acid-catalog-1.html",
+    note:
+      "No transparent current Harare/Southern-African bulk quote was found. Current feed-grade FOB China listing is used as the global fallback and the 1.30× import multiplier is applied for planning.",
+  },
+  {
     ingredientId: "l-threonine",
     usdPerTonne: 1260,
     market: "Global import fallback — China",
