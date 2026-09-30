@@ -58,8 +58,8 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     shortName: "Dig. protein",
     group: "Energy & protein",
     units: ["%"],
-    description: "Dietary protein expressed on the digestible-protein basis used by the Brazilian Tables.",
-    formulationRole: "Published alongside crude protein in the growing-swine requirement tables.",
+    description: "Dietary crude protein expressed on the Brazilian Tables swine standardized ileal digestible basis.",
+    formulationRole: "Published digestible-protein requirement constrained against swine SID crude-protein values from the ingredient tables.",
   },
   {
     id: "sid-lysine",
