@@ -285,6 +285,59 @@ describe("least-cost feed optimizer", () => {
       )?.inclusionPct,
     ).toBeCloseTo(100, 5);
     expect(lowSoy?.costIncreasePct).toBeCloseTo(2, 5);
+
+    expect(result.ingredientOpportunityCostTolerancesPct).toEqual([1, 2, 3]);
+    const opportunity = result.ingredientOpportunities.find(
+      (candidate) => candidate.ingredientId === "local-alternative",
+    );
+    expect(opportunity).toBeDefined();
+    expect(
+      opportunity?.points.find((point) => point.costTolerancePct === 1)
+        ?.maxInclusionPct,
+    ).toBeCloseTo(50, 4);
+    expect(
+      opportunity?.points.find((point) => point.costTolerancePct === 2)
+        ?.maxInclusionPct,
+    ).toBeCloseTo(100, 4);
+    expect(
+      opportunity?.points.find((point) => point.costTolerancePct === 3)
+        ?.maxInclusionPct,
+    ).toBeCloseTo(100, 4);
+  });
+
+  it("returns the hard-constraint nutrient profile used by the optimizer", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const suggestion = await suggestFormulationIngredients(phase, "ME");
+
+    expect(suggestion.status).toBe("suggested");
+    if (suggestion.status !== "suggested") return;
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      suggestion.ingredientIds.map((ingredientId) => ({
+        ingredientId,
+        pricePerKg: ingredientDefaultPricePerKg(ingredientId)!,
+      })),
+    );
+
+    expect(result.status).toBe("optimal");
+    if (result.status !== "optimal") return;
+
+    expect(result.nutrientProfile).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "energy-me", relation: "min" }),
+        expect.objectContaining({ id: "crude-protein", relation: "min" }),
+        expect.objectContaining({ id: "digestible-protein", relation: "min" }),
+        expect.objectContaining({ id: "sid-lysine", relation: "min" }),
+        expect.objectContaining({ id: "sid-valine", relation: "min" }),
+        expect.objectContaining({ id: "available-phosphorus", relation: "min" }),
+        expect.objectContaining({ id: "potassium", relation: "min" }),
+      ]),
+    );
+    expect(
+      result.nutrientProfile.every((row) => row.margin >= -1e-6),
+    ).toBe(true);
   });
 
   it("minimizes ingredient cost while keeping Brazilian requirements hard", async () => {
