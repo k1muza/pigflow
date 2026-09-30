@@ -102,7 +102,7 @@ const ingredientSchema = z.object({
       nutrientSources: z.record(z.string(), nutrientSourceSchema).default({}),
       notes: z.array(z.string()).default([]),
     })
-    .default({ notes: [] }),
+    .default({ nutrientSources: {}, notes: [] }),
 });
 
 const ingredientLibrarySchema = z.object({
