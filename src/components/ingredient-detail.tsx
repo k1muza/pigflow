@@ -10,7 +10,11 @@ import {
   type IngredientNutrientRecord,
 } from "@/lib/ingredient-nutrients";
 import { feedFormulationHref } from "@/lib/routes";
-import { ingredientDefaultPrice } from "@/lib/feed-ingredient-prices";
+import {
+  ingredientDefaultPlanningPricePerTonne,
+  ingredientDefaultPrice,
+  ingredientImportPriceMultiplier,
+} from "@/lib/feed-ingredient-prices";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,6 +49,10 @@ function ValueRows({ rows }: { rows: Array<[string, string]> }) {
 export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
   const ingredient = INGREDIENT_LIBRARY.ingredients.find((row) => row.id === ingredientId);
   const defaultPrice = ingredientDefaultPrice(ingredientId);
+  const planningPrice = ingredientDefaultPlanningPricePerTonne(ingredientId);
+  const importMultiplier = defaultPrice
+    ? ingredientImportPriceMultiplier(defaultPrice.sourceScope)
+    : 1;
   const recordSource = ingredient?.provenance.source;
   const nutrientSources = ingredient
     ? Object.entries(ingredient.provenance.nutrientSources)
@@ -106,12 +114,16 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
             <div className="space-y-3">
               <div>
                 <div className="text-3xl font-semibold tracking-tight text-ink">
-                  US${defaultPrice.usdPerTonne.toLocaleString()}
+                  US${planningPrice?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
-                <div className="text-sm text-ink-muted">per tonne</div>
+                <div className="text-sm text-ink-muted">
+                  planning default per tonne
+                </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <SourceFact label="Source price" value={`US${defaultPrice.usdPerTonne.toLocaleString()}/t`} />
                 <SourceFact label="Market" value={defaultPrice.market} />
+                <SourceFact label="Import multiplier" value={`×${importMultiplier.toFixed(2)}`} />
                 <SourceFact label="Reference date" value={defaultPrice.asOf} />
               </div>
               {defaultPrice.note ? (
