@@ -11,7 +11,10 @@ import {
   suggestFormulationIngredients,
 } from "./feed-optimizer";
 import { nutritionPhaseAtWeight } from "./nutrition";
-import { ingredientDefaultPricePerKg } from "./feed-ingredient-prices";
+import {
+  INGREDIENT_DEFAULT_PRICES,
+  ingredientDefaultPricePerKg,
+} from "./feed-ingredient-prices";
 
 function ingredient(
   id: string,
@@ -171,6 +174,36 @@ describe("least-cost feed optimizer", () => {
         "l-tryptophan",
         "l-valine",
         "l-isoleucine",
+      ]),
+    );
+  });
+
+  it("does not silently exclude any priced ingredient from the strict candidate pool", async () => {
+    const suggestion = await suggestFormulationIngredients(
+      nutritionPhaseAtWeight(30),
+      "ME",
+    );
+
+    expect(suggestion.status).toBe("suggested");
+    if (suggestion.status !== "suggested") return;
+
+    const pricedIngredientIds = INGREDIENT_DEFAULT_PRICES.map(
+      (price) => price.ingredientId,
+    );
+
+    expect(suggestion.candidateCount).toBe(pricedIngredientIds.length);
+    expect(suggestion.ingredientIds).toEqual(
+      expect.arrayContaining(pricedIngredientIds),
+    );
+    expect(suggestion.ingredientIds).toEqual(
+      expect.arrayContaining([
+        "wheat-bran",
+        "sunflower-meal-solvent-extracted",
+        "sorghum-grain",
+        "wheat-hard-red-winter",
+        "limestone-ground",
+        "calcium-carbonate",
+        "monocalcium-phosphate",
       ]),
     );
   });
