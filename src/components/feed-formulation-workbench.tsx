@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
   ingredientDefaultPrice,
   ingredientDefaultPricePerKg,
+  ingredientImportPriceMultiplier,
 } from "@/lib/feed-ingredient-prices";
 import type {
   FormulationIngredientOption,
@@ -315,6 +316,9 @@ export function FeedFormulationWorkbench({
                 {rows.map((row) => {
                   const ingredient = ingredientById.get(row.ingredientId);
                   const defaultPrice = ingredientDefaultPrice(row.ingredientId);
+                  const importMultiplier = defaultPrice
+                    ? ingredientImportPriceMultiplier(defaultPrice.sourceScope)
+                    : 1;
                   return (
                     <tr key={row.key} className="border-t border-hairline">
                       <td className="px-3 py-2.5">
@@ -335,7 +339,10 @@ export function FeedFormulationWorkbench({
                             className="mt-1 text-[11px] leading-4 text-ink-faint"
                             title={defaultPrice.note}
                           >
-                            Default: {defaultPrice.market} · {defaultPrice.asOf}
+                            Default: {defaultPrice.market}
+                            {importMultiplier > 1 ? ` · ×${importMultiplier.toFixed(2)} import` : ""}
+                            {" · "}
+                            {defaultPrice.asOf}
                           </div>
                         ) : null}
                       </td>
