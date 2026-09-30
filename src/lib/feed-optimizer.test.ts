@@ -11,6 +11,7 @@ import {
   suggestFormulationIngredients,
 } from "./feed-optimizer";
 import { nutritionPhaseAtWeight } from "./nutrition";
+import { ingredientDefaultPricePerKg } from "./feed-ingredient-prices";
 
 function ingredient(
   id: string,
@@ -172,6 +173,36 @@ describe("least-cost feed optimizer", () => {
         "l-isoleucine",
       ]),
     );
+  });
+
+  it("uses valine to avoid excessive soybean meal in the first pre-starter phase", async () => {
+    const phase = nutritionPhaseAtWeight(5);
+    const suggestion = await suggestFormulationIngredients(phase, "ME");
+
+    expect(suggestion.status).toBe("suggested");
+    if (suggestion.status !== "suggested") return;
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      suggestion.ingredientIds.map((ingredientId) => ({
+        ingredientId,
+        pricePerKg: ingredientDefaultPricePerKg(ingredientId)!,
+      })),
+    );
+
+    expect(result.status).toBe("optimal");
+    if (result.status !== "optimal") return;
+
+    const valine = result.solution.formula.ingredients.find(
+      (row) => row.ingredientId === "l-valine",
+    );
+    const soybeanMealPct = result.solution.formula.ingredients
+      .filter((row) => row.ingredientId.startsWith("soybean-meal-"))
+      .reduce((sum, row) => sum + row.inclusionPct, 0);
+
+    expect(valine?.inclusionPct).toBeGreaterThan(0.1);
+    expect(soybeanMealPct).toBeLessThan(50);
   });
 
   it("minimizes ingredient cost while keeping Brazilian requirements hard", async () => {
