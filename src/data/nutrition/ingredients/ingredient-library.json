@@ -413,7 +413,9 @@
         "ashPct": 5.97,
         "starchPct": 2.03,
         "neutralDetergentFibrePct": 36.82,
-        "acidDetergentFibrePct": 28.67
+        "acidDetergentFibrePct": 28.67,
+        "digestibleProteinPct": 27.9,
+        "linoleicAcidPct": 1.03
       },
       "energy": {
         "digestibleKcalKg": 2010,
@@ -458,7 +460,9 @@
         "sodiumPct": 0.02,
         "chloridePct": 0.1,
         "potassiumPct": 1.07,
-        "magnesiumPct": 0.68
+        "magnesiumPct": 0.68,
+        "availablePhosphorusPct": 0.32,
+        "sttdPhosphorusPct": 0.25
       },
       "traceMineralsPpm": {
         "copper": 26,
@@ -479,7 +483,45 @@
         "notes": [
           "IFN 5-30-032",
           "As-fed mean values from NRC 2012."
-        ]
+        ],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sunflower Meal, swine SID crude protein, Table 1.01 pp. 189–190."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sunflower Meal linoleic acid, Table 1.01 p. 189."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sunflower Meal available phosphorus, Table 1.01 p. 189."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sunflower Meal standardized digestible phosphorus for swine, Table 1.01 p. 189."
+          }
+        }
       }
     },
     {
@@ -497,7 +539,9 @@
         "ashPct": 4.16,
         "starchPct": 22.56,
         "neutralDetergentFibrePct": 32.28,
-        "acidDetergentFibrePct": 11
+        "acidDetergentFibrePct": 11,
+        "digestibleProteinPct": 11.7,
+        "linoleicAcidPct": 1.54
       },
       "energy": {
         "digestibleKcalKg": 2420,
@@ -542,7 +586,9 @@
         "sodiumPct": 0.04,
         "chloridePct": 0.07,
         "potassiumPct": 1.26,
-        "magnesiumPct": 0.52
+        "magnesiumPct": 0.52,
+        "availablePhosphorusPct": 0.49,
+        "sttdPhosphorusPct": 0.49
       },
       "traceMineralsPpm": {
         "copper": 14,
@@ -561,7 +607,45 @@
         "notes": [
           "IFN 4-05-190",
           "As-fed mean values from NRC 2012."
-        ]
+        ],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Wheat Bran, swine SID crude protein, Table 1.01 pp. 197–198."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Wheat Bran linoleic acid, Table 1.01 p. 197."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Wheat Bran available phosphorus, Table 1.01 p. 197."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Wheat Bran standardized digestible phosphorus for swine, Table 1.01 p. 197."
+          }
+        }
       }
     },
     {
@@ -585,7 +669,9 @@
         "sodiumPct": 0.06,
         "chloridePct": 0.02,
         "potassiumPct": 0.11,
-        "magnesiumPct": 2.06
+        "magnesiumPct": 2.06,
+        "availablePhosphorusPct": 0,
+        "sttdPhosphorusPct": 0
       },
       "traceMineralsPpm": {},
       "constraints": {
@@ -598,7 +684,25 @@
         "notes": [
           "IFN 6-02-632",
           "NRC notes that most calcitic limestones contain 38% or more calcium; supplier analysis should be preferred when available."
-        ]
+        ],
+        "nutrientSources": {
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials — Limestone",
+            "url": "https://www.feedtables.com/content/limestone",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "FeedTables reports phosphorus as 0 for feed limestone; available phosphorus is explicitly zero."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials — Limestone",
+            "url": "https://www.feedtables.com/content/limestone",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "FeedTables reports phosphorus as 0 for feed limestone; standardized digestible phosphorus is explicitly zero."
+          }
+        }
       }
     },
     {
@@ -624,7 +728,8 @@
         "chloridePct": 0.47,
         "potassiumPct": 0.15,
         "magnesiumPct": 0.5,
-        "availablePhosphorusPct": 18.5
+        "availablePhosphorusPct": 18.5,
+        "sttdPhosphorusPct": 13.9
       },
       "traceMineralsPpm": {},
       "constraints": {
@@ -647,6 +752,15 @@
             "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
             "priority": "primary",
             "note": "Brazilian Tables 2024 Table 1.10 inorganic mineral source value."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.10 inorganic mineral sources",
+            "priority": "primary",
+            "note": "Dicalcium phosphate digestible phosphorus for swine: 13.9% (75.0% coefficient)."
           }
         }
       }
@@ -1058,7 +1172,9 @@
         "sodiumPct": 0.08,
         "chloridePct": 0.02,
         "magnesiumPct": 1.61,
-        "potassiumPct": 0.08
+        "potassiumPct": 0.08,
+        "availablePhosphorusPct": 0,
+        "sttdPhosphorusPct": 0
       },
       "traceMineralsPpm": {
         "iron": 600,
@@ -1080,7 +1196,25 @@
           "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
           "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
         },
-        "notes": []
+        "notes": [],
+        "nutrientSources": {
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials — Limestone",
+            "url": "https://www.feedtables.com/content/limestone",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "FeedTables reports phosphorus as 0 for feed limestone; available phosphorus is explicitly zero."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "INRAE–CIRAD–AFZ",
+            "title": "Tables of composition and nutritional values of feed materials — Limestone",
+            "url": "https://www.feedtables.com/content/limestone",
+            "basis": "As-fed",
+            "priority": "fallback",
+            "note": "FeedTables reports phosphorus as 0 for feed limestone; standardized digestible phosphorus is explicitly zero."
+          }
+        }
       }
     },
     {
@@ -1112,7 +1246,8 @@
         "magnesiumPct": 0.48,
         "potassiumPct": 0.23,
         "chloridePct": 0.01,
-        "availablePhosphorusPct": 22
+        "availablePhosphorusPct": 22,
+        "sttdPhosphorusPct": 16.4
       },
       "traceMineralsPpm": {
         "iron": 6132,
@@ -1277,6 +1412,15 @@
             "basis": "As-fed; swine SID crude protein and Table 1.01 composition",
             "priority": "primary",
             "note": "Brazilian Tables 2024 Table 1.10 inorganic mineral source value."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.10 inorganic mineral sources",
+            "priority": "primary",
+            "note": "Monocalcium phosphate digestible phosphorus for swine: 16.4% (78.2% coefficient)."
           }
         }
       }
@@ -2831,7 +2975,9 @@
         "crudeFibrePct": 2.6,
         "starchPct": 55.5,
         "neutralDetergentFibrePct": 13.5,
-        "acidDetergentFibrePct": 3.7
+        "acidDetergentFibrePct": 3.7,
+        "digestibleProteinPct": 12.3,
+        "linoleicAcidPct": 0.68
       },
       "energy": {
         "digestibleKcalKg": 3364,
@@ -2875,7 +3021,9 @@
         "sodiumPct": 0.01,
         "chloridePct": 0.06,
         "magnesiumPct": 0.13,
-        "potassiumPct": 0.49
+        "potassiumPct": 0.49,
+        "availablePhosphorusPct": 0.08,
+        "sttdPhosphorusPct": 0.15
       },
       "traceMineralsPpm": {
         "copper": 6,
@@ -2900,7 +3048,45 @@
           "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
           "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
         },
-        "notes": []
+        "notes": [],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Mapped from Brazilian Tables generic Wheat, Grain to the canonical hard-red-winter planning record; swine SID crude protein, Table 1.01 pp. 207–208."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Mapped from Brazilian Tables generic Wheat, Grain to the canonical hard-red-winter planning record; linoleic acid, Table 1.01 p. 207."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Mapped from Brazilian Tables generic Wheat, Grain to the canonical hard-red-winter planning record; available phosphorus, Table 1.01 p. 207."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Mapped from Brazilian Tables generic Wheat, Grain to the canonical hard-red-winter planning record; standardized digestible phosphorus for swine, Table 1.01 p. 207."
+          }
+        }
       }
     },
     {
@@ -2918,7 +3104,9 @@
         "crudeFibrePct": 2.2,
         "starchPct": 64.1,
         "neutralDetergentFibrePct": 18,
-        "acidDetergentFibrePct": 8.3
+        "acidDetergentFibrePct": 8.3,
+        "digestibleProteinPct": 7.07,
+        "linoleicAcidPct": 1.05
       },
       "energy": {
         "digestibleKcalKg": 3386,
@@ -2962,7 +3150,9 @@
         "sodiumPct": 0.01,
         "chloridePct": 0.09,
         "magnesiumPct": 0.15,
-        "potassiumPct": 0.35
+        "potassiumPct": 0.35,
+        "availablePhosphorusPct": 0.07,
+        "sttdPhosphorusPct": 0.08
       },
       "traceMineralsPpm": {
         "copper": 5,
@@ -2987,7 +3177,45 @@
           "url": "https://porkgateway.org/resource/national-swine-nutrition-guide-tables-on-nutrient-recommendations-ingredient-composition-and-use-rates/",
           "basis": "As-fed; supplemental catalogue source distinct from NRC 2012"
         },
-        "notes": []
+        "notes": [],
+        "nutrientSources": {
+          "composition.digestibleProteinPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sorghum Grain, swine SID crude protein, Table 1.01 pp. 147–148."
+          },
+          "composition.linoleicAcidPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sorghum Grain linoleic acid, Table 1.01 p. 147."
+          },
+          "macroMinerals.availablePhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sorghum Grain available phosphorus, Table 1.01 p. 147."
+          },
+          "macroMinerals.sttdPhosphorusPct": {
+            "publisher": "Universidade Federal de Viçosa",
+            "title": "Brazilian Tables for Poultry and Swine — 5th Edition",
+            "year": 2024,
+            "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+            "basis": "As-fed; Brazilian Tables 2024 Table 1.01 unless otherwise noted",
+            "priority": "primary",
+            "note": "Sorghum Grain standardized digestible phosphorus for swine, Table 1.01 p. 147."
+          }
+        }
       }
     },
     {
