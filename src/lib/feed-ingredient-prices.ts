@@ -15,6 +15,17 @@ export type IngredientDefaultPrice = {
   note?: string;
 };
 
+export const REGIONAL_IMPORT_PRICE_MULTIPLIER = 1.15;
+export const GLOBAL_IMPORT_PRICE_MULTIPLIER = 1.3;
+
+export function ingredientImportPriceMultiplier(
+  sourceScope: IngredientPriceSourceScope,
+): number {
+  if (sourceScope === "regional") return REGIONAL_IMPORT_PRICE_MULTIPLIER;
+  if (sourceScope === "global-fallback") return GLOBAL_IMPORT_PRICE_MULTIPLIER;
+  return 1;
+}
+
 /**
  * Planning defaults, not executable procurement quotes.
  *
@@ -217,9 +228,17 @@ export function ingredientDefaultPrice(
   return INGREDIENT_DEFAULT_PRICES.find((price) => price.ingredientId === ingredientId);
 }
 
-export function ingredientDefaultPricePerKg(
+export function ingredientDefaultPlanningPricePerTonne(
   ingredientId: string,
 ): number | undefined {
   const price = ingredientDefaultPrice(ingredientId);
-  return price ? price.usdPerTonne / 1000 : undefined;
+  if (!price) return undefined;
+  return price.usdPerTonne * ingredientImportPriceMultiplier(price.sourceScope);
+}
+
+export function ingredientDefaultPricePerKg(
+  ingredientId: string,
+): number | undefined {
+  const pricePerTonne = ingredientDefaultPlanningPricePerTonne(ingredientId);
+  return pricePerTonne === undefined ? undefined : pricePerTonne / 1000;
 }
