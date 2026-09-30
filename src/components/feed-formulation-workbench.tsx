@@ -16,6 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   ingredientDefaultPrice,
   ingredientDefaultPricePerKg,
   ingredientImportPriceMultiplier,
@@ -78,11 +84,19 @@ export function FeedFormulationWorkbench({
   const [requestError, setRequestError] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("setup");
+  const [selectedRecipeId, setSelectedRecipeId] = useState("least-cost");
 
   const ingredientById = useMemo(
     () => new Map(ingredients.map((ingredient) => [ingredient.id, ingredient])),
     [ingredients],
   );
+
+  useEffect(() => {
+    if (!result && activeTab !== "setup") {
+      setActiveTab("setup");
+    }
+  }, [result, activeTab]);
 
   const availableToAdd = ingredients.filter(
     (ingredient) => !rows.some((row) => row.ingredientId === ingredient.id),
@@ -241,6 +255,8 @@ export function FeedFormulationWorkbench({
         throw new Error(payload.message ?? "Formulation request failed.");
       }
       setResult(payload);
+      setSelectedRecipeId("least-cost");
+      setActiveTab("recipes");
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -250,7 +266,22 @@ export function FeedFormulationWorkbench({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList variant="line" className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="setup">Setup</TabsTrigger>
+          <TabsTrigger value="recipes" disabled={!result}>
+            Recipes
+          </TabsTrigger>
+          <TabsTrigger value="opportunities" disabled={result?.status !== "optimal"}>
+            Opportunities
+          </TabsTrigger>
+          <TabsTrigger value="nutrition" disabled={result?.status !== "optimal"}>
+            Nutrition
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="setup" className="mt-4">
+          <Card>
         <CardHeader>
           <CardTitle>Least-cost formulation</CardTitle>
           <CardDescription>
@@ -435,9 +466,32 @@ export function FeedFormulationWorkbench({
             </div>
           ) : null}
         </CardContent>
-      </Card>
+          </Card>
+        </TabsContent>
 
-      {result ? <ResultPanel result={result} ingredientById={ingredientById} /> : null}
+        <TabsContent value="recipes" className="mt-4">
+          {result ? (
+            <ResultPanel
+              result={result}
+              ingredientById={ingredientById}
+              selectedRecipeId={selectedRecipeId}
+              onSelectedRecipeChange={setSelectedRecipeId}
+            />
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="opportunities" className="mt-4">
+          {result?.status === "optimal" ? (
+            <OpportunitiesPanel result={result} ingredientById={ingredientById} />
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="nutrition" className="mt-4">
+          {result?.status === "optimal" ? (
+            <NutritionPanel result={result} selectedRecipeId={selectedRecipeId} />
+          ) : null}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -445,11 +499,14 @@ export function FeedFormulationWorkbench({
 function ResultPanel({
   result,
   ingredientById,
+  selectedRecipeId,
+  onSelectedRecipeChange,
 }: {
   result: LeastCostFormulationResult;
   ingredientById: Map<string, IngredientOption>;
+  selectedRecipeId: string;
+  onSelectedRecipeChange: (recipeId: string) => void;
 }) {
-  const [selectedRecipeId, setSelectedRecipeId] = useState("least-cost");
 
   if (result.status === "optimal") {
     const recipes = [
@@ -503,7 +560,7 @@ function ResultPanel({
                   <button
                     key={recipe.id}
                     type="button"
-                    onClick={() => setSelectedRecipeId(recipe.id)}
+                    onClick={() => onSelectedRecipeChange(recipe.id)}
                     className={`rounded-lg border p-3 text-left transition-colors ${
                       selectedRecipe.id === recipe.id
                         ? "border-brand bg-brand/5"
@@ -532,12 +589,6 @@ function ResultPanel({
 
           <FormulaTable
             rows={selectedRecipe.solution.formula.ingredients}
-            ingredientById={ingredientById}
-          />
-
-          <IngredientOpportunitiesTable
-            opportunities={result.ingredientOpportunities}
-            tolerances={result.ingredientOpportunityCostTolerancesPct}
             ingredientById={ingredientById}
           />
 
@@ -620,11 +671,124 @@ function ResultPanel({
   );
 }
 
+function OpportunitiesPanel({
+  result,
+  ingredientById,
+}: {
+  result: Extract<LeastCostFormulationResult, { status: "optimal" }>;
+  ingredientById: Map<string, IngredientOption>;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Ingredient opportunities</CardTitle>
+        <CardDescription>
+          Explore ingredients that are absent from the least-cost recipe and see how much can be
+          introduced within the selected cost bands.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <IngredientOpportunitiesTable
+          opportunities={result.ingredientOpportunities}
+          tolerances={result.ingredientOpportunityCostTolerancesPct}
+          ingredientById={ingredientById}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function NutritionPanel({
+  result,
+  selectedRecipeId,
+}: {
+  result: Extract<LeastCostFormulationResult, { status: "optimal" }>;
+  selectedRecipeId: string;
+}) {
+  const selectedAlternative = result.alternatives.find(
+    (alternative) => alternative.id === selectedRecipeId,
+  );
+  const recipeLabel =
+    selectedRecipeId === "least-cost"
+      ? "Least cost"
+      : selectedAlternative?.label ?? "Least cost";
+  const profile =
+    selectedRecipeId === "least-cost"
+      ? result.nutrientProfile
+      : selectedAlternative?.nutrientProfile ?? result.nutrientProfile;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>{recipeLabel} · nutritional profile</CardTitle>
+          <Badge variant="secondary">Hard constraints satisfied</Badge>
+        </div>
+        <CardDescription>
+          Requirement versus actual nutrient density for the recipe currently selected in the
+          Recipes tab.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <NutrientProfileTable profile={profile} />
+      </CardContent>
+    </Card>
+  );
+}
+
 function formatNutrientValue(value: number, unit: string): string {
   if (unit === "kcal/kg") return value.toFixed(0);
   if (unit === "%") return value.toFixed(3);
   if (unit === "ppm") return value.toFixed(2);
   return value.toFixed(3);
+}
+
+function NutrientProfileTable({
+  profile,
+}: {
+  profile: readonly FormulationNutrientComparison[];
+}) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-hairline">
+      <table className="w-full min-w-[720px] text-sm">
+        <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
+          <tr>
+            <th className="px-3 py-2.5">Nutrient</th>
+            <th className="px-3 py-2.5 text-right">Requirement</th>
+            <th className="px-3 py-2.5 text-right">Actual</th>
+            <th className="px-3 py-2.5 text-right">Margin</th>
+            <th className="px-3 py-2.5 text-right">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {profile.map((row) => (
+            <tr key={row.id} className="border-t border-hairline">
+              <td className="px-3 py-2.5 text-ink">{row.label}</td>
+              <td className="px-3 py-2.5 text-right text-ink-muted">
+                {row.relation === "min" ? "≥" : "≤"}{" "}
+                {formatNutrientValue(row.requirement, row.unit)} {row.unit}
+              </td>
+              <td className="px-3 py-2.5 text-right font-medium text-ink">
+                {formatNutrientValue(row.actual, row.unit)} {row.unit}
+              </td>
+              <td className="px-3 py-2.5 text-right text-ink-muted">
+                {row.margin >= 0 ? "+" : ""}
+                {formatNutrientValue(row.margin, row.unit)}
+                {row.marginPct === null
+                  ? ""
+                  : ` (${row.marginPct >= 0 ? "+" : ""}${row.marginPct.toFixed(1)}%)`}
+              </td>
+              <td className="px-3 py-2.5 text-right">
+                <Badge variant="secondary">
+                  {row.binding ? "Binding" : "Satisfied"}
+                </Badge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function NutrientProfileDialog({
@@ -651,45 +815,7 @@ function NutrientProfileDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 overflow-auto px-5 pb-5">
-          <div className="overflow-hidden rounded-lg border border-hairline">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
-                <tr>
-                  <th className="px-3 py-2.5">Nutrient</th>
-                  <th className="px-3 py-2.5 text-right">Requirement</th>
-                  <th className="px-3 py-2.5 text-right">Actual</th>
-                  <th className="px-3 py-2.5 text-right">Margin</th>
-                  <th className="px-3 py-2.5 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {profile.map((row) => (
-                  <tr key={row.id} className="border-t border-hairline">
-                    <td className="px-3 py-2.5 text-ink">{row.label}</td>
-                    <td className="px-3 py-2.5 text-right text-ink-muted">
-                      {row.relation === "min" ? "≥" : "≤"}{" "}
-                      {formatNutrientValue(row.requirement, row.unit)} {row.unit}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-medium text-ink">
-                      {formatNutrientValue(row.actual, row.unit)} {row.unit}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-ink-muted">
-                      {row.margin >= 0 ? "+" : ""}
-                      {formatNutrientValue(row.margin, row.unit)}
-                      {row.marginPct === null
-                        ? ""
-                        : ` (${row.marginPct >= 0 ? "+" : ""}${row.marginPct.toFixed(1)}%)`}
-                    </td>
-                    <td className="px-3 py-2.5 text-right">
-                      <Badge variant="secondary">
-                        {row.binding ? "Binding" : "Satisfied"}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <NutrientProfileTable profile={profile} />
         </div>
       </DialogContent>
     </Dialog>
