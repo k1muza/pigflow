@@ -205,6 +205,55 @@ describe("least-cost feed optimizer", () => {
     expect(soybeanMealPct).toBeLessThan(50);
   });
 
+  it("returns near-optimal alternatives inside the configured cost ceiling", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const target = phase.requirements.crudeProteinPct;
+    const library = loadIngredientLibrary({
+      ...INGREDIENT_LIBRARY,
+      ingredients: [
+        ingredient("soybean-meal-test", "Soybean meal test", target + 8),
+        ingredient("local-alternative", "Local alternative", target + 8),
+      ],
+    });
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      [
+        { ingredientId: "soybean-meal-test", pricePerKg: 0.5 },
+        { ingredientId: "local-alternative", pricePerKg: 0.51 },
+      ],
+      library,
+    );
+
+    expect(result.status).toBe("optimal");
+    if (result.status !== "optimal") return;
+
+    expect(result.alternativeCostTolerancePct).toBe(3);
+    expect(result.alternatives.length).toBeGreaterThan(0);
+    for (const alternative of result.alternatives) {
+      expect(alternative.solution.costPerKg).toBeLessThanOrEqual(
+        result.solution.costPerKg * 1.03 + 1e-8,
+      );
+    }
+
+    const lowSoy = result.alternatives.find(
+      (alternative) => alternative.id === "low-soy",
+    );
+    expect(lowSoy).toBeDefined();
+    expect(
+      lowSoy?.solution.formula.ingredients.some(
+        (row) => row.ingredientId === "soybean-meal-test",
+      ),
+    ).toBe(false);
+    expect(
+      lowSoy?.solution.formula.ingredients.find(
+        (row) => row.ingredientId === "local-alternative",
+      )?.inclusionPct,
+    ).toBeCloseTo(100, 5);
+    expect(lowSoy?.costIncreasePct).toBeCloseTo(2, 5);
+  });
+
   it("minimizes ingredient cost while keeping Brazilian requirements hard", async () => {
     const phase = nutritionPhaseAtWeight(30);
     const target = phase.requirements.crudeProteinPct;
