@@ -22,7 +22,8 @@
         "digestible": 4808,
         "standardizedMetabolizable": 4546,
         "net": 3523
-      }
+      },
+      "digestibleProteinEquivalentPct": 84.1796
     },
     {
       "id": "methionine",
@@ -37,7 +38,8 @@
         "digestible": 5656,
         "standardizedMetabolizable": 5477,
         "net": 4244
-      }
+      },
+      "digestibleProteinEquivalentPct": 58.3766
     },
     {
       "id": "threonine",
@@ -51,7 +53,8 @@
         "digestible": 4039,
         "standardizedMetabolizable": 3815,
         "net": 2957
-      }
+      },
+      "digestibleProteinEquivalentPct": 71.1383
     },
     {
       "id": "tryptophan",
@@ -65,7 +68,8 @@
         "digestible": 6441,
         "standardizedMetabolizable": 6179,
         "net": 4789
-      }
+      },
+      "digestibleProteinEquivalentPct": 84.8727
     },
     {
       "id": "valine",
@@ -78,7 +82,8 @@
         "digestible": 5755,
         "standardizedMetabolizable": 5527,
         "net": 4283
-      }
+      },
+      "digestibleProteinEquivalentPct": 71.3671
     },
     {
       "id": "isoleucine",
@@ -91,7 +96,8 @@
         "digestible": 6413,
         "standardizedMetabolizable": 6210,
         "net": 4813
-      }
+      },
+      "digestibleProteinEquivalentPct": 64.8045
     }
   ]
 }
