@@ -732,7 +732,10 @@ function costIncreasePct(
   optimum: FormulationSolution,
 ): number {
   if (optimum.costPerKg <= 0) return 0;
-  return ((alternative.costPerKg / optimum.costPerKg) - 1) * 100;
+  return Math.max(
+    0,
+    ((alternative.costPerKg / optimum.costPerKg) - 1) * 100,
+  );
 }
 
 function importBurden(ingredientId: string): number {
