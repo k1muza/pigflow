@@ -55,6 +55,8 @@ describe("feed ingredient default prices", () => {
       "dl-methionine",
       "l-threonine",
       "l-tryptophan",
+      "l-valine",
+      "l-isoleucine",
     ];
 
     for (const ingredientId of ingredientIds) {
@@ -92,6 +94,14 @@ describe("feed ingredient default prices", () => {
     );
     expect(ingredientDefaultPricePerKg("l-threonine")).toBeCloseTo(
       1.638,
+      6,
+    );
+    expect(ingredientDefaultPricePerKg("l-valine")).toBeCloseTo(
+      2.574,
+      6,
+    );
+    expect(ingredientDefaultPricePerKg("l-isoleucine")).toBeCloseTo(
+      8.84,
       6,
     );
   });
