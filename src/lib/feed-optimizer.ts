@@ -11,6 +11,7 @@ import {
   INGREDIENT_LIBRARY,
   type IngredientLibrary,
 } from "./ingredient-nutrients";
+import { ingredientDefaultPricePerKg } from "./feed-ingredient-prices";
 import { resolveNutritionTargets, type EnergySystem } from "./nutrition-targets";
 import type { NutritionPhase } from "./nutrition";
 
@@ -73,6 +74,10 @@ export type LeastCostFormulationResult =
       unsupportedRequirements: FormulationUnsupportedRequirement[];
       message: string;
     };
+
+export type FormulationIngredientPriceResolver = (
+  ingredientId: string,
+) => number | undefined;
 
 export type FormulationIngredientSuggestionResult =
   | {
@@ -200,27 +205,40 @@ export async function formulateLeastCostDiet(
 }
 
 /**
- * Build a phase-aware starter basket without assuming local ingredient prices.
+ * Build a phase-aware priced candidate basket for the formulation workbench.
  *
- * Candidates missing any nutrient value required by the strict LP are excluded.
- * The remaining ingredients are assigned the same synthetic price, so GLPK is
- * only asked for a feasible basic solution. The returned ingredient IDs are
- * therefore a starting basket for the workbench, not a least-cost recommendation.
+ * Candidates must have both:
+ * - complete data for every hard nutrient constraint; and
+ * - a planning price.
+ *
+ * GLPK uses those planning prices to verify that the candidate pool contains a
+ * feasible least-cost solution. We deliberately retain every other complete,
+ * priced candidate as an alternative instead of collapsing the workbench to
+ * the ingredients used by that one default-price optimum. This lets the final
+ * formulation react when the farmer edits prices.
  */
 export async function suggestFormulationIngredients(
   phase: NutritionPhase,
   energySystem: EnergySystem,
   library: IngredientLibrary = INGREDIENT_LIBRARY,
+  priceForIngredient: FormulationIngredientPriceResolver = ingredientDefaultPricePerKg,
 ): Promise<FormulationIngredientSuggestionResult> {
   const unsupportedRequirements = unsupportedRequirementsForPhase(phase);
 
   try {
     const constraints = buildConstraintSpecs(phase, energySystem);
-    const options: FormulationIngredientOption[] = library.ingredients.map(
-      (ingredient) => ({
-        ingredientId: ingredient.id,
-        pricePerKg: 1,
-      }),
+    const options: FormulationIngredientOption[] = library.ingredients.flatMap(
+      (ingredient) => {
+        const pricePerKg = priceForIngredient(ingredient.id);
+        if (
+          pricePerKg === undefined ||
+          !Number.isFinite(pricePerKg) ||
+          pricePerKg < 0
+        ) {
+          return [];
+        }
+        return [{ ingredientId: ingredient.id, pricePerKg }];
+      },
     );
     const prepared = prepareIngredients(options, constraints, library).filter(
       (ingredient) =>
@@ -235,7 +253,7 @@ export async function suggestFormulationIngredients(
         candidateCount: 0,
         unsupportedRequirements,
         message:
-          "No loaded ingredient has complete data for every modeled formulation constraint.",
+          "No loaded ingredient has both a planning price and complete data for every modeled formulation constraint.",
       };
     }
 
@@ -247,16 +265,22 @@ export async function suggestFormulationIngredients(
         candidateCount: prepared.length,
         unsupportedRequirements,
         message:
-          "No feasible starter basket could be found from ingredients with complete modeled nutrient data.",
+          "No feasible starter basket could be found from the complete, priced ingredient pool.",
       };
     }
 
     const solution = buildSolution(strict.vars, prepared, library);
+    const usedIngredientIds = solution.formula.ingredients.map(
+      (ingredient) => ingredient.ingredientId,
+    );
+    const used = new Set(usedIngredientIds);
+    const alternativeIngredientIds = prepared
+      .map((ingredient) => ingredient.option.ingredientId)
+      .filter((ingredientId) => !used.has(ingredientId));
+
     return {
       status: "suggested",
-      ingredientIds: solution.formula.ingredients.map(
-        (ingredient) => ingredient.ingredientId,
-      ),
+      ingredientIds: [...usedIngredientIds, ...alternativeIngredientIds],
       candidateCount: prepared.length,
       unsupportedRequirements,
     };
