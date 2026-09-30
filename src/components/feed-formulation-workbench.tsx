@@ -244,9 +244,9 @@ export function FeedFormulationWorkbench({
         <CardHeader>
           <CardTitle>Least-cost formulation</CardTitle>
           <CardDescription>
-            Choose the Brazilian requirement phase and energy basis. PigFlow suggests a feasible
-            starter basket from ingredients with complete modeled nutrient data; you can then add or
-            remove ingredients and enter current local prices per kg before optimization.
+            Choose the Brazilian requirement phase and energy basis. PigFlow loads a priced,
+            nutritionally complete candidate pool, putting the default-price least-cost ingredients
+            first while retaining alternatives so edited prices can change the final formula.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -297,7 +297,7 @@ export function FeedFormulationWorkbench({
 
           {suggesting ? (
             <div className="rounded-lg border border-hairline bg-raised/30 px-4 py-3 text-sm text-ink-muted">
-              Finding a feasible starter basket for this requirement phase…
+              Building the priced candidate pool for this requirement phase…
             </div>
           ) : null}
 
@@ -414,7 +414,7 @@ export function FeedFormulationWorkbench({
 
           {suggestionError ? (
             <div className="rounded-lg border border-hairline bg-raised/30 p-3 text-sm text-ink-muted">
-              PigFlow could not build an automatic starter basket: {suggestionError} You can still
+              PigFlow could not build an automatic candidate pool: {suggestionError} You can still
               add ingredients manually.
             </div>
           ) : null}
