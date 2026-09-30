@@ -642,7 +642,7 @@ function NutrientProfileDialog({
           Compare nutrition
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-4xl overflow-hidden">
+      <DialogContent className="max-h-[85vh] max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
         <DialogHeader className="px-5 pt-5">
           <DialogTitle>{recipeLabel} · nutritional profile</DialogTitle>
           <DialogDescription>
@@ -650,7 +650,7 @@ function NutrientProfileDialog({
             A binding row is sitting effectively on its requirement.
           </DialogDescription>
         </DialogHeader>
-        <div className="overflow-auto px-5 pb-5">
+        <div className="min-h-0 overflow-auto px-5 pb-5">
           <div className="overflow-hidden rounded-lg border border-hairline">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
