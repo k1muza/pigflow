@@ -70,10 +70,16 @@ export type FormulationNutrientComparison = {
   binding: boolean;
 };
 
+export type IngredientOpportunityRecipe = {
+  formula: DietFormula;
+  costPerKg: number;
+};
+
 export type IngredientOpportunityPoint = {
   costTolerancePct: number;
   maxInclusionPct: number;
   resultingCostPerKg: number;
+  recipe: IngredientOpportunityRecipe;
 };
 
 export type IngredientOpportunity = {
@@ -957,6 +963,10 @@ async function buildIngredientOpportunities(
         costTolerancePct,
         maxInclusionPct,
         resultingCostPerKg: solution.costPerKg,
+        recipe: {
+          formula: solution.formula,
+          costPerKg: solution.costPerKg,
+        },
       });
     }
 
