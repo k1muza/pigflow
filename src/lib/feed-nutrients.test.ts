@@ -78,6 +78,12 @@ describe("feed nutrient catalogue", () => {
     expect(abundantIngredientsForNutrient("sodium")[0]?.ingredientId).toBe(
       "sodium-chloride",
     );
+    expect(abundantIngredientsForNutrient("linoleic-acid")[0]).toMatchObject({
+      ingredientId: "corn-oil",
+      value: 51.9,
+      unit: "%",
+    });
+    expect(abundantIngredientsForNutrient("digestible-protein")[0]?.value).toBeGreaterThan(40);
   });
 
   it("returns no abundance rows when the current ingredient library has no data", () => {
