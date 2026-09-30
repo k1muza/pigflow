@@ -16,7 +16,7 @@ describe("ingredient nutrient JSON library", () => {
     expect(INGREDIENT_LIBRARY.source.edition).toBe("11th Revised Edition");
     expect(INGREDIENT_LIBRARY.source.year).toBe(2012);
     expect(INGREDIENT_LIBRARY.source.chapter).toBe("17 — Feed Ingredient Composition");
-    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(48);
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(50);
   });
 
   it("has unique ingredient ids and includes the core formulation ingredient classes", () => {
@@ -35,6 +35,8 @@ describe("ingredient nutrient JSON library", () => {
         "dl-methionine",
         "l-threonine",
         "l-tryptophan",
+        "l-valine",
+        "l-isoleucine",
         "vitamin-trace-mineral-premix",
         "corn-ddgs-low-oil",
         "wheat-middlings",
@@ -121,6 +123,22 @@ describe("ingredient nutrient JSON library", () => {
     expect(
       nutrientValueSource(lysine!, "composition.digestibleProteinPct")?.basis,
     ).toMatch(/as-fed/i);
+  });
+
+  it("loads crystalline valine and isoleucine on an as-fed SID basis", () => {
+    const valine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "l-valine",
+    );
+    const isoleucine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "l-isoleucine",
+    );
+
+    expect(valine?.composition.digestibleProteinPct).toBeCloseTo(70.2966, 4);
+    expect(isoleucine?.composition.digestibleProteinPct).toBeCloseTo(64.6749, 4);
+    expect(sidAminoAcidPct(valine!, "valine")).toBe(96.5);
+    expect(sidAminoAcidPct(isoleucine!, "isoleucine")).toBe(91.7);
+    expect(valine?.energy.metabolizableKcalKg).toBe(5480);
+    expect(isoleucine?.energy.metabolizableKcalKg).toBe(6400);
   });
 
   it("uses explicit SID concentration for crystalline lysine", () => {
