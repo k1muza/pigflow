@@ -58,22 +58,51 @@ export type FormulationAlternativeKind =
   | "low-import"
   | "simple";
 
+export type FormulationNutrientComparison = {
+  id: string;
+  label: string;
+  unit: string;
+  relation: "min" | "max";
+  requirement: number;
+  actual: number;
+  margin: number;
+  marginPct: number | null;
+  binding: boolean;
+};
+
+export type IngredientOpportunityPoint = {
+  costTolerancePct: number;
+  maxInclusionPct: number;
+  resultingCostPerKg: number;
+};
+
+export type IngredientOpportunity = {
+  ingredientId: string;
+  currentInclusionPct: number;
+  points: IngredientOpportunityPoint[];
+};
+
 export type FormulationAlternative = {
   id: FormulationAlternativeKind;
   label: string;
   description: string;
   solution: FormulationSolution;
+  nutrientProfile: FormulationNutrientComparison[];
   costIncreasePct: number;
 };
 
 export const ALTERNATIVE_COST_TOLERANCE_PCT = 3;
+export const INGREDIENT_OPPORTUNITY_COST_TOLERANCES_PCT = [1, 2, 3] as const;
 
 export type LeastCostFormulationResult =
   | {
       status: "optimal";
       solution: FormulationSolution;
+      nutrientProfile: FormulationNutrientComparison[];
       alternatives: FormulationAlternative[];
+      ingredientOpportunities: IngredientOpportunity[];
       alternativeCostTolerancePct: number;
+      ingredientOpportunityCostTolerancesPct: readonly number[];
       unsupportedRequirements: FormulationUnsupportedRequirement[];
     }
   | {
@@ -195,11 +224,22 @@ export async function formulateLeastCostDiet(
         solution,
         library,
       );
+      const ingredientOpportunities = await buildIngredientOpportunities(
+        glpk,
+        prepared,
+        constraints,
+        solution,
+        library,
+      );
       return {
         status: "optimal",
         solution,
+        nutrientProfile: buildNutrientProfile(solution.analysis, constraints),
         alternatives,
+        ingredientOpportunities,
         alternativeCostTolerancePct: ALTERNATIVE_COST_TOLERANCE_PCT,
+        ingredientOpportunityCostTolerancesPct:
+          INGREDIENT_OPPORTUNITY_COST_TOLERANCES_PCT,
         unsupportedRequirements,
       };
     }
@@ -727,6 +767,41 @@ async function solveAlternativeObjective(
   return { status: "optimal", vars: result.result.vars };
 }
 
+function buildNutrientProfile(
+  analysis: DietAnalysis,
+  constraints: readonly ConstraintSpec[],
+): FormulationNutrientComparison[] {
+  return constraints.flatMap((constraint) => {
+    const measure = constraint.measure(analysis);
+    if (!measure.complete) return [];
+
+    const actual = measure.value;
+    const margin =
+      constraint.relation === "min"
+        ? actual - constraint.bound
+        : constraint.bound - actual;
+    const scale = Math.max(Math.abs(constraint.bound), 1e-9);
+    const bindingTolerance = Math.max(scale * 1e-5, 1e-7);
+
+    return [
+      {
+        id: constraint.id,
+        label: constraint.label,
+        unit: constraint.unit,
+        relation: constraint.relation,
+        requirement: constraint.bound,
+        actual,
+        margin,
+        marginPct:
+          Math.abs(constraint.bound) <= 1e-12
+            ? null
+            : (margin / Math.abs(constraint.bound)) * 100,
+        binding: Math.abs(margin) <= bindingTolerance,
+      },
+    ];
+  });
+}
+
 function costIncreasePct(
   alternative: FormulationSolution,
   optimum: FormulationSolution,
@@ -833,6 +908,76 @@ async function buildSimplerAlternative(
   return sameFormula(current, optimum) ? undefined : current;
 }
 
+async function buildIngredientOpportunities(
+  glpk: GLPK,
+  ingredients: readonly PreparedIngredient[],
+  constraints: readonly ConstraintSpec[],
+  optimum: FormulationSolution,
+  library: IngredientLibrary,
+): Promise<IngredientOpportunity[]> {
+  const optimumInclusion = new Map(
+    optimum.formula.ingredients.map((row) => [
+      row.ingredientId,
+      row.inclusionPct,
+    ]),
+  );
+  const opportunities: IngredientOpportunity[] = [];
+
+  for (const target of ingredients) {
+    const ingredientId = target.option.ingredientId;
+    const currentInclusionPct = optimumInclusion.get(ingredientId) ?? 0;
+
+    // Opportunities answer "what unused ingredient could I introduce?"
+    if (currentInclusionPct > 1e-5) continue;
+
+    const points: IngredientOpportunityPoint[] = [];
+    for (const costTolerancePct of INGREDIENT_OPPORTUNITY_COST_TOLERANCES_PCT) {
+      const costCapPerKg =
+        optimum.costPerKg * (1 + costTolerancePct / 100);
+      const solved = await solveAlternativeObjective(
+        glpk,
+        ingredients,
+        constraints,
+        {
+          name: `maximize_${ingredientId.replace(/[^a-zA-Z0-9_]/g, "_")}`,
+          coefficient: (ingredient) =>
+            ingredient.option.ingredientId === ingredientId ? -1 : 0,
+        },
+        costCapPerKg,
+      );
+      if (solved.status !== "optimal") continue;
+
+      const solution = buildSolution(solved.vars, ingredients, library);
+      const maxInclusionPct =
+        solution.formula.ingredients.find(
+          (row) => row.ingredientId === ingredientId,
+        )?.inclusionPct ?? 0;
+
+      points.push({
+        costTolerancePct,
+        maxInclusionPct,
+        resultingCostPerKg: solution.costPerKg,
+      });
+    }
+
+    if (
+      points.some((point) => point.maxInclusionPct > 0.01)
+    ) {
+      opportunities.push({
+        ingredientId,
+        currentInclusionPct,
+        points,
+      });
+    }
+  }
+
+  return opportunities.sort((a, b) => {
+    const aMax = a.points.at(-1)?.maxInclusionPct ?? 0;
+    const bMax = b.points.at(-1)?.maxInclusionPct ?? 0;
+    return bMax - aMax;
+  });
+}
+
 async function buildAlternativeFormulations(
   glpk: GLPK,
   ingredients: readonly PreparedIngredient[],
@@ -898,6 +1043,7 @@ async function buildAlternativeFormulations(
       label: strategy.label,
       description: strategy.description,
       solution,
+      nutrientProfile: buildNutrientProfile(solution.analysis, constraints),
       costIncreasePct: costIncreasePct(solution, optimum),
     });
   }
@@ -922,6 +1068,7 @@ async function buildAlternativeFormulations(
       description:
         "Greedily removes dispensable ingredients while keeping hard constraints and the cost ceiling.",
       solution: simpler,
+      nutrientProfile: buildNutrientProfile(simpler.analysis, constraints),
       costIncreasePct: costIncreasePct(simpler, optimum),
     });
   }
