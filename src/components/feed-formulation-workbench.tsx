@@ -1,13 +1,17 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, Calculator, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { FormulationIngredientOption, LeastCostFormulationResult } from "@/lib/feed-optimizer";
+import type {
+  FormulationIngredientOption,
+  FormulationIngredientSuggestionResult,
+  LeastCostFormulationResult,
+} from "@/lib/feed-optimizer";
 
 type ProgrammeOption = {
   id: string;
@@ -31,17 +35,6 @@ type Row = {
   max: string;
 };
 
-const DEFAULT_INGREDIENT_IDS = [
-  "corn-yellow-dent",
-  "soybean-meal-dehulled-solvent-extracted",
-  "dicalcium-phosphate",
-  "sodium-chloride",
-  "l-lysine-hcl",
-  "dl-methionine",
-  "l-threonine",
-  "corn-oil",
-];
-
 export function FeedFormulationWorkbench({
   programmes,
   ingredients,
@@ -59,20 +52,12 @@ export function FeedFormulationWorkbench({
   const [energySystem, setEnergySystem] = useState<"ME" | "NE">("ME");
   const [nextKey, setNextKey] = useState(100);
   const [addIngredientId, setAddIngredientId] = useState("");
-  const [rows, setRows] = useState<Row[]>(() =>
-    DEFAULT_INGREDIENT_IDS.filter((id) => ingredients.some((ingredient) => ingredient.id === id)).map(
-      (ingredientId, index) => ({
-        key: index,
-        ingredientId,
-        price: "",
-        min: "",
-        max: "",
-      }),
-    ),
-  );
+  const [rows, setRows] = useState<Row[]>([]);
   const [result, setResult] = useState<LeastCostFormulationResult | null>(null);
   const [running, setRunning] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestionError, setSuggestionError] = useState<string | null>(null);
 
   const ingredientById = useMemo(
     () => new Map(ingredients.map((ingredient) => [ingredient.id, ingredient])),
@@ -82,6 +67,67 @@ export function FeedFormulationWorkbench({
   const availableToAdd = ingredients.filter(
     (ingredient) => !rows.some((row) => row.ingredientId === ingredient.id),
   );
+
+  useEffect(() => {
+    if (!programmeId || !phaseId) return;
+
+    const controller = new AbortController();
+    setSuggesting(true);
+    setSuggestionError(null);
+    setResult(null);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/feed-formulation/suggest", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            programmeId,
+            phaseId,
+            energySystem,
+          }),
+          signal: controller.signal,
+        });
+        const payload = (await response.json()) as
+          | FormulationIngredientSuggestionResult
+          | { status: "error"; message?: string };
+
+        if (!response.ok) {
+          throw new Error(
+            "message" in payload && payload.message
+              ? payload.message
+              : "Ingredient suggestion request failed.",
+          );
+        }
+        if (payload.status !== "suggested") {
+          throw new Error(payload.message);
+        }
+
+        const suggestedIds = payload.ingredientIds.filter((ingredientId) =>
+          ingredients.some((ingredient) => ingredient.id === ingredientId),
+        );
+        setRows(
+          suggestedIds.map((ingredientId, index) => ({
+            key: index,
+            ingredientId,
+            price: "",
+            min: "",
+            max: "",
+          })),
+        );
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setRows([]);
+        setSuggestionError(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (!controller.signal.aborted) {
+          setSuggesting(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [programmeId, phaseId, energySystem, ingredients]);
 
   function changeProgramme(value: string) {
     const programme = programmes.find((candidate) => candidate.id === value);
@@ -188,8 +234,9 @@ export function FeedFormulationWorkbench({
         <CardHeader>
           <CardTitle>Least-cost formulation</CardTitle>
           <CardDescription>
-            Choose the Brazilian requirement phase, list ingredients you can actually buy, and enter
-            current prices per kg. PigFlow treats modeled nutrition targets as hard constraints.
+            Choose the Brazilian requirement phase and energy basis. PigFlow suggests a feasible
+            starter basket from ingredients with complete modeled nutrient data; you can then add or
+            remove ingredients and enter current local prices per kg before optimization.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -237,6 +284,12 @@ export function FeedFormulationWorkbench({
               </select>
             </Field>
           </div>
+
+          {suggesting ? (
+            <div className="rounded-lg border border-hairline bg-raised/30 px-4 py-3 text-sm text-ink-muted">
+              Finding a feasible starter basket for this requirement phase…
+            </div>
+          ) : null}
 
           <div className="overflow-x-auto rounded-lg border border-hairline">
             <table className="w-full min-w-[760px] text-sm">
@@ -333,6 +386,13 @@ export function FeedFormulationWorkbench({
               {running ? "Formulating…" : "Find least-cost formula"}
             </Button>
           </div>
+
+          {suggestionError ? (
+            <div className="rounded-lg border border-hairline bg-raised/30 p-3 text-sm text-ink-muted">
+              PigFlow could not build an automatic starter basket: {suggestionError} You can still
+              add ingredients manually.
+            </div>
+          ) : null}
 
           {requestError ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
