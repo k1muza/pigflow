@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AlertTriangle, Calculator, Plus, Trash2 } from "lucide-react";
+import { Activity, AlertTriangle, Calculator, Plus, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   ingredientDefaultPrice,
@@ -15,6 +23,8 @@ import {
 import type {
   FormulationIngredientOption,
   FormulationIngredientSuggestionResult,
+  FormulationNutrientComparison,
+  IngredientOpportunity,
   LeastCostFormulationResult,
 } from "@/lib/feed-optimizer";
 
@@ -448,6 +458,7 @@ function ResultPanel({
         label: "Least cost",
         description: "The minimum-cost formula for the prices entered above.",
         solution: result.solution,
+        nutrientProfile: result.nutrientProfile,
         costIncreasePct: 0,
       },
       ...result.alternatives,
@@ -458,9 +469,15 @@ function ResultPanel({
     return (
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>{selectedRecipe.label}</CardTitle>
-            <Badge variant="secondary">Hard constraints satisfied</Badge>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle>{selectedRecipe.label}</CardTitle>
+              <Badge variant="secondary">Hard constraints satisfied</Badge>
+            </div>
+            <NutrientProfileDialog
+              recipeLabel={selectedRecipe.label}
+              profile={selectedRecipe.nutrientProfile}
+            />
           </div>
           <CardDescription>
             {selectedRecipe.description} Cost: {selectedRecipe.solution.costPerKg.toFixed(4)} per kg
@@ -517,6 +534,13 @@ function ResultPanel({
             rows={selectedRecipe.solution.formula.ingredients}
             ingredientById={ingredientById}
           />
+
+          <IngredientOpportunitiesTable
+            opportunities={result.ingredientOpportunities}
+            tolerances={result.ingredientOpportunityCostTolerancesPct}
+            ingredientById={ingredientById}
+          />
+
           <Unsupported requirements={result.unsupportedRequirements} />
         </CardContent>
       </Card>
@@ -593,6 +617,144 @@ function ResultPanel({
         <CardDescription>{result.message}</CardDescription>
       </CardHeader>
     </Card>
+  );
+}
+
+function formatNutrientValue(value: number, unit: string): string {
+  if (unit === "kcal/kg") return value.toFixed(0);
+  if (unit === "%") return value.toFixed(3);
+  if (unit === "ppm") return value.toFixed(2);
+  return value.toFixed(3);
+}
+
+function NutrientProfileDialog({
+  recipeLabel,
+  profile,
+}: {
+  recipeLabel: string;
+  profile: readonly FormulationNutrientComparison[];
+}) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          <Activity />
+          Compare nutrition
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[85vh] max-w-4xl overflow-hidden">
+        <DialogHeader className="px-5 pt-5">
+          <DialogTitle>{recipeLabel} · nutritional profile</DialogTitle>
+          <DialogDescription>
+            Actual nutrient density compared with the hard requirements used by the optimizer.
+            A binding row is sitting effectively on its requirement.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="overflow-auto px-5 pb-5">
+          <div className="overflow-hidden rounded-lg border border-hairline">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
+                <tr>
+                  <th className="px-3 py-2.5">Nutrient</th>
+                  <th className="px-3 py-2.5 text-right">Requirement</th>
+                  <th className="px-3 py-2.5 text-right">Actual</th>
+                  <th className="px-3 py-2.5 text-right">Margin</th>
+                  <th className="px-3 py-2.5 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profile.map((row) => (
+                  <tr key={row.id} className="border-t border-hairline">
+                    <td className="px-3 py-2.5 text-ink">{row.label}</td>
+                    <td className="px-3 py-2.5 text-right text-ink-muted">
+                      {row.relation === "min" ? "≥" : "≤"}{" "}
+                      {formatNutrientValue(row.requirement, row.unit)} {row.unit}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-medium text-ink">
+                      {formatNutrientValue(row.actual, row.unit)} {row.unit}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-ink-muted">
+                      {row.margin >= 0 ? "+" : ""}
+                      {formatNutrientValue(row.margin, row.unit)}
+                      {row.marginPct === null
+                        ? ""
+                        : ` (${row.marginPct >= 0 ? "+" : ""}${row.marginPct.toFixed(1)}%)`}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <Badge variant="secondary">
+                        {row.binding ? "Binding" : "Satisfied"}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function IngredientOpportunitiesTable({
+  opportunities,
+  tolerances,
+  ingredientById,
+}: {
+  opportunities: readonly IngredientOpportunity[];
+  tolerances: readonly number[];
+  ingredientById: Map<string, IngredientOption>;
+}) {
+  if (opportunities.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <div className="text-sm font-medium text-ink">Ingredient opportunities</div>
+        <div className="text-xs leading-5 text-ink-muted">
+          Maximum inclusion of ingredients absent from the least-cost recipe while every hard
+          nutrient requirement remains satisfied. Cost bands are measured against the least-cost
+          formula.
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-hairline">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
+            <tr>
+              <th className="px-3 py-2.5">Ingredient</th>
+              {tolerances.map((tolerance) => (
+                <th key={tolerance} className="px-3 py-2.5 text-right">
+                  Max at +{tolerance}% cost
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {opportunities.map((opportunity) => (
+              <tr key={opportunity.ingredientId} className="border-t border-hairline">
+                <td className="px-3 py-2.5 text-ink">
+                  {ingredientById.get(opportunity.ingredientId)?.name ??
+                    opportunity.ingredientId}
+                </td>
+                {tolerances.map((tolerance) => {
+                  const point = opportunity.points.find(
+                    (candidate) => candidate.costTolerancePct === tolerance,
+                  );
+                  return (
+                    <td
+                      key={tolerance}
+                      className="px-3 py-2.5 text-right font-medium text-ink"
+                    >
+                      {point ? `${point.maxInclusionPct.toFixed(2)}%` : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
