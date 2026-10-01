@@ -752,12 +752,14 @@ function ResultPanel({
   ingredientById,
   selectedRecipeId,
   onSelectedRecipeChange,
+  batchWeightKg,
   reportContext,
 }: {
   result: LeastCostFormulationResult;
   ingredientById: Map<string, IngredientOption>;
   selectedRecipeId: string;
   onSelectedRecipeChange: (recipeId: string) => void;
+  batchWeightKg: number;
   reportContext: RecipeReportContext;
 }) {
 
@@ -846,6 +848,7 @@ function ResultPanel({
           <FormulaTable
             rows={selectedRecipe.solution.formula.ingredients}
             ingredientById={ingredientById}
+            batchWeightKg={batchWeightKg}
           />
 
           <Unsupported requirements={result.unsupportedRequirements} />
@@ -908,6 +911,7 @@ function ResultPanel({
               <FormulaTable
                 rows={result.bestEffort.formula.ingredients}
                 ingredientById={ingredientById}
+                batchWeightKg={batchWeightKg}
               />
             </div>
           ) : null}
@@ -938,6 +942,7 @@ function recipeReportInput(
     phaseLabel: context.phaseLabel,
     sourceTable: context.sourceTable,
     energySystem: context.energySystem,
+    targetBatchKg: context.targetBatchKg,
     formula: recipe.solution.formula,
     nutrientProfile: recipe.nutrientProfile,
     ingredients: context.ingredients,
