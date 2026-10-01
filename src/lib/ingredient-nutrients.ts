@@ -43,6 +43,7 @@ const ingredientSchema = z.object({
   energy: z.object({
     digestibleKcalKg: z.number().optional(),
     metabolizableKcalKg: z.number().optional(),
+    standardizedMetabolizableKcalKg: z.number().optional(),
     netKcalKg: z.number().optional(),
   }),
   aminoAcids: z
