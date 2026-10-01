@@ -7,6 +7,7 @@ import {
   BRAZILIAN_2024_GROWING_SWINE,
   BRAZILIAN_2024_MINERAL_SOURCES,
   BRAZILIAN_2024_SOURCE,
+  BRAZILIAN_2024_SWINE_SUPPLEMENTATION,
 } from "./brazilian-nutrition";
 
 describe("Brazilian Tables 2024 source data", () => {
@@ -122,6 +123,39 @@ describe("Brazilian Tables 2024 source data", () => {
       litterWeightGainKgDay: 2.63,
       daily: { feedIntakeKgDay: 5.448 },
       sidAminoAcidsPct: { lysine: 1.101 },
+    });
+  });
+
+  it("loads Chapter 7 swine supplementation guidance separately from requirements", () => {
+    const growing = BRAZILIAN_2024_SWINE_SUPPLEMENTATION.growing;
+    expect(growing).toMatchObject({
+      vitaminSourceTable: "7.05",
+      traceMineralSourceTable: "7.06",
+      vitaminPrintedPage: 473,
+      traceMineralPrintedPage: 474,
+    });
+    expect(growing.phases).toHaveLength(7);
+    expect(growing.phases[0]).toMatchObject({
+      ageDays: { min: 21, max: 35 },
+      weightKg: { min: 6.2, max: 8.4 },
+      vitamins: {
+        vitaminAIuKg: 11387,
+        vitaminB12McgKg: 41,
+        biotinMgKg: 0.196,
+      },
+      inorganic: {
+        copperPpm: 18.32,
+        seleniumPpm: 0.502,
+        zincPpm: 165.6,
+      },
+    });
+    expect(BRAZILIAN_2024_SWINE_SUPPLEMENTATION.breeders).toMatchObject({
+      sourceTable: "7.07",
+      printedPage: 475,
+      vitamins: {
+        vitaminAIuKg: 9927,
+        totalCholineMgKg: 750,
+      },
     });
   });
 
