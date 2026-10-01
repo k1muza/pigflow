@@ -188,6 +188,35 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
+  it("extracts degummed soybean oil with its published swine energy and inclusion guidance", () => {
+    const oil = BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-degummed-oil",
+    );
+
+    expect(oil).toMatchObject({
+      pigflowIngredientId: "soybean-degummed-oil",
+      sourcePage: 153,
+      compositionPct: {
+        dryMatter: 99.7,
+        etherExtract: 99.5,
+        linoleicAcid: 52.2,
+        linolenicAcid: 6.8,
+      },
+      swineEnergyKcalKg: {
+        digestible: 8600,
+        metabolizable: 8300,
+        net: 7362,
+      },
+      recommendedInclusionPct: {
+        growingPigs: {
+          starter: { practical: 2, max: 5 },
+          grower: { practical: 2, max: 5 },
+          finisher: { practical: 2, max: 5 },
+        },
+      },
+    });
+  });
+
   it("extracts the additional priority feed ingredients from Table 1.01", () => {
     const byId = new Map(
       BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.map((ingredient) => [
