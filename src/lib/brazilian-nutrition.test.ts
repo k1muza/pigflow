@@ -154,6 +154,36 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
+  it("extracts the priority grain alternatives from Table 1.01", () => {
+    const byId = new Map(
+      BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.map((ingredient) => [
+        ingredient.id,
+        ingredient,
+      ]),
+    );
+
+    expect(byId.get("corn-high-lysine-grain")).toMatchObject({
+      pigflowIngredientId: "corn-high-lysine-grain",
+      sourcePage: 77,
+      swineEnergyKcalKg: { metabolizable: 3409 },
+    });
+    expect(byId.get("corn-high-oil-grain")).toMatchObject({
+      pigflowIngredientId: "corn-high-oil-grain",
+      sourcePage: 79,
+      swineEnergyKcalKg: { metabolizable: 3582 },
+    });
+    expect(byId.get("rice-broken")).toMatchObject({
+      pigflowIngredientId: "rice-broken",
+      sourcePage: 139,
+      digestibleProteinSwinePct: 7.07,
+    });
+    expect(byId.get("sorghum-grain-high-tannin")).toMatchObject({
+      pigflowIngredientId: "sorghum-grain-high-tannin",
+      sourcePage: 149,
+      digestibleProteinSwinePct: 6.61,
+    });
+  });
+
   it("preserves swine-specific energy and SID amino acids for feedstuffs", () => {
     const corn = BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.find(
       (ingredient) => ingredient.id === "corn-grain-average",
