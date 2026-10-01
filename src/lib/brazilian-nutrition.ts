@@ -3,6 +3,7 @@ import { z } from "zod";
 import sourceJson from "@/data/nutrition/brazilian-2024/source.json";
 import growingSwineJson from "@/data/nutrition/brazilian-2024/programmes/growing-swine.json";
 import breederSwineJson from "@/data/nutrition/brazilian-2024/programmes/breeder-swine.json";
+import swineSupplementationJson from "@/data/nutrition/brazilian-2024/programmes/swine-supplementation.json";
 import coreFeedstuffsJson from "@/data/nutrition/brazilian-2024/ingredients/core-feedstuffs.json";
 import crystallineAminoAcidsJson from "@/data/nutrition/brazilian-2024/supplements/crystalline-amino-acids.json";
 import mineralSourcesJson from "@/data/nutrition/brazilian-2024/supplements/mineral-sources.json";
@@ -11,6 +12,63 @@ const rangeSchema = z.object({
   min: z.number().optional(),
   max: z.number().optional(),
 });
+
+const vitaminSupplementationSchema = z.object({
+  vitaminAIuKg: z.number(),
+  vitaminDIuKg: z.number(),
+  vitaminEIuKg: z.number(),
+  vitaminKMgKg: z.number(),
+  vitaminB1MgKg: z.number(),
+  riboflavinMgKg: z.number(),
+  vitaminB6MgKg: z.number(),
+  vitaminB12McgKg: z.number(),
+  pantothenicAcidMgKg: z.number(),
+  niacinMgKg: z.number(),
+  folicAcidMgKg: z.number(),
+  biotinMgKg: z.number(),
+  totalCholineMgKg: z.number(),
+});
+
+const traceMineralSupplementationSchema = z.object({
+  copperPpm: z.number(),
+  ironPpm: z.number(),
+  manganesePpm: z.number(),
+  seleniumPpm: z.number(),
+  zincPpm: z.number(),
+  iodinePpm: z.number().optional(),
+});
+
+const swineSupplementationSchema = z.object({
+  schemaVersion: z.literal(1),
+  id: z.literal("brazilian-2024-swine-supplementation"),
+  sourceId: z.literal("brazilian-tables-2024"),
+  growing: z.object({
+    vitaminSourceTable: z.literal("7.05"),
+    traceMineralSourceTable: z.literal("7.06"),
+    vitaminPrintedPage: z.literal(473),
+    traceMineralPrintedPage: z.literal(474),
+    phases: z.array(
+      z.object({
+        ageDays: rangeSchema,
+        weightKg: rangeSchema,
+        vitamins: vitaminSupplementationSchema,
+        inorganic: traceMineralSupplementationSchema,
+        organic: traceMineralSupplementationSchema,
+      }),
+    ),
+  }),
+  breeders: z.object({
+    sourceTable: z.literal("7.07"),
+    printedPage: z.literal(475),
+    vitamins: vitaminSupplementationSchema,
+    traceMinerals: z.object({
+      inorganic: traceMineralSupplementationSchema,
+      organic: traceMineralSupplementationSchema,
+    }),
+  }),
+  notes: z.array(z.string()),
+});
+
 
 const sourceSchema = z.object({
   schemaVersion: z.literal(1),
@@ -303,6 +361,8 @@ function assertUniqueIds(values: readonly { id: string }[], label: string): void
 }
 
 export const BRAZILIAN_2024_SOURCE = sourceSchema.parse(sourceJson);
+export const BRAZILIAN_2024_SWINE_SUPPLEMENTATION =
+  swineSupplementationSchema.parse(swineSupplementationJson);
 export const BRAZILIAN_2024_GROWING_SWINE = growingSwineSchema.parse(growingSwineJson);
 export const BRAZILIAN_2024_BREEDER_SWINE = breederSwineSchema.parse(breederSwineJson);
 export const BRAZILIAN_2024_CORE_FEEDSTUFFS = coreFeedstuffsSchema.parse(coreFeedstuffsJson);
