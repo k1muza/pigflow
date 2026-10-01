@@ -272,14 +272,14 @@ function addNutritionSheet(
     input.programmeName +
       " · " +
       input.phaseLabel +
-      " · requirement versus calculated recipe concentration",
+      " · requirement or supplementation target versus calculated recipe concentration",
     "F",
   );
 
   sheet.getRow(6).values = [
     "Nutrient",
     "Rule",
-    "Requirement",
+    "Requirement / target",
     "Actual",
     "Margin",
     "Status",
