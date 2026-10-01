@@ -1025,15 +1025,16 @@ function RecipeReportPreviewDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 flex-1 space-y-6 overflow-auto p-5">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <ReportFact label="Batch weight" value={`${context.targetBatchKg.toFixed(1)} kg`} />
             <ReportFact label="Cost / kg" value={`${recipe.solution.costPerKg.toFixed(4)}`} />
+            <ReportFact
+              label="Batch cost"
+              value={`${(recipe.solution.costPerKg * context.targetBatchKg).toFixed(2)}`}
+            />
             <ReportFact
               label="Cost / tonne"
               value={`${(recipe.solution.costPerKg * 1000).toFixed(2)}`}
-            />
-            <ReportFact
-              label="Premium vs least cost"
-              value={recipe.costIncreasePct === 0 ? "Baseline" : `+${recipe.costIncreasePct.toFixed(2)}%`}
             />
             <ReportFact label="Ingredients" value={String(rows.length)} />
           </div>
@@ -1046,9 +1047,10 @@ function RecipeReportPreviewDialog({
                   <tr>
                     <th className="px-3 py-2.5">Ingredient</th>
                     <th className="px-3 py-2.5 text-right">Inclusion</th>
+                    <th className="px-3 py-2.5 text-right">kg / batch</th>
                     <th className="px-3 py-2.5 text-right">kg / tonne</th>
                     <th className="px-3 py-2.5 text-right">Price / kg</th>
-                    <th className="px-3 py-2.5 text-right">Cost / tonne</th>
+                    <th className="px-3 py-2.5 text-right">Cost / batch</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1056,10 +1058,11 @@ function RecipeReportPreviewDialog({
                     <tr key={row.ingredientId} className="border-t border-hairline">
                       <td className="px-3 py-2.5 text-ink">{row.name}</td>
                       <td className="px-3 py-2.5 text-right">{row.inclusionPct.toFixed(3)}%</td>
+                      <td className="px-3 py-2.5 text-right">{row.kgForBatch.toFixed(1)}</td>
                       <td className="px-3 py-2.5 text-right">{row.kgPerTonne.toFixed(1)}</td>
                       <td className="px-3 py-2.5 text-right">${row.pricePerKg.toFixed(4)}</td>
                       <td className="px-3 py-2.5 text-right">
-                        ${row.costPerTonneContribution.toFixed(2)}
+                        ${row.costForBatchContribution.toFixed(2)}
                       </td>
                     </tr>
                   ))}
@@ -1070,11 +1073,14 @@ function RecipeReportPreviewDialog({
                     <td className="px-3 py-2.5 text-right">
                       {rows.reduce((sum, row) => sum + row.inclusionPct, 0).toFixed(3)}%
                     </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {rows.reduce((sum, row) => sum + row.kgForBatch, 0).toFixed(1)}
+                    </td>
                     <td className="px-3 py-2.5 text-right">1000.0</td>
                     <td />
                     <td className="px-3 py-2.5 text-right">
                       ${rows
-                        .reduce((sum, row) => sum + row.costPerTonneContribution, 0)
+                        .reduce((sum, row) => sum + row.costForBatchContribution, 0)
                         .toFixed(2)}
                     </td>
                   </tr>
