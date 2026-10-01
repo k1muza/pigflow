@@ -415,7 +415,7 @@ export function FeedFormulationWorkbench({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Field label="Programme">
               <select
                 value={programmeId}
@@ -457,6 +457,15 @@ export function FeedFormulationWorkbench({
                 <option value="ME">Metabolizable energy (ME)</option>
                 <option value="NE">Net energy (NE)</option>
               </select>
+            </Field>
+            <Field label="Target batch weight (kg)">
+              <Input
+                type="number"
+                min="0.1"
+                step="1"
+                value={targetBatchWeight}
+                onChange={(event) => setTargetBatchWeight(event.target.value)}
+              />
             </Field>
           </div>
 
@@ -554,6 +563,96 @@ export function FeedFormulationWorkbench({
             </table>
           </div>
 
+          <div className="space-y-3 rounded-lg border border-hairline bg-raised/20 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-ink">Commercial premixes</div>
+                <div className="mt-1 max-w-3xl text-xs leading-5 text-ink-muted">
+                  Add a supplier premix at its fixed kg/tonne inclusion. Guaranteed label
+                  micronutrients stay separate from the canonical Brazilian ingredient library.
+                </div>
+              </div>
+              <CustomPremixDialog onAdd={addCustomPremix} />
+            </div>
+
+            {customPremixes.length > 0 ? (
+              <div className="space-y-2">
+                {customPremixes.map((premix) => {
+                  const declaredCount =
+                    Object.keys(premix.vitamins).length +
+                    Object.keys(premix.traceMineralsPpm).length;
+                  return (
+                    <div
+                      key={premix.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-background px-3 py-2.5"
+                    >
+                      <div>
+                        <div className="font-medium text-ink">{premix.name}</div>
+                        <div className="text-xs text-ink-muted">
+                          {premix.inclusionKgPerTonne.toFixed(2)} kg/t ·{" "}
+                          {(premix.inclusionKgPerTonne / 10).toFixed(3)}% ·{" "}
+                          {declaredCount} guaranteed micronutrient values ·{" "}
+                          {premix.pricePerKg.toFixed(4)}/kg
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Remove ${premix.name}`}
+                        onClick={() => removeCustomPremix(premix.id)}
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-xs text-ink-faint">
+                No commercial premix added. Macronutrient formulation continues as before.
+              </div>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+              <label className="flex items-start gap-2 rounded-lg border border-hairline bg-background p-3">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4"
+                  checked={targetSupplementation}
+                  disabled={customPremixes.length === 0}
+                  onChange={(event) => {
+                    setTargetSupplementation(event.target.checked);
+                    setResult(null);
+                  }}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-ink">
+                    Target whole supplementation profile
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-5 text-ink-muted">
+                    Constrain the premix contribution against Brazilian Tables Chapter 7 vitamin
+                    and trace-mineral supplementation guidance where that exact phase is published.
+                  </span>
+                </span>
+              </label>
+              <Field label="Trace-mineral basis">
+                <select
+                  value={traceMineralBasis}
+                  disabled={!targetSupplementation}
+                  onChange={(event) => {
+                    setTraceMineralBasis(event.target.value as "inorganic" | "organic");
+                    setResult(null);
+                  }}
+                  className="h-9 w-full rounded-md border border-hairline bg-background px-3 text-sm text-ink disabled:opacity-50"
+                >
+                  <option value="inorganic">Inorganic</option>
+                  <option value="organic">Organic</option>
+                </select>
+              </Field>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <select
               value={addIngredientId}
@@ -571,7 +670,11 @@ export function FeedFormulationWorkbench({
               <Plus size={15} />
               Add ingredient
             </Button>
-            <Button type="button" onClick={() => void formulate()} disabled={running || rows.length === 0}>
+            <Button
+              type="button"
+              onClick={() => void formulate()}
+              disabled={running || (rows.length === 0 && customPremixes.length === 0)}
+            >
               <Calculator size={15} />
               {running ? "Formulating…" : "Find least-cost formula"}
             </Button>
@@ -600,16 +703,25 @@ export function FeedFormulationWorkbench({
               ingredientById={ingredientById}
               selectedRecipeId={selectedRecipeId}
               onSelectedRecipeChange={setSelectedRecipeId}
+              batchWeightKg={displayBatchKg}
               reportContext={{
                 programmeName: selectedProgramme?.name ?? programmeId,
                 phaseLabel: selectedPhase?.label ?? phaseId,
                 sourceTable: selectedPhase?.sourceTable,
                 energySystem,
-                ingredients: rows.map((row) => ({
-                  ingredientId: row.ingredientId,
-                  name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
-                  pricePerKg: Number(row.price),
-                })),
+                targetBatchKg: displayBatchKg,
+                ingredients: [
+                  ...rows.map((row) => ({
+                    ingredientId: row.ingredientId,
+                    name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
+                    pricePerKg: Number(row.price),
+                  })),
+                  ...customPremixes.map((premix) => ({
+                    ingredientId: premix.id,
+                    name: premix.name,
+                    pricePerKg: premix.pricePerKg,
+                  })),
+                ],
               }}
             />
           ) : null}
@@ -617,7 +729,11 @@ export function FeedFormulationWorkbench({
 
         <TabsContent value="opportunities" className="mt-4">
           {result?.status === "optimal" ? (
-            <OpportunitiesPanel result={result} ingredientById={ingredientById} />
+            <OpportunitiesPanel
+              result={result}
+              ingredientById={ingredientById}
+              batchWeightKg={displayBatchKg}
+            />
           ) : null}
         </TabsContent>
 
