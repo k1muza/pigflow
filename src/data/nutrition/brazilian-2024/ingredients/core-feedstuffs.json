@@ -910,6 +910,624 @@
         }
       },
       "digestibleProteinSwinePct": 6.61
+    },
+    {
+      "id": "soybean-full-fat-extruded",
+      "name": "Soybean, Full-fat Extruded",
+      "pigflowIngredientId": "soybean-full-fat-extruded",
+      "mappingConfidence": "high",
+      "sourcePage": 155,
+      "compositionPct": {
+        "dryMatter": 92.6,
+        "crudeProtein": 37.3,
+        "starch": 6.7,
+        "crudeFibre": 5.55,
+        "etherExtract": 18.6,
+        "ndf": 14.4,
+        "adf": 10.1,
+        "ash": 4.66,
+        "linoleicAcid": 9.45,
+        "linolenicAcid": 1.35
+      },
+      "swineEnergyKcalKg": {
+        "digestible": 4071,
+        "metabolizable": 3956,
+        "net": 2853
+      },
+      "sowEnergyKcalKg": {
+        "digestible": 4351,
+        "metabolizable": 4081,
+        "net": 2944
+      },
+      "macroMineralsPct": {
+        "potassium": 1.72,
+        "sodium": 0.03,
+        "chloride": 0.03,
+        "sulfur": 0.28,
+        "magnesium": 0.32,
+        "calcium": 0.24,
+        "totalPhosphorus": 0.53,
+        "phytatePhosphorus": 0.36,
+        "availablePhosphorus": 0.17,
+        "standardizedDigestiblePhosphorusSwine": 0.2
+      },
+      "traceMineralsMgKg": {
+        "manganese": 24.8,
+        "iron": 179,
+        "copper": 13.7,
+        "zinc": 41.6,
+        "selenium": 0.21
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 2.32,
+          "methionine": 0.5,
+          "methionineCysteine": 1.08,
+          "threonine": 1.44,
+          "tryptophan": 0.51,
+          "arginine": 2.67,
+          "valine": 1.77,
+          "isoleucine": 1.71,
+          "leucine": 2.86,
+          "histidine": 0.96,
+          "phenylalanine": 1.89,
+          "phenylalanineTyrosine": 3.15,
+          "cysteine": 0.58,
+          "tyrosine": 1.26
+        },
+        "sidSwinePct": {
+          "lysine": 2,
+          "methionine": 0.46,
+          "methionineCysteine": 0.9,
+          "threonine": 1.24,
+          "tryptophan": 0.4,
+          "arginine": 2.47,
+          "valine": 1.51,
+          "isoleucine": 1.46,
+          "leucine": 2.44,
+          "histidine": 0.88,
+          "phenylalanine": 1.64,
+          "phenylalanineTyrosine": 2.75,
+          "cysteine": 0.46,
+          "tyrosine": 1.11
+        },
+        "sidSwineDigestibilityPct": {
+          "lysine": 86.4,
+          "methionine": 91.1,
+          "methionineCysteine": 85.1,
+          "threonine": 86.2,
+          "tryptophan": 78.2,
+          "arginine": 92.6,
+          "valine": 85.1,
+          "isoleucine": 85.3,
+          "leucine": 85.2,
+          "histidine": 91.6,
+          "phenylalanine": 87,
+          "phenylalanineTyrosine": 87.4,
+          "cysteine": 80,
+          "tyrosine": 88
+        }
+      },
+      "recommendedInclusionPct": {
+        "growingPigs": {
+          "starter": {
+            "practical": 10,
+            "max": 25
+          },
+          "grower": {
+            "practical": 10,
+            "max": 25
+          },
+          "finisher": {
+            "practical": 10,
+            "max": 25
+          }
+        },
+        "sows": {
+          "gestation": {
+            "practical": 5,
+            "max": 25
+          },
+          "lactation": {
+            "practical": 10,
+            "max": 30
+          }
+        }
+      },
+      "digestibleProteinSwinePct": 33
+    },
+    {
+      "id": "rice-bran",
+      "name": "Rice, Bran",
+      "pigflowIngredientId": "rice-bran",
+      "mappingConfidence": "high",
+      "sourcePage": 137,
+      "compositionPct": {
+        "dryMatter": 89.4,
+        "crudeProtein": 13.1,
+        "starch": 23.8,
+        "crudeFibre": 7.35,
+        "etherExtract": 15.3,
+        "ndf": 22.5,
+        "adf": 12.3,
+        "ash": 9.01,
+        "linoleicAcid": 3.15,
+        "linolenicAcid": 0.08
+      },
+      "swineEnergyKcalKg": {
+        "digestible": 3110,
+        "metabolizable": 3027,
+        "net": 2339
+      },
+      "sowEnergyKcalKg": {
+        "digestible": 3329,
+        "metabolizable": 3203,
+        "net": 2468
+      },
+      "macroMineralsPct": {
+        "potassium": 1.41,
+        "sodium": 0.04,
+        "chloride": 0.07,
+        "sulfur": 0.18,
+        "magnesium": 1,
+        "calcium": 0.07,
+        "totalPhosphorus": 2,
+        "phytatePhosphorus": 1.37,
+        "availablePhosphorus": 0.63,
+        "standardizedDigestiblePhosphorusSwine": 0.56
+      },
+      "traceMineralsMgKg": {
+        "manganese": 194.5,
+        "iron": 98.2,
+        "copper": 28.2,
+        "zinc": 54.9,
+        "selenium": 0.35
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.63,
+          "methionine": 0.24,
+          "methionineCysteine": 0.47,
+          "threonine": 0.55,
+          "tryptophan": 0.15,
+          "arginine": 1.05,
+          "valine": 0.76,
+          "isoleucine": 0.46,
+          "leucine": 0.92,
+          "histidine": 0.37,
+          "phenylalanine": 0.58,
+          "phenylalanineTyrosine": 1.02,
+          "cysteine": 0.23,
+          "tyrosine": 0.44
+        },
+        "sidSwinePct": {
+          "lysine": 0.47,
+          "methionine": 0.18,
+          "methionineCysteine": 0.34,
+          "threonine": 0.41,
+          "tryptophan": 0.11,
+          "arginine": 0.9,
+          "valine": 0.55,
+          "isoleucine": 0.33,
+          "leucine": 0.66,
+          "histidine": 0.31,
+          "phenylalanine": 0.42,
+          "phenylalanineTyrosine": 0.78,
+          "cysteine": 0.16,
+          "tyrosine": 0.36
+        },
+        "sidSwineDigestibilityPct": {
+          "lysine": 74.8,
+          "methionine": 73.7,
+          "methionineCysteine": 71.4,
+          "threonine": 74.2,
+          "tryptophan": 72,
+          "arginine": 86.2,
+          "valine": 73,
+          "isoleucine": 72,
+          "leucine": 72,
+          "histidine": 83.3,
+          "phenylalanine": 72.8,
+          "phenylalanineTyrosine": 76.3,
+          "cysteine": 70.5,
+          "tyrosine": 81
+        }
+      },
+      "recommendedInclusionPct": {
+        "growingPigs": {
+          "starter": {
+            "practical": 4,
+            "max": 10
+          },
+          "grower": {
+            "practical": 7,
+            "max": 15
+          },
+          "finisher": {
+            "practical": 10,
+            "max": 20
+          }
+        },
+        "sows": {
+          "gestation": {
+            "practical": 10,
+            "max": 20
+          },
+          "lactation": {
+            "practical": 5,
+            "max": 15
+          }
+        }
+      },
+      "digestibleProteinSwinePct": 9.4
+    },
+    {
+      "id": "cassava-whole",
+      "name": "Cassava, Whole",
+      "pigflowIngredientId": "cassava-whole",
+      "mappingConfidence": "high",
+      "sourcePage": 49,
+      "compositionPct": {
+        "dryMatter": 87.7,
+        "crudeProtein": 2.64,
+        "starch": 73.7,
+        "crudeFibre": 4.21,
+        "etherExtract": 0.52,
+        "ndf": 13.2,
+        "adf": 5.73,
+        "ash": 3.44,
+        "linoleicAcid": 0.08
+      },
+      "swineEnergyKcalKg": {
+        "digestible": 3048,
+        "metabolizable": 3020,
+        "net": 2426
+      },
+      "sowEnergyKcalKg": {
+        "digestible": 3154,
+        "metabolizable": 3108,
+        "net": 2490
+      },
+      "macroMineralsPct": {
+        "potassium": 0.35,
+        "sodium": 0.02,
+        "chloride": 0.05,
+        "magnesium": 0.05,
+        "calcium": 0.21,
+        "totalPhosphorus": 0.08,
+        "phytatePhosphorus": 0.06,
+        "availablePhosphorus": 0.02,
+        "standardizedDigestiblePhosphorusSwine": 0.03
+      },
+      "traceMineralsMgKg": {
+        "manganese": 23.9,
+        "iron": 92.6,
+        "copper": 4.5,
+        "zinc": 11.1,
+        "selenium": 0.15
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 0.1,
+          "methionine": 0.03,
+          "methionineCysteine": 0.07,
+          "threonine": 0.07,
+          "tryptophan": 0.02,
+          "arginine": 0.16,
+          "valine": 0.12,
+          "isoleucine": 0.1,
+          "leucine": 0.13,
+          "histidine": 0.09,
+          "phenylalanine": 0.09,
+          "phenylalanineTyrosine": 0.17,
+          "cysteine": 0.04,
+          "tyrosine": 0.08
+        },
+        "sidSwinePct": {
+          "lysine": 0.07,
+          "methionine": 0.03,
+          "methionineCysteine": 0.06,
+          "threonine": 0.05,
+          "tryptophan": 0.02,
+          "arginine": 0.14,
+          "valine": 0.09,
+          "isoleucine": 0.08,
+          "leucine": 0.1,
+          "histidine": 0.07,
+          "phenylalanine": 0.07,
+          "phenylalanineTyrosine": 0.12,
+          "cysteine": 0.03,
+          "tyrosine": 0.05
+        },
+        "sidSwineDigestibilityPct": {
+          "lysine": 71,
+          "methionine": 84,
+          "methionineCysteine": 79.4,
+          "threonine": 73,
+          "tryptophan": 77,
+          "arginine": 90,
+          "valine": 76,
+          "isoleucine": 81,
+          "leucine": 79,
+          "histidine": 80,
+          "phenylalanine": 80,
+          "phenylalanineTyrosine": 73.4,
+          "cysteine": 76,
+          "tyrosine": 66
+        }
+      },
+      "recommendedInclusionPct": {
+        "growingPigs": {
+          "starter": {
+            "practical": 10,
+            "max": 20
+          },
+          "grower": {
+            "practical": 15,
+            "max": 30
+          },
+          "finisher": {
+            "practical": 15,
+            "max": 30
+          }
+        },
+        "sows": {
+          "gestation": {
+            "practical": 15,
+            "max": 30
+          },
+          "lactation": {
+            "practical": 15,
+            "max": 30
+          }
+        }
+      },
+      "digestibleProteinSwinePct": 2.18
+    },
+    {
+      "id": "cottonseed-meal-38",
+      "name": "Cottonseed, Meal 38% CP",
+      "pigflowIngredientId": "cottonseed-meal-38",
+      "mappingConfidence": "high",
+      "sourcePage": 87,
+      "compositionPct": {
+        "dryMatter": 90,
+        "crudeProtein": 38.1,
+        "starch": 3.96,
+        "crudeFibre": 15.4,
+        "etherExtract": 2.65,
+        "ndf": 29.6,
+        "adf": 17.4,
+        "ash": 6.1,
+        "linoleicAcid": 0.84,
+        "linolenicAcid": 0.01
+      },
+      "swineEnergyKcalKg": {
+        "digestible": 2634,
+        "metabolizable": 2432,
+        "net": 1425
+      },
+      "sowEnergyKcalKg": {
+        "digestible": 2982,
+        "metabolizable": 2691,
+        "net": 1609
+      },
+      "macroMineralsPct": {
+        "potassium": 1.41,
+        "sodium": 0.09,
+        "chloride": 0.05,
+        "sulfur": 0.34,
+        "magnesium": 0.53,
+        "calcium": 0.3,
+        "totalPhosphorus": 1.03,
+        "phytatePhosphorus": 0.65,
+        "availablePhosphorus": 0.38,
+        "standardizedDigestiblePhosphorusSwine": 0.42
+      },
+      "traceMineralsMgKg": {
+        "manganese": 14.3,
+        "iron": 157.9,
+        "copper": 10.5,
+        "zinc": 56.7,
+        "selenium": 0.58
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 1.57,
+          "methionine": 0.58,
+          "methionineCysteine": 1.22,
+          "threonine": 1.26,
+          "tryptophan": 0.51,
+          "arginine": 4.14,
+          "valine": 1.71,
+          "isoleucine": 1.21,
+          "leucine": 2.19,
+          "histidine": 1.08,
+          "phenylalanine": 2,
+          "phenylalanineTyrosine": 3.03,
+          "cysteine": 0.64,
+          "tyrosine": 1.03
+        },
+        "sidSwinePct": {
+          "lysine": 0.97,
+          "methionine": 0.42,
+          "methionineCysteine": 0.9,
+          "threonine": 0.86,
+          "tryptophan": 0.35,
+          "arginine": 3.68,
+          "valine": 1.25,
+          "isoleucine": 0.86,
+          "leucine": 1.61,
+          "histidine": 0.81,
+          "phenylalanine": 1.62,
+          "phenylalanineTyrosine": 2.42,
+          "cysteine": 0.48,
+          "tyrosine": 0.79
+        },
+        "sidSwineDigestibilityPct": {
+          "lysine": 62.1,
+          "methionine": 72.8,
+          "methionineCysteine": 73.7,
+          "threonine": 68.5,
+          "tryptophan": 68.1,
+          "arginine": 88.8,
+          "valine": 73.1,
+          "isoleucine": 71.1,
+          "leucine": 73.5,
+          "histidine": 75.1,
+          "phenylalanine": 81.3,
+          "phenylalanineTyrosine": 79.8,
+          "cysteine": 74.5,
+          "tyrosine": 77
+        }
+      },
+      "recommendedInclusionPct": {
+        "growingPigs": {
+          "starter": {
+            "practical": 3,
+            "max": 5
+          },
+          "grower": {
+            "practical": 5,
+            "max": 8
+          },
+          "finisher": {
+            "practical": 6,
+            "max": 10
+          }
+        },
+        "sows": {
+          "gestation": {
+            "practical": 6,
+            "max": 10
+          },
+          "lactation": {
+            "practical": 5,
+            "max": 8
+          }
+        }
+      },
+      "digestibleProteinSwinePct": 29.7
+    },
+    {
+      "id": "fish-meal-54",
+      "name": "Fish, Meal 54% CP",
+      "pigflowIngredientId": "fish-meal-54",
+      "mappingConfidence": "high",
+      "sourcePage": 97,
+      "compositionPct": {
+        "dryMatter": 92.2,
+        "crudeProtein": 54.9,
+        "etherExtract": 8.06,
+        "ash": 21.7,
+        "linoleicAcid": 0.11,
+        "linolenicAcid": 0.08
+      },
+      "swineEnergyKcalKg": {
+        "digestible": 3050,
+        "metabolizable": 2740,
+        "net": 1738
+      },
+      "sowEnergyKcalKg": {
+        "digestible": 3050,
+        "metabolizable": 2740,
+        "net": 1738
+      },
+      "macroMineralsPct": {
+        "potassium": 0.68,
+        "sodium": 0.86,
+        "chloride": 0.9,
+        "sulfur": 0.64,
+        "magnesium": 0.16,
+        "calcium": 5.72,
+        "totalPhosphorus": 2.92,
+        "availablePhosphorus": 2.92,
+        "standardizedDigestiblePhosphorusSwine": 2.36
+      },
+      "traceMineralsMgKg": {
+        "manganese": 41.4,
+        "iron": 444,
+        "copper": 12,
+        "zinc": 84.3,
+        "selenium": 0.79
+      },
+      "aminoAcids": {
+        "totalPct": {
+          "lysine": 3.33,
+          "methionine": 1.29,
+          "methionineCysteine": 2.25,
+          "threonine": 2.2,
+          "tryptophan": 0.44,
+          "arginine": 3.25,
+          "valine": 2.59,
+          "isoleucine": 2.08,
+          "leucine": 3.52,
+          "histidine": 1.03,
+          "phenylalanine": 2.05,
+          "phenylalanineTyrosine": 3.58,
+          "cysteine": 0.96,
+          "tyrosine": 1.53
+        },
+        "sidSwinePct": {
+          "lysine": 2.57,
+          "methionine": 0.96,
+          "methionineCysteine": 1.45,
+          "threonine": 1.49,
+          "tryptophan": 0.32,
+          "arginine": 2.7,
+          "valine": 1.82,
+          "isoleucine": 1.59,
+          "leucine": 2.57,
+          "histidine": 0.75,
+          "phenylalanine": 1.51,
+          "phenylalanineTyrosine": 2.8,
+          "cysteine": 0.49,
+          "tyrosine": 1.29
+        },
+        "sidSwineDigestibilityPct": {
+          "lysine": 77.1,
+          "methionine": 74.3,
+          "methionineCysteine": 64.4,
+          "threonine": 67.6,
+          "tryptophan": 73.5,
+          "arginine": 83.1,
+          "valine": 70.1,
+          "isoleucine": 76.5,
+          "leucine": 73.1,
+          "histidine": 73.2,
+          "phenylalanine": 73.7,
+          "phenylalanineTyrosine": 78.3,
+          "cysteine": 51,
+          "tyrosine": 84.4
+        }
+      },
+      "recommendedInclusionPct": {
+        "growingPigs": {
+          "starter": {
+            "practical": 5,
+            "max": 10
+          },
+          "grower": {
+            "practical": 5,
+            "max": 10
+          },
+          "finisher": {
+            "practical": 5,
+            "max": 5
+          }
+        },
+        "sows": {
+          "gestation": {
+            "practical": 5,
+            "max": 10
+          },
+          "lactation": {
+            "practical": 5,
+            "max": 10
+          }
+        }
+      },
+      "digestibleProteinSwinePct": 41.7
     }
   ]
 }
