@@ -176,6 +176,13 @@ export function FeedFormulationWorkbench({
     }
   }, [result, activeTab]);
 
+  useEffect(() => {
+    if (!selectedPhase?.supplementationSourceTables?.length) {
+      setTargetSupplementation(false);
+    }
+  }, [selectedPhase]);
+
+
   const availableToAdd = ingredients.filter(
     (ingredient) => !rows.some((row) => row.ingredientId === ingredient.id),
   );
