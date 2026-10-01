@@ -18,7 +18,7 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
     expect(INGREDIENT_LIBRARY.source.chapter).toBe(
       "1 — Feedstuff Composition and Nutritional Value",
     );
-    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(36);
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(40);
   });
 
   it("keeps every canonical ingredient on Brazilian Tables provenance", () => {
@@ -50,6 +50,10 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
         "barley-two-row",
         "wheat-hard-red-winter",
         "sorghum-grain",
+        "corn-high-lysine-grain",
+        "corn-high-oil-grain",
+        "rice-broken",
+        "sorghum-grain-high-tannin",
         "limestone-ground",
         "calcium-carbonate",
         "dicalcium-phosphate",
@@ -102,6 +106,43 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
     expect(barley?.composition.digestibleProteinPct).toBe(8.42);
     expect(barley?.energy.metabolizableKcalKg).toBe(3019);
     expect(sidAminoAcidPct(barley!, "lysine")).toBe(0.3);
+  });
+
+  it("loads the priority Brazilian grain alternatives", () => {
+    const highLysineCorn = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-high-lysine-grain",
+    );
+    const highOilCorn = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "corn-high-oil-grain",
+    );
+    const brokenRice = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "rice-broken",
+    );
+    const highTanninSorghum = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "sorghum-grain-high-tannin",
+    );
+
+    expect(highLysineCorn).toMatchObject({
+      provenance: { sourcePage: 77, sourceTable: "Table 1.01" },
+      energy: { metabolizableKcalKg: 3409 },
+      composition: { digestibleProteinPct: 7.26 },
+    });
+    expect(highOilCorn).toMatchObject({
+      provenance: { sourcePage: 79 },
+      energy: { metabolizableKcalKg: 3582 },
+      composition: { linoleicAcidPct: 3.3 },
+    });
+    expect(brokenRice).toMatchObject({
+      provenance: { sourcePage: 139 },
+      energy: { metabolizableKcalKg: 3489 },
+      composition: { digestibleProteinPct: 7.07 },
+    });
+    expect(sidAminoAcidPct(brokenRice!, "lysine")).toBe(0.25);
+    expect(highTanninSorghum).toMatchObject({
+      provenance: { sourcePage: 149 },
+      energy: { metabolizableKcalKg: 2984 },
+      composition: { digestibleProteinPct: 6.61 },
+    });
   });
 
   it("uses Brazilian Table 1.01 swine SID concentrations directly", () => {
