@@ -88,20 +88,30 @@ export async function POST(request: Request) {
     );
   }
 
-  const library = ingredientLibraryWithCustomPremixes(
-    customPremixes,
-    INGREDIENT_LIBRARY,
-  );
-  const result = await formulateLeastCostDiet(
-    phase,
-    energySystem,
-    ingredients,
-    library,
-    {
-      includeSupplementationTargets,
-      traceMineralBasis,
-    },
-  );
+  try {
+    const library = ingredientLibraryWithCustomPremixes(
+      customPremixes,
+      INGREDIENT_LIBRARY,
+    );
+    const result = await formulateLeastCostDiet(
+      phase,
+      energySystem,
+      ingredients,
+      library,
+      {
+        includeSupplementationTargets,
+        traceMineralBasis,
+      },
+    );
 
-  return NextResponse.json(result);
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        status: "error",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      { status: 400 },
+    );
+  }
 }
