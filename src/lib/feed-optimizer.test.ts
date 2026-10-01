@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   INGREDIENT_LIBRARY,
+  ingredientLibraryWithCustomPremixes,
   loadIngredientLibrary,
   type IngredientLibrary,
   type IngredientNutrientRecord,
@@ -236,6 +237,122 @@ describe("least-cost feed optimizer", () => {
 
     expect(valine?.inclusionPct).toBeGreaterThan(0.1);
     expect(soybeanMealPct).toBeLessThan(50);
+  });
+
+  it("can hard-constrain Brazilian Chapter 7 supplementation with a fixed custom premix", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const supplementation = phase.supplementation;
+    expect(supplementation).toBeDefined();
+    if (!supplementation) return;
+
+    const target = phase.requirements.crudeProteinPct;
+    const base = testLibrary(target + 5, target + 10);
+    const vitamins = Object.fromEntries(
+      Object.entries(supplementation.vitamins).map(([key, value]) => [
+        key,
+        value * 100,
+      ]),
+    );
+    const traceMineralsPpm = Object.fromEntries(
+      Object.entries(supplementation.traceMinerals.inorganic).map(([key, value]) => [
+        key.replace(/Ppm$/, ""),
+        value * 100,
+      ]),
+    );
+    const library = ingredientLibraryWithCustomPremixes(
+      [{
+        id: "test-premix",
+        name: "Test premix",
+        vitamins,
+        traceMineralsPpm,
+      }],
+      base,
+    );
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      [
+        { ingredientId: "cheap", pricePerKg: 0.2 },
+        { ingredientId: "protein", pricePerKg: 0.6 },
+        {
+          ingredientId: "test-premix",
+          pricePerKg: 2,
+          minInclusionPct: 1,
+          maxInclusionPct: 1,
+        },
+      ],
+      library,
+      {
+        includeSupplementationTargets: true,
+        traceMineralBasis: "inorganic",
+      },
+    );
+
+    expect(result.status).toBe("optimal");
+    if (result.status !== "optimal") return;
+    expect(result.nutrientProfile).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "supplement-vitamin-a" }),
+        expect.objectContaining({ id: "supplement-vitamin-b12" }),
+        expect.objectContaining({ id: "supplement-zinc" }),
+        expect.objectContaining({ id: "supplement-selenium" }),
+      ]),
+    );
+  });
+
+  it("reports an unknown premix label nutrient instead of assuming zero", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const supplementation = phase.supplementation;
+    expect(supplementation).toBeDefined();
+    if (!supplementation) return;
+
+    const target = phase.requirements.crudeProteinPct;
+    const base = testLibrary(target + 5, target + 10);
+    const vitamins = Object.fromEntries(
+      Object.entries(supplementation.vitamins).map(([key, value]) => [
+        key,
+        value * 100,
+      ]),
+    );
+    const traceMineralsPpm = Object.fromEntries(
+      Object.entries(supplementation.traceMinerals.inorganic)
+        .filter(([key]) => key !== "seleniumPpm")
+        .map(([key, value]) => [key.replace(/Ppm$/, ""), value * 100]),
+    );
+    const library = ingredientLibraryWithCustomPremixes(
+      [{
+        id: "incomplete-premix",
+        name: "Incomplete premix",
+        vitamins,
+        traceMineralsPpm,
+      }],
+      base,
+    );
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      [
+        { ingredientId: "cheap", pricePerKg: 0.2 },
+        { ingredientId: "protein", pricePerKg: 0.6 },
+        {
+          ingredientId: "incomplete-premix",
+          pricePerKg: 2,
+          minInclusionPct: 1,
+          maxInclusionPct: 1,
+        },
+      ],
+      library,
+      { includeSupplementationTargets: true },
+    );
+
+    expect(result.status).toBe("missing-data");
+    if (result.status !== "missing-data") return;
+    expect(result.missingData).toContainEqual({
+      ingredientId: "incomplete-premix",
+      nutrientIds: expect.arrayContaining(["supplement-selenium"]),
+    });
   });
 
   it("returns near-optimal alternatives inside the configured cost ceiling", async () => {
