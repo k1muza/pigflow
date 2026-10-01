@@ -49,14 +49,14 @@ export const INGREDIENT_DEFAULT_PRICES: readonly IngredientDefaultPrice[] = [
   },
   {
     ingredientId: "soybean-meal-dehulled-solvent-extracted",
-    usdPerTonne: 580,
+    usdPerTonne: 680,
     market: "Harare, Zimbabwe",
     asOf: "2026-10-01",
     sourceScope: "harare",
     sourceLabel: "FeedSport International — Soya meal",
     sourceUrl: "https://www.feedsport.co.zw/products/5TjUodezA0zgEjAHmgo7",
     note:
-      "Planning default updated to $580/t on 2026-10-01. The linked Harare supplier listing remains the market/specification reference for the dehulled/high-protein canonical ingredient.",
+      "Planning default updated to $680/t on 2026-10-01. The linked Harare supplier listing remains the market/specification reference for the dehulled/high-protein canonical ingredient.",
   },
   {
     ingredientId: "soybean-meal-solvent-extracted",
