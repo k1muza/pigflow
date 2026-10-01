@@ -651,6 +651,54 @@
       }
     },
     {
+      "id": "soybean-degummed-oil",
+      "name": "Soybean, Degummed Oil",
+      "aliases": [
+        "soybean oil",
+        "soya oil",
+        "degummed soybean oil"
+      ],
+      "category": "oil_fat",
+      "composition": {
+        "dryMatterPct": 99.7,
+        "crudeFatPct": 99.5,
+        "linoleicAcidPct": 52.2
+      },
+      "energy": {
+        "digestibleKcalKg": 8600,
+        "metabolizableKcalKg": 8300,
+        "netKcalKg": 7362
+      },
+      "aminoAcids": {
+        "totalPct": {},
+        "sidDigestibilityPct": {},
+        "sidPct": {}
+      },
+      "macroMinerals": {},
+      "traceMineralsPpm": {},
+      "vitamins": {},
+      "constraints": {
+        "notes": []
+      },
+      "provenance": {
+        "sourceIngredientName": "Soybean, Degummed Oil",
+        "sourcePage": 153,
+        "sourceTable": "Table 1.01",
+        "source": {
+          "publisher": "Federal University of Viçosa, Department of Animal Science",
+          "title": "Brazilian Tables for Poultry and Swine — Composition of Feedstuffs and Nutritional Requirements",
+          "year": 2024,
+          "url": "https://editorascienza.com.br/pdfs/UFV/poultry_swine_en_chapter_1.pdf",
+          "priority": "primary",
+          "basis": "As-fed; Brazilian Tables 2024 Table 1.01"
+        },
+        "nutrientSources": {},
+        "notes": [
+          "Nutrient values are transcribed from the Brazilian Tables 2024 Table 1.01 swine columns; source dashes remain missing rather than being converted to zero."
+        ]
+      }
+    },
+    {
       "id": "barley-two-row",
       "name": "Barley, Grain",
       "aliases": [
