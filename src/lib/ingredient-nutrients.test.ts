@@ -18,7 +18,7 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
     expect(INGREDIENT_LIBRARY.source.chapter).toBe(
       "1 — Feedstuff Composition and Nutritional Value",
     );
-    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(45);
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(46);
   });
 
   it("keeps every canonical ingredient on Brazilian Tables provenance", () => {
@@ -47,6 +47,7 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
         "sunflower-meal-solvent-extracted",
         "wheat-bran",
         "corn-oil",
+        "soybean-degummed-oil",
         "barley-two-row",
         "wheat-hard-red-winter",
         "sorghum-grain",
@@ -111,6 +112,28 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
     expect(barley?.composition.digestibleProteinPct).toBe(8.42);
     expect(barley?.energy.metabolizableKcalKg).toBe(3019);
     expect(sidAminoAcidPct(barley!, "lysine")).toBe(0.3);
+  });
+
+  it("loads Brazilian degummed soybean oil from Table 1.01", () => {
+    const oil = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-degummed-oil",
+    );
+
+    expect(oil).toMatchObject({
+      name: "Soybean, Degummed Oil",
+      category: "oil_fat",
+      provenance: { sourcePage: 153, sourceTable: "Table 1.01" },
+      composition: {
+        dryMatterPct: 99.7,
+        crudeFatPct: 99.5,
+        linoleicAcidPct: 52.2,
+      },
+      energy: {
+        digestibleKcalKg: 8600,
+        metabolizableKcalKg: 8300,
+        netKcalKg: 7362,
+      },
+    });
   });
 
   it("loads the next priority Brazilian feed ingredients", () => {
