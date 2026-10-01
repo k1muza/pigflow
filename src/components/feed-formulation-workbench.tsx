@@ -1434,10 +1434,27 @@ function FormulaTable({
 
 function Unsupported({ requirements }: { requirements: readonly string[] }) {
   if (requirements.length === 0) return null;
+  const supplementationUnavailable = requirements.includes(
+    "vitamin-trace-mineral-supplementation",
+  );
+  const remaining = requirements.filter(
+    (requirement) => requirement !== "vitamin-trace-mineral-supplementation",
+  );
+
   return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-ink-muted">
-      The current ingredient matrix cannot yet hard-constrain: {requirements.join(", ")}. PigFlow
-      reports these explicitly rather than inventing zero values.
+    <div className="space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-5 text-ink-muted">
+      {supplementationUnavailable ? (
+        <div>
+          Brazilian Tables 2024 do not publish Chapter 7 vitamin and trace-mineral
+          supplementation guidance for this exact phase, so PigFlow does not invent a target.
+        </div>
+      ) : null}
+      {remaining.length > 0 ? (
+        <div>
+          The current ingredient matrix cannot yet hard-constrain: {remaining.join(", ")}. PigFlow
+          reports these explicitly rather than inventing zero values.
+        </div>
+      ) : null}
     </div>
   );
 }
