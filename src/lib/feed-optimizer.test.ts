@@ -261,6 +261,53 @@ describe("least-cost feed optimizer", () => {
     );
   });
 
+  it("reserves a fixed premix without requiring a micronutrient profile in mode 1", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const target = phase.requirements.crudeProteinPct;
+    const base = testLibrary(target + 5, target + 10);
+    const library = ingredientLibraryWithCustomPremixes(
+      [{
+        id: "fixed-premix",
+        name: "Commercial premix",
+        vitamins: {},
+        traceMineralsPpm: {},
+      }],
+      base,
+    );
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      [
+        { ingredientId: "cheap", pricePerKg: 0.2 },
+        { ingredientId: "protein", pricePerKg: 0.6 },
+        {
+          ingredientId: "fixed-premix",
+          pricePerKg: 2,
+          minInclusionPct: 1,
+          maxInclusionPct: 1,
+        },
+      ],
+      library,
+      { includeSupplementationTargets: false },
+    );
+
+    expect(result.status).toBe("optimal");
+    if (result.status !== "optimal") return;
+
+    expect(
+      result.solution.formula.ingredients.find(
+        (row) => row.ingredientId === "fixed-premix",
+      )?.inclusionPct,
+    ).toBeCloseTo(1, 6);
+    expect(
+      result.solution.formula.ingredients
+        .filter((row) => row.ingredientId !== "fixed-premix")
+        .reduce((sum, row) => sum + row.inclusionPct, 0),
+    ).toBeCloseTo(99, 6);
+    expect(result.nutrientProfile.every((row) => row.margin >= -1e-8)).toBe(true);
+  });
+
   it("can hard-constrain Brazilian Chapter 7 supplementation with a fixed custom premix", async () => {
     const phase = nutritionPhaseAtWeight(30);
     const supplementation = phase.supplementation;
