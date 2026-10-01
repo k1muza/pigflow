@@ -28,12 +28,9 @@ function display(value: number | undefined, unit = ""): string {
 }
 
 function sourceLabel(ingredient: (typeof library.ingredients)[number]): string {
-  if (ingredient.provenance.source) {
-    if (ingredient.provenance.source.publisher === "Pork Information Gateway") return "NSNG";
-
-    return ingredient.provenance.source.publisher;
-  }
-  return "NRC 2012";
+  return ingredient.provenance.source?.year === 2024
+    ? "Brazilian 2024"
+    : ingredient.provenance.source?.publisher ?? library.source.publisher;
 }
 
 export function IngredientNutrientBrowser() {
@@ -85,8 +82,8 @@ export function IngredientNutrientBrowser() {
         <div>
           <CardTitle>Feed ingredient nutrient library</CardTitle>
           <CardDescription>
-            Browse source-backed swine-feed ingredients. Original NRC 2012 rows retain their NRC
-            provenance; supplemental records identify their source independently.
+            Browse the canonical swine-feed ingredient set transcribed from the Brazilian Tables
+            for Poultry and Swine, 5th Edition (2024).
           </CardDescription>
         </div>
         <div className="relative max-w-xl">
@@ -107,7 +104,7 @@ export function IngredientNutrientBrowser() {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
           <Badge variant="secondary">{library.ingredients.length} ingredients</Badge>
-          <span>NRC 2012 + explicitly sourced supplemental records</span>
+          <span>Brazilian Tables 2024 · Tables 1.01, 1.09 and 1.10</span>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-hairline">
