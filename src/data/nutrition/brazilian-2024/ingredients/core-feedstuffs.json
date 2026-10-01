@@ -134,10 +134,10 @@
     {
       "id": "soybean-meal-45.6-cp-average",
       "name": "Soybean, Meal 45.6% CP (Average)",
-      "mappingConfidence": "unmapped",
+      "mappingConfidence": "high",
       "sourcePage": 165,
       "notes": [
-        "Do not map automatically to the current PIC <48% CP dehulled soybean meal record; the source identity and composition differ."
+        "Mapped to PigFlow's stable standard soybean-meal ID; the canonical display identity and nutrient values are the Brazilian Tables 45.6% CP average row."
       ],
       "compositionPct": {
         "dryMatter": 89.5,
@@ -256,7 +256,8 @@
           }
         }
       },
-      "digestibleProteinSwinePct": 40.8
+      "digestibleProteinSwinePct": 40.8,
+      "pigflowIngredientId": "soybean-meal-solvent-extracted"
     },
     {
       "id": "corn-oil",
@@ -292,10 +293,10 @@
     {
       "id": "corn-ddgs-6-9-ee",
       "name": "Corn, Distillers Dried Grains with Solubles (DDGS) - 6 to 9% of EE",
-      "mappingConfidence": "unmapped",
+      "mappingConfidence": "high",
       "sourcePage": 61,
       "notes": [
-        "This is not the same ingredient specification as PIC's <4% oil DDGS; do not substitute automatically."
+        "Mapped to PigFlow's stable corn-ddgs ID; the canonical identity is the Brazilian Tables 6 to 9% ether-extract DDGS row."
       ],
       "compositionPct": {
         "dryMatter": 90.2,
@@ -410,7 +411,8 @@
           }
         }
       },
-      "digestibleProteinSwinePct": 23.1
+      "digestibleProteinSwinePct": 23.1,
+      "pigflowIngredientId": "corn-ddgs"
     }
   ]
 }
