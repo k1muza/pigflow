@@ -12,10 +12,6 @@ import {
   Trash2,
 } from "lucide-react";
 
-import {
-  CustomPremixDialog,
-  type CustomPremixDraft,
-} from "@/components/custom-premix-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,10 +76,7 @@ type Row = {
   max: string;
 };
 
-type CustomPremix = CustomPremixDraft & {
-  key: number;
-  id: string;
-};
+const FIXED_PREMIX_ID = "fixed-commercial-premix";
 
 type RecipeReportContext = {
   programmeName: string;
@@ -130,13 +123,13 @@ export function FeedFormulationWorkbench({
   );
   const [energySystem, setEnergySystem] = useState<"ME" | "NE">("ME");
   const [targetBatchWeight, setTargetBatchWeight] = useState("1000");
+  const [useFixedPremix, setUseFixedPremix] = useState(false);
+  const [fixedPremixName, setFixedPremixName] = useState("Commercial premix");
+  const [fixedPremixKgPerTonne, setFixedPremixKgPerTonne] = useState("10");
+  const [fixedPremixPricePerKg, setFixedPremixPricePerKg] = useState("");
   const [nextKey, setNextKey] = useState(100);
-  const [nextPremixKey, setNextPremixKey] = useState(1);
   const [addIngredientId, setAddIngredientId] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
-  const [customPremixes, setCustomPremixes] = useState<CustomPremix[]>([]);
-  const [targetSupplementation, setTargetSupplementation] = useState(false);
-  const [traceMineralBasis, setTraceMineralBasis] = useState<"inorganic" | "organic">("inorganic");
   const [result, setResult] = useState<LeastCostFormulationResult | null>(null);
   const [running, setRunning] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -148,15 +141,15 @@ export function FeedFormulationWorkbench({
   const allIngredientOptions = useMemo<IngredientOption[]>(
     () => [
       ...ingredients,
-      ...customPremixes.map((premix) => ({
-        id: premix.id,
-        name: premix.name,
-        category: "vitamin_mineral_premix",
-        minInclusionPct: premix.inclusionKgPerTonne / 10,
-        maxInclusionPct: premix.inclusionKgPerTonne / 10,
-      })),
+      ...(useFixedPremix
+        ? [{
+            id: FIXED_PREMIX_ID,
+            name: fixedPremixName.trim() || "Commercial premix",
+            category: "vitamin_mineral_premix",
+          }]
+        : []),
     ],
-    [ingredients, customPremixes],
+    [ingredients, useFixedPremix, fixedPremixName],
   );
 
   const ingredientById = useMemo(
@@ -169,19 +162,23 @@ export function FeedFormulationWorkbench({
     Number.isFinite(parsedTargetBatchKg) && parsedTargetBatchKg > 0
       ? parsedTargetBatchKg
       : 1000;
+  const parsedFixedPremixKgPerTonne = Number(fixedPremixKgPerTonne);
+  const displayFixedPremixKgPerTonne =
+    useFixedPremix &&
+    Number.isFinite(parsedFixedPremixKgPerTonne) &&
+    parsedFixedPremixKgPerTonne > 0 &&
+    parsedFixedPremixKgPerTonne < 1000
+      ? parsedFixedPremixKgPerTonne
+      : 0;
+  const fixedPremixBatchKg =
+    (displayBatchKg * displayFixedPremixKgPerTonne) / 1000;
+  const baseMixBatchKg = displayBatchKg - fixedPremixBatchKg;
 
   useEffect(() => {
     if (!result && activeTab !== "setup") {
       setActiveTab("setup");
     }
   }, [result, activeTab]);
-
-  useEffect(() => {
-    if (!selectedPhase?.supplementationSourceTables?.length) {
-      setTargetSupplementation(false);
-    }
-  }, [selectedPhase]);
-
 
   const availableToAdd = ingredients.filter(
     (ingredient) => !rows.some((row) => row.ingredientId === ingredient.id),
@@ -279,32 +276,6 @@ export function FeedFormulationWorkbench({
     setResult(null);
   }
 
-  function addCustomPremix(premix: CustomPremixDraft) {
-    const key = nextPremixKey;
-    setCustomPremixes((current) => [
-      ...current,
-      {
-        ...premix,
-        key,
-        id: `custom-premix-${key}`,
-      },
-    ]);
-    setNextPremixKey((value) => value + 1);
-    setTargetSupplementation(
-      Boolean(selectedPhase?.supplementationSourceTables?.length),
-    );
-    setResult(null);
-  }
-
-  function removeCustomPremix(id: string) {
-    setCustomPremixes((current) => {
-      const next = current.filter((premix) => premix.id !== id);
-      if (next.length === 0) setTargetSupplementation(false);
-      return next;
-    });
-    setResult(null);
-  }
-
   async function formulate() {
     setRequestError(null);
     setResult(null);
@@ -313,7 +284,7 @@ export function FeedFormulationWorkbench({
       setRequestError("Select a requirement programme and phase.");
       return;
     }
-    if (rows.length === 0 && customPremixes.length === 0) {
+    if (rows.length === 0) {
       setRequestError("Add at least one available ingredient.");
       return;
     }
@@ -348,17 +319,37 @@ export function FeedFormulationWorkbench({
         };
       });
 
-      requestIngredients.push(
-        ...customPremixes.map((premix) => {
-          const fixedInclusionPct = premix.inclusionKgPerTonne / 10;
-          return {
-            ingredientId: premix.id,
-            pricePerKg: premix.pricePerKg,
-            minInclusionPct: fixedInclusionPct,
-            maxInclusionPct: fixedInclusionPct,
-          };
-        }),
-      );
+      if (useFixedPremix) {
+        const name = fixedPremixName.trim();
+        const inclusionKgPerTonne = Number(fixedPremixKgPerTonne);
+        const pricePerKg = Number(fixedPremixPricePerKg);
+
+        if (!name) {
+          throw new Error("Enter a name for the fixed premix.");
+        }
+        if (
+          !Number.isFinite(inclusionKgPerTonne) ||
+          inclusionKgPerTonne <= 0 ||
+          inclusionKgPerTonne >= 1000
+        ) {
+          throw new Error("Premix inclusion must be greater than 0 and less than 1000 kg/t.");
+        }
+        if (
+          !Number.isFinite(pricePerKg) ||
+          pricePerKg < 0 ||
+          fixedPremixPricePerKg.trim() === ""
+        ) {
+          throw new Error("Enter a valid premix price per kg.");
+        }
+
+        const fixedInclusionPct = inclusionKgPerTonne / 10;
+        requestIngredients.push({
+          ingredientId: FIXED_PREMIX_ID,
+          pricePerKg,
+          minInclusionPct: fixedInclusionPct,
+          maxInclusionPct: fixedInclusionPct,
+        });
+      }
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : String(error));
       return;
@@ -373,14 +364,15 @@ export function FeedFormulationWorkbench({
           programmeId,
           phaseId,
           energySystem,
-          includeSupplementationTargets: targetSupplementation,
-          traceMineralBasis,
-          customPremixes: customPremixes.map((premix) => ({
-            id: premix.id,
-            name: premix.name,
-            vitamins: premix.vitamins,
-            traceMineralsPpm: premix.traceMineralsPpm,
-          })),
+          includeSupplementationTargets: false,
+          customPremixes: useFixedPremix
+            ? [{
+                id: FIXED_PREMIX_ID,
+                name: fixedPremixName.trim(),
+                vitamins: {},
+                traceMineralsPpm: {},
+              }]
+            : [],
           ingredients: requestIngredients,
         }),
       });
@@ -423,13 +415,13 @@ export function FeedFormulationWorkbench({
         <CardHeader>
           <CardTitle>Least-cost formulation</CardTitle>
           <CardDescription>
-            Choose the Brazilian requirement phase, energy basis and target batch size. PigFlow
-            optimizes the complete 100% ration, including any fixed-rate commercial premix, and
-            scales the resulting percentages to the batch weight you want to mix.
+            Choose the Brazilian requirement phase and energy basis, then define the finished mix.
+            A fixed premix can reserve part of the batch while PigFlow optimizes the remaining
+            basal ingredients against the complete-diet nutrient targets.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="Programme">
               <select
                 value={programmeId}
@@ -471,15 +463,6 @@ export function FeedFormulationWorkbench({
                 <option value="ME">Metabolizable energy (ME)</option>
                 <option value="NE">Net energy (NE)</option>
               </select>
-            </Field>
-            <Field label="Target batch weight (kg)">
-              <Input
-                type="number"
-                min="0.1"
-                step="1"
-                value={targetBatchWeight}
-                onChange={(event) => setTargetBatchWeight(event.target.value)}
-              />
             </Field>
           </div>
 
@@ -577,100 +560,115 @@ export function FeedFormulationWorkbench({
             </table>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-hairline bg-raised/20 p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="text-sm font-medium text-ink">Commercial premixes</div>
-                <div className="mt-1 max-w-3xl text-xs leading-5 text-ink-muted">
-                  Add a supplier premix at its fixed kg/tonne inclusion. Guaranteed label
-                  micronutrients stay separate from the canonical Brazilian ingredient library.
-                </div>
+          <div className="space-y-4 rounded-lg border border-hairline bg-raised/20 p-4">
+            <div>
+              <div className="text-sm font-medium text-ink">Finished mix</div>
+              <div className="mt-1 max-w-3xl text-xs leading-5 text-ink-muted">
+                Set the final batch weight and optionally reserve a fixed commercial premix.
+                PigFlow formulates the remaining basal mix so the complete finished feed still
+                satisfies the Brazilian diet requirements after the premix is added.
               </div>
-              <CustomPremixDialog onAdd={addCustomPremix} />
             </div>
 
-            {customPremixes.length > 0 ? (
-              <div className="space-y-2">
-                {customPremixes.map((premix) => {
-                  const declaredCount =
-                    Object.keys(premix.vitamins).length +
-                    Object.keys(premix.traceMineralsPpm).length;
-                  return (
-                    <div
-                      key={premix.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-background px-3 py-2.5"
-                    >
-                      <div>
-                        <div className="font-medium text-ink">{premix.name}</div>
-                        <div className="text-xs text-ink-muted">
-                          {premix.inclusionKgPerTonne.toFixed(2)} kg/t ·{" "}
-                          {(premix.inclusionKgPerTonne / 10).toFixed(3)}% ·{" "}
-                          {declaredCount} guaranteed micronutrient values ·{" "}
-                          {premix.pricePerKg.toFixed(4)}/kg
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Remove ${premix.name}`}
-                        onClick={() => removeCustomPremix(premix.id)}
-                      >
-                        <Trash2 size={15} />
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-xs text-ink-faint">
-                No commercial premix added. Macronutrient formulation continues as before.
-              </div>
-            )}
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Field label="Finished feed weight (kg)">
+                <Input
+                  type="number"
+                  min="0.1"
+                  step="1"
+                  value={targetBatchWeight}
+                  onChange={(event) => {
+                    setTargetBatchWeight(event.target.value);
+                    setResult(null);
+                  }}
+                />
+              </Field>
 
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-              <label className="flex items-start gap-2 rounded-lg border border-hairline bg-background p-3">
+              <label className="flex min-h-16 items-center gap-2 rounded-lg border border-hairline bg-background px-3 py-2">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4"
-                  checked={targetSupplementation}
-                  disabled={
-                    customPremixes.length === 0 ||
-                    !selectedPhase?.supplementationSourceTables?.length
-                  }
+                  className="h-4 w-4"
+                  checked={useFixedPremix}
                   onChange={(event) => {
-                    setTargetSupplementation(event.target.checked);
+                    setUseFixedPremix(event.target.checked);
                     setResult(null);
                   }}
                 />
                 <span>
-                  <span className="block text-sm font-medium text-ink">
-                    Target whole supplementation profile
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-5 text-ink-muted">
-                    {selectedPhase?.supplementationSourceTables?.length
-                      ? `Constrain premix contribution against Brazilian Tables ${selectedPhase.supplementationSourceTables
-                          .map((table) => `Table ${table}`)
-                          .join(" + ")} supplementation guidance.`
-                      : "No Brazilian Chapter 7 supplementation target is published for this exact phase."}
+                  <span className="block text-sm font-medium text-ink">Add fixed premix</span>
+                  <span className="block text-xs text-ink-muted">
+                    Reserve part of the final mix at a fixed kg/t rate.
                   </span>
                 </span>
               </label>
-              <Field label="Trace-mineral basis">
-                <select
-                  value={traceMineralBasis}
-                  disabled={!targetSupplementation}
+
+              <Field label="Premix inclusion (kg / tonne)">
+                <Input
+                  type="number"
+                  min="0.001"
+                  max="999.999"
+                  step="0.1"
+                  disabled={!useFixedPremix}
+                  value={fixedPremixKgPerTonne}
                   onChange={(event) => {
-                    setTraceMineralBasis(event.target.value as "inorganic" | "organic");
+                    setFixedPremixKgPerTonne(event.target.value);
                     setResult(null);
                   }}
-                  className="h-9 w-full rounded-md border border-hairline bg-background px-3 text-sm text-ink disabled:opacity-50"
-                >
-                  <option value="inorganic">Inorganic</option>
-                  <option value="organic">Organic</option>
-                </select>
+                />
+              </Field>
+
+              <Field label="Premix price / kg">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  disabled={!useFixedPremix}
+                  value={fixedPremixPricePerKg}
+                  placeholder="0.00"
+                  onChange={(event) => {
+                    setFixedPremixPricePerKg(event.target.value);
+                    setResult(null);
+                  }}
+                />
               </Field>
             </div>
+
+            {useFixedPremix ? (
+              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(260px,auto)]">
+                <Field label="Premix name">
+                  <Input
+                    value={fixedPremixName}
+                    onChange={(event) => {
+                      setFixedPremixName(event.target.value);
+                      setResult(null);
+                    }}
+                    placeholder="Commercial premix"
+                  />
+                </Field>
+                <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm">
+                  <div className="font-medium text-ink">Mix plan</div>
+                  <div className="mt-1 text-ink-muted">
+                    PigFlow formulates <strong className="text-ink">{baseMixBatchKg.toFixed(2)} kg</strong>
+                    {" "}basal feed + <strong className="text-ink">{fixedPremixBatchKg.toFixed(2)} kg</strong>
+                    {" "}premix = <strong className="text-ink">{displayBatchKg.toFixed(2)} kg</strong>
+                    {" "}finished feed.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm text-ink-muted">
+                PigFlow formulates the full {displayBatchKg.toFixed(2)} kg finished batch.
+              </div>
+            )}
+
+            {useFixedPremix ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs leading-5 text-ink-muted">
+                Mode 1 reserves the premix weight but does not credit it with energy, protein,
+                amino acids or macro minerals. The remaining basal mix therefore carries the full
+                modeled diet requirements after dilution. Vitamin and trace-mineral coverage is
+                not verified from the premix label in this mode.
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -693,7 +691,7 @@ export function FeedFormulationWorkbench({
             <Button
               type="button"
               onClick={() => void formulate()}
-              disabled={running || (rows.length === 0 && customPremixes.length === 0)}
+              disabled={running || rows.length === 0}
             >
               <Calculator size={15} />
               {running ? "Formulating…" : "Find least-cost formula"}
@@ -736,11 +734,13 @@ export function FeedFormulationWorkbench({
                     name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
                     pricePerKg: Number(row.price),
                   })),
-                  ...customPremixes.map((premix) => ({
-                    ingredientId: premix.id,
-                    name: premix.name,
-                    pricePerKg: premix.pricePerKg,
-                  })),
+                  ...(useFixedPremix
+                    ? [{
+                        ingredientId: FIXED_PREMIX_ID,
+                        name: fixedPremixName.trim() || "Commercial premix",
+                        pricePerKg: Number(fixedPremixPricePerKg),
+                      }]
+                    : []),
                 ],
               }}
             />
