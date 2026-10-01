@@ -12,6 +12,10 @@ import {
   Trash2,
 } from "lucide-react";
 
+import {
+  CustomPremixDialog,
+  type CustomPremixDraft,
+} from "@/components/custom-premix-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,11 +75,17 @@ type Row = {
   max: string;
 };
 
+type CustomPremix = CustomPremixDraft & {
+  key: number;
+  id: string;
+};
+
 type RecipeReportContext = {
   programmeName: string;
   phaseLabel: string;
   sourceTable?: string;
   energySystem: "ME" | "NE";
+  targetBatchKg: number;
   ingredients: FeedRecipeReportInput["ingredients"];
 };
 
@@ -114,9 +124,14 @@ export function FeedFormulationWorkbench({
     [selectedProgramme, phaseId],
   );
   const [energySystem, setEnergySystem] = useState<"ME" | "NE">("ME");
+  const [targetBatchWeight, setTargetBatchWeight] = useState("1000");
   const [nextKey, setNextKey] = useState(100);
+  const [nextPremixKey, setNextPremixKey] = useState(1);
   const [addIngredientId, setAddIngredientId] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
+  const [customPremixes, setCustomPremixes] = useState<CustomPremix[]>([]);
+  const [targetSupplementation, setTargetSupplementation] = useState(false);
+  const [traceMineralBasis, setTraceMineralBasis] = useState<"inorganic" | "organic">("inorganic");
   const [result, setResult] = useState<LeastCostFormulationResult | null>(null);
   const [running, setRunning] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -125,10 +140,30 @@ export function FeedFormulationWorkbench({
   const [activeTab, setActiveTab] = useState("setup");
   const [selectedRecipeId, setSelectedRecipeId] = useState("least-cost");
 
-  const ingredientById = useMemo(
-    () => new Map(ingredients.map((ingredient) => [ingredient.id, ingredient])),
-    [ingredients],
+  const allIngredientOptions = useMemo<IngredientOption[]>(
+    () => [
+      ...ingredients,
+      ...customPremixes.map((premix) => ({
+        id: premix.id,
+        name: premix.name,
+        category: "vitamin_mineral_premix",
+        minInclusionPct: premix.inclusionKgPerTonne / 10,
+        maxInclusionPct: premix.inclusionKgPerTonne / 10,
+      })),
+    ],
+    [ingredients, customPremixes],
   );
+
+  const ingredientById = useMemo(
+    () => new Map(allIngredientOptions.map((ingredient) => [ingredient.id, ingredient])),
+    [allIngredientOptions],
+  );
+
+  const parsedTargetBatchKg = Number(targetBatchWeight);
+  const displayBatchKg =
+    Number.isFinite(parsedTargetBatchKg) && parsedTargetBatchKg > 0
+      ? parsedTargetBatchKg
+      : 1000;
 
   useEffect(() => {
     if (!result && activeTab !== "setup") {
@@ -232,6 +267,30 @@ export function FeedFormulationWorkbench({
     setResult(null);
   }
 
+  function addCustomPremix(premix: CustomPremixDraft) {
+    const key = nextPremixKey;
+    setCustomPremixes((current) => [
+      ...current,
+      {
+        ...premix,
+        key,
+        id: `custom-premix-${key}`,
+      },
+    ]);
+    setNextPremixKey((value) => value + 1);
+    setTargetSupplementation(true);
+    setResult(null);
+  }
+
+  function removeCustomPremix(id: string) {
+    setCustomPremixes((current) => {
+      const next = current.filter((premix) => premix.id !== id);
+      if (next.length === 0) setTargetSupplementation(false);
+      return next;
+    });
+    setResult(null);
+  }
+
   async function formulate() {
     setRequestError(null);
     setResult(null);
@@ -240,8 +299,13 @@ export function FeedFormulationWorkbench({
       setRequestError("Select a requirement programme and phase.");
       return;
     }
-    if (rows.length === 0) {
+    if (rows.length === 0 && customPremixes.length === 0) {
       setRequestError("Add at least one available ingredient.");
+      return;
+    }
+    const batchKg = Number(targetBatchWeight);
+    if (!Number.isFinite(batchKg) || batchKg <= 0) {
+      setRequestError("Target batch weight must be greater than 0 kg.");
       return;
     }
 
@@ -269,6 +333,18 @@ export function FeedFormulationWorkbench({
           maxInclusionPct: max,
         };
       });
+
+      requestIngredients.push(
+        ...customPremixes.map((premix) => {
+          const fixedInclusionPct = premix.inclusionKgPerTonne / 10;
+          return {
+            ingredientId: premix.id,
+            pricePerKg: premix.pricePerKg,
+            minInclusionPct: fixedInclusionPct,
+            maxInclusionPct: fixedInclusionPct,
+          };
+        }),
+      );
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : String(error));
       return;
@@ -283,6 +359,14 @@ export function FeedFormulationWorkbench({
           programmeId,
           phaseId,
           energySystem,
+          includeSupplementationTargets: targetSupplementation,
+          traceMineralBasis,
+          customPremixes: customPremixes.map((premix) => ({
+            id: premix.id,
+            name: premix.name,
+            vitamins: premix.vitamins,
+            traceMineralsPpm: premix.traceMineralsPpm,
+          })),
           ingredients: requestIngredients,
         }),
       });
