@@ -252,6 +252,7 @@ export function analyzeDiet(
       ingredient,
       share,
       ["methionine", "cysteine"],
+      "methionineCysteine",
     );
     addSid(result.sidAminoAcidsPct.threonine, ingredient, share, ["threonine"]);
     addSid(result.sidAminoAcidsPct.tryptophan, ingredient, share, ["tryptophan"]);
@@ -264,6 +265,7 @@ export function analyzeDiet(
       ingredient,
       share,
       ["phenylalanine", "tyrosine"],
+      "phenylalanineTyrosine",
     );
 
     add(
@@ -663,6 +665,7 @@ function structuralZero(
     case "energy":
       return (
         ingredient.category === "mineral" ||
+        ingredient.category === "amino_acid" ||
         ingredient.category === "vitamin_mineral_premix"
       );
     case "crudeProtein":
@@ -691,7 +694,11 @@ function structuralZero(
         ingredient.category === "vitamin_mineral_premix"
       );
     case "macroMineral":
-      return ingredient.category === "oil_fat";
+      return (
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "mineral"
+      );
     case "traceMineral":
       return (
         ingredient.category === "oil_fat" ||
@@ -725,7 +732,16 @@ function addSid(
   ingredient: IngredientNutrientRecord,
   share: number,
   aminoAcids: readonly string[],
+  combinedKey?: string,
 ): void {
+  if (combinedKey) {
+    const explicitCombined = ingredient.aminoAcids.sidPct[combinedKey];
+    if (explicitCombined !== undefined) {
+      target.value += share * explicitCombined;
+      return;
+    }
+  }
+
   let subtotal = 0;
   for (const aminoAcid of aminoAcids) {
     const value = sidAminoAcidPct(ingredient, aminoAcid);
