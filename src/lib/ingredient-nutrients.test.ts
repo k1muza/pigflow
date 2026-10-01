@@ -5,21 +5,37 @@ import {
   loadIngredientLibrary,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
-  nutrientValueSource,
 } from "./ingredient-nutrients";
 
-describe("ingredient nutrient JSON library", () => {
-  it("loads the checked-in NRC 2012 ingredient library", () => {
+describe("Brazilian Tables 2024 ingredient nutrient library", () => {
+  it("loads the Brazilian Tables as the canonical ingredient source", () => {
     expect(INGREDIENT_LIBRARY.schemaVersion).toBe(1);
+    expect(INGREDIENT_LIBRARY.id).toBe("brazilian-tables-2024-ingredient-library");
     expect(INGREDIENT_LIBRARY.basis.nutrientComposition).toBe("as-fed");
-    expect(INGREDIENT_LIBRARY.source.title).toBe("Nutrient Requirements of Swine");
-    expect(INGREDIENT_LIBRARY.source.edition).toBe("11th Revised Edition");
-    expect(INGREDIENT_LIBRARY.source.year).toBe(2012);
-    expect(INGREDIENT_LIBRARY.source.chapter).toBe("17 — Feed Ingredient Composition");
-    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(50);
+    expect(INGREDIENT_LIBRARY.source.title).toMatch(/Brazilian Tables for Poultry and Swine/);
+    expect(INGREDIENT_LIBRARY.source.edition).toBe("5th Edition");
+    expect(INGREDIENT_LIBRARY.source.year).toBe(2024);
+    expect(INGREDIENT_LIBRARY.source.chapter).toBe(
+      "1 — Feedstuff Composition and Nutritional Value",
+    );
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(36);
   });
 
-  it("has unique ingredient ids and includes the core formulation ingredient classes", () => {
+  it("keeps every canonical ingredient on Brazilian Tables provenance", () => {
+    for (const ingredient of INGREDIENT_LIBRARY.ingredients) {
+      expect(
+        ingredient.provenance.source?.title,
+        ingredient.id,
+      ).toMatch(/Brazilian Tables for Poultry and Swine/);
+      expect(ingredient.provenance.source?.year, ingredient.id).toBe(2024);
+      expect(
+        Object.keys(ingredient.provenance.nutrientSources),
+        ingredient.id,
+      ).toHaveLength(0);
+    }
+  });
+
+  it("has unique ids and retains the priced formulation ingredient identities", () => {
     const ids = INGREDIENT_LIBRARY.ingredients.map((ingredient) => ingredient.id);
     expect(new Set(ids).size).toBe(ids.length);
 
@@ -27,8 +43,16 @@ describe("ingredient nutrient JSON library", () => {
       expect.arrayContaining([
         "corn-yellow-dent",
         "soybean-meal-dehulled-solvent-extracted",
+        "soybean-meal-solvent-extracted",
+        "sunflower-meal-solvent-extracted",
+        "wheat-bran",
         "corn-oil",
+        "barley-two-row",
+        "wheat-hard-red-winter",
+        "sorghum-grain",
+        "limestone-ground",
         "calcium-carbonate",
+        "dicalcium-phosphate",
         "monocalcium-phosphate",
         "sodium-chloride",
         "l-lysine-hcl",
@@ -37,111 +61,70 @@ describe("ingredient nutrient JSON library", () => {
         "l-tryptophan",
         "l-valine",
         "l-isoleucine",
-        "vitamin-trace-mineral-premix",
-        "corn-ddgs-low-oil",
-        "wheat-middlings",
       ]),
     );
   });
 
-  it("keeps supplemental ingredient sources explicit rather than relabelling them NRC 2012", () => {
+  it("does not retain ingredients without a defensible Brazilian Tables identity", () => {
+    const ids = new Set(
+      INGREDIENT_LIBRARY.ingredients.map((ingredient) => ingredient.id),
+    );
+
+    for (const removed of [
+      "wheat-middlings",
+      "corn-ddgs-low-oil",
+      "vitamin-trace-mineral-premix",
+      "peas-field",
+      "alfalfa-meal-dehydrated",
+      "beet-pulp",
+      "soybeans-heat-processed",
+      "corn-hominy-feed",
+      "fish-meal-menhaden",
+      "flaxseed-meal-solvent-extracted",
+      "meat-and-bone-meal",
+      "meat-meal",
+      "blood-meal-spray-dried",
+      "plasma-protein-spray-dried",
+    ]) {
+      expect(ids.has(removed), removed).toBe(false);
+    }
+  });
+
+  it("loads barley directly from Brazilian Table 1.01", () => {
     const barley = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "barley-two-row",
     );
-    expect(barley?.provenance.source?.publisher).toBe("Pork Information Gateway");
-    expect(barley?.provenance.source?.basis).toMatch(/distinct from NRC 2012/i);
-    expect(barley?.energy.metabolizableKcalKg).toBeGreaterThan(2900);
+
+    expect(barley?.name).toBe("Barley, Grain");
+    expect(barley?.provenance.sourceTable).toBe("Table 1.01");
+    expect(barley?.provenance.sourcePage).toBe(23);
+    expect(barley?.composition.crudeProteinPct).toBe(10.3);
+    expect(barley?.composition.digestibleProteinPct).toBe(8.42);
+    expect(barley?.energy.metabolizableKcalKg).toBe(3019);
+    expect(sidAminoAcidPct(barley!, "lysine")).toBe(0.3);
   });
 
-  it("tracks nutrient-specific fallback provenance", () => {
-    const ddgs = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "corn-ddgs-low-oil",
-    );
-    const lysine = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "l-lysine-hcl",
-    );
-
-    expect(ddgs?.energy.metabolizableKcalKg).toBe(2760);
-    expect(nutrientValueSource(ddgs!, "energy.metabolizableKcalKg")).toMatchObject({
-      publisher: "INRAE–CIRAD–AFZ",
-      priority: "fallback",
-    });
-
-    expect(lysine?.macroMinerals.chloridePct).toBe(19.1);
-    expect(nutrientValueSource(lysine!, "macroMinerals.chloridePct")).toMatchObject({
-      publisher: "INRAE–CIRAD–AFZ",
-      priority: "fallback",
-    });
-  });
-
-  it("preserves NRC total lysine and SID digestibility separately", () => {
+  it("uses Brazilian Table 1.01 swine SID concentrations directly", () => {
     const maize = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "corn-yellow-dent",
     );
-    expect(maize).toBeDefined();
+    const soybeanMeal = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-meal-dehulled-solvent-extracted",
+    );
+
     expect(maize?.aminoAcids.totalPct.lysine).toBe(0.25);
-    expect(maize?.aminoAcids.sidDigestibilityPct.lysine).toBe(74);
-    expect(sidAminoAcidPct(maize!, "lysine")).toBeCloseTo(0.185, 6);
-  });
-
-  it("derives STTD phosphorus concentration from NRC total P and digestibility", () => {
-    const soybeanMeal = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "soybean-meal-dehulled-solvent-extracted",
-    );
-    expect(soybeanMeal).toBeDefined();
-    expect(sttdPhosphorusPctOf(soybeanMeal!)).toBeCloseTo(0.3408, 6);
-  });
-
-  it("loads Brazilian hard-constraint nutrients with per-value provenance", () => {
-    const maize = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "corn-yellow-dent",
-    );
-    const soybeanMeal = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "soybean-meal-dehulled-solvent-extracted",
-    );
-    const cornOil = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "corn-oil",
-    );
-
+    expect(sidAminoAcidPct(maize!, "lysine")).toBe(0.2);
     expect(maize?.composition.digestibleProteinPct).toBe(6.72);
     expect(maize?.macroMinerals.availablePhosphorusPct).toBe(0.05);
     expect(maize?.composition.linoleicAcidPct).toBe(1.91);
+
+    expect(soybeanMeal?.name).toBe("Soybean, Meal 48% CP");
     expect(soybeanMeal?.composition.digestibleProteinPct).toBe(44);
     expect(soybeanMeal?.macroMinerals.potassiumPct).toBe(2.13);
-    expect(cornOil?.composition.linoleicAcidPct).toBe(51.9);
-    expect(
-      nutrientValueSource(maize!, "composition.digestibleProteinPct"),
-    ).toMatchObject({
-      publisher: "Universidade Federal de Viçosa",
-      priority: "primary",
-    });
-
-    const lysine = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "l-lysine-hcl",
-    );
-    expect(lysine?.composition.digestibleProteinPct).toBeCloseTo(83.7587, 4);
-    expect(
-      nutrientValueSource(lysine!, "composition.digestibleProteinPct")?.basis,
-    ).toMatch(/as-fed/i);
+    expect(sttdPhosphorusPctOf(soybeanMeal!)).toBe(0.27);
   });
 
-  it("loads crystalline valine and isoleucine on an as-fed SID basis", () => {
-    const valine = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "l-valine",
-    );
-    const isoleucine = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "l-isoleucine",
-    );
-
-    expect(valine?.composition.digestibleProteinPct).toBeCloseTo(70.2966, 4);
-    expect(isoleucine?.composition.digestibleProteinPct).toBeCloseTo(64.6749, 4);
-    expect(sidAminoAcidPct(valine!, "valine")).toBe(96.5);
-    expect(sidAminoAcidPct(isoleucine!, "isoleucine")).toBe(91.7);
-    expect(valine?.energy.metabolizableKcalKg).toBe(5480);
-    expect(isoleucine?.energy.metabolizableKcalKg).toBe(6400);
-  });
-
-  it("loads Brazilian hard-constraint fallbacks for locally useful ingredients", () => {
+  it("loads Brazilian hard-constraint values for locally useful grains and meals", () => {
     const wheatBran = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "wheat-bran",
     );
@@ -153,15 +136,6 @@ describe("ingredient nutrient JSON library", () => {
     );
     const wheat = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "wheat-hard-red-winter",
-    );
-    const limestone = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "limestone-ground",
-    );
-    const mcp = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "monocalcium-phosphate",
-    );
-    const dcp = INGREDIENT_LIBRARY.ingredients.find(
-      (ingredient) => ingredient.id === "dicalcium-phosphate",
     );
 
     expect(wheatBran?.composition.digestibleProteinPct).toBe(11.7);
@@ -179,22 +153,58 @@ describe("ingredient nutrient JSON library", () => {
     expect(sttdPhosphorusPctOf(sorghum!)).toBe(0.08);
 
     expect(wheat?.composition.digestibleProteinPct).toBe(12.3);
+    expect(wheat?.energy.metabolizableKcalKg).toBe(3243);
     expect(wheat?.macroMinerals.availablePhosphorusPct).toBe(0.08);
     expect(sttdPhosphorusPctOf(wheat!)).toBe(0.15);
+  });
 
-    expect(limestone?.macroMinerals.availablePhosphorusPct).toBe(0);
-    expect(sttdPhosphorusPctOf(limestone!)).toBe(0);
+  it("uses Brazilian Table 1.10 for mineral supplements", () => {
+    const limestone = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "limestone-ground",
+    );
+    const salt = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "sodium-chloride",
+    );
+    const mcp = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "monocalcium-phosphate",
+    );
+    const dcp = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "dicalcium-phosphate",
+    );
 
+    expect(limestone?.macroMinerals.calciumPct).toBe(37.5);
+    expect(limestone?.macroMinerals.magnesiumPct).toBe(0.27);
+    expect(salt?.macroMinerals.sodiumPct).toBe(39.7);
+    expect(salt?.macroMinerals.chloridePct).toBe(59.6);
     expect(sttdPhosphorusPctOf(mcp!)).toBe(16.4);
     expect(sttdPhosphorusPctOf(dcp!)).toBe(13.9);
   });
 
-  it("uses explicit SID concentration for crystalline lysine", () => {
+  it("uses Brazilian Table 1.09 for crystalline amino acids without external fallbacks", () => {
     const lysine = INGREDIENT_LIBRARY.ingredients.find(
       (ingredient) => ingredient.id === "l-lysine-hcl",
     );
-    expect(lysine).toBeDefined();
-    expect(sidAminoAcidPct(lysine!, "lysine")).toBe(78.8);
+    const methionine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "dl-methionine",
+    );
+    const valine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "l-valine",
+    );
+    const isoleucine = INGREDIENT_LIBRARY.ingredients.find(
+      (ingredient) => ingredient.id === "l-isoleucine",
+    );
+
+    expect(lysine?.composition.digestibleProteinPct).toBeCloseTo(84.1796, 4);
+    expect(sidAminoAcidPct(lysine!, "lysine")).toBeCloseTo(70.298173, 5);
+
+    expect(methionine?.name).toBe("Methionine, crystalline");
+    expect(sidAminoAcidPct(methionine!, "methionine")).toBe(99.5);
+
+    expect(sidAminoAcidPct(valine!, "valine")).toBe(95.5);
+    expect(sidAminoAcidPct(isoleucine!, "isoleucine")).toBe(97.1);
+    expect(valine?.energy.standardizedMetabolizableKcalKg).toBe(5527);
+    expect(isoleucine?.energy.standardizedMetabolizableKcalKg).toBe(6210);
+    expect(valine?.energy.metabolizableKcalKg).toBeUndefined();
   });
 
   it("rejects ingredient records without an explicit category and nutrient structure", () => {
