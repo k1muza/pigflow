@@ -136,7 +136,7 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
-  it("does not silently map the wrong DDGS or soybean-meal identity", () => {
+  it("maps exact Brazilian feedstuff identities to the canonical PigFlow ids", () => {
     const ddgs = BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.find(
       (ingredient) => ingredient.id === "corn-ddgs-6-9-ee",
     );
@@ -144,9 +144,14 @@ describe("Brazilian Tables 2024 source data", () => {
       (ingredient) => ingredient.id === "soybean-meal-45.6-cp-average",
     );
 
-    expect(ddgs?.mappingConfidence).toBe("unmapped");
-    expect(ddgs?.pigflowIngredientId).toBeUndefined();
-    expect(soybean?.mappingConfidence).toBe("unmapped");
+    expect(ddgs).toMatchObject({
+      mappingConfidence: "high",
+      pigflowIngredientId: "corn-ddgs",
+    });
+    expect(soybean).toMatchObject({
+      mappingConfidence: "high",
+      pigflowIngredientId: "soybean-meal-solvent-extracted",
+    });
   });
 
   it("preserves swine-specific energy and SID amino acids for feedstuffs", () => {
