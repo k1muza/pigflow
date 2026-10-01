@@ -182,10 +182,14 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     ["vitamin-d", "Vitamin D", "Vit D", "IU/kg"],
     ["vitamin-e", "Vitamin E", "Vit E", "IU/kg"],
     ["vitamin-k", "Vitamin K", "Vit K", "mg/kg"],
-    ["niacin", "Niacin", "Niacin", "mg/kg"],
+    ["vitamin-b1", "Vitamin B1", "B1", "mg/kg"],
     ["riboflavin", "Riboflavin", "B2", "mg/kg"],
-    ["pantothenic-acid", "Pantothenic Acid", "B5", "mg/kg"],
+    ["vitamin-b6", "Vitamin B6", "B6", "mg/kg"],
     ["vitamin-b12", "Vitamin B12", "B12", "mcg/kg"],
+    ["pantothenic-acid", "Pantothenic Acid", "B5", "mg/kg"],
+    ["niacin", "Niacin", "Niacin", "mg/kg"],
+    ["folic-acid", "Folic Acid", "B9", "mg/kg"],
+    ["biotin", "Biotin", "Biotin", "mg/kg"],
     ["choline", "Total Choline", "Choline", "mg/kg"],
   ].map(([id, name, shortName, unit]) => ({
     id,
@@ -404,6 +408,22 @@ function ingredientValueForNutrient(
       break;
     case "vitamin-k":
       value = ingredient.vitamins.vitaminKMgKg;
+      unit = "mg/kg";
+      break;
+    case "vitamin-b1":
+      value = ingredient.vitamins.vitaminB1MgKg;
+      unit = "mg/kg";
+      break;
+    case "vitamin-b6":
+      value = ingredient.vitamins.vitaminB6MgKg;
+      unit = "mg/kg";
+      break;
+    case "folic-acid":
+      value = ingredient.vitamins.folicAcidMgKg;
+      unit = "mg/kg";
+      break;
+    case "biotin":
+      value = ingredient.vitamins.biotinMgKg;
       unit = "mg/kg";
       break;
     case "niacin":
