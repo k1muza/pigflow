@@ -1111,9 +1111,11 @@ function ReportFact({ label, value }: { label: string; value: string }) {
 function OpportunitiesPanel({
   result,
   ingredientById,
+  batchWeightKg,
 }: {
   result: Extract<LeastCostFormulationResult, { status: "optimal" }>;
   ingredientById: Map<string, IngredientOption>;
+  batchWeightKg: number;
 }) {
   return (
     <Card>
@@ -1129,6 +1131,7 @@ function OpportunitiesPanel({
           opportunities={result.ingredientOpportunities}
           tolerances={result.ingredientOpportunityCostTolerancesPct}
           ingredientById={ingredientById}
+          batchWeightKg={batchWeightKg}
         />
       </CardContent>
     </Card>
@@ -1263,10 +1266,12 @@ function IngredientOpportunitiesTable({
   opportunities,
   tolerances,
   ingredientById,
+  batchWeightKg,
 }: {
   opportunities: readonly IngredientOpportunity[];
   tolerances: readonly number[];
   ingredientById: Map<string, IngredientOption>;
+  batchWeightKg: number;
 }) {
   if (opportunities.length === 0) return null;
 
@@ -1318,6 +1323,7 @@ function IngredientOpportunitiesTable({
                             }
                             point={point}
                             ingredientById={ingredientById}
+                            batchWeightKg={batchWeightKg}
                           />
                         </div>
                       ) : (
@@ -1339,10 +1345,12 @@ function OpportunityRecipeDialog({
   ingredientName,
   point,
   ingredientById,
+  batchWeightKg,
 }: {
   ingredientName: string;
   point: IngredientOpportunity["points"][number];
   ingredientById: Map<string, IngredientOption>;
+  batchWeightKg: number;
 }) {
   return (
     <Dialog>
@@ -1368,6 +1376,7 @@ function OpportunityRecipeDialog({
           <FormulaTable
             rows={point.recipe.formula.ingredients}
             ingredientById={ingredientById}
+            batchWeightKg={batchWeightKg}
           />
         </div>
       </DialogContent>
@@ -1378,9 +1387,11 @@ function OpportunityRecipeDialog({
 function FormulaTable({
   rows,
   ingredientById,
+  batchWeightKg,
 }: {
   rows: readonly { ingredientId: string; inclusionPct: number }[];
   ingredientById: Map<string, IngredientOption>;
+  batchWeightKg: number;
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-hairline">
@@ -1389,6 +1400,7 @@ function FormulaTable({
           <tr>
             <th className="px-3 py-2.5">Ingredient</th>
             <th className="px-3 py-2.5 text-right">Inclusion</th>
+            <th className="px-3 py-2.5 text-right">kg / batch</th>
           </tr>
         </thead>
         <tbody>
@@ -1399,6 +1411,9 @@ function FormulaTable({
               </td>
               <td className="px-3 py-2.5 text-right font-medium text-ink">
                 {row.inclusionPct.toFixed(3)}%
+              </td>
+              <td className="px-3 py-2.5 text-right font-medium text-ink">
+                {((row.inclusionPct / 100) * batchWeightKg).toFixed(2)}
               </td>
             </tr>
           ))}
