@@ -49,25 +49,25 @@ export const INGREDIENT_DEFAULT_PRICES: readonly IngredientDefaultPrice[] = [
   },
   {
     ingredientId: "soybean-meal-dehulled-solvent-extracted",
-    usdPerTonne: 550,
+    usdPerTonne: 580,
     market: "Harare, Zimbabwe",
-    asOf: "2026-09-30",
+    asOf: "2026-10-01",
     sourceScope: "harare",
     sourceLabel: "FeedSport International — Soya meal",
     sourceUrl: "https://www.feedsport.co.zw/products/5TjUodezA0zgEjAHmgo7",
     note:
-      "Harare supplier listing for 48% crude-protein soya meal; MOQ 10 tonnes. This is the closest match to the dehulled/high-protein canonical ingredient.",
+      "Planning default updated to $580/t on 2026-10-01. The linked Harare supplier listing remains the market/specification reference for the dehulled/high-protein canonical ingredient.",
   },
   {
     ingredientId: "soybean-meal-solvent-extracted",
-    usdPerTonne: 520,
+    usdPerTonne: 580,
     market: "Harare, Zimbabwe",
-    asOf: "2026-09-30",
+    asOf: "2026-10-01",
     sourceScope: "harare",
     sourceLabel: "Zimbabwe Mercantile Exchange — Harare soymeal",
     sourceUrl: "https://system.zmx.co.zw/zmxwebpage/ATSCommo.aspx",
     note:
-      "Current Harare soymeal market reference. The exchange line does not distinguish every protein specification.",
+      "Planning default updated to $580/t on 2026-10-01. The exchange listing remains the Harare market reference and does not distinguish every protein specification.",
   },
   {
     ingredientId: "sunflower-meal-solvent-extracted",
