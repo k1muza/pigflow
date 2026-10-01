@@ -127,10 +127,12 @@ const ingredientLibrarySchema = z.object({
     chapter: z.string(),
     doi: z.string(),
     url: z.string().url(),
-    companionModel: z.object({
-      title: z.string(),
-      url: z.string().url(),
-    }),
+    companionModel: z
+      .object({
+        title: z.string(),
+        url: z.string().url(),
+      })
+      .optional(),
   }),
   notes: z.array(z.string()).default([]),
   ingredients: z.array(ingredientSchema),
@@ -150,9 +152,8 @@ export const INGREDIENT_LIBRARY = loadIngredientLibrary(ingredientLibraryJson);
 /**
  * Standardized ileal digestible concentration for one amino acid.
  *
- * NRC Table 17-1 publishes total concentration and an SID coefficient. Keeping
- * that coefficient in JSON lets the source remain auditable while formulation
- * receives the concentration it needs.
+ * Prefer an explicit SID concentration when the source publishes one. Otherwise
+ * derive it from the published total concentration and SID coefficient.
  */
 export function sidAminoAcidPct(
   ingredient: IngredientNutrientRecord,
@@ -167,7 +168,7 @@ export function sidAminoAcidPct(
   return total * (digestibility / 100);
 }
 
-/** STTD phosphorus concentration derived from the NRC total-P row and coefficient. */
+/** Standardized digestible phosphorus concentration, explicit or derived from total P. */
 export function sttdPhosphorusPctOf(
   ingredient: IngredientNutrientRecord,
 ): number | undefined {
