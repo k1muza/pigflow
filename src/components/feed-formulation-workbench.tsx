@@ -423,9 +423,9 @@ export function FeedFormulationWorkbench({
         <CardHeader>
           <CardTitle>Least-cost formulation</CardTitle>
           <CardDescription>
-            Choose the Brazilian requirement phase and energy basis. PigFlow loads a priced,
-            nutritionally complete candidate pool, putting the default-price least-cost ingredients
-            first while retaining alternatives so edited prices can change the final formula.
+            Choose the Brazilian requirement phase, energy basis and target batch size. PigFlow
+            optimizes the complete 100% ration, including any fixed-rate commercial premix, and
+            scales the resulting percentages to the batch weight you want to mix.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
