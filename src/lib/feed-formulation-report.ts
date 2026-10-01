@@ -29,6 +29,7 @@ export type FeedRecipeReportInput = {
   phaseLabel: string;
   sourceTable?: string;
   energySystem: "ME" | "NE";
+  targetBatchKg: number;
   formula: DietFormula;
   nutrientProfile: readonly FormulationNutrientComparison[];
   ingredients: readonly FeedRecipeReportIngredient[];
@@ -41,13 +42,15 @@ export type FeedRecipeFormulaReportRow = {
   ingredientId: string;
   name: string;
   inclusionPct: number;
+  kgForBatch: number;
   kgPerTonne: number;
   pricePerKg: number;
+  costForBatchContribution: number;
   costPerTonneContribution: number;
 };
 
 export function feedRecipeFormulaReportRows(
-  input: Pick<FeedRecipeReportInput, "formula" | "ingredients">,
+  input: Pick<FeedRecipeReportInput, "formula" | "ingredients" | "targetBatchKg">,
 ): FeedRecipeFormulaReportRow[] {
   const ingredientById = new Map(
     input.ingredients.map((ingredient) => [ingredient.ingredientId, ingredient]),
@@ -59,12 +62,15 @@ export function feedRecipeFormulaReportRows(
       throw new Error("Missing report ingredient metadata for " + row.ingredientId + ".");
     }
     const kgPerTonne = row.inclusionPct * 10;
+    const kgForBatch = (row.inclusionPct / 100) * input.targetBatchKg;
     return {
       ingredientId: row.ingredientId,
       name: ingredient.name,
       inclusionPct: row.inclusionPct,
+      kgForBatch,
       kgPerTonne,
       pricePerKg: ingredient.pricePerKg,
+      costForBatchContribution: kgForBatch * ingredient.pricePerKg,
       costPerTonneContribution: kgPerTonne * ingredient.pricePerKg,
     };
   });
@@ -105,6 +111,7 @@ function addRecipeSheet(
     { width: 14 },
     { width: 15 },
     { width: 15 },
+    { width: 15 },
     { width: 21 },
     { width: 18 },
   ];
@@ -121,17 +128,17 @@ function addRecipeSheet(
       sourceSuffix +
       " · prepared " +
       input.generatedAt.toLocaleDateString("en-GB"),
-    "F",
+    "G",
   );
 
   sheet.getRow(6).values = ["RECIPE OVERVIEW"];
-  styleSection(sheet.getRow(6), 6);
+  styleSection(sheet.getRow(6), 7);
 
   const facts: Array<[string, string | number, string, string | number]> = [
     ["Recipe", input.recipeLabel, "Cost / kg", input.costPerKg],
-    ["Programme", input.programmeName, "Cost / tonne", input.costPerKg * 1000],
-    ["Phase", input.phaseLabel, "Premium vs least cost", input.costIncreasePct / 100],
-    ["Energy basis", input.energySystem, "Hard constraints", "Satisfied"],
+    ["Programme", input.programmeName, "Batch weight (kg)", input.targetBatchKg],
+    ["Phase", input.phaseLabel, "Batch cost", input.costPerKg * input.targetBatchKg],
+    ["Energy basis", input.energySystem, "Cost / tonne", input.costPerKg * 1000],
   ];
   facts.forEach(([leftLabel, leftValue, rightLabel, rightValue], index) => {
     const row = 7 + index;
@@ -157,10 +164,11 @@ function addRecipeSheet(
     }
   });
   sheet.getCell(7, 5).numFmt = "$0.0000";
-  sheet.getCell(8, 5).numFmt = "$#,##0.00";
-  sheet.getCell(9, 5).numFmt = "0.00%";
+  sheet.getCell(8, 5).numFmt = "0.0";
+  sheet.getCell(9, 5).numFmt = "$#,##0.00";
+  sheet.getCell(10, 5).numFmt = "$#,##0.00";
 
-  sheet.mergeCells("A12:F12");
+  sheet.mergeCells("A12:G12");
   sheet.getCell("A12").value = input.recipeDescription;
   sheet.getCell("A12").alignment = { wrapText: true, vertical: "top" };
   sheet.getCell("A12").font = {
@@ -175,12 +183,13 @@ function addRecipeSheet(
   sheet.getRow(headerRow).values = [
     "Ingredient",
     "Inclusion %",
+    "kg / batch",
     "kg / tonne",
     "Price / kg",
-    "Cost contribution / tonne",
+    "Cost contribution / batch",
     "Share of recipe cost",
   ];
-  styleTableHeader(sheet.getRow(headerRow), 1, 6);
+  styleTableHeader(sheet.getRow(headerRow), 1, 7);
 
   const rows = feedRecipeFormulaReportRows(input);
   rows.forEach((row, index) => {
@@ -188,38 +197,42 @@ function addRecipeSheet(
     sheet.getRow(excelRow).values = [
       row.name,
       row.inclusionPct,
+      row.kgForBatch,
       row.kgPerTonne,
       row.pricePerKg,
-      row.costPerTonneContribution,
+      row.costForBatchContribution,
       input.costPerKg > 0
-        ? row.costPerTonneContribution / (input.costPerKg * 1000)
+        ? row.costForBatchContribution / (input.costPerKg * input.targetBatchKg)
         : 0,
     ];
     sheet.getCell(excelRow, 2).numFmt = "0.000";
     sheet.getCell(excelRow, 3).numFmt = "0.0";
-    sheet.getCell(excelRow, 4).numFmt = "$0.0000";
-    sheet.getCell(excelRow, 5).numFmt = "$#,##0.00";
-    sheet.getCell(excelRow, 6).numFmt = "0.0%";
-    ruleRow(sheet, excelRow, 6);
+    sheet.getCell(excelRow, 4).numFmt = "0.0";
+    sheet.getCell(excelRow, 5).numFmt = "$0.0000";
+    sheet.getCell(excelRow, 6).numFmt = "$#,##0.00";
+    sheet.getCell(excelRow, 7).numFmt = "0.0%";
+    ruleRow(sheet, excelRow, 7);
   });
 
   const totalRow = headerRow + 1 + rows.length;
   sheet.getRow(totalRow).values = [
     "TOTAL",
     rows.reduce((sum, row) => sum + row.inclusionPct, 0),
+    rows.reduce((sum, row) => sum + row.kgForBatch, 0),
     rows.reduce((sum, row) => sum + row.kgPerTonne, 0),
     undefined,
-    rows.reduce((sum, row) => sum + row.costPerTonneContribution, 0),
+    rows.reduce((sum, row) => sum + row.costForBatchContribution, 0),
     1,
   ];
   sheet.getCell(totalRow, 2).numFmt = "0.000";
   sheet.getCell(totalRow, 3).numFmt = "0.0";
-  sheet.getCell(totalRow, 5).numFmt = "$#,##0.00";
-  sheet.getCell(totalRow, 6).numFmt = "0.0%";
-  styleTotal(sheet.getRow(totalRow), 6, true);
+  sheet.getCell(totalRow, 4).numFmt = "0.0";
+  sheet.getCell(totalRow, 6).numFmt = "$#,##0.00";
+  sheet.getCell(totalRow, 7).numFmt = "0.0%";
+  styleTotal(sheet.getRow(totalRow), 7, true);
 
   const noteRow = totalRow + 3;
-  sheet.mergeCells(noteRow, 1, noteRow + 1, 6);
+  sheet.mergeCells(noteRow, 1, noteRow + 1, 7);
   sheet.getCell(noteRow, 1).value =
     "Planning statement: ingredient prices are the values used when this recipe was formulated. Re-run the formulation when supplier quotations, ingredient analyses or nutritional requirements change. This report records a planning formulation; it is not a substitute for quality-control testing of actual feed ingredients.";
   sheet.getCell(noteRow, 1).alignment = { wrapText: true, vertical: "top" };
