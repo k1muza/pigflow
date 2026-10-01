@@ -298,7 +298,10 @@ function ingredientValueForNutrient(
   ingredient: IngredientNutrientRecord,
 ): { value: number; unit: string } | undefined {
   const sid = (aminoAcid: string) => sidAminoAcidPct(ingredient, aminoAcid);
-  const combinedSid = (...aminoAcids: string[]) => {
+  const combinedSid = (combinedKey: string, ...aminoAcids: string[]) => {
+    const explicit = ingredient.aminoAcids.sidPct[combinedKey];
+    if (explicit !== undefined) return explicit;
+
     const values = aminoAcids.map(sid);
     return values.every((value) => value !== undefined)
       ? values.reduce((sum, value) => sum + (value ?? 0), 0)
@@ -327,7 +330,7 @@ function ingredientValueForNutrient(
       value = sid("lysine");
       break;
     case "sid-methionine-cysteine":
-      value = combinedSid("methionine", "cysteine");
+      value = combinedSid("methionineCysteine", "methionine", "cysteine");
       break;
     case "sid-threonine":
       value = sid("threonine");
@@ -348,7 +351,11 @@ function ingredientValueForNutrient(
       value = sid("histidine");
       break;
     case "sid-phenylalanine-tyrosine":
-      value = combinedSid("phenylalanine", "tyrosine");
+      value = combinedSid(
+        "phenylalanineTyrosine",
+        "phenylalanine",
+        "tyrosine",
+      );
       break;
     case "calcium":
       value = ingredient.macroMinerals.calciumPct;
