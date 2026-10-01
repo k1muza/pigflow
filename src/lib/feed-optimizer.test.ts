@@ -202,6 +202,7 @@ describe("least-cost feed optimizer", () => {
         "sunflower-meal-solvent-extracted",
         "sorghum-grain",
         "wheat-hard-red-winter",
+        "soybean-degummed-oil",
         "limestone-ground",
         "calcium-carbonate",
         "monocalcium-phosphate",
