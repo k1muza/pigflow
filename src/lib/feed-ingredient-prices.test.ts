@@ -20,7 +20,7 @@ describe("feed ingredient default prices", () => {
           Number.isFinite(price.usdPerTonne) &&
           price.usdPerTonne > 0 &&
           price.asOf.length > 0 &&
-          price.sourceUrl.startsWith("http"),
+          (price.sourceUrl === undefined || price.sourceUrl.startsWith("http")),
       ),
     ).toBe(true);
   });
@@ -48,6 +48,18 @@ describe("feed ingredient default prices", () => {
     });
   });
 
+  it("uses the local refined-soybean-oil observation as the degummed-oil planning proxy", () => {
+    expect(ingredientDefaultPrice("soybean-degummed-oil")).toMatchObject({
+      usdPerTonne: 1960,
+      market: "Harare, Zimbabwe",
+      sourceScope: "harare",
+    });
+    expect(ingredientDefaultPricePerKg("soybean-degummed-oil")).toBeCloseTo(
+      1.96,
+      6,
+    );
+  });
+
   it("has planning prices for every ingredient in the current strict starter basket", () => {
     const ingredientIds = [
       "corn-yellow-dent",
@@ -57,6 +69,7 @@ describe("feed ingredient default prices", () => {
       "sodium-chloride",
       "l-lysine-hcl",
       "corn-oil",
+      "soybean-degummed-oil",
       "monocalcium-phosphate",
       "dl-methionine",
       "l-threonine",
