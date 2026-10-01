@@ -53,6 +53,28 @@ describe("feed formulation recipe report", () => {
     ).toBeCloseTo(380, 8);
   });
 
+  it("shows a 10 kg/t fixed premix as 10 kg in a 1 tonne batch", () => {
+    const rows = feedRecipeFormulaReportRows({
+      formula: {
+        ingredients: [
+          { ingredientId: "basal", inclusionPct: 99 },
+          { ingredientId: "fixed-premix", inclusionPct: 1 },
+        ],
+      },
+      ingredients: [
+        { ingredientId: "basal", name: "Basal mix", pricePerKg: 0.4 },
+        { ingredientId: "fixed-premix", name: "Commercial premix", pricePerKg: 2 },
+      ],
+      targetBatchKg: 1000,
+    });
+
+    expect(rows.find((row) => row.ingredientId === "basal")?.kgForBatch).toBe(990);
+    expect(
+      rows.find((row) => row.ingredientId === "fixed-premix")?.kgForBatch,
+    ).toBe(10);
+    expect(rows.reduce((sum, row) => sum + row.kgForBatch, 0)).toBe(1000);
+  });
+
   it("rejects a non-positive target batch weight", () => {
     expect(() =>
       feedRecipeFormulaReportRows({
