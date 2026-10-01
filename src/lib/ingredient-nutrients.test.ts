@@ -18,7 +18,7 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
     expect(INGREDIENT_LIBRARY.source.chapter).toBe(
       "1 — Feedstuff Composition and Nutritional Value",
     );
-    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(40);
+    expect(INGREDIENT_LIBRARY.ingredients).toHaveLength(45);
   });
 
   it("keeps every canonical ingredient on Brazilian Tables provenance", () => {
@@ -54,6 +54,11 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
         "corn-high-oil-grain",
         "rice-broken",
         "sorghum-grain-high-tannin",
+        "soybean-full-fat-extruded",
+        "rice-bran",
+        "cassava-whole",
+        "cottonseed-meal-38",
+        "fish-meal-54",
         "limestone-ground",
         "calcium-carbonate",
         "dicalcium-phosphate",
@@ -106,6 +111,38 @@ describe("Brazilian Tables 2024 ingredient nutrient library", () => {
     expect(barley?.composition.digestibleProteinPct).toBe(8.42);
     expect(barley?.energy.metabolizableKcalKg).toBe(3019);
     expect(sidAminoAcidPct(barley!, "lysine")).toBe(0.3);
+  });
+
+  it("loads the next priority Brazilian feed ingredients", () => {
+    const byId = new Map(
+      INGREDIENT_LIBRARY.ingredients.map((ingredient) => [ingredient.id, ingredient]),
+    );
+
+    expect(byId.get("soybean-full-fat-extruded")).toMatchObject({
+      provenance: { sourcePage: 155, sourceTable: "Table 1.01" },
+      composition: { crudeProteinPct: 37.3, crudeFatPct: 18.6 },
+      energy: { metabolizableKcalKg: 3956 },
+    });
+    expect(byId.get("rice-bran")).toMatchObject({
+      provenance: { sourcePage: 137 },
+      composition: { crudeProteinPct: 13.1, crudeFatPct: 15.3 },
+      energy: { metabolizableKcalKg: 3027 },
+    });
+    expect(byId.get("cassava-whole")).toMatchObject({
+      provenance: { sourcePage: 49 },
+      composition: { starchPct: 73.7, digestibleProteinPct: 2.18 },
+      energy: { metabolizableKcalKg: 3020 },
+    });
+    expect(byId.get("cottonseed-meal-38")).toMatchObject({
+      provenance: { sourcePage: 87 },
+      composition: { crudeProteinPct: 38.1, digestibleProteinPct: 29.7 },
+      energy: { metabolizableKcalKg: 2432 },
+    });
+    expect(byId.get("fish-meal-54")).toMatchObject({
+      provenance: { sourcePage: 97 },
+      composition: { crudeProteinPct: 54.9, digestibleProteinPct: 41.7 },
+      macroMinerals: { calciumPct: 5.72, sttdPhosphorusPct: 2.36 },
+    });
   });
 
   it("loads the priority Brazilian grain alternatives", () => {
