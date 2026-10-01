@@ -291,6 +291,63 @@
       "digestibleProteinSwinePct": 0
     },
     {
+      "id": "soybean-degummed-oil",
+      "name": "Soybean, Degummed Oil",
+      "pigflowIngredientId": "soybean-degummed-oil",
+      "mappingConfidence": "high",
+      "sourcePage": 153,
+      "compositionPct": {
+        "dryMatter": 99.7,
+        "etherExtract": 99.5,
+        "linoleicAcid": 52.2,
+        "linolenicAcid": 6.8
+      },
+      "swineEnergyKcalKg": {
+        "digestible": 8600,
+        "metabolizable": 8300,
+        "net": 7362
+      },
+      "sowEnergyKcalKg": {
+        "digestible": 8600,
+        "metabolizable": 8300,
+        "net": 7362
+      },
+      "macroMineralsPct": {},
+      "traceMineralsMgKg": {},
+      "aminoAcids": {
+        "totalPct": {},
+        "sidSwinePct": {},
+        "sidSwineDigestibilityPct": {}
+      },
+      "recommendedInclusionPct": {
+        "growingPigs": {
+          "starter": {
+            "practical": 2,
+            "max": 5
+          },
+          "grower": {
+            "practical": 2,
+            "max": 5
+          },
+          "finisher": {
+            "practical": 2,
+            "max": 5
+          }
+        },
+        "sows": {
+          "gestation": {
+            "practical": 0,
+            "max": 4
+          },
+          "lactation": {
+            "practical": 2,
+            "max": 5
+          }
+        }
+      },
+      "digestibleProteinSwinePct": 0
+    },
+    {
       "id": "corn-ddgs-6-9-ee",
       "name": "Corn, Distillers Dried Grains with Solubles (DDGS) - 6 to 9% of EE",
       "mappingConfidence": "high",
