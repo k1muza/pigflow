@@ -40,15 +40,17 @@
         "dryMatterPct": 88.6,
         "crudeProteinPct": 7.81,
         "digestibleProteinPct": 6.72,
+        "crudeFatPct": 3.73,
         "crudeFibrePct": 1.72,
         "ashPct": 1.12,
         "starchPct": 63.4,
         "neutralDetergentFibrePct": 13.8,
-        "acidDetergentFibrePct": 3.16
+        "acidDetergentFibrePct": 3.16,
+        "linoleicAcidPct": 1.91
       },
       "energy": {
         "digestibleKcalKg": 3442,
-        "metabolizableKcalKg": 3452,
+        "metabolizableKcalKg": 3360,
         "netKcalKg": 2667
       },
       "aminoAcids": {
@@ -112,7 +114,11 @@
         "magnesiumPct": 0.11
       },
       "traceMineralsPpm": {
-        "manganese": 6.89
+        "manganese": 6.89,
+        "iron": 22.8,
+        "copper": 2.23,
+        "zinc": 21.5,
+        "selenium": 0.07
       },
       "vitamins": {},
       "constraints": {
@@ -150,15 +156,17 @@
         "dryMatterPct": 88.9,
         "crudeProteinPct": 48.2,
         "digestibleProteinPct": 44,
+        "crudeFatPct": 1.72,
         "crudeFibrePct": 4.55,
         "ashPct": 6.1,
         "starchPct": 3,
         "neutralDetergentFibrePct": 11.5,
-        "acidDetergentFibrePct": 8.6
+        "acidDetergentFibrePct": 8.6,
+        "linoleicAcidPct": 0.77
       },
       "energy": {
         "digestibleKcalKg": 3548,
-        "metabolizableKcalKg": 3447,
+        "metabolizableKcalKg": 3306,
         "netKcalKg": 2080
       },
       "aminoAcids": {
@@ -222,7 +230,11 @@
         "magnesiumPct": 0.27
       },
       "traceMineralsPpm": {
-        "manganese": 30.7
+        "manganese": 30.7,
+        "iron": 159.5,
+        "copper": 9,
+        "zinc": 47.7,
+        "selenium": 0.34
       },
       "vitamins": {},
       "constraints": {
@@ -260,15 +272,17 @@
         "dryMatterPct": 89.5,
         "crudeProteinPct": 45.6,
         "digestibleProteinPct": 40.8,
+        "crudeFatPct": 1.91,
         "crudeFibrePct": 4.82,
         "ashPct": 5.91,
         "starchPct": 4.74,
         "neutralDetergentFibrePct": 11.6,
-        "acidDetergentFibrePct": 7.07
+        "acidDetergentFibrePct": 7.07,
+        "linoleicAcidPct": 0.67
       },
       "energy": {
         "digestibleKcalKg": 3437,
-        "metabolizableKcalKg": 3301,
+        "metabolizableKcalKg": 3179,
         "netKcalKg": 2011
       },
       "aminoAcids": {
@@ -332,7 +346,11 @@
         "magnesiumPct": 0.33
       },
       "traceMineralsPpm": {
-        "manganese": 30.4
+        "manganese": 30.4,
+        "iron": 146.9,
+        "copper": 16.9,
+        "zinc": 47.9,
+        "selenium": 0.44
       },
       "vitamins": {},
       "constraints": {
@@ -369,15 +387,17 @@
         "dryMatterPct": 89.8,
         "crudeProteinPct": 33,
         "digestibleProteinPct": 27.9,
+        "crudeFatPct": 1.98,
         "crudeFibrePct": 25.8,
         "ashPct": 6.11,
         "starchPct": 4.38,
         "neutralDetergentFibrePct": 40.7,
-        "acidDetergentFibrePct": 26.3
+        "acidDetergentFibrePct": 26.3,
+        "linoleicAcidPct": 1.03
       },
       "energy": {
         "digestibleKcalKg": 2159,
-        "metabolizableKcalKg": 2285,
+        "metabolizableKcalKg": 1951,
         "netKcalKg": 995
       },
       "aminoAcids": {
@@ -441,7 +461,11 @@
         "magnesiumPct": 0.65
       },
       "traceMineralsPpm": {
-        "manganese": 0.34
+        "manganese": 0.34,
+        "iron": 248,
+        "copper": 26,
+        "zinc": 79,
+        "selenium": 0.5
       },
       "vitamins": {},
       "constraints": {
@@ -477,15 +501,17 @@
         "dryMatterPct": 88.5,
         "crudeProteinPct": 15.2,
         "digestibleProteinPct": 11.7,
+        "crudeFatPct": 3.4,
         "crudeFibrePct": 9.07,
         "ashPct": 4.43,
         "starchPct": 29.6,
         "neutralDetergentFibrePct": 39.8,
-        "acidDetergentFibrePct": 13.1
+        "acidDetergentFibrePct": 13.1,
+        "linoleicAcidPct": 1.54
       },
       "energy": {
         "digestibleKcalKg": 2481,
-        "metabolizableKcalKg": 2605,
+        "metabolizableKcalKg": 2370,
         "netKcalKg": 1694
       },
       "aminoAcids": {
@@ -549,7 +575,11 @@
         "magnesiumPct": 0.43
       },
       "traceMineralsPpm": {
-        "manganese": 102.7
+        "manganese": 102.7,
+        "iron": 205.3,
+        "copper": 15,
+        "zinc": 134.5,
+        "selenium": 0.31
       },
       "vitamins": {},
       "constraints": {
@@ -582,7 +612,9 @@
       ],
       "category": "oil_fat",
       "composition": {
-        "dryMatterPct": 99.3
+        "dryMatterPct": 99.3,
+        "crudeFatPct": 99.3,
+        "linoleicAcidPct": 51.9
       },
       "energy": {
         "digestibleKcalKg": 8580,
@@ -630,6 +662,7 @@
         "dryMatterPct": 87.7,
         "crudeProteinPct": 10.3,
         "digestibleProteinPct": 8.42,
+        "crudeFatPct": 2.02,
         "crudeFibrePct": 4.74,
         "ashPct": 2.18,
         "starchPct": 52.1,
@@ -638,7 +671,7 @@
       },
       "energy": {
         "digestibleKcalKg": 3106,
-        "metabolizableKcalKg": 3133,
+        "metabolizableKcalKg": 3019,
         "netKcalKg": 2308
       },
       "aminoAcids": {
@@ -701,7 +734,11 @@
         "magnesiumPct": 0.13
       },
       "traceMineralsPpm": {
-        "manganese": 16.2
+        "manganese": 16.2,
+        "iron": 116,
+        "copper": 7.22,
+        "zinc": 29,
+        "selenium": 0.11
       },
       "vitamins": {},
       "constraints": {
@@ -738,15 +775,17 @@
         "dryMatterPct": 88,
         "crudeProteinPct": 13.6,
         "digestibleProteinPct": 12.3,
+        "crudeFatPct": 1.8,
         "crudeFibrePct": 2.08,
         "ashPct": 1.51,
         "starchPct": 56.7,
         "neutralDetergentFibrePct": 11.3,
-        "acidDetergentFibrePct": 3.09
+        "acidDetergentFibrePct": 3.09,
+        "linoleicAcidPct": 0.68
       },
       "energy": {
         "digestibleKcalKg": 3340,
-        "metabolizableKcalKg": 3332,
+        "metabolizableKcalKg": 3243,
         "netKcalKg": 2489
       },
       "aminoAcids": {
@@ -810,7 +849,10 @@
         "magnesiumPct": 0.11
       },
       "traceMineralsPpm": {
-        "manganese": 22.93
+        "manganese": 22.93,
+        "iron": 42.69,
+        "copper": 3.36,
+        "zinc": 28.51
       },
       "vitamins": {},
       "constraints": {
@@ -847,15 +889,17 @@
         "dryMatterPct": 87.5,
         "crudeProteinPct": 8.65,
         "digestibleProteinPct": 7.07,
+        "crudeFatPct": 3.13,
         "crudeFibrePct": 2.58,
         "ashPct": 1.3,
         "starchPct": 66.6,
         "neutralDetergentFibrePct": 11.2,
-        "acidDetergentFibrePct": 5.24
+        "acidDetergentFibrePct": 5.24,
+        "linoleicAcidPct": 1.05
       },
       "energy": {
         "digestibleKcalKg": 3410,
-        "metabolizableKcalKg": 3432,
+        "metabolizableKcalKg": 3358,
         "netKcalKg": 2656
       },
       "aminoAcids": {
@@ -919,7 +963,11 @@
         "magnesiumPct": 0.14
       },
       "traceMineralsPpm": {
-        "manganese": 10.9
+        "manganese": 10.9,
+        "iron": 59.7,
+        "copper": 5.6,
+        "zinc": 49.8,
+        "selenium": 0.35
       },
       "vitamins": {},
       "constraints": {
@@ -954,15 +1002,17 @@
         "dryMatterPct": 89,
         "crudeProteinPct": 12.6,
         "digestibleProteinPct": 10.1,
+        "crudeFatPct": 4.55,
         "crudeFibrePct": 3.73,
         "ashPct": 2.54,
         "starchPct": 45.9,
         "neutralDetergentFibrePct": 28.7,
-        "acidDetergentFibrePct": 11.1
+        "acidDetergentFibrePct": 11.1,
+        "linoleicAcidPct": 1.61
       },
       "energy": {
         "digestibleKcalKg": 2645,
-        "metabolizableKcalKg": 2784,
+        "metabolizableKcalKg": 2546,
         "netKcalKg": 1967
       },
       "aminoAcids": {
@@ -1059,15 +1109,17 @@
         "dryMatterPct": 87.3,
         "crudeProteinPct": 10.3,
         "digestibleProteinPct": 7.94,
+        "crudeFatPct": 1.6,
         "crudeFibrePct": 1.9,
         "ashPct": 2.15,
         "starchPct": 59.6,
         "neutralDetergentFibrePct": 14.1,
-        "acidDetergentFibrePct": 3.1
+        "acidDetergentFibrePct": 3.1,
+        "linoleicAcidPct": 0.48
       },
       "energy": {
         "digestibleKcalKg": 3128,
-        "metabolizableKcalKg": 3158,
+        "metabolizableKcalKg": 3057,
         "netKcalKg": 2385
       },
       "aminoAcids": {
@@ -1165,15 +1217,17 @@
         "dryMatterPct": 88,
         "crudeProteinPct": 13.6,
         "digestibleProteinPct": 11,
+        "crudeFatPct": 1.56,
         "crudeFibrePct": 2.13,
         "ashPct": 1.7,
         "starchPct": 60.3,
         "neutralDetergentFibrePct": 12.6,
-        "acidDetergentFibrePct": 3.87
+        "acidDetergentFibrePct": 3.87,
+        "linoleicAcidPct": 0.5
       },
       "energy": {
         "digestibleKcalKg": 3268,
-        "metabolizableKcalKg": 3279,
+        "metabolizableKcalKg": 3185,
         "netKcalKg": 2457
       },
       "aminoAcids": {
@@ -1237,7 +1291,10 @@
         "magnesiumPct": 0.1
       },
       "traceMineralsPpm": {
-        "manganese": 44.6
+        "manganese": 44.6,
+        "iron": 156,
+        "copper": 21.8,
+        "zinc": 64.1
       },
       "vitamins": {},
       "constraints": {
@@ -1274,15 +1331,17 @@
         "dryMatterPct": 89.3,
         "crudeProteinPct": 11.6,
         "digestibleProteinPct": 10.4,
+        "crudeFatPct": 4.59,
         "crudeFibrePct": 2.36,
         "ashPct": 1.72,
         "starchPct": 62.4,
         "neutralDetergentFibrePct": 20.5,
-        "acidDetergentFibrePct": 6.66
+        "acidDetergentFibrePct": 6.66,
+        "linoleicAcidPct": 1.63
       },
       "energy": {
         "digestibleKcalKg": 3159,
-        "metabolizableKcalKg": 3201,
+        "metabolizableKcalKg": 3046,
         "netKcalKg": 2414
       },
       "aminoAcids": {
@@ -1346,7 +1405,11 @@
         "magnesiumPct": 0.13
       },
       "traceMineralsPpm": {
-        "manganese": 17.8
+        "manganese": 17.8,
+        "iron": 96.8,
+        "copper": 17.6,
+        "zinc": 29,
+        "selenium": 0.06
       },
       "vitamins": {},
       "constraints": {
@@ -1382,15 +1445,17 @@
       "composition": {
         "dryMatterPct": 92.5,
         "crudeProteinPct": 8.76,
+        "crudeFatPct": 8.96,
         "crudeFibrePct": 1.57,
         "ashPct": 1.31,
         "starchPct": 46.5,
         "neutralDetergentFibrePct": 4.36,
-        "acidDetergentFibrePct": 1.61
+        "acidDetergentFibrePct": 1.61,
+        "linoleicAcidPct": 1.79
       },
       "energy": {
         "digestibleKcalKg": 3551,
-        "metabolizableKcalKg": 3619,
+        "metabolizableKcalKg": 3480,
         "netKcalKg": 2756
       },
       "aminoAcids": {
@@ -1454,7 +1519,10 @@
         "magnesiumPct": 0.04
       },
       "traceMineralsPpm": {
-        "manganese": 13.4
+        "manganese": 13.4,
+        "iron": 125.1,
+        "copper": 3.2,
+        "zinc": 61.5
       },
       "vitamins": {},
       "constraints": {
@@ -1491,15 +1559,17 @@
         "dryMatterPct": 89.7,
         "crudeProteinPct": 11.6,
         "digestibleProteinPct": 7.21,
+        "crudeFatPct": 2.53,
         "crudeFibrePct": 36.5,
         "ashPct": 4.23,
         "starchPct": 3.65,
         "neutralDetergentFibrePct": 58.1,
-        "acidDetergentFibrePct": 46.1
+        "acidDetergentFibrePct": 46.1,
+        "linoleicAcidPct": 1.11
       },
       "energy": {
         "digestibleKcalKg": 2162,
-        "metabolizableKcalKg": 2346,
+        "metabolizableKcalKg": 2046,
         "netKcalKg": 1109
       },
       "aminoAcids": {
@@ -1563,7 +1633,11 @@
         "magnesiumPct": 0.17
       },
       "traceMineralsPpm": {
-        "manganese": 19
+        "manganese": 19,
+        "iron": 534,
+        "copper": 76.2,
+        "zinc": 35.7,
+        "selenium": 0.22
       },
       "vitamins": {},
       "constraints": {
@@ -1599,15 +1673,17 @@
         "dryMatterPct": 89.5,
         "crudeProteinPct": 36.2,
         "digestibleProteinPct": 29.1,
+        "crudeFatPct": 2.55,
         "crudeFibrePct": 10.9,
         "ashPct": 6.57,
         "starchPct": 5.1,
         "neutralDetergentFibrePct": 25.1,
-        "acidDetergentFibrePct": 8.45
+        "acidDetergentFibrePct": 8.45,
+        "linoleicAcidPct": 0.48
       },
       "energy": {
         "digestibleKcalKg": 2983,
-        "metabolizableKcalKg": 2933,
+        "metabolizableKcalKg": 2746,
         "netKcalKg": 1709
       },
       "aminoAcids": {
@@ -1706,6 +1782,7 @@
         "dryMatterPct": 90.2,
         "crudeProteinPct": 30.5,
         "digestibleProteinPct": 23.1,
+        "crudeFatPct": 7.68,
         "crudeFibrePct": 7.9,
         "ashPct": 3.43,
         "starchPct": 3.09,
@@ -1714,7 +1791,7 @@
       },
       "energy": {
         "digestibleKcalKg": 3123,
-        "metabolizableKcalKg": 3148,
+        "metabolizableKcalKg": 2930,
         "netKcalKg": 1970
       },
       "aminoAcids": {
@@ -1777,7 +1854,10 @@
         "magnesiumPct": 0.06
       },
       "traceMineralsPpm": {
-        "manganese": 9.33
+        "manganese": 9.33,
+        "iron": 402.7,
+        "copper": 4.38,
+        "zinc": 36.9
       },
       "vitamins": {},
       "constraints": {
@@ -1814,6 +1894,7 @@
         "dryMatterPct": 91.6,
         "crudeProteinPct": 42.1,
         "digestibleProteinPct": 32.6,
+        "crudeFatPct": 11.9,
         "crudeFibrePct": 6.87,
         "ashPct": 2.62,
         "starchPct": 1.62,
@@ -1822,7 +1903,7 @@
       },
       "energy": {
         "digestibleKcalKg": 4060,
-        "metabolizableKcalKg": 3781,
+        "metabolizableKcalKg": 3620,
         "netKcalKg": 2456
       },
       "aminoAcids": {
@@ -1885,7 +1966,10 @@
         "magnesiumPct": 0.1
       },
       "traceMineralsPpm": {
-        "manganese": 7.23
+        "manganese": 7.23,
+        "iron": 126.4,
+        "copper": 8.39,
+        "zinc": 58.4
       },
       "vitamins": {},
       "constraints": {
@@ -1921,15 +2005,17 @@
         "dryMatterPct": 89.2,
         "crudeProteinPct": 10.3,
         "digestibleProteinPct": 7.37,
+        "crudeFatPct": 10.1,
         "crudeFibrePct": 5.14,
         "ashPct": 2.83,
         "starchPct": 48.6,
         "neutralDetergentFibrePct": 27.8,
-        "acidDetergentFibrePct": 8.5
+        "acidDetergentFibrePct": 8.5,
+        "linoleicAcidPct": 3.08
       },
       "energy": {
         "digestibleKcalKg": 3355,
-        "metabolizableKcalKg": 3401,
+        "metabolizableKcalKg": 3257,
         "netKcalKg": 2571
       },
       "aminoAcids": {
@@ -1993,7 +2079,11 @@
         "magnesiumPct": 0.31
       },
       "traceMineralsPpm": {
-        "manganese": 19.6
+        "manganese": 19.6,
+        "iron": 116,
+        "copper": 10,
+        "zinc": 45.9,
+        "selenium": 0.1
       },
       "vitamins": {},
       "constraints": {
@@ -2029,15 +2119,17 @@
         "dryMatterPct": 89.8,
         "crudeProteinPct": 21,
         "digestibleProteinPct": 16.2,
+        "crudeFatPct": 3.2,
         "crudeFibrePct": 8.26,
         "ashPct": 5.55,
         "starchPct": 19.2,
         "neutralDetergentFibrePct": 36.9,
-        "acidDetergentFibrePct": 10.7
+        "acidDetergentFibrePct": 10.7,
+        "linoleicAcidPct": 1.46
       },
       "energy": {
         "digestibleKcalKg": 2700,
-        "metabolizableKcalKg": 2778,
+        "metabolizableKcalKg": 2560,
         "netKcalKg": 1761
       },
       "aminoAcids": {
@@ -2101,7 +2193,11 @@
         "magnesiumPct": 0.32
       },
       "traceMineralsPpm": {
-        "manganese": 19.2
+        "manganese": 19.2,
+        "iron": 134,
+        "copper": 16.9,
+        "zinc": 72.9,
+        "selenium": 0.21
       },
       "vitamins": {},
       "constraints": {
@@ -2138,15 +2234,17 @@
         "dryMatterPct": 91.2,
         "crudeProteinPct": 61.7,
         "digestibleProteinPct": 56.4,
+        "crudeFatPct": 1.98,
         "crudeFibrePct": 1.23,
         "ashPct": 1.86,
         "starchPct": 13.4,
         "neutralDetergentFibrePct": 6.28,
-        "acidDetergentFibrePct": 6.18
+        "acidDetergentFibrePct": 6.18,
+        "linoleicAcidPct": 1.21
       },
       "energy": {
         "digestibleKcalKg": 4341,
-        "metabolizableKcalKg": 3977,
+        "metabolizableKcalKg": 3929,
         "netKcalKg": 2518
       },
       "aminoAcids": {
@@ -2210,7 +2308,11 @@
         "magnesiumPct": 0.08
       },
       "traceMineralsPpm": {
-        "manganese": 3.1
+        "manganese": 3.1,
+        "iron": 113,
+        "copper": 19.1,
+        "zinc": 25.3,
+        "selenium": 0.2
       },
       "vitamins": {},
       "constraints": {
@@ -2247,7 +2349,9 @@
         "dryMatterPct": 94.1,
         "crudeProteinPct": 33.4,
         "digestibleProteinPct": 30.1,
-        "ashPct": 8.1
+        "crudeFatPct": 0.79,
+        "ashPct": 8.1,
+        "linoleicAcidPct": 0.02
       },
       "energy": {
         "digestibleKcalKg": 3876,
@@ -2350,7 +2454,9 @@
         "dryMatterPct": 95.2,
         "crudeProteinPct": 12.3,
         "digestibleProteinPct": 10.9,
-        "ashPct": 8.74
+        "crudeFatPct": 0.93,
+        "ashPct": 8.74,
+        "linoleicAcidPct": 0.02
       },
       "energy": {
         "digestibleKcalKg": 3486,
@@ -2418,7 +2524,11 @@
         "magnesiumPct": 0.11
       },
       "traceMineralsPpm": {
-        "manganese": 3
+        "manganese": 3,
+        "iron": 12.3,
+        "copper": 16.5,
+        "zinc": 115,
+        "selenium": 0.21
       },
       "vitamins": {},
       "constraints": {
@@ -2454,6 +2564,7 @@
       "composition": {
         "dryMatterPct": 73.9,
         "crudeProteinPct": 3.66,
+        "crudeFatPct": 0.1,
         "crudeFibrePct": 2.46,
         "ashPct": 8.75
       },
