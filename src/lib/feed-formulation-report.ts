@@ -52,6 +52,10 @@ export type FeedRecipeFormulaReportRow = {
 export function feedRecipeFormulaReportRows(
   input: Pick<FeedRecipeReportInput, "formula" | "ingredients" | "targetBatchKg">,
 ): FeedRecipeFormulaReportRow[] {
+  if (!Number.isFinite(input.targetBatchKg) || input.targetBatchKg <= 0) {
+    throw new Error("Target batch weight must be greater than 0 kg.");
+  }
+
   const ingredientById = new Map(
     input.ingredients.map((ingredient) => [ingredient.ingredientId, ingredient]),
   );
