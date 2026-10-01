@@ -53,6 +53,18 @@ describe("feed formulation recipe report", () => {
     ).toBeCloseTo(380, 8);
   });
 
+  it("rejects a non-positive target batch weight", () => {
+    expect(() =>
+      feedRecipeFormulaReportRows({
+        formula: {
+          ingredients: [{ ingredientId: "grain", inclusionPct: 100 }],
+        },
+        ingredients: [{ ingredientId: "grain", name: "Grain", pricePerKg: 0.3 }],
+        targetBatchKg: 0,
+      }),
+    ).toThrow("Target batch weight must be greater than 0 kg.");
+  });
+
   it("fails rather than exporting an ingredient without the price snapshot", () => {
     expect(() =>
       feedRecipeFormulaReportRows({
