@@ -154,6 +154,41 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
+  it("extracts the additional priority feed ingredients from Table 1.01", () => {
+    const byId = new Map(
+      BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.map((ingredient) => [
+        ingredient.id,
+        ingredient,
+      ]),
+    );
+
+    expect(byId.get("soybean-full-fat-extruded")).toMatchObject({
+      pigflowIngredientId: "soybean-full-fat-extruded",
+      sourcePage: 155,
+      swineEnergyKcalKg: { metabolizable: 3956 },
+    });
+    expect(byId.get("rice-bran")).toMatchObject({
+      pigflowIngredientId: "rice-bran",
+      sourcePage: 137,
+      digestibleProteinSwinePct: 9.4,
+    });
+    expect(byId.get("cassava-whole")).toMatchObject({
+      pigflowIngredientId: "cassava-whole",
+      sourcePage: 49,
+      swineEnergyKcalKg: { metabolizable: 3020 },
+    });
+    expect(byId.get("cottonseed-meal-38")).toMatchObject({
+      pigflowIngredientId: "cottonseed-meal-38",
+      sourcePage: 87,
+      digestibleProteinSwinePct: 29.7,
+    });
+    expect(byId.get("fish-meal-54")).toMatchObject({
+      pigflowIngredientId: "fish-meal-54",
+      sourcePage: 97,
+      digestibleProteinSwinePct: 41.7,
+    });
+  });
+
   it("extracts the priority grain alternatives from Table 1.01", () => {
     const byId = new Map(
       BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.map((ingredient) => [
