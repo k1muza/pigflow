@@ -13,6 +13,7 @@ export default function FeedFormulationsPage() {
         id: phase.id,
         label: phase.label,
         sourceTable: phase.sourceTable,
+        supplementationSourceTables: phase.supplementation?.sourceTables,
       })),
     }));
 
@@ -32,9 +33,10 @@ export default function FeedFormulationsPage() {
           <Badge variant="secondary">GLPK least-cost solver</Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-          Generate diets from your available ingredients and local prices, using Brazilian Tables
-          2024 nutrient targets as hard constraints. If no exact diet exists, PigFlow runs a
-          diagnostic model to show the limiting nutrients instead of quietly weakening the target.
+          Generate diets for a chosen batch size from your available ingredients, local prices and
+          optional commercial premixes. Brazilian Tables 2024 diet requirements remain hard
+          constraints, with Chapter 7 vitamin and trace-mineral supplementation targets available
+          where the source publishes them.
         </p>
       </div>
 
