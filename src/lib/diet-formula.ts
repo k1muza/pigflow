@@ -77,11 +77,45 @@ export type DietAnalysis = {
     vitaminDIuKg: AnalyzedNutrient;
     vitaminEIuKg: AnalyzedNutrient;
     vitaminKMgKg: AnalyzedNutrient;
-    niacinMgKg: AnalyzedNutrient;
+    vitaminB1MgKg: AnalyzedNutrient;
     riboflavinMgKg: AnalyzedNutrient;
-    pantothenicAcidMgKg: AnalyzedNutrient;
+    vitaminB6MgKg: AnalyzedNutrient;
     vitaminB12McgKg: AnalyzedNutrient;
+    pantothenicAcidMgKg: AnalyzedNutrient;
+    niacinMgKg: AnalyzedNutrient;
+    folicAcidMgKg: AnalyzedNutrient;
+    biotinMgKg: AnalyzedNutrient;
     totalCholineMgKg: AnalyzedNutrient;
+  };
+  /**
+   * Deliberately supplemented micronutrients only. Natural ingredient
+   * concentrations are excluded because Brazilian Tables Chapter 7 publishes
+   * supplementation guidance rather than total-diet requirements.
+   */
+  supplementation: {
+    traceMineralsPpm: {
+      zinc: AnalyzedNutrient;
+      iron: AnalyzedNutrient;
+      manganese: AnalyzedNutrient;
+      copper: AnalyzedNutrient;
+      iodine: AnalyzedNutrient;
+      selenium: AnalyzedNutrient;
+    };
+    vitamins: {
+      vitaminAIuKg: AnalyzedNutrient;
+      vitaminDIuKg: AnalyzedNutrient;
+      vitaminEIuKg: AnalyzedNutrient;
+      vitaminKMgKg: AnalyzedNutrient;
+      vitaminB1MgKg: AnalyzedNutrient;
+      riboflavinMgKg: AnalyzedNutrient;
+      vitaminB6MgKg: AnalyzedNutrient;
+      vitaminB12McgKg: AnalyzedNutrient;
+      pantothenicAcidMgKg: AnalyzedNutrient;
+      niacinMgKg: AnalyzedNutrient;
+      folicAcidMgKg: AnalyzedNutrient;
+      biotinMgKg: AnalyzedNutrient;
+      totalCholineMgKg: AnalyzedNutrient;
+    };
   };
   soybeanMealPct: number;
   lLysineHclPct: number;
@@ -181,11 +215,40 @@ export function analyzeDiet(
       vitaminDIuKg: measure(),
       vitaminEIuKg: measure(),
       vitaminKMgKg: measure(),
-      niacinMgKg: measure(),
+      vitaminB1MgKg: measure(),
       riboflavinMgKg: measure(),
-      pantothenicAcidMgKg: measure(),
+      vitaminB6MgKg: measure(),
       vitaminB12McgKg: measure(),
+      pantothenicAcidMgKg: measure(),
+      niacinMgKg: measure(),
+      folicAcidMgKg: measure(),
+      biotinMgKg: measure(),
       totalCholineMgKg: measure(),
+    },
+    supplementation: {
+      traceMineralsPpm: {
+        zinc: measure(),
+        iron: measure(),
+        manganese: measure(),
+        copper: measure(),
+        iodine: measure(),
+        selenium: measure(),
+      },
+      vitamins: {
+        vitaminAIuKg: measure(),
+        vitaminDIuKg: measure(),
+        vitaminEIuKg: measure(),
+        vitaminKMgKg: measure(),
+        vitaminB1MgKg: measure(),
+        riboflavinMgKg: measure(),
+        vitaminB6MgKg: measure(),
+        vitaminB12McgKg: measure(),
+        pantothenicAcidMgKg: measure(),
+        niacinMgKg: measure(),
+        folicAcidMgKg: measure(),
+        biotinMgKg: measure(),
+        totalCholineMgKg: measure(),
+      },
     },
     soybeanMealPct: 0,
     lLysineHclPct: 0,
@@ -325,69 +388,52 @@ export function analyzeDiet(
     addTrace(result.traceMineralsPpm.iodine, ingredient, share, "iodine");
     addTrace(result.traceMineralsPpm.selenium, ingredient, share, "selenium");
 
-    add(
-      result.vitamins.vitaminAIuKg,
-      ingredient,
-      share,
-      ingredient.vitamins.vitaminAIuKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.vitaminDIuKg,
-      ingredient,
-      share,
-      ingredient.vitamins.vitaminDIuKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.vitaminEIuKg,
-      ingredient,
-      share,
-      ingredient.vitamins.vitaminEIuKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.vitaminKMgKg,
-      ingredient,
-      share,
-      ingredient.vitamins.vitaminKMgKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.niacinMgKg,
-      ingredient,
-      share,
-      ingredient.vitamins.niacinMgKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.riboflavinMgKg,
-      ingredient,
-      share,
-      ingredient.vitamins.riboflavinMgKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.pantothenicAcidMgKg,
-      ingredient,
-      share,
-      ingredient.vitamins.pantothenicAcidMgKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.vitaminB12McgKg,
-      ingredient,
-      share,
-      ingredient.vitamins.vitaminB12McgKg,
-      structuralZero(ingredient, "vitamin"),
-    );
-    add(
-      result.vitamins.totalCholineMgKg,
-      ingredient,
-      share,
-      ingredient.vitamins.totalCholineMgKg,
-      structuralZero(ingredient, "vitamin"),
-    );
+    const vitaminEntries = [
+      ["vitaminAIuKg", result.vitamins.vitaminAIuKg],
+      ["vitaminDIuKg", result.vitamins.vitaminDIuKg],
+      ["vitaminEIuKg", result.vitamins.vitaminEIuKg],
+      ["vitaminKMgKg", result.vitamins.vitaminKMgKg],
+      ["vitaminB1MgKg", result.vitamins.vitaminB1MgKg],
+      ["riboflavinMgKg", result.vitamins.riboflavinMgKg],
+      ["vitaminB6MgKg", result.vitamins.vitaminB6MgKg],
+      ["vitaminB12McgKg", result.vitamins.vitaminB12McgKg],
+      ["pantothenicAcidMgKg", result.vitamins.pantothenicAcidMgKg],
+      ["niacinMgKg", result.vitamins.niacinMgKg],
+      ["folicAcidMgKg", result.vitamins.folicAcidMgKg],
+      ["biotinMgKg", result.vitamins.biotinMgKg],
+      ["totalCholineMgKg", result.vitamins.totalCholineMgKg],
+    ] as const;
+    for (const [key, target] of vitaminEntries) {
+      add(
+        target,
+        ingredient,
+        share,
+        ingredient.vitamins[key],
+        structuralZero(ingredient, "vitamin"),
+      );
+      addSupplemented(
+        result.supplementation.vitamins[key],
+        ingredient,
+        share,
+        ingredient.vitamins[key],
+      );
+    }
+
+    for (const nutrient of [
+      "zinc",
+      "iron",
+      "manganese",
+      "copper",
+      "iodine",
+      "selenium",
+    ] as const) {
+      addSupplemented(
+        result.supplementation.traceMineralsPpm[nutrient],
+        ingredient,
+        share,
+        ingredient.traceMineralsPpm[nutrient],
+      );
+    }
 
     if (ingredient.id.startsWith("soybean-meal-")) result.soybeanMealPct += row.inclusionPct;
     if (ingredient.id === "l-lysine-hcl") result.lLysineHclPct += row.inclusionPct;
@@ -697,7 +743,8 @@ function structuralZero(
       return (
         ingredient.category === "oil_fat" ||
         ingredient.category === "amino_acid" ||
-        ingredient.category === "mineral"
+        ingredient.category === "mineral" ||
+        ingredient.category === "vitamin_mineral_premix"
       );
     case "traceMineral":
       return (
@@ -725,6 +772,21 @@ function add(
     return;
   }
   target.value += share * value;
+}
+
+function addSupplemented(
+  target: AnalyzedNutrient,
+  ingredient: IngredientNutrientRecord,
+  share: number,
+  value: number | undefined,
+): void {
+  add(
+    target,
+    ingredient,
+    share,
+    value,
+    ingredient.category !== "vitamin_mineral_premix",
+  );
 }
 
 function addSid(
