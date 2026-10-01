@@ -136,6 +136,35 @@ describe("Brazilian Tables 2024 growing-pig nutrition programmes", () => {
     expect(phase.requirements.crudeProteinPct).toBe(21.2);
   });
 
+  it("attaches Chapter 7 supplementation only where the published phase exists", () => {
+    const firstPrestarter = nutritionPhaseAtWeight(6.1);
+    expect(firstPrestarter.sourceWeightRange).toBe("4.4–6.2 kg");
+    expect(firstPrestarter.supplementation).toBeUndefined();
+
+    const secondPrestarter = nutritionPhaseAtWeight(8);
+    expect(secondPrestarter.supplementation).toMatchObject({
+      sourceTables: ["7.05", "7.06"],
+      vitamins: {
+        vitaminAIuKg: 11387,
+        vitaminB12McgKg: 41,
+      },
+      traceMinerals: {
+        inorganic: {
+          zincPpm: 165.6,
+          seleniumPpm: 0.502,
+        },
+      },
+    });
+
+    expect(BRAZILIAN_2024_GESTATION_NUTRITION.phases[0].supplementation).toMatchObject({
+      sourceTables: ["7.07"],
+      vitamins: {
+        vitaminAIuKg: 9927,
+        totalCholineMgKg: 750,
+      },
+    });
+  });
+
   it("moves through the standard-performance phases by liveweight", () => {
     expect(nutritionPhaseAtWeight(6.1).sourceWeightRange).toBe("4.4–6.2 kg");
     expect(nutritionPhaseAtWeight(8).sourceWeightRange).toBe("6.2–8.4 kg");
