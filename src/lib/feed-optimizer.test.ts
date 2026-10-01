@@ -239,6 +239,28 @@ describe("least-cost feed optimizer", () => {
     expect(soybeanMealPct).toBeLessThan(50);
   });
 
+  it("reports missing Chapter 7 coverage for the 4.4–6.2 kg phase instead of inventing targets", async () => {
+    const phase = nutritionPhaseAtWeight(5);
+    expect(phase.supplementation).toBeUndefined();
+
+    const target = phase.requirements.crudeProteinPct;
+    const library = testLibrary(target + 5, target + 10);
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      [
+        { ingredientId: "cheap", pricePerKg: 0.2 },
+        { ingredientId: "protein", pricePerKg: 0.6 },
+      ],
+      library,
+      { includeSupplementationTargets: true },
+    );
+
+    expect(result.unsupportedRequirements).toContain(
+      "vitamin-trace-mineral-supplementation",
+    );
+  });
+
   it("can hard-constrain Brazilian Chapter 7 supplementation with a fixed custom premix", async () => {
     const phase = nutritionPhaseAtWeight(30);
     const supplementation = phase.supplementation;
