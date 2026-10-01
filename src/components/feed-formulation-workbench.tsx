@@ -1165,8 +1165,8 @@ function NutritionPanel({
           <Badge variant="secondary">Hard constraints satisfied</Badge>
         </div>
         <CardDescription>
-          Requirement versus actual nutrient density for the recipe currently selected in the
-          Recipes tab.
+          Brazilian diet requirements and selected Chapter 7 supplementation targets versus the
+          recipe currently selected in the Recipes tab.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -1194,7 +1194,7 @@ function NutrientProfileTable({
         <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
           <tr>
             <th className="px-3 py-2.5">Nutrient</th>
-            <th className="px-3 py-2.5 text-right">Requirement</th>
+            <th className="px-3 py-2.5 text-right">Requirement / target</th>
             <th className="px-3 py-2.5 text-right">Actual</th>
             <th className="px-3 py-2.5 text-right">Margin</th>
             <th className="px-3 py-2.5 text-right">Status</th>
@@ -1250,8 +1250,8 @@ function NutrientProfileDialog({
         <DialogHeader className="px-5 pt-5">
           <DialogTitle>{recipeLabel} · nutritional profile</DialogTitle>
           <DialogDescription>
-            Actual nutrient density compared with the hard requirements used by the optimizer.
-            A binding row is sitting effectively on its requirement.
+            Actual nutrient density compared with the hard requirements and supplementation
+            targets used by the optimizer. A binding row is sitting effectively on its target.
           </DialogDescription>
         </DialogHeader>
         <div className="min-h-0 overflow-auto px-5 pb-5">
