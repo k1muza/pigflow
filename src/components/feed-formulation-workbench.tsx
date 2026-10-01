@@ -816,6 +816,9 @@ function ResultPanel({
           </div>
           <CardDescription>
             {selectedRecipe.description} Cost: {selectedRecipe.solution.costPerKg.toFixed(4)} per kg
+            {" · "}
+            {(selectedRecipe.solution.costPerKg * batchWeightKg).toFixed(2)} for{" "}
+            {batchWeightKg.toFixed(1)} kg
             {selectedRecipe.costIncreasePct > 0
               ? ` · +${selectedRecipe.costIncreasePct.toFixed(2)}% vs least cost`
               : ""}.
