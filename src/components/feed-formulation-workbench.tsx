@@ -56,7 +56,12 @@ import type {
 type ProgrammeOption = {
   id: string;
   name: string;
-  phases: { id: string; label: string; sourceTable: string }[];
+  phases: {
+    id: string;
+    label: string;
+    sourceTable: string;
+    supplementationSourceTables?: readonly string[];
+  }[];
 };
 
 type IngredientOption = {
@@ -278,7 +283,9 @@ export function FeedFormulationWorkbench({
       },
     ]);
     setNextPremixKey((value) => value + 1);
-    setTargetSupplementation(true);
+    setTargetSupplementation(
+      Boolean(selectedPhase?.supplementationSourceTables?.length),
+    );
     setResult(null);
   }
 
@@ -620,7 +627,10 @@ export function FeedFormulationWorkbench({
                   type="checkbox"
                   className="mt-0.5 h-4 w-4"
                   checked={targetSupplementation}
-                  disabled={customPremixes.length === 0}
+                  disabled={
+                    customPremixes.length === 0 ||
+                    !selectedPhase?.supplementationSourceTables?.length
+                  }
                   onChange={(event) => {
                     setTargetSupplementation(event.target.checked);
                     setResult(null);
@@ -631,8 +641,11 @@ export function FeedFormulationWorkbench({
                     Target whole supplementation profile
                   </span>
                   <span className="mt-0.5 block text-xs leading-5 text-ink-muted">
-                    Constrain the premix contribution against Brazilian Tables Chapter 7 vitamin
-                    and trace-mineral supplementation guidance where that exact phase is published.
+                    {selectedPhase?.supplementationSourceTables?.length
+                      ? `Constrain premix contribution against Brazilian Tables ${selectedPhase.supplementationSourceTables
+                          .map((table) => `Table ${table}`)
+                          .join(" + ")} supplementation guidance.`
+                      : "No Brazilian Chapter 7 supplementation target is published for this exact phase."}
                   </span>
                 </span>
               </label>
