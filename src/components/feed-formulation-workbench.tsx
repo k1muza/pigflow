@@ -1418,6 +1418,15 @@ function FormulaTable({
             </tr>
           ))}
         </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-hairline font-semibold text-ink">
+            <td className="px-3 py-2.5">Total</td>
+            <td className="px-3 py-2.5 text-right">
+              {rows.reduce((sum, row) => sum + row.inclusionPct, 0).toFixed(3)}%
+            </td>
+            <td className="px-3 py-2.5 text-right">{batchWeightKg.toFixed(2)}</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
