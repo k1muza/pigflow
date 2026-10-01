@@ -29,7 +29,18 @@ export type FormulationUnsupportedRequirement =
   | "digestible-protein"
   | "available-phosphorus"
   | "potassium"
-  | "linoleic-acid";
+  | "linoleic-acid"
+  | "vitamin-trace-mineral-supplementation";
+
+export type FormulationSettings = {
+  /**
+   * Apply Brazilian Tables Chapter 7 vitamin and trace-mineral supplementation
+   * guidance as hard formulation constraints. These are deliberately separate
+   * from total-diet nutrient requirements.
+   */
+  includeSupplementationTargets?: boolean;
+  traceMineralBasis?: "inorganic" | "organic";
+};
 
 export type FormulationMissingData = {
   ingredientId: string;
@@ -172,8 +183,12 @@ type PreparedIngredient = {
 };
 
 function unsupportedRequirementsForPhase(
-  _phase: NutritionPhase,
+  phase: NutritionPhase,
+  settings: FormulationSettings = {},
 ): FormulationUnsupportedRequirement[] {
+  if (settings.includeSupplementationTargets && !phase.supplementation) {
+    return ["vitamin-trace-mineral-supplementation"];
+  }
   return [];
 }
 
@@ -190,8 +205,9 @@ export async function formulateLeastCostDiet(
   energySystem: EnergySystem,
   options: readonly FormulationIngredientOption[],
   library: IngredientLibrary = INGREDIENT_LIBRARY,
+  settings: FormulationSettings = {},
 ): Promise<LeastCostFormulationResult> {
-  const unsupportedRequirements = unsupportedRequirementsForPhase(phase);
+  const unsupportedRequirements = unsupportedRequirementsForPhase(phase, settings);
 
   if (options.length === 0) {
     return {
@@ -204,7 +220,7 @@ export async function formulateLeastCostDiet(
   try {
     validateOptions(options, library);
 
-    const constraints = buildConstraintSpecs(phase, energySystem);
+    const constraints = buildConstraintSpecs(phase, energySystem, settings);
     const prepared = prepareIngredients(options, constraints, library);
     const missingData = collectMissingData(prepared, constraints);
 
@@ -372,6 +388,7 @@ export async function suggestFormulationIngredients(
 function buildConstraintSpecs(
   phase: NutritionPhase,
   energySystem: EnergySystem,
+  settings: FormulationSettings = {},
 ): ConstraintSpec[] {
   const targets = resolveNutritionTargets(phase);
   const constraints: ConstraintSpec[] = [
@@ -548,6 +565,137 @@ function buildConstraintSpecs(
       bound: phase.requirements.linoleicAcidPct,
       measure: (analysis) => analysis.fattyAcids.linoleicAcidPct,
     });
+  }
+
+  if (settings.includeSupplementationTargets && phase.supplementation) {
+    const vitamins = phase.supplementation.vitamins;
+    const vitaminConstraints: Array<{
+      id: string;
+      label: string;
+      unit: string;
+      bound: number;
+      measure: (analysis: DietAnalysis) => AnalyzedNutrient;
+    }> = [
+      {
+        id: "supplement-vitamin-a",
+        label: "Supplemented vitamin A",
+        unit: "IU/kg",
+        bound: vitamins.vitaminAIuKg,
+        measure: (analysis) => analysis.supplementation.vitamins.vitaminAIuKg,
+      },
+      {
+        id: "supplement-vitamin-d3",
+        label: "Supplemented vitamin D3",
+        unit: "IU/kg",
+        bound: vitamins.vitaminDIuKg,
+        measure: (analysis) => analysis.supplementation.vitamins.vitaminDIuKg,
+      },
+      {
+        id: "supplement-vitamin-e",
+        label: "Supplemented vitamin E",
+        unit: "IU/kg",
+        bound: vitamins.vitaminEIuKg,
+        measure: (analysis) => analysis.supplementation.vitamins.vitaminEIuKg,
+      },
+      {
+        id: "supplement-vitamin-k3",
+        label: "Supplemented vitamin K3",
+        unit: "mg/kg",
+        bound: vitamins.vitaminKMgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.vitaminKMgKg,
+      },
+      {
+        id: "supplement-vitamin-b1",
+        label: "Supplemented vitamin B1",
+        unit: "mg/kg",
+        bound: vitamins.vitaminB1MgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.vitaminB1MgKg,
+      },
+      {
+        id: "supplement-vitamin-b2",
+        label: "Supplemented vitamin B2",
+        unit: "mg/kg",
+        bound: vitamins.riboflavinMgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.riboflavinMgKg,
+      },
+      {
+        id: "supplement-vitamin-b6",
+        label: "Supplemented vitamin B6",
+        unit: "mg/kg",
+        bound: vitamins.vitaminB6MgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.vitaminB6MgKg,
+      },
+      {
+        id: "supplement-vitamin-b12",
+        label: "Supplemented vitamin B12",
+        unit: "mcg/kg",
+        bound: vitamins.vitaminB12McgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.vitaminB12McgKg,
+      },
+      {
+        id: "supplement-pantothenic-acid",
+        label: "Supplemented pantothenic acid",
+        unit: "mg/kg",
+        bound: vitamins.pantothenicAcidMgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.pantothenicAcidMgKg,
+      },
+      {
+        id: "supplement-niacin",
+        label: "Supplemented niacin",
+        unit: "mg/kg",
+        bound: vitamins.niacinMgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.niacinMgKg,
+      },
+      {
+        id: "supplement-folic-acid",
+        label: "Supplemented folic acid",
+        unit: "mg/kg",
+        bound: vitamins.folicAcidMgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.folicAcidMgKg,
+      },
+      {
+        id: "supplement-biotin",
+        label: "Supplemented biotin",
+        unit: "mg/kg",
+        bound: vitamins.biotinMgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.biotinMgKg,
+      },
+      {
+        id: "supplement-choline",
+        label: "Supplemented choline",
+        unit: "mg/kg",
+        bound: vitamins.totalCholineMgKg,
+        measure: (analysis) => analysis.supplementation.vitamins.totalCholineMgKg,
+      },
+    ];
+    constraints.push(
+      ...vitaminConstraints.map((constraint) => ({
+        ...constraint,
+        relation: "min" as const,
+      })),
+    );
+
+    const basis = settings.traceMineralBasis ?? "inorganic";
+    const trace = phase.supplementation.traceMinerals[basis];
+    const traceMeasures = [
+      ["copper", "Copper", trace.copperPpm, (analysis: DietAnalysis) => analysis.supplementation.traceMineralsPpm.copper],
+      ["iron", "Iron", trace.ironPpm, (analysis: DietAnalysis) => analysis.supplementation.traceMineralsPpm.iron],
+      ["manganese", "Manganese", trace.manganesePpm, (analysis: DietAnalysis) => analysis.supplementation.traceMineralsPpm.manganese],
+      ["selenium", "Selenium", trace.seleniumPpm, (analysis: DietAnalysis) => analysis.supplementation.traceMineralsPpm.selenium],
+      ["zinc", "Zinc", trace.zincPpm, (analysis: DietAnalysis) => analysis.supplementation.traceMineralsPpm.zinc],
+      ["iodine", "Iodine", trace.iodinePpm, (analysis: DietAnalysis) => analysis.supplementation.traceMineralsPpm.iodine],
+    ] as const;
+    for (const [id, label, bound, measure] of traceMeasures) {
+      if (bound === undefined) continue;
+      constraints.push({
+        id: `supplement-${id}`,
+        label: `Supplemented ${label.toLowerCase()}`,
+        unit: "ppm",
+        relation: "min",
+        bound,
+        measure,
+      });
+    }
   }
 
   return constraints;
