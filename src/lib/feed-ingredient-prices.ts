@@ -11,7 +11,7 @@ export type IngredientDefaultPrice = {
   asOf: string;
   sourceScope: IngredientPriceSourceScope;
   sourceLabel: string;
-  sourceUrl: string;
+  sourceUrl?: string;
   note?: string;
 };
 
@@ -231,6 +231,16 @@ export const INGREDIENT_DEFAULT_PRICES: readonly IngredientDefaultPrice[] = [
     sourceUrl: "https://www.expertmarketresearch.com/price-forecast/tryptophan-price-trends",
     note:
       "No transparent current Southern-African bulk quote was found. China Q2 2026 benchmark is used only as a planning floor and excludes freight/import costs.",
+  },
+  {
+    ingredientId: "soybean-degummed-oil",
+    usdPerTonne: 1960,
+    market: "Harare, Zimbabwe",
+    asOf: "2026-10-01",
+    sourceScope: "harare",
+    sourceLabel: "User-observed retail refined soybean oil",
+    note:
+      "Planning proxy from a user-observed refined soybean oil price of USD 3.60 per 2 L, normalized to approximately USD 1.96/kg. The market product is refined soybean oil; the nutrient profile remains the Brazilian Tables 2024 Soybean, Degummed Oil record.",
   },
   {
     ingredientId: "corn-oil",
