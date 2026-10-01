@@ -72,7 +72,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           <CardHeader>
             <CardTitle>Ingredient not found</CardTitle>
             <CardDescription>
-              “{ingredientId}” is not present in the checked-in NRC ingredient library.
+              “{ingredientId}” is not present in the checked-in Brazilian Tables ingredient library.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -97,7 +97,9 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           </Badge>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
-          {ingredient.aliases.length > 0 ? ingredient.aliases.join(" · ") : "NRC feed ingredient"}
+          {ingredient.aliases.length > 0
+            ? ingredient.aliases.join(" · ")
+            : "Brazilian Tables feed ingredient"}
         </p>
       </div>
 
@@ -105,8 +107,8 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
         <CardHeader>
           <CardTitle className="text-base">Default market price</CardTitle>
           <CardDescription>
-            Pricing is kept separate from NRC nutrient composition and is only shown when PigFlow
-            has a sourced market reference.
+            Pricing is kept separate from Brazilian Tables nutrient composition and is only shown
+            when PigFlow has a sourced market reference.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -182,10 +184,13 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
                 ["Calcium", display(ingredient.macroMinerals.calciumPct, "%")],
                 ["Total phosphorus", display(ingredient.macroMinerals.totalPhosphorusPct, "%")],
                 [
-                  "STTD P digestibility",
+                  "Digestible P coefficient",
                   display(ingredient.macroMinerals.sttdPhosphorusDigestibilityPct, "%"),
                 ],
-                ["Derived STTD phosphorus", display(sttdPhosphorusPctOf(ingredient), "%")],
+                [
+                  "Standardized digestible phosphorus",
+                  display(sttdPhosphorusPctOf(ingredient), "%"),
+                ],
                 ["Available phosphorus", display(ingredient.macroMinerals.availablePhosphorusPct, "%")],
                 ["Sodium", display(ingredient.macroMinerals.sodiumPct, "%")],
                 ["Chloride", display(ingredient.macroMinerals.chloridePct, "%")],
@@ -331,8 +336,9 @@ function AminoAcids({ ingredient }: { ingredient: IngredientNutrientRecord }) {
       <CardHeader>
         <CardTitle className="text-base">Amino acids</CardTitle>
         <CardDescription>
-          NRC total concentration and SID digestibility are shown independently. Derived SID %
-          is calculated by PigFlow.
+          Brazilian Tables total, SID concentration and SID digestibility values are shown where
+          the source publishes them. PigFlow derives SID only when a direct SID concentration is
+          unavailable.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -343,7 +349,7 @@ function AminoAcids({ ingredient }: { ingredient: IngredientNutrientRecord }) {
                 <TableHead>Amino acid</TableHead>
                 <TableHead className="text-right">Total %</TableHead>
                 <TableHead className="text-right">SID digestibility %</TableHead>
-                <TableHead className="text-right">Derived SID %</TableHead>
+                <TableHead className="text-right">SID %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
