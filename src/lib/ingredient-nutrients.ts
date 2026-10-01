@@ -78,10 +78,14 @@ const ingredientSchema = z.object({
       vitaminDIuKg: z.number().optional(),
       vitaminEIuKg: z.number().optional(),
       vitaminKMgKg: z.number().optional(),
-      niacinMgKg: z.number().optional(),
+      vitaminB1MgKg: z.number().optional(),
       riboflavinMgKg: z.number().optional(),
-      pantothenicAcidMgKg: z.number().optional(),
+      vitaminB6MgKg: z.number().optional(),
       vitaminB12McgKg: z.number().optional(),
+      pantothenicAcidMgKg: z.number().optional(),
+      niacinMgKg: z.number().optional(),
+      folicAcidMgKg: z.number().optional(),
+      biotinMgKg: z.number().optional(),
       totalCholineMgKg: z.number().optional(),
     })
     .default({}),
@@ -148,6 +152,61 @@ export function loadIngredientLibrary(input: unknown): IngredientLibrary {
 }
 
 export const INGREDIENT_LIBRARY = loadIngredientLibrary(ingredientLibraryJson);
+
+export type CustomPremixProfile = {
+  id: string;
+  name: string;
+  vitamins: Partial<IngredientNutrientRecord["vitamins"]>;
+  traceMineralsPpm: Partial<IngredientNutrientRecord["traceMineralsPpm"]>;
+};
+
+export function ingredientLibraryWithCustomPremixes(
+  premixes: readonly CustomPremixProfile[],
+  library: IngredientLibrary = INGREDIENT_LIBRARY,
+): IngredientLibrary {
+  if (premixes.length === 0) return library;
+
+  const existingIds = new Set(library.ingredients.map((ingredient) => ingredient.id));
+  for (const premix of premixes) {
+    if (existingIds.has(premix.id)) {
+      throw new Error(`Custom premix ID already exists: ${premix.id}.`);
+    }
+    existingIds.add(premix.id);
+  }
+
+  return loadIngredientLibrary({
+    ...library,
+    ingredients: [
+      ...library.ingredients,
+      ...premixes.map((premix) => ({
+        id: premix.id,
+        name: premix.name,
+        aliases: [],
+        category: "vitamin_mineral_premix",
+        composition: {},
+        energy: {},
+        aminoAcids: {
+          totalPct: {},
+          sidDigestibilityPct: {},
+          sidPct: {},
+        },
+        macroMinerals: {},
+        traceMineralsPpm: premix.traceMineralsPpm,
+        vitamins: premix.vitamins,
+        constraints: {
+          notes: ["User-entered commercial premix profile."],
+        },
+        provenance: {
+          nutrientSources: {},
+          notes: [
+            "User-entered commercial premix profile. Guaranteed label values should be used rather than inferred nutrient values.",
+          ],
+        },
+      })),
+    ],
+  });
+}
+
 
 
 /**
