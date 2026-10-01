@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   INGREDIENT_LIBRARY,
+  ingredientLibraryWithCustomPremixes,
   loadIngredientLibrary,
   type IngredientLibrary,
 } from "./ingredient-nutrients";
@@ -177,6 +178,49 @@ describe("diet formula analysis", () => {
       actual: 1.2,
       status: "pass",
     });
+  });
+
+  it("tracks premix supplementation separately from naturally occurring micronutrients", () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const supplementation = phase.supplementation;
+    expect(supplementation).toBeDefined();
+    if (!supplementation) return;
+
+    const base = completeLibrary();
+    const premix = {
+      id: "test-premix",
+      name: "Test premix",
+      vitamins: {
+        vitaminAIuKg: supplementation.vitamins.vitaminAIuKg * 100,
+      },
+      traceMineralsPpm: {
+        zinc: supplementation.traceMinerals.inorganic.zincPpm * 100,
+      },
+    };
+    const library = ingredientLibraryWithCustomPremixes([premix], base);
+    const result = analyzeDiet(
+      {
+        ingredients: [
+          { ingredientId: "complete-test-feed", inclusionPct: 99 },
+          { ingredientId: "test-premix", inclusionPct: 1 },
+        ],
+      },
+      [],
+      library,
+    );
+
+    expect(result.vitamins.vitaminAIuKg.value).toBeGreaterThan(
+      result.supplementation.vitamins.vitaminAIuKg.value,
+    );
+    expect(result.supplementation.vitamins.vitaminAIuKg).toMatchObject({
+      value: supplementation.vitamins.vitaminAIuKg,
+      complete: true,
+    });
+    expect(result.supplementation.traceMineralsPpm.zinc).toMatchObject({
+      value: supplementation.traceMinerals.inorganic.zincPpm,
+      complete: true,
+    });
+    expect(result.supplementation.traceMineralsPpm.selenium.complete).toBe(false);
   });
 
   it("does not treat Brazilian Chapter 7 supplementation guidance as Chapter 5 requirements", () => {
