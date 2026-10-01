@@ -33,7 +33,13 @@ describe("feed ingredient default prices", () => {
     expect(
       ingredientDefaultPrice("soybean-meal-dehulled-solvent-extracted"),
     ).toMatchObject({
-      usdPerTonne: 550,
+      usdPerTonne: 680,
+      sourceScope: "harare",
+    });
+    expect(
+      ingredientDefaultPrice("soybean-meal-solvent-extracted"),
+    ).toMatchObject({
+      usdPerTonne: 580,
       sourceScope: "harare",
     });
     expect(ingredientDefaultPrice("wheat-bran")).toMatchObject({
