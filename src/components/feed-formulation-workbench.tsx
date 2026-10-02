@@ -31,12 +31,6 @@ import {
   type FeedRecipeReportInput,
 } from "@/lib/feed-formulation-report";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
   ingredientDefaultPrice,
   ingredientDefaultPricePerKg,
   ingredientImportPriceMultiplier,
@@ -392,25 +386,72 @@ export function FeedFormulationWorkbench({
     }
   }
 
-  return (
-    <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="sticky top-[58px] z-10 -mx-4 border-b border-hairline bg-plane/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
-          <TabsList variant="line" className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="setup">Setup</TabsTrigger>
-            <TabsTrigger value="recipes" disabled={!result}>
-              Recipes
-            </TabsTrigger>
-            <TabsTrigger value="opportunities" disabled={result?.status !== "optimal"}>
-              Opportunities
-            </TabsTrigger>
-            <TabsTrigger value="nutrition" disabled={result?.status !== "optimal"}>
-              Nutrition
-            </TabsTrigger>
-          </TabsList>
-        </div>
+  const sidebarItems = [
+    {
+      id: "setup",
+      label: "Setup",
+      description: "Requirements, ingredients and mix",
+      disabled: false,
+    },
+    {
+      id: "recipes",
+      label: "Recipes",
+      description: "Least-cost and alternatives",
+      disabled: !result,
+    },
+    {
+      id: "opportunities",
+      label: "Opportunities",
+      description: "Ingredient substitutions and savings",
+      disabled: result?.status !== "optimal",
+    },
+    {
+      id: "nutrition",
+      label: "Nutrition",
+      description: "Requirement compliance",
+      disabled: result?.status !== "optimal",
+    },
+  ] as const;
 
-        <TabsContent value="setup" className="mt-4">
+  return (
+    <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+      <aside className="overflow-hidden rounded-xl border border-hairline bg-raised/20 lg:sticky lg:top-[74px]">
+        <div className="border-b border-hairline px-4 py-4">
+          <div className="text-sm font-semibold text-ink">Formulation</div>
+          <div className="mt-1 text-xs leading-5 text-ink-muted">
+            Build, review and refine this ration.
+          </div>
+        </div>
+        <nav className="space-y-1 p-2" aria-label="Feed formulation sections">
+          {sidebarItems.map((item) => {
+            const active = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                disabled={item.disabled}
+                aria-current={active ? "page" : undefined}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  active
+                    ? "border-hairline bg-background text-ink shadow-sm"
+                    : item.disabled
+                      ? "cursor-not-allowed border-transparent text-ink-faint opacity-45"
+                      : "border-transparent text-ink-muted hover:bg-background/70 hover:text-ink"
+                }`}
+              >
+                <span className="block text-sm font-medium">{item.label}</span>
+                <span className="mt-0.5 block text-[11px] leading-4">
+                  {item.description}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <div className="min-w-0">
+        {activeTab === "setup" ? (
           <Card>
         <CardHeader>
           <CardTitle>Least-cost formulation</CardTitle>
@@ -712,10 +753,9 @@ export function FeedFormulationWorkbench({
           ) : null}
         </CardContent>
           </Card>
-        </TabsContent>
+        ) : null}
 
-        <TabsContent value="recipes" className="mt-4">
-          {result ? (
+        {activeTab === "recipes" && result ? (
             <ResultPanel
               result={result}
               ingredientById={ingredientById}
@@ -745,24 +785,19 @@ export function FeedFormulationWorkbench({
               }}
             />
           ) : null}
-        </TabsContent>
 
-        <TabsContent value="opportunities" className="mt-4">
-          {result?.status === "optimal" ? (
+        {activeTab === "opportunities" && result?.status === "optimal" ? (
             <OpportunitiesPanel
               result={result}
               ingredientById={ingredientById}
               batchWeightKg={displayBatchKg}
             />
           ) : null}
-        </TabsContent>
 
-        <TabsContent value="nutrition" className="mt-4">
-          {result?.status === "optimal" ? (
+        {activeTab === "nutrition" && result?.status === "optimal" ? (
             <NutritionPanel result={result} selectedRecipeId={selectedRecipeId} />
           ) : null}
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 }
