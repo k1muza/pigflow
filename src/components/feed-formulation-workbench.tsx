@@ -608,17 +608,32 @@ export function FeedFormulationWorkbench({
             </table>
           </div>
 
-          <div className="space-y-4 rounded-lg border border-hairline bg-raised/20 p-4">
-            <div>
-              <div className="text-sm font-medium text-ink">Finished mix</div>
-              <div className="mt-1 max-w-3xl text-xs leading-5 text-ink-muted">
-                Set the final batch weight and optionally reserve a fixed commercial premix.
-                PigFlow formulates the remaining basal mix so the complete finished feed still
-                satisfies the Brazilian diet requirements after the premix is added.
+          <div className="space-y-5 rounded-lg border border-hairline bg-raised/20 p-4 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-ink">Finished mix</div>
+                <div className="mt-1 max-w-3xl text-xs leading-5 text-ink-muted">
+                  Set the final batch weight and optionally reserve a fixed commercial premix.
+                  PigFlow formulates the remaining basal mix so the complete finished feed still
+                  satisfies the Brazilian diet requirements after the premix is added.
+                </div>
               </div>
+
+              <label className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-hairline bg-background px-3 py-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={useFixedPremix}
+                  onChange={(event) => {
+                    setUseFixedPremix(event.target.checked);
+                    setResult(null);
+                  }}
+                />
+                <span className="text-sm font-medium text-ink">Add fixed premix</span>
+              </label>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="max-w-xs">
               <Field label="Finished feed weight (kg)">
                 <Input
                   type="number"
@@ -631,92 +646,84 @@ export function FeedFormulationWorkbench({
                   }}
                 />
               </Field>
-
-              <label className="flex min-h-16 items-center gap-2 rounded-lg border border-hairline bg-background px-3 py-2">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={useFixedPremix}
-                  onChange={(event) => {
-                    setUseFixedPremix(event.target.checked);
-                    setResult(null);
-                  }}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-ink">Add fixed premix</span>
-                  <span className="block text-xs text-ink-muted">
-                    Reserve part of the final mix at a fixed kg/t rate.
-                  </span>
-                </span>
-              </label>
-
-              <Field label="Premix inclusion (kg / tonne)">
-                <Input
-                  type="number"
-                  min="0.001"
-                  max="999.999"
-                  step="0.1"
-                  disabled={!useFixedPremix}
-                  value={fixedPremixKgPerTonne}
-                  onChange={(event) => {
-                    setFixedPremixKgPerTonne(event.target.value);
-                    setResult(null);
-                  }}
-                />
-              </Field>
-
-              <Field label="Premix price / kg">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  disabled={!useFixedPremix}
-                  value={fixedPremixPricePerKg}
-                  placeholder="0.00"
-                  onChange={(event) => {
-                    setFixedPremixPricePerKg(event.target.value);
-                    setResult(null);
-                  }}
-                />
-              </Field>
             </div>
 
             {useFixedPremix ? (
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(260px,auto)]">
-                <Field label="Premix name">
-                  <Input
-                    value={fixedPremixName}
-                    onChange={(event) => {
-                      setFixedPremixName(event.target.value);
-                      setResult(null);
-                    }}
-                    placeholder="Commercial premix"
-                  />
-                </Field>
-                <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm">
-                  <div className="font-medium text-ink">Mix plan</div>
-                  <div className="mt-1 text-ink-muted">
-                    PigFlow formulates <strong className="text-ink">{baseMixBatchKg.toFixed(2)} kg</strong>
-                    {" "}basal feed + <strong className="text-ink">{fixedPremixBatchKg.toFixed(2)} kg</strong>
-                    {" "}premix = <strong className="text-ink">{displayBatchKg.toFixed(2)} kg</strong>
-                    {" "}finished feed.
+              <>
+                <div className="border-t border-hairline pt-5">
+                  <div className="mb-3">
+                    <div className="text-sm font-medium text-ink">Premix details</div>
+                    <div className="mt-0.5 text-xs leading-5 text-ink-muted">
+                      The inclusion rate is applied to the finished feed weight.
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Field label="Premix name">
+                      <Input
+                        value={fixedPremixName}
+                        onChange={(event) => {
+                          setFixedPremixName(event.target.value);
+                          setResult(null);
+                        }}
+                        placeholder="Commercial premix"
+                      />
+                    </Field>
+
+                    <Field label="Premix inclusion (kg / tonne)">
+                      <Input
+                        type="number"
+                        min="0.001"
+                        max="999.999"
+                        step="0.1"
+                        value={fixedPremixKgPerTonne}
+                        onChange={(event) => {
+                          setFixedPremixKgPerTonne(event.target.value);
+                          setResult(null);
+                        }}
+                      />
+                    </Field>
+
+                    <Field label="Premix price / kg">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={fixedPremixPricePerKg}
+                        placeholder="0.00"
+                        onChange={(event) => {
+                          setFixedPremixPricePerKg(event.target.value);
+                          setResult(null);
+                        }}
+                      />
+                    </Field>
                   </div>
                 </div>
-              </div>
+
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                  <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm">
+                    <div className="font-medium text-ink">Mix plan</div>
+                    <div className="mt-1 leading-6 text-ink-muted">
+                      <strong className="text-ink">{baseMixBatchKg.toFixed(2)} kg</strong> basal feed
+                      {" + "}
+                      <strong className="text-ink">{fixedPremixBatchKg.toFixed(2)} kg</strong> premix
+                      {" = "}
+                      <strong className="text-ink">{displayBatchKg.toFixed(2)} kg</strong> finished feed.
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-ink-muted">
+                    Mode 1 reserves the premix weight but does not credit it with energy, protein,
+                    amino acids or macro minerals. Vitamin and trace-mineral coverage is not
+                    verified from the premix label.
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm text-ink-muted">
                 PigFlow formulates the full {displayBatchKg.toFixed(2)} kg finished batch.
               </div>
             )}
-
-            {useFixedPremix ? (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs leading-5 text-ink-muted">
-                Mode 1 reserves the premix weight but does not credit it with energy, protein,
-                amino acids or macro minerals. The remaining basal mix therefore carries the full
-                modeled diet requirements after dilution. Vitamin and trace-mineral coverage is
-                not verified from the premix label in this mode.
-              </div>
-            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-2">
