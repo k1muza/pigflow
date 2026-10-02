@@ -513,15 +513,22 @@ export function FeedFormulationWorkbench({
             </div>
           ) : null}
 
-          <div className="overflow-x-auto rounded-lg border border-hairline">
-            <table className="w-full min-w-[760px] text-sm">
+          <div className="min-w-0 max-w-full overflow-x-auto rounded-lg border border-hairline">
+            <table className="w-full min-w-[640px] table-fixed text-sm">
+              <colgroup>
+                <col className="w-[34%]" />
+                <col className="w-[30%]" />
+                <col className="w-[15%]" />
+                <col className="w-[15%]" />
+                <col className="w-[6%]" />
+              </colgroup>
               <thead className="bg-raised/70 text-left text-xs uppercase tracking-wide text-ink-faint">
                 <tr>
                   <th className="px-3 py-2.5">Ingredient</th>
-                  <th className="w-36 px-3 py-2.5">Price / kg</th>
-                  <th className="w-28 px-3 py-2.5">Min %</th>
-                  <th className="w-28 px-3 py-2.5">Max %</th>
-                  <th className="w-12 px-3 py-2.5" />
+                  <th className="px-3 py-2.5">Price / kg</th>
+                  <th className="px-3 py-2.5">Min %</th>
+                  <th className="px-3 py-2.5">Max %</th>
+                  <th className="px-3 py-2.5" />
                 </tr>
               </thead>
               <tbody>
@@ -533,8 +540,8 @@ export function FeedFormulationWorkbench({
                     : 1;
                   return (
                     <tr key={row.key} className="border-t border-hairline">
-                      <td className="px-3 py-2.5">
-                        <div className="font-medium text-ink">{ingredient?.name ?? row.ingredientId}</div>
+                      <td className="break-words px-3 py-2.5 align-top">
+                        <div className="font-medium leading-5 text-ink">{ingredient?.name ?? row.ingredientId}</div>
                         <div className="mt-0.5 text-xs text-ink-faint">{ingredient?.category}</div>
                       </td>
                       <td className="px-3 py-2.5">
