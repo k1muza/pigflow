@@ -30,6 +30,7 @@ export type FormulationUnsupportedRequirement =
   | "available-phosphorus"
   | "potassium"
   | "linoleic-acid"
+  | "calcium-phosphorus-ratio"
   | "vitamin-trace-mineral-supplementation";
 
 export type FormulationSettings = {
@@ -186,10 +187,14 @@ function unsupportedRequirementsForPhase(
   phase: NutritionPhase,
   settings: FormulationSettings = {},
 ): FormulationUnsupportedRequirement[] {
+  const unsupported: FormulationUnsupportedRequirement[] = [];
   if (settings.includeSupplementationTargets && !phase.supplementation) {
-    return ["vitamin-trace-mineral-supplementation"];
+    unsupported.push("vitamin-trace-mineral-supplementation");
   }
-  return [];
+  if (phase.requirements.practical.calciumToTotalPhosphorusMinRatio !== undefined) {
+    unsupported.push("calcium-phosphorus-ratio");
+  }
+  return unsupported;
 }
 
 /**
@@ -390,37 +395,25 @@ function buildConstraintSpecs(
   energySystem: EnergySystem,
   settings: FormulationSettings = {},
 ): ConstraintSpec[] {
-  const targets = resolveNutritionTargets(phase);
+  const selectedEnergyKcalKg =
+    energySystem === "ME"
+      ? phase.requirements.metabolizableEnergyKcalKg
+      : phase.requirements.netEnergyKcalKg;
+  const targets = resolveNutritionTargets(phase, {
+    system: energySystem,
+    kcalKg: selectedEnergyKcalKg,
+  });
   const constraints: ConstraintSpec[] = [
     {
       id: `energy-${energySystem.toLowerCase()}`,
       label: energySystem === "ME" ? "Metabolizable energy" : "Net energy",
       unit: "kcal/kg",
       relation: "min",
-      bound:
-        energySystem === "ME"
-          ? phase.requirements.metabolizableEnergyKcalKg
-          : phase.requirements.netEnergyKcalKg,
+      bound: selectedEnergyKcalKg,
       measure: (analysis) =>
         energySystem === "ME"
           ? analysis.energy.metabolizableKcalKg
           : analysis.energy.netKcalKg,
-    },
-    {
-      id: "crude-protein",
-      label: "Crude protein",
-      unit: "%",
-      relation: "min",
-      bound: targets.crudeProteinPct,
-      measure: (analysis) => analysis.crudeProteinPct,
-    },
-    {
-      id: "digestible-protein",
-      label: "Digestible protein (swine SID)",
-      unit: "%",
-      relation: "min",
-      bound: phase.requirements.digestibleProteinPct,
-      measure: (analysis) => analysis.digestibleProteinPct,
     },
     {
       id: "sid-lysine",
@@ -502,15 +495,40 @@ function buildConstraintSpecs(
       bound: targets.minerals.sodiumPct,
       measure: (analysis) => analysis.minerals.sodiumPct,
     },
-    {
+  ];
+
+  if (targets.crudeProteinPct !== undefined) {
+    constraints.push({
+      id: "crude-protein",
+      label: "Crude protein",
+      unit: "%",
+      relation: "min",
+      bound: targets.crudeProteinPct,
+      measure: (analysis) => analysis.crudeProteinPct,
+    });
+  }
+
+  if (targets.digestibleProteinPct !== undefined) {
+    constraints.push({
+      id: "digestible-protein",
+      label: "Digestible protein (swine SID)",
+      unit: "%",
+      relation: "min",
+      bound: targets.digestibleProteinPct,
+      measure: (analysis) => analysis.digestibleProteinPct,
+    });
+  }
+
+  if (targets.potassiumPct !== undefined) {
+    constraints.push({
       id: "potassium",
       label: "Potassium",
       unit: "%",
       relation: "min",
-      bound: phase.requirements.potassiumPct,
+      bound: targets.potassiumPct,
       measure: (analysis) => analysis.minerals.potassiumPct,
-    },
-  ];
+    });
+  }
 
   if (targets.minerals.calciumPct !== undefined) {
     constraints.push({
@@ -564,6 +582,33 @@ function buildConstraintSpecs(
       relation: "min",
       bound: phase.requirements.linoleicAcidPct,
       measure: (analysis) => analysis.fattyAcids.linoleicAcidPct,
+    });
+  }
+
+  const practical = phase.requirements.practical;
+  if (practical.neutralDetergentFibreMinPct !== undefined) {
+    constraints.push({
+      id: "neutral-detergent-fibre",
+      label: "Neutral detergent fibre",
+      unit: "%",
+      relation: "min",
+      bound: practical.neutralDetergentFibreMinPct,
+      measure: (analysis) => analysis.neutralDetergentFibrePct,
+    });
+  }
+
+  if (practical.lLysineHclMaxPct !== undefined) {
+    constraints.push({
+      id: "l-lysine-hcl",
+      label: "L-lysine HCl inclusion",
+      unit: "%",
+      relation: "max",
+      bound: practical.lLysineHclMaxPct,
+      measure: (analysis) => ({
+        value: analysis.lLysineHclPct,
+        complete: true,
+        missingIngredientIds: [],
+      }),
     });
   }
 
