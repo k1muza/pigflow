@@ -1546,8 +1546,8 @@ function NutritionPanel({
           <Badge variant="secondary">Hard constraints satisfied</Badge>
         </div>
         <CardDescription>
-          Brazilian diet requirements and selected Chapter 7 supplementation targets versus the
-          recipe currently selected in the Recipes tab.
+          Source-backed diet requirements and applicable supplementation targets versus the recipe
+          currently selected in the Recipes tab.
         </CardDescription>
       </CardHeader>
       <CardContent>

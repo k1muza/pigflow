@@ -30,11 +30,12 @@ export default function FeedFormulationDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-ink">Feed formulation</h1>
-            <Badge variant="secondary">Brazilian Tables 2024</Badge>
+            <Badge variant="secondary">Brazilian Tables 2024 + PIC</Badge>
           </div>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-            Build feed decisions from source-backed ingredient composition and Brazilian
-            growing-pig nutrient requirements independently of any one farm plan.
+            Build feed decisions from source-backed ingredient composition and published nutrient
+            requirements. Brazilian Tables 2024 remains the primary source, with PIC used for the
+            mature-boar programme.
           </p>
         </div>
       </div>
@@ -48,7 +49,7 @@ export default function FeedFormulationDashboard() {
         <SummaryCard
           label="Loaded programmes"
           value={loadedProgrammes.toString()}
-          detail="growing, gilt and breeder programmes"
+          detail="Brazilian Tables and PIC programmes"
         />
         <SummaryCard
           label="Standard phases"
@@ -67,7 +68,7 @@ export default function FeedFormulationDashboard() {
           href={feedFormulationHref("programmes")}
           icon={BookOpen}
           title="Programmes"
-          description="Browse Brazilian Tables 2024 nutrient requirements by performance track and phase."
+          description="Browse source-backed nutrient requirements by animal class, performance track and phase."
           action="Browse programmes"
         />
         <WorkspaceLink
@@ -97,14 +98,14 @@ export default function FeedFormulationDashboard() {
         <CardHeader>
           <CardTitle>Formulation engine status</CardTitle>
           <CardDescription>
-            What the standalone workspace can support without introducing requirement values from another source.
+            What the standalone workspace can support from the requirement sources explicitly loaded into PigFlow.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <StatusRow
             ready
-            label="Brazilian Tables requirement catalogue"
-            detail="Chapter 5 standard- and high-performance mixed-sex requirements are loaded from the checked-in Brazilian source dataset."
+            label="Source-backed requirement catalogue"
+            detail="Brazilian Tables 2024 supplies the growing and sow programmes, while PIC supplies the mature-boar programme."
           />
           <StatusRow
             ready
@@ -114,12 +115,12 @@ export default function FeedFormulationDashboard() {
           <StatusRow
             ready
             label="Diet validation"
-            detail="Diet checks compare calculated profiles against the selected Brazilian requirement phase."
+            detail="Diet checks compare calculated profiles against the selected source-backed requirement phase."
           />
           <StatusRow
             ready
             label="Least-cost formulation solver"
-            detail="GLPK solves modeled Brazilian nutrient requirements as hard constraints, with a diagnostic pass when no exact diet is feasible."
+            detail="GLPK solves modeled requirements from the selected programme as hard constraints, with a diagnostic pass when no exact diet is feasible."
           />
           <StatusRow
             label="Maximum-profit formulation"
