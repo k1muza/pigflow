@@ -21,6 +21,7 @@ type IngredientOption = {
   category: string;
   minInclusionPct?: number;
   maxInclusionPct?: number;
+  priorityNutrients: string[];
 };
 
 type Row = {
@@ -33,7 +34,7 @@ type Row = {
 
 const DEFAULT_INGREDIENT_IDS = [
   "corn-yellow-dent",
-  "soybean-meal-dehulled-solvent-extracted",
+  "soybean-meal-brazilian-45-6-cp-average",
   "dicalcium-phosphate",
   "sodium-chloride",
   "l-lysine-hcl",
@@ -41,6 +42,34 @@ const DEFAULT_INGREDIENT_IDS = [
   "l-threonine",
   "corn-oil",
 ];
+
+const PRIORITY_NUTRIENT_LABELS: Record<string, string> = {
+  "digestible-protein": "Dig. protein",
+  "available-phosphorus": "Avail. P",
+  potassium: "K",
+  "linoleic-acid": "Linoleic",
+};
+
+function initialIngredientIds(ingredients: IngredientOption[]): string[] {
+  const ids = new Set(
+    DEFAULT_INGREDIENT_IDS.filter((id) =>
+      ingredients.some((ingredient) => ingredient.id === id),
+    ),
+  );
+
+  // Automatically surface feed ingredients only when the Brazilian source
+  // provides all four of the previously sparse hard-constraint coefficients.
+  // Partial rows remain available in the picker but are not injected into a
+  // new formulation where they would immediately make the strict matrix
+  // incomplete.
+  for (const ingredient of ingredients) {
+    if (ingredient.priorityNutrients.length === 4) {
+      ids.add(ingredient.id);
+    }
+  }
+
+  return Array.from(ids);
+}
 
 export function FeedFormulationWorkbench({
   programmes,
@@ -60,15 +89,13 @@ export function FeedFormulationWorkbench({
   const [nextKey, setNextKey] = useState(100);
   const [addIngredientId, setAddIngredientId] = useState("");
   const [rows, setRows] = useState<Row[]>(() =>
-    DEFAULT_INGREDIENT_IDS.filter((id) => ingredients.some((ingredient) => ingredient.id === id)).map(
-      (ingredientId, index) => ({
-        key: index,
-        ingredientId,
-        price: "",
-        min: "",
-        max: "",
-      }),
-    ),
+    initialIngredientIds(ingredients).map((ingredientId, index) => ({
+      key: index,
+      ingredientId,
+      price: "",
+      min: "",
+      max: "",
+    })),
   );
   const [result, setResult] = useState<LeastCostFormulationResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -256,7 +283,14 @@ export function FeedFormulationWorkbench({
                     <tr key={row.key} className="border-t border-hairline">
                       <td className="px-3 py-2.5">
                         <div className="font-medium text-ink">{ingredient?.name ?? row.ingredientId}</div>
-                        <div className="mt-0.5 text-xs text-ink-faint">{ingredient?.category}</div>
+                        <div className="mt-0.5 text-xs text-ink-faint">
+                          {ingredient?.category}
+                          {ingredient && ingredient.priorityNutrients.length > 0
+                            ? ` · ${ingredient.priorityNutrients
+                                .map((id) => PRIORITY_NUTRIENT_LABELS[id] ?? id)
+                                .join(", ")}`
+                            : ""}
+                        </div>
                       </td>
                       <td className="px-3 py-2.5">
                         <Input
@@ -321,6 +355,11 @@ export function FeedFormulationWorkbench({
               {availableToAdd.map((ingredient) => (
                 <option key={ingredient.id} value={ingredient.id}>
                   {ingredient.name}
+                  {ingredient.priorityNutrients.length > 0
+                    ? ` · ${ingredient.priorityNutrients
+                        .map((id) => PRIORITY_NUTRIENT_LABELS[id] ?? id)
+                        .join(", ")}`
+                    : ""}
                 </option>
               ))}
             </select>

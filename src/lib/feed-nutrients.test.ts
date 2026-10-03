@@ -68,16 +68,31 @@ describe("feed nutrient catalogue", () => {
   it("ranks ingredients by quantified nutrient concentration", () => {
     expect(abundantIngredientsForNutrient("sid-lysine")[0]).toMatchObject({
       ingredientId: "l-lysine-hcl",
-      value: 78.8,
+      value: 70.29817327766179,
       unit: "%",
     });
 
     expect(abundantIngredientsForNutrient("calcium")[0]?.ingredientId).toBe(
-      "limestone-ground",
+      "calcium-carbonate",
     );
     expect(abundantIngredientsForNutrient("sodium")[0]?.ingredientId).toBe(
       "sodium-chloride",
     );
+    expect(abundantIngredientsForNutrient("digestible-protein")[0]).toMatchObject({
+      ingredientId: "l-tryptophan",
+      value: 84.8727,
+      unit: "%",
+    });
+    expect(abundantIngredientsForNutrient("available-phosphorus")[0]).toMatchObject({
+      ingredientId: "monocalcium-phosphate",
+      value: 22,
+      unit: "%",
+    });
+    expect(abundantIngredientsForNutrient("linoleic-acid")[0]).toMatchObject({
+      ingredientId: "corn-oil",
+      value: 51.9,
+      unit: "%",
+    });
   });
 
   it("returns no abundance rows when the current ingredient library has no data", () => {

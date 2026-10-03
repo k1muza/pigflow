@@ -1,6 +1,7 @@
 import type { NutritionPhase } from "./nutrition";
 import {
   INGREDIENT_LIBRARY,
+  metabolizableEnergyKcalKgOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientNutrientRecord,
@@ -310,7 +311,7 @@ function ingredientValueForNutrient(
 
   switch (nutrientId) {
     case "metabolizable-energy":
-      value = ingredient.energy.metabolizableKcalKg;
+      value = metabolizableEnergyKcalKgOf(ingredient);
       unit = "kcal/kg";
       break;
     case "net-energy":
@@ -319,6 +320,9 @@ function ingredientValueForNutrient(
       break;
     case "crude-protein":
       value = ingredient.composition.crudeProteinPct;
+      break;
+    case "digestible-protein":
+      value = ingredient.composition.digestibleProteinPct;
       break;
     case "sid-lysine":
       value = sid("lysine");
@@ -367,6 +371,9 @@ function ingredientValueForNutrient(
       break;
     case "chloride":
       value = ingredient.macroMinerals.chloridePct;
+      break;
+    case "linoleic-acid":
+      value = ingredient.composition.linoleicAcidPct;
       break;
     case "zinc":
     case "iron":

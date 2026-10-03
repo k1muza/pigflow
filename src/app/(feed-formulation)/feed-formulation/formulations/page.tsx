@@ -1,7 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { FeedFormulationWorkbench } from "@/components/feed-formulation-workbench";
 import { FEED_PROGRAMMES } from "@/lib/feed-programmes";
-import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
+import {
+  INGREDIENT_LIBRARY,
+  formulationPriorityNutrients,
+} from "@/lib/ingredient-nutrients";
 
 export default function FeedFormulationsPage() {
   const programmes = FEED_PROGRAMMES
@@ -22,6 +25,7 @@ export default function FeedFormulationsPage() {
     category: ingredient.category,
     minInclusionPct: ingredient.constraints.minInclusionPct,
     maxInclusionPct: ingredient.constraints.maxInclusionPct,
+    priorityNutrients: formulationPriorityNutrients(ingredient),
   }));
 
   return (

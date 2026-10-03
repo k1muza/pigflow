@@ -1,5 +1,7 @@
 import {
   INGREDIENT_LIBRARY,
+  availablePhosphorusPctOf,
+  metabolizableEnergyKcalKgOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientLibrary,
@@ -40,6 +42,8 @@ export type DietAnalysis = {
     netKcalKg: AnalyzedNutrient;
   };
   crudeProteinPct: AnalyzedNutrient;
+  digestibleProteinPct: AnalyzedNutrient;
+  linoleicAcidPct: AnalyzedNutrient;
   sidAminoAcidsPct: {
     lysine: AnalyzedNutrient;
     methionineCysteine: AnalyzedNutrient;
@@ -56,6 +60,7 @@ export type DietAnalysis = {
     totalPhosphorusPct: AnalyzedNutrient;
     availablePhosphorusPct: AnalyzedNutrient;
     sttdPhosphorusPct: AnalyzedNutrient;
+    potassiumPct: AnalyzedNutrient;
     sodiumPct: AnalyzedNutrient;
     chloridePct: AnalyzedNutrient;
   };
@@ -139,6 +144,8 @@ export function analyzeDiet(
       netKcalKg: measure(),
     },
     crudeProteinPct: measure(),
+    digestibleProteinPct: measure(),
+    linoleicAcidPct: measure(),
     sidAminoAcidsPct: {
       lysine: measure(),
       methionineCysteine: measure(),
@@ -155,6 +162,7 @@ export function analyzeDiet(
       totalPhosphorusPct: measure(),
       availablePhosphorusPct: measure(),
       sttdPhosphorusPct: measure(),
+      potassiumPct: measure(),
       sodiumPct: measure(),
       chloridePct: measure(),
     },
@@ -204,7 +212,7 @@ export function analyzeDiet(
       result.energy.metabolizableKcalKg,
       ingredient,
       share,
-      ingredient.energy.metabolizableKcalKg,
+      metabolizableEnergyKcalKgOf(ingredient),
       structuralZero(ingredient, "energy"),
     );
     add(
@@ -220,6 +228,20 @@ export function analyzeDiet(
       share,
       ingredient.composition.crudeProteinPct,
       structuralZero(ingredient, "crudeProtein"),
+    );
+    add(
+      result.digestibleProteinPct,
+      ingredient,
+      share,
+      ingredient.composition.digestibleProteinPct,
+      structuralZero(ingredient, "digestibleProtein"),
+    );
+    add(
+      result.linoleicAcidPct,
+      ingredient,
+      share,
+      ingredient.composition.linoleicAcidPct,
+      structuralZero(ingredient, "linoleicAcid"),
     );
 
     addSid(result.sidAminoAcidsPct.lysine, ingredient, share, ["lysine"]);
@@ -260,7 +282,7 @@ export function analyzeDiet(
       result.minerals.availablePhosphorusPct,
       ingredient,
       share,
-      ingredient.macroMinerals.availablePhosphorusPct,
+      availablePhosphorusPctOf(ingredient),
       structuralZero(ingredient, "macroMineral"),
     );
     add(
@@ -268,6 +290,13 @@ export function analyzeDiet(
       ingredient,
       share,
       sttdPhosphorusPctOf(ingredient),
+      structuralZero(ingredient, "macroMineral"),
+    );
+    add(
+      result.minerals.potassiumPct,
+      ingredient,
+      share,
+      ingredient.macroMinerals.potassiumPct,
       structuralZero(ingredient, "macroMineral"),
     );
     add(
@@ -472,6 +501,32 @@ export function evaluateDietForPhase(
     targets.crudeProteinPct,
     "%",
   );
+  checkMin(
+    checks,
+    "digestible-protein",
+    "Digestible protein",
+    analysis.digestibleProteinPct,
+    targets.digestibleProteinPct,
+    "%",
+  );
+  checkMin(
+    checks,
+    "potassium",
+    "Potassium",
+    analysis.minerals.potassiumPct,
+    targets.potassiumPct,
+    "%",
+  );
+  if (targets.linoleicAcidPct !== undefined) {
+    checkMin(
+      checks,
+      "linoleic-acid",
+      "Linoleic acid",
+      analysis.linoleicAcidPct,
+      targets.linoleicAcidPct,
+      "%",
+    );
+  }
 
   const trace = phase.requirements.traceMinerals;
   if (trace) {
@@ -583,6 +638,8 @@ export function evaluateDietForPhase(
 type NutrientFamily =
   | "energy"
   | "crudeProtein"
+  | "digestibleProtein"
+  | "linoleicAcid"
   | "aminoAcid"
   | "macroMineral"
   | "traceMineral"
@@ -612,6 +669,19 @@ function structuralZero(
         ingredient.category === "oil_fat" ||
         ingredient.category === "vitamin_mineral_premix"
       );
+    case "digestibleProtein":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "linoleicAcid":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
     case "aminoAcid":
       return (
         ingredient.category === "mineral" ||
@@ -620,7 +690,17 @@ function structuralZero(
         ingredient.category === "vitamin_mineral_premix"
       );
     case "macroMineral":
-      return ingredient.category === "oil_fat";
+      // Brazilian Tables 1.09/1.10 publish purified crystalline amino-acid and
+      // inorganic-mineral sources around their nutritionally relevant
+      // constituents. For minimum LP constraints, an unlisted macro mineral
+      // is used as a conservative zero lower bound rather than being borrowed
+      // from NRC or another ingredient table. Explicit published values still
+      // contribute normally.
+      return (
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
+        ingredient.category === "mineral"
+      );
     case "traceMineral":
       return (
         ingredient.category === "oil_fat" ||
