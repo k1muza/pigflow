@@ -683,8 +683,22 @@ function buildPicMatureBoarProgramme(): NutritionProgramme {
       sourcePages: [71, 72],
       vitamins: source.supplementation.vitamins,
       traceMinerals: {
-        inorganic: source.supplementation.traceMineralsPpm,
-        organic: source.supplementation.traceMineralsPpm,
+        inorganic: {
+          zincPpm: source.supplementation.traceMineralsPpm.zinc,
+          ironPpm: source.supplementation.traceMineralsPpm.iron,
+          manganesePpm: source.supplementation.traceMineralsPpm.manganese,
+          copperPpm: source.supplementation.traceMineralsPpm.copper,
+          iodinePpm: source.supplementation.traceMineralsPpm.iodine,
+          seleniumPpm: source.supplementation.traceMineralsPpm.selenium,
+        },
+        organic: {
+          zincPpm: source.supplementation.traceMineralsPpm.zinc,
+          ironPpm: source.supplementation.traceMineralsPpm.iron,
+          manganesePpm: source.supplementation.traceMineralsPpm.manganese,
+          copperPpm: source.supplementation.traceMineralsPpm.copper,
+          iodinePpm: source.supplementation.traceMineralsPpm.iodine,
+          seleniumPpm: source.supplementation.traceMineralsPpm.selenium,
+        },
       },
     },
     requirements: {
