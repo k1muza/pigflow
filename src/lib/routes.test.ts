@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   PLAN_TABS,
+  editFeedFormulationHref,
   feedFormulationHref,
   feedFormulationStrategyHref,
   feedIngredientHref,
   feedNutrientHref,
   feedProgrammeHref,
   feedProgrammePhaseHref,
+  newFeedFormulationHref,
   planHref,
   tabFromPath,
 } from "./routes";
@@ -44,6 +46,10 @@ describe("the address of a plan", () => {
     );
     expect(feedFormulationStrategyHref("maximum/adg")).toBe(
       "/feed-formulation/formulations/maximum%2Fadg",
+    );
+    expect(newFeedFormulationHref()).toBe("/feed-formulation/formulations/new");
+    expect(editFeedFormulationHref("nursery/formula")).toBe(
+      "/feed-formulation/formulations/nursery%2Fformula/edit",
     );
     expect(feedNutrientHref("sid/lysine")).toBe(
       "/feed-formulation/nutrients/sid%2Flysine",

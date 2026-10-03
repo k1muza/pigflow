@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Activity,
   AlertTriangle,
   Calculator,
   ChevronDown,
@@ -10,6 +10,7 @@ import {
   Eye,
   FileSpreadsheet,
   Plus,
+  Save,
   Trash2,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -33,6 +35,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { downloadFile, XLSX_MIME } from "@/lib/download";
+import {
+  savedFeedFormulaResult,
+  saveFeedFormulaSet,
+  type SavedFeedFormulaSet,
+} from "@/lib/saved-feed-formulations";
+import { editFeedFormulationHref } from "@/lib/routes";
 import {
   feedRecipeFormulaReportRows,
   feedRecipeReportFilename,
@@ -51,7 +59,7 @@ import type {
   LeastCostFormulationResult,
 } from "@/lib/feed-optimizer";
 
-type ProgrammeOption = {
+export type ProgrammeOption = {
   id: string;
   name: string;
   phases: {
@@ -62,7 +70,7 @@ type ProgrammeOption = {
   }[];
 };
 
-type IngredientOption = {
+export type IngredientOption = {
   id: string;
   name: string;
   category: string;
@@ -98,47 +106,115 @@ type RecipeView = {
   costIncreasePct: number;
 };
 
+function recipeViews(
+  result: Extract<LeastCostFormulationResult, { status: "optimal" }>,
+): RecipeView[] {
+  return [
+    {
+      id: "least-cost",
+      label: "Least cost",
+      description: "The minimum-cost formula for the prices entered above.",
+      solution: result.solution,
+      nutrientProfile: result.nutrientProfile,
+      costIncreasePct: 0,
+    },
+    ...result.alternatives,
+  ];
+}
+
 function defaultPriceInput(ingredientId: string): string {
   const price = ingredientDefaultPricePerKg(ingredientId);
   return price === undefined ? "" : price.toFixed(4);
 }
 
 export function FeedFormulationWorkbench({
+  header,
+  description,
   programmes,
   ingredients,
+  initialFormulaSet,
 }: {
+  header: ReactNode;
+  description: ReactNode;
   programmes: ProgrammeOption[];
   ingredients: IngredientOption[];
+  initialFormulaSet?: SavedFeedFormulaSet;
 }) {
+  const router = useRouter();
   const firstProgramme = programmes[0];
-  const [programmeId, setProgrammeId] = useState(firstProgramme?.id ?? "");
+  const initialProgramme =
+    programmes.find((programme) => programme.id === initialFormulaSet?.programmeId) ??
+    firstProgramme;
+  const initialRows = initialFormulaSet?.setup?.rows ??
+    initialFormulaSet?.ingredients.map((ingredient) => ({
+      ingredientId: ingredient.ingredientId,
+      price: String(ingredient.pricePerKg),
+      min: "",
+      max: "",
+    })) ?? [];
+  const initialResult = initialFormulaSet
+    ? savedFeedFormulaResult(initialFormulaSet)
+    : null;
+  const [programmeId, setProgrammeId] = useState(initialProgramme?.id ?? "");
   const selectedProgramme = useMemo(
     () => programmes.find((programme) => programme.id === programmeId) ?? programmes[0],
     [programmeId, programmes],
   );
-  const [phaseId, setPhaseId] = useState(firstProgramme?.phases[0]?.id ?? "");
+  const [phaseId, setPhaseId] = useState(
+    initialProgramme?.phases.some((phase) => phase.id === initialFormulaSet?.phaseId)
+      ? initialFormulaSet?.phaseId ?? ""
+      : initialProgramme?.phases[0]?.id ?? "",
+  );
   const selectedPhase = useMemo(
     () =>
       selectedProgramme?.phases.find((phase) => phase.id === phaseId) ??
       selectedProgramme?.phases[0],
     [selectedProgramme, phaseId],
   );
-  const [energySystem, setEnergySystem] = useState<"ME" | "NE">("ME");
-  const [targetBatchWeight, setTargetBatchWeight] = useState("1000");
-  const [useFixedPremix, setUseFixedPremix] = useState(false);
-  const [fixedPremixName, setFixedPremixName] = useState("Commercial premix");
-  const [fixedPremixKgPerTonne, setFixedPremixKgPerTonne] = useState("10");
-  const [fixedPremixPricePerKg, setFixedPremixPricePerKg] = useState("");
+  const [energySystem, setEnergySystem] = useState<"ME" | "NE">(
+    initialFormulaSet?.energySystem ?? "ME",
+  );
+  const [targetBatchWeight, setTargetBatchWeight] = useState(
+    String(initialFormulaSet?.targetBatchKg ?? 1000),
+  );
+  const [useFixedPremix, setUseFixedPremix] = useState(
+    initialFormulaSet?.setup?.useFixedPremix ?? false,
+  );
+  const [fixedPremixName, setFixedPremixName] = useState(
+    initialFormulaSet?.setup?.fixedPremixName ?? "Commercial premix",
+  );
+  const [fixedPremixKgPerTonne, setFixedPremixKgPerTonne] = useState(
+    initialFormulaSet?.setup?.fixedPremixKgPerTonne ?? "10",
+  );
+  const [fixedPremixPricePerKg, setFixedPremixPricePerKg] = useState(
+    initialFormulaSet?.setup?.fixedPremixPricePerKg ?? "",
+  );
   const [nextKey, setNextKey] = useState(100);
   const [addIngredientId, setAddIngredientId] = useState("");
-  const [rows, setRows] = useState<Row[]>([]);
-  const [result, setResult] = useState<LeastCostFormulationResult | null>(null);
+  const [rows, setRows] = useState<Row[]>(
+    initialRows.map((row, index) => ({ ...row, key: index })),
+  );
+  const [result, setResult] = useState<LeastCostFormulationResult | null>(
+    initialResult,
+  );
   const [running, setRunning] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("setup");
-  const [selectedRecipeId, setSelectedRecipeId] = useState("least-cost");
+  const [activeTab, setActiveTab] = useState(initialResult ? "recipes" : "setup");
+  const [selectedRecipeId, setSelectedRecipeId] = useState(
+    initialFormulaSet?.setup?.selectedRecipeId ?? "least-cost",
+  );
+  const [generationDialogOpen, setGenerationDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [formulaSetName, setFormulaSetName] = useState("");
+  const [savingFormulas, setSavingFormulas] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedResult, setSavedResult] = useState<LeastCostFormulationResult | null>(
+    initialResult,
+  );
+  const [activeSavedId, setActiveSavedId] = useState(initialFormulaSet?.id);
+  const requirementsWereEdited = useRef(false);
 
   const allIngredientOptions = useMemo<IngredientOption[]>(
     () => [
@@ -188,6 +264,13 @@ export function FeedFormulationWorkbench({
 
   useEffect(() => {
     if (!programmeId || !phaseId) return;
+
+    // A saved formulation already contains the exact ingredient setup and
+    // generated recipe set that the user chose to save. Do not replace that
+    // snapshot with a fresh suggestion just because the editor mounted (React
+    // Strict Mode mounts effects twice in development). Suggestions only become
+    // authoritative after the user explicitly changes a requirement input.
+    if (initialFormulaSet && !requirementsWereEdited.current) return;
 
     const controller = new AbortController();
     setSuggesting(true);
@@ -248,6 +331,7 @@ export function FeedFormulationWorkbench({
   }, [programmeId, phaseId, energySystem, ingredients]);
 
   function changeProgramme(value: string) {
+    requirementsWereEdited.current = true;
     const programme = programmes.find((candidate) => candidate.id === value);
     setProgrammeId(value);
     setPhaseId(programme?.phases[0]?.id ?? "");
@@ -278,22 +362,22 @@ export function FeedFormulationWorkbench({
     setResult(null);
   }
 
-  async function formulate() {
+  async function formulate(): Promise<boolean> {
     setRequestError(null);
     setResult(null);
 
     if (!programmeId || !phaseId) {
       setRequestError("Select a requirement programme and phase.");
-      return;
+      return false;
     }
     if (rows.length === 0) {
       setRequestError("Add at least one available ingredient.");
-      return;
+      return false;
     }
     const batchKg = Number(targetBatchWeight);
     if (!Number.isFinite(batchKg) || batchKg <= 0) {
       setRequestError("Target batch weight must be greater than 0 kg.");
-      return;
+      return false;
     }
 
     let requestIngredients: FormulationIngredientOption[];
@@ -354,7 +438,7 @@ export function FeedFormulationWorkbench({
       }
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : String(error));
-      return;
+      return false;
     }
 
     setRunning(true);
@@ -387,34 +471,14 @@ export function FeedFormulationWorkbench({
       setResult(payload);
       setSelectedRecipeId("least-cost");
       setActiveTab("recipes");
+      return true;
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : String(error));
+      return false;
     } finally {
       setRunning(false);
     }
   }
-
-  const reportContext: RecipeReportContext = {
-    programmeName: selectedProgramme?.name ?? programmeId,
-    phaseLabel: selectedPhase?.label ?? phaseId,
-    sourceTable: selectedPhase?.sourceTable,
-    energySystem,
-    targetBatchKg: displayBatchKg,
-    ingredients: [
-      ...rows.map((row) => ({
-        ingredientId: row.ingredientId,
-        name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
-        pricePerKg: Number(row.price),
-      })),
-      ...(useFixedPremix
-        ? [{
-            ingredientId: FIXED_PREMIX_ID,
-            name: fixedPremixName.trim() || "Commercial premix",
-            pricePerKg: Number(fixedPremixPricePerKg),
-          }]
-        : []),
-    ],
-  };
 
   const sidebarItems = [
     {
@@ -443,55 +507,388 @@ export function FeedFormulationWorkbench({
     },
   ] as const;
 
+  const reportContext: RecipeReportContext = {
+    programmeName: selectedProgramme?.name ?? programmeId,
+    phaseLabel: selectedPhase?.label ?? phaseId,
+    sourceTable: selectedPhase?.sourceTable,
+    energySystem,
+    targetBatchKg: displayBatchKg,
+    ingredients: [
+      ...rows.map((row) => ({
+        ingredientId: row.ingredientId,
+        name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
+        pricePerKg: Number(row.price),
+      })),
+      ...(useFixedPremix
+        ? [{
+            ingredientId: FIXED_PREMIX_ID,
+            name: fixedPremixName.trim() || "Commercial premix",
+            pricePerKg: Number(fixedPremixPricePerKg),
+          }]
+        : []),
+    ],
+  };
+  const recipes = result?.status === "optimal" ? recipeViews(result) : [];
+  const selectedRecipe =
+    recipes.find((recipe) => recipe.id === selectedRecipeId) ?? recipes[0];
+  const formulaActionLabel = selectedRecipe ? "Regenerate formulas" : "Generate formulas";
+  const formulasAreSaved = savedResult === result;
+
+  async function saveFormulas() {
+    const name = formulaSetName.trim();
+    if (!name || recipes.length === 0 || result?.status !== "optimal") return;
+
+    setSavingFormulas(true);
+    setSaveError(null);
+    try {
+      const { formulaSet } = await saveFeedFormulaSet(
+        {
+          name,
+          programmeId,
+          programmeName: reportContext.programmeName,
+          phaseId,
+          phaseLabel: reportContext.phaseLabel,
+          sourceTable: reportContext.sourceTable,
+          energySystem,
+          targetBatchKg: reportContext.targetBatchKg,
+          ingredients: reportContext.ingredients,
+          recipes: recipes.map((recipe) => ({
+            id: recipe.id,
+            label: recipe.label,
+            description: recipe.description,
+            formula: recipe.solution.formula,
+            analysis: recipe.solution.analysis,
+            nutrientProfile: recipe.nutrientProfile,
+            costPerKg: recipe.solution.costPerKg,
+            costIncreasePct: recipe.costIncreasePct,
+          })),
+          setup: {
+            rows: rows.map(({ ingredientId, price, min, max }) => ({
+              ingredientId,
+              price,
+              min,
+              max,
+            })),
+            useFixedPremix,
+            fixedPremixName,
+            fixedPremixKgPerTonne,
+            fixedPremixPricePerKg,
+            selectedRecipeId,
+          },
+          result,
+        },
+        activeSavedId,
+      );
+      setActiveSavedId(formulaSet.id);
+      setSavedResult(result);
+      setSaveDialogOpen(false);
+      router.replace(editFeedFormulationHref(formulaSet.id));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSavingFormulas(false);
+    }
+  }
+
   return (
-    <div className="space-y-5">
-      <div className="sticky top-[74px] z-20 overflow-hidden rounded-xl border border-hairline bg-background/95 shadow-sm backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-ink">Formulation workspace</div>
-            <div className="mt-0.5 truncate text-xs text-ink-muted">
-              {selectedProgramme?.name ?? "Programme"} · {selectedPhase?.label ?? "Phase"} · {energySystem}
-            </div>
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0">{header}</div>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              onClick={() => {
+                setRequestError(null);
+                setGenerationDialogOpen(true);
+              }}
+              disabled={running || rows.length === 0}
+            >
+              <Calculator size={15} />
+              {formulaActionLabel}
+            </Button>
+            {selectedRecipe && result?.status === "optimal" ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFormulaSetName(
+                      initialFormulaSet?.name ?? `${reportContext.phaseLabel} formulas`,
+                    );
+                    setSaveError(null);
+                    setSaveDialogOpen(true);
+                  }}
+                >
+                  <Save />
+                  {formulasAreSaved ? "Saved" : "Save formulas"}
+                </Button>
+                <RecipeReportMenu recipes={recipes} context={reportContext} />
+              </>
+            ) : null}
           </div>
         </div>
-        <nav
-          className="flex max-w-full gap-1 overflow-x-auto px-2 py-2"
-          aria-label="Feed formulation sections"
-        >
-          {sidebarItems.map((item) => {
-            const active = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                disabled={item.disabled}
-                aria-current={active ? "page" : undefined}
-                onClick={() => setActiveTab(item.id)}
-                className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                  active
-                    ? "border-hairline bg-raised text-ink shadow-sm"
-                    : item.disabled
-                      ? "cursor-not-allowed border-transparent text-ink-faint opacity-45"
-                      : "border-transparent text-ink-muted hover:bg-raised/70 hover:text-ink"
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
+        <div>{description}</div>
       </div>
 
-      <div className="min-w-0">
+      <Dialog
+        open={generationDialogOpen}
+        onOpenChange={(open) => {
+          if (!running) setGenerationDialogOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-4xl overflow-y-auto p-0">
+          <DialogHeader className="border-b border-hairline px-5 py-4 pr-14 sm:px-6">
+            <DialogTitle>Finished mix</DialogTitle>
+            <DialogDescription className="max-w-3xl leading-6">
+              Set the final batch weight and optionally reserve a fixed commercial premix.
+              PigFlow formulates the remaining basal mix so the complete finished feed still
+              satisfies the Brazilian diet requirements after the premix is added.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 px-5 py-2 sm:px-6">
+            <label className="flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-hairline bg-background px-3 py-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={useFixedPremix}
+                onChange={(event) => {
+                  setUseFixedPremix(event.target.checked);
+                  setResult(null);
+                  setRequestError(null);
+                }}
+              />
+              <span className="text-sm font-medium text-ink">Add fixed premix</span>
+            </label>
+
+            <div className="max-w-xs">
+              <Field label="Finished feed weight (kg)">
+                <Input
+                  type="number"
+                  min="0.1"
+                  step="1"
+                  value={targetBatchWeight}
+                  onChange={(event) => {
+                    setTargetBatchWeight(event.target.value);
+                    setResult(null);
+                    setRequestError(null);
+                  }}
+                />
+              </Field>
+            </div>
+
+            {useFixedPremix ? (
+              <>
+                <div className="border-t border-hairline pt-5">
+                  <div className="mb-3">
+                    <div className="text-sm font-medium text-ink">Premix details</div>
+                    <div className="mt-0.5 text-xs leading-5 text-ink-muted">
+                      The inclusion rate is applied to the finished feed weight.
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Field label="Premix name">
+                      <Input
+                        value={fixedPremixName}
+                        onChange={(event) => {
+                          setFixedPremixName(event.target.value);
+                          setResult(null);
+                          setRequestError(null);
+                        }}
+                        placeholder="Commercial premix"
+                      />
+                    </Field>
+
+                    <Field label="Premix inclusion (kg / tonne)">
+                      <Input
+                        type="number"
+                        min="0.001"
+                        max="999.999"
+                        step="0.1"
+                        value={fixedPremixKgPerTonne}
+                        onChange={(event) => {
+                          setFixedPremixKgPerTonne(event.target.value);
+                          setResult(null);
+                          setRequestError(null);
+                        }}
+                      />
+                    </Field>
+
+                    <Field label="Premix price / kg">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={fixedPremixPricePerKg}
+                        placeholder="0.00"
+                        onChange={(event) => {
+                          setFixedPremixPricePerKg(event.target.value);
+                          setResult(null);
+                          setRequestError(null);
+                        }}
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm">
+                    <div className="font-medium text-ink">Mix plan</div>
+                    <div className="mt-1 leading-6 text-ink-muted">
+                      <strong className="text-ink">{baseMixBatchKg.toFixed(2)} kg</strong> basal
+                      feed{" + "}
+                      <strong className="text-ink">{fixedPremixBatchKg.toFixed(2)} kg</strong>
+                      premix{" = "}
+                      <strong className="text-ink">{displayBatchKg.toFixed(2)} kg</strong> finished
+                      feed.
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-ink-muted">
+                    Mode 1 reserves the premix weight but does not credit it with energy, protein,
+                    amino acids or macro minerals. Vitamin and trace-mineral coverage is not
+                    verified from the premix label.
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm text-ink-muted">
+                PigFlow formulates the full {displayBatchKg.toFixed(2)} kg finished batch.
+              </div>
+            )}
+
+            {requestError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {requestError}
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="border-t border-hairline px-5 py-4 sm:px-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setGenerationDialogOpen(false)}
+              disabled={running}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void formulate().then((generated) => {
+                  if (generated) setGenerationDialogOpen(false);
+                });
+              }}
+              disabled={running}
+            >
+              <Calculator size={15} />
+              {running ? "Generating…" : formulaActionLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={saveDialogOpen}
+        onOpenChange={(open) => {
+          if (!savingFormulas) setSaveDialogOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+          <DialogHeader className="border-b border-hairline px-5 py-4 pr-14">
+            <DialogTitle>{activeSavedId ? "Save changes" : "Save formulas"}</DialogTitle>
+            <DialogDescription>
+              Store the active recipe set in PigFlow so it remains available after this session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 px-5 py-5">
+            <Field label="Formula set name">
+              <Input
+                value={formulaSetName}
+                autoFocus
+                onChange={(event) => {
+                  setFormulaSetName(event.target.value);
+                  setSaveError(null);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void saveFormulas();
+                }}
+              />
+            </Field>
+            <div className="rounded-lg border border-hairline bg-raised/30 px-3 py-2 text-xs leading-5 text-ink-muted">
+              {recipes.length} {recipes.length === 1 ? "recipe" : "recipes"} ·{" "}
+              {reportContext.programmeName} · {reportContext.phaseLabel}
+            </div>
+            {saveError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {saveError}
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter className="border-t border-hairline px-5 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSaveDialogOpen(false)}
+              disabled={savingFormulas}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void saveFormulas()}
+              disabled={savingFormulas || formulaSetName.trim().length === 0}
+            >
+              <Save />
+              {savingFormulas ? "Saving…" : activeSavedId ? "Save changes" : "Save formulas"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+        <aside className="overflow-hidden rounded-xl border border-hairline bg-raised/20 lg:sticky lg:top-[74px]">
+          <div className="border-b border-hairline px-4 py-4">
+            <div className="text-sm font-semibold text-ink">Formulation</div>
+            <div className="mt-1 text-xs leading-5 text-ink-muted">
+              Build, review and refine this ration.
+            </div>
+          </div>
+          <nav className="space-y-1 p-2" aria-label="Feed formulation sections">
+            {sidebarItems.map((item) => {
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={item.disabled}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                    active
+                      ? "border-hairline bg-background text-ink shadow-sm"
+                      : item.disabled
+                        ? "cursor-not-allowed border-transparent text-ink-faint opacity-45"
+                        : "border-transparent text-ink-muted hover:bg-background/70 hover:text-ink"
+                  }`}
+                >
+                  <span className="block text-sm font-medium">{item.label}</span>
+                  <span className="mt-0.5 block text-[11px] leading-4">{item.description}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <div className="min-w-0">
         {activeTab === "setup" ? (
           <Card>
         <CardHeader>
           <CardTitle>Least-cost formulation</CardTitle>
-          <CardDescription>
-            Choose the Brazilian requirement phase and energy basis, then define the finished mix.
-            A fixed premix can reserve part of the batch while PigFlow optimizes the remaining
-            basal ingredients against the complete-diet nutrient targets.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-3">
@@ -512,6 +909,7 @@ export function FeedFormulationWorkbench({
               <select
                 value={phaseId}
                 onChange={(event) => {
+                  requirementsWereEdited.current = true;
                   setPhaseId(event.target.value);
                   setResult(null);
                 }}
@@ -528,6 +926,7 @@ export function FeedFormulationWorkbench({
               <select
                 value={energySystem}
                 onChange={(event) => {
+                  requirementsWereEdited.current = true;
                   setEnergySystem(event.target.value as "ME" | "NE");
                   setResult(null);
                 }}
@@ -640,124 +1039,6 @@ export function FeedFormulationWorkbench({
             </table>
           </div>
 
-          <div className="space-y-5 rounded-lg border border-hairline bg-raised/20 p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-ink">Finished mix</div>
-                <div className="mt-1 max-w-3xl text-xs leading-5 text-ink-muted">
-                  Set the final batch weight and optionally reserve a fixed commercial premix.
-                  PigFlow formulates the remaining basal mix so the complete finished feed still
-                  satisfies the Brazilian diet requirements after the premix is added.
-                </div>
-              </div>
-
-              <label className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-hairline bg-background px-3 py-2">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={useFixedPremix}
-                  onChange={(event) => {
-                    setUseFixedPremix(event.target.checked);
-                    setResult(null);
-                  }}
-                />
-                <span className="text-sm font-medium text-ink">Add fixed premix</span>
-              </label>
-            </div>
-
-            <div className="max-w-xs">
-              <Field label="Finished feed weight (kg)">
-                <Input
-                  type="number"
-                  min="0.1"
-                  step="1"
-                  value={targetBatchWeight}
-                  onChange={(event) => {
-                    setTargetBatchWeight(event.target.value);
-                    setResult(null);
-                  }}
-                />
-              </Field>
-            </div>
-
-            {useFixedPremix ? (
-              <>
-                <div className="border-t border-hairline pt-5">
-                  <div className="mb-3">
-                    <div className="text-sm font-medium text-ink">Premix details</div>
-                    <div className="mt-0.5 text-xs leading-5 text-ink-muted">
-                      The inclusion rate is applied to the finished feed weight.
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Field label="Premix name">
-                      <Input
-                        value={fixedPremixName}
-                        onChange={(event) => {
-                          setFixedPremixName(event.target.value);
-                          setResult(null);
-                        }}
-                        placeholder="Commercial premix"
-                      />
-                    </Field>
-
-                    <Field label="Premix inclusion (kg / tonne)">
-                      <Input
-                        type="number"
-                        min="0.001"
-                        max="999.999"
-                        step="0.1"
-                        value={fixedPremixKgPerTonne}
-                        onChange={(event) => {
-                          setFixedPremixKgPerTonne(event.target.value);
-                          setResult(null);
-                        }}
-                      />
-                    </Field>
-
-                    <Field label="Premix price / kg">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={fixedPremixPricePerKg}
-                        placeholder="0.00"
-                        onChange={(event) => {
-                          setFixedPremixPricePerKg(event.target.value);
-                          setResult(null);
-                        }}
-                      />
-                    </Field>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                  <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm">
-                    <div className="font-medium text-ink">Mix plan</div>
-                    <div className="mt-1 leading-6 text-ink-muted">
-                      <strong className="text-ink">{baseMixBatchKg.toFixed(2)} kg</strong> basal feed
-                      {" + "}
-                      <strong className="text-ink">{fixedPremixBatchKg.toFixed(2)} kg</strong> premix
-                      {" = "}
-                      <strong className="text-ink">{displayBatchKg.toFixed(2)} kg</strong> finished feed.
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs leading-5 text-ink-muted">
-                    Mode 1 reserves the premix weight but does not credit it with energy, protein,
-                    amino acids or macro minerals. Vitamin and trace-mineral coverage is not
-                    verified from the premix label.
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="rounded-lg border border-hairline bg-background px-4 py-3 text-sm text-ink-muted">
-                PigFlow formulates the full {displayBatchKg.toFixed(2)} kg finished batch.
-              </div>
-            )}
-          </div>
-
           <div className="flex flex-wrap gap-2">
             <select
               value={addIngredientId}
@@ -774,14 +1055,6 @@ export function FeedFormulationWorkbench({
             <Button type="button" variant="outline" onClick={addIngredient} disabled={!addIngredientId}>
               <Plus size={15} />
               Add ingredient
-            </Button>
-            <Button
-              type="button"
-              onClick={() => void formulate()}
-              disabled={running || rows.length === 0}
-            >
-              <Calculator size={15} />
-              {running ? "Formulating…" : "Find least-cost formula"}
             </Button>
           </div>
 
@@ -808,7 +1081,6 @@ export function FeedFormulationWorkbench({
               selectedRecipeId={selectedRecipeId}
               onSelectedRecipeChange={setSelectedRecipeId}
               batchWeightKg={displayBatchKg}
-              reportContext={reportContext}
             />
           ) : null}
 
@@ -825,6 +1097,7 @@ export function FeedFormulationWorkbench({
           ) : null}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -834,46 +1107,25 @@ function ResultPanel({
   selectedRecipeId,
   onSelectedRecipeChange,
   batchWeightKg,
-  reportContext,
 }: {
   result: LeastCostFormulationResult;
   ingredientById: Map<string, IngredientOption>;
   selectedRecipeId: string;
   onSelectedRecipeChange: (recipeId: string) => void;
   batchWeightKg: number;
-  reportContext: RecipeReportContext;
 }) {
 
   if (result.status === "optimal") {
-    const recipes: RecipeView[] = [
-      {
-        id: "least-cost",
-        label: "Least cost",
-        description: "The minimum-cost formula for the prices entered above.",
-        solution: result.solution,
-        nutrientProfile: result.nutrientProfile,
-        costIncreasePct: 0,
-      },
-      ...result.alternatives,
-    ];
+    const recipes = recipeViews(result);
     const selectedRecipe =
       recipes.find((recipe) => recipe.id === selectedRecipeId) ?? recipes[0];
 
     return (
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle>{selectedRecipe.label}</CardTitle>
-              <Badge variant="secondary">Hard constraints satisfied</Badge>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <RecipeReportMenu recipes={recipes} context={reportContext} />
-              <NutrientProfileDialog
-                recipeLabel={selectedRecipe.label}
-                profile={selectedRecipe.nutrientProfile}
-              />
-            </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>{selectedRecipe.label}</CardTitle>
+            <Badge variant="secondary">Hard constraints satisfied</Badge>
           </div>
           <CardDescription>
             {selectedRecipe.description} Cost: {selectedRecipe.solution.costPerKg.toFixed(4)} per kg
@@ -1058,10 +1310,7 @@ function RecipeReportMenu({
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuLabel>Recipe reports</DropdownMenuLabel>
           {recipes.map((recipe) => (
-            <DropdownMenuItem
-              key={recipe.id}
-              onSelect={() => setRecipeToView(recipe)}
-            >
+            <DropdownMenuItem key={recipe.id} onSelect={() => setRecipeToView(recipe)}>
               <FileSpreadsheet />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium">{recipe.label}</div>
@@ -1159,14 +1408,14 @@ function RecipeReportDialog({
         <div className="min-h-0 flex-1 space-y-6 overflow-auto p-5">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <ReportFact label="Batch weight" value={`${context.targetBatchKg.toFixed(1)} kg`} />
-            <ReportFact label="Cost / kg" value={`$${recipe.solution.costPerKg.toFixed(4)}`} />
+            <ReportFact label="Cost / kg" value={`${recipe.solution.costPerKg.toFixed(4)}`} />
             <ReportFact
               label="Batch cost"
-              value={`$${(recipe.solution.costPerKg * context.targetBatchKg).toFixed(2)}`}
+              value={`${(recipe.solution.costPerKg * context.targetBatchKg).toFixed(2)}`}
             />
             <ReportFact
               label="Cost / tonne"
-              value={`$${(recipe.solution.costPerKg * 1000).toFixed(2)}`}
+              value={`${(recipe.solution.costPerKg * 1000).toFixed(2)}`}
             />
             <ReportFact label="Ingredients" value={String(rows.length)} />
           </div>
@@ -1360,37 +1609,6 @@ function NutrientProfileTable({
         </tbody>
       </table>
     </div>
-  );
-}
-
-function NutrientProfileDialog({
-  recipeLabel,
-  profile,
-}: {
-  recipeLabel: string;
-  profile: readonly FormulationNutrientComparison[];
-}) {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          <Activity />
-          Compare nutrition
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
-        <DialogHeader className="px-5 pt-5">
-          <DialogTitle>{recipeLabel} · nutritional profile</DialogTitle>
-          <DialogDescription>
-            Actual nutrient density compared with the hard requirements and supplementation
-            targets used by the optimizer. A binding row is sitting effectively on its target.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 overflow-auto px-5 pb-5">
-          <NutrientProfileTable profile={profile} />
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }
 

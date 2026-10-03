@@ -77,6 +77,14 @@ export function feedFormulationStrategyHref(formulationId: string): string {
   return feedFormulationHref("formulations") + "/" + encodeURIComponent(formulationId);
 }
 
+export function newFeedFormulationHref(): string {
+  return feedFormulationHref("formulations") + "/new";
+}
+
+export function editFeedFormulationHref(formulationId: string): string {
+  return feedFormulationStrategyHref(formulationId) + "/edit";
+}
+
 
 /** One nutrient concept in the feed reference catalogue. */
 export function feedNutrientHref(nutrientId: string): string {
