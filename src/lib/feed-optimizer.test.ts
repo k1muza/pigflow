@@ -35,7 +35,7 @@ function ingredient(
     composition: {
       dryMatterPct: 90,
       crudeProteinPct,
-      digestibleProteinPct: r.digestibleProteinPct * 2,
+      digestibleProteinPct: r.digestibleProteinPct! * 2,
       crudeFatPct: 5 + priceMarker,
       linoleicAcidPct: (r.linoleicAcidPct ?? 0.5) * 2,
     },
@@ -68,7 +68,7 @@ function ingredient(
       sttdPhosphorusPct: (r.minerals.sttdPhosphorusPct ?? 0.3) * 2,
       sodiumPct: r.minerals.sodiumPct * 2,
       chloridePct: (r.minerals.chloridePct ?? 0.2) * 2,
-      potassiumPct: r.potassiumPct * 2,
+      potassiumPct: r.potassiumPct! * 2,
     },
     traceMineralsPpm: {},
     vitamins: {},
@@ -93,7 +93,7 @@ function testLibrary(
 describe("least-cost feed optimizer", () => {
   it("derives a feasible starter basket from the supplied ingredient library", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const library = testLibrary(target - 4, target + 16);
 
     const suggestion = await suggestFormulationIngredients(
@@ -127,7 +127,7 @@ describe("least-cost feed optimizer", () => {
 
   it("retains complete priced alternatives even when the default-price optimum does not use them", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const base = testLibrary(target + 5, target + 10);
     const library = loadIngredientLibrary({
       ...base,
@@ -244,7 +244,7 @@ describe("least-cost feed optimizer", () => {
     const phase = nutritionPhaseAtWeight(5);
     expect(phase.supplementation).toBeUndefined();
 
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const library = testLibrary(target + 5, target + 10);
     const result = await formulateLeastCostDiet(
       phase,
@@ -264,7 +264,7 @@ describe("least-cost feed optimizer", () => {
 
   it("reserves a fixed premix without requiring a micronutrient profile in mode 1", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const base = testLibrary(target + 5, target + 10);
     const library = ingredientLibraryWithCustomPremixes(
       [{
@@ -315,7 +315,7 @@ describe("least-cost feed optimizer", () => {
     expect(supplementation).toBeDefined();
     if (!supplementation) return;
 
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const base = testLibrary(target + 5, target + 10);
     const vitamins = Object.fromEntries(
       Object.entries(supplementation.vitamins).map(([key, value]) => [
@@ -377,7 +377,7 @@ describe("least-cost feed optimizer", () => {
     expect(supplementation).toBeDefined();
     if (!supplementation) return;
 
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const base = testLibrary(target + 5, target + 10);
     const vitamins = Object.fromEntries(
       Object.entries(supplementation.vitamins).map(([key, value]) => [
@@ -427,7 +427,7 @@ describe("least-cost feed optimizer", () => {
 
   it("returns near-optimal alternatives inside the configured cost ceiling", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const library = loadIngredientLibrary({
       ...INGREDIENT_LIBRARY,
       ingredients: [
@@ -548,7 +548,7 @@ describe("least-cost feed optimizer", () => {
 
   it("minimizes ingredient cost while keeping Brazilian requirements hard", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const library = testLibrary(target - 4, target + 16);
 
     const result = await formulateLeastCostDiet(
@@ -587,7 +587,7 @@ describe("least-cost feed optimizer", () => {
     }],
   ] as const)("hard-constrains %s", async (constraintId, makeDeficient) => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const base = testLibrary(target + 5, target + 10);
     const ingredients = base.ingredients.map((record) =>
       structuredClone(record),
@@ -614,7 +614,7 @@ describe("least-cost feed optimizer", () => {
 
   it("does not silently substitute zero for missing nutrient composition", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const library = testLibrary(target, target + 10);
     const cheap = library.ingredients[0];
 
@@ -656,7 +656,7 @@ describe("least-cost feed optimizer", () => {
 
   it("returns a diagnostic diet when hard requirements are infeasible", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const library = testLibrary(target - 8, target - 4);
 
     const result = await formulateLeastCostDiet(
@@ -681,7 +681,7 @@ describe("least-cost feed optimizer", () => {
 
   it("respects ingredient inclusion bounds", async () => {
     const phase = nutritionPhaseAtWeight(30);
-    const target = phase.requirements.crudeProteinPct;
+    const target = phase.requirements.crudeProteinPct!;
     const library = testLibrary(target - 4, target + 16);
 
     const result = await formulateLeastCostDiet(
