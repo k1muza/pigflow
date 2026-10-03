@@ -453,15 +453,6 @@ export function FeedFormulationWorkbench({
               {selectedProgramme?.name ?? "Programme"} · {selectedPhase?.label ?? "Phase"} · {energySystem}
             </div>
           </div>
-          {result?.status === "optimal" ? (
-            <RecipeExportMenu result={result} context={reportContext} />
-          ) : (
-            <Button type="button" variant="outline" size="sm" disabled>
-              <Download />
-              Export
-              <ChevronDown />
-            </Button>
-          )}
         </div>
         <nav
           className="flex max-w-full gap-1 overflow-x-auto px-2 py-2"
@@ -877,7 +868,7 @@ function ResultPanel({
               <Badge variant="secondary">Hard constraints satisfied</Badge>
             </div>
             <div className="flex flex-wrap gap-2">
-              <RecipeReportPreviewDialog recipe={selectedRecipe} context={reportContext} />
+              <RecipeReportMenu recipes={recipes} context={reportContext} />
               <NutrientProfileDialog
                 recipeLabel={selectedRecipe.label}
                 profile={selectedRecipe.nutrientProfile}
@@ -1045,31 +1036,76 @@ function recipeReportInput(
   };
 }
 
-function RecipeExportMenu({
-  result,
+function RecipeReportMenu({
+  recipes,
   context,
 }: {
-  result: Extract<LeastCostFormulationResult, { status: "optimal" }>;
+  recipes: readonly RecipeView[];
   context: RecipeReportContext;
 }) {
-  const [busyRecipeId, setBusyRecipeId] = useState<string | null>(null);
-  const recipes: RecipeView[] = [
-    {
-      id: "least-cost",
-      label: "Least cost",
-      description: "The minimum-cost formula for the prices entered above.",
-      solution: result.solution,
-      nutrientProfile: result.nutrientProfile,
-      costIncreasePct: 0,
-    },
-    ...result.alternatives,
-  ];
+  const [recipeToView, setRecipeToView] = useState<RecipeView | null>(null);
 
-  async function downloadReport(recipe: RecipeView) {
-    if (busyRecipeId) return;
-    setBusyRecipeId(recipe.id);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="outline" size="sm">
+            <FileSpreadsheet />
+            View report
+            <ChevronDown />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuLabel>Recipe reports</DropdownMenuLabel>
+          {recipes.map((recipe) => (
+            <DropdownMenuItem
+              key={recipe.id}
+              onSelect={() => setRecipeToView(recipe)}
+            >
+              <FileSpreadsheet />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{recipe.label}</div>
+                <div className="mt-0.5 text-[11px] text-ink-faint">
+                  ${recipe.solution.costPerKg.toFixed(4)}/kg
+                  {recipe.costIncreasePct > 0
+                    ? ` · +${recipe.costIncreasePct.toFixed(2)}% vs least cost`
+                    : " · baseline"}
+                </div>
+              </div>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <RecipeReportDialog
+        recipe={recipeToView}
+        context={context}
+        onClose={() => setRecipeToView(null)}
+      />
+    </>
+  );
+}
+
+function RecipeReportDialog({
+  recipe,
+  context,
+  onClose,
+}: {
+  recipe: RecipeView | null;
+  context: RecipeReportContext;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  if (!recipe) return null;
+
+  const input = recipeReportInput(recipe, context);
+  const rows = feedRecipeFormulaReportRows(input);
+
+  async function downloadReport() {
+    if (busy) return;
+    setBusy(true);
     try {
-      const input = recipeReportInput(recipe, context);
       const { buildFeedRecipeReport } = await import("@/lib/feed-formulation-report");
       const output = await buildFeedRecipeReport({
         ...input,
@@ -1087,81 +1123,50 @@ function RecipeExportMenu({
       console.error(error);
       window.alert("The recipe report could not be generated. Please try again.");
     } finally {
-      setBusyRecipeId(null);
+      setBusy(false);
     }
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm" disabled={busyRecipeId !== null}>
-          <Download />
-          {busyRecipeId ? "Preparing…" : "Export"}
-          <ChevronDown />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel>Recipe reports</DropdownMenuLabel>
-        {recipes.map((recipe) => (
-          <DropdownMenuItem
-            key={recipe.id}
-            disabled={busyRecipeId !== null}
-            onSelect={() => void downloadReport(recipe)}
-          >
-            <FileSpreadsheet />
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-medium">{recipe.label}</div>
-              <div className="mt-0.5 text-[11px] text-ink-faint">
-                ${recipe.solution.costPerKg.toFixed(4)}/kg
-                {recipe.costIncreasePct > 0
-                  ? ` · +${recipe.costIncreasePct.toFixed(2)}% vs least cost`
-                  : " · baseline"}
-              </div>
-            </div>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function RecipeReportPreviewDialog({
-  recipe,
-  context,
-}: {
-  recipe: RecipeView;
-  context: RecipeReportContext;
-}) {
-  const input = recipeReportInput(recipe, context);
-  const rows = feedRecipeFormulaReportRows(input);
-
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          <FileSpreadsheet />
-          Preview report
-        </Button>
-      </DialogTrigger>
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent className="flex h-[calc(100dvh-4rem)] max-h-[900px] max-w-[min(1000px,calc(100vw-2rem))] flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 border-b border-hairline px-5 py-4 pr-14">
-          <DialogTitle>{recipe.label} · recipe report</DialogTitle>
-          <DialogDescription>
-            {context.programmeName} · {context.phaseLabel} · {context.energySystem}. This preview
-            uses the same recipe, prices and nutritional profile as the Excel export.
-          </DialogDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <DialogTitle>{recipe.label} · recipe report</DialogTitle>
+              <DialogDescription className="mt-1">
+                {context.programmeName} · {context.phaseLabel} · {context.energySystem}. This preview
+                uses the same recipe, prices and nutritional profile as the Excel export.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void downloadReport()}
+              disabled={busy}
+              className="shrink-0"
+            >
+              <Download />
+              {busy ? "Preparing…" : "Download report"}
+            </Button>
+          </div>
         </DialogHeader>
         <div className="min-h-0 flex-1 space-y-6 overflow-auto p-5">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <ReportFact label="Batch weight" value={`${context.targetBatchKg.toFixed(1)} kg`} />
-            <ReportFact label="Cost / kg" value={`${recipe.solution.costPerKg.toFixed(4)}`} />
+            <ReportFact label="Cost / kg" value={`$${recipe.solution.costPerKg.toFixed(4)}`} />
             <ReportFact
               label="Batch cost"
-              value={`${(recipe.solution.costPerKg * context.targetBatchKg).toFixed(2)}`}
+              value={`$${(recipe.solution.costPerKg * context.targetBatchKg).toFixed(2)}`}
             />
             <ReportFact
               label="Cost / tonne"
-              value={`${(recipe.solution.costPerKg * 1000).toFixed(2)}`}
+              value={`$${(recipe.solution.costPerKg * 1000).toFixed(2)}`}
             />
             <ReportFact label="Ingredients" value={String(rows.length)} />
           </div>
