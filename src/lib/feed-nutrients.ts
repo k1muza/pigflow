@@ -1,7 +1,6 @@
 import type { NutritionPhase } from "./nutrition";
 import {
   INGREDIENT_LIBRARY,
-  metabolizableEnergyKcalKgOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientNutrientRecord,
@@ -59,8 +58,8 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     shortName: "Dig. protein",
     group: "Energy & protein",
     units: ["%"],
-    description: "Dietary protein expressed on the digestible-protein basis used by the Brazilian Tables.",
-    formulationRole: "Published alongside crude protein in the growing-swine requirement tables.",
+    description: "Dietary crude protein expressed on the Brazilian Tables swine standardized ileal digestible basis.",
+    formulationRole: "Published digestible-protein requirement constrained against swine SID crude-protein values from the ingredient tables.",
   },
   {
     id: "sid-lysine",
@@ -183,10 +182,14 @@ export const FEED_NUTRIENTS: readonly FeedNutrient[] = [
     ["vitamin-d", "Vitamin D", "Vit D", "IU/kg"],
     ["vitamin-e", "Vitamin E", "Vit E", "IU/kg"],
     ["vitamin-k", "Vitamin K", "Vit K", "mg/kg"],
-    ["niacin", "Niacin", "Niacin", "mg/kg"],
+    ["vitamin-b1", "Vitamin B1", "B1", "mg/kg"],
     ["riboflavin", "Riboflavin", "B2", "mg/kg"],
-    ["pantothenic-acid", "Pantothenic Acid", "B5", "mg/kg"],
+    ["vitamin-b6", "Vitamin B6", "B6", "mg/kg"],
     ["vitamin-b12", "Vitamin B12", "B12", "mcg/kg"],
+    ["pantothenic-acid", "Pantothenic Acid", "B5", "mg/kg"],
+    ["niacin", "Niacin", "Niacin", "mg/kg"],
+    ["folic-acid", "Folic Acid", "B9", "mg/kg"],
+    ["biotin", "Biotin", "Biotin", "mg/kg"],
     ["choline", "Total Choline", "Choline", "mg/kg"],
   ].map(([id, name, shortName, unit]) => ({
     id,
@@ -299,7 +302,10 @@ function ingredientValueForNutrient(
   ingredient: IngredientNutrientRecord,
 ): { value: number; unit: string } | undefined {
   const sid = (aminoAcid: string) => sidAminoAcidPct(ingredient, aminoAcid);
-  const combinedSid = (...aminoAcids: string[]) => {
+  const combinedSid = (combinedKey: string, ...aminoAcids: string[]) => {
+    const explicit = ingredient.aminoAcids.sidPct[combinedKey];
+    if (explicit !== undefined) return explicit;
+
     const values = aminoAcids.map(sid);
     return values.every((value) => value !== undefined)
       ? values.reduce((sum, value) => sum + (value ?? 0), 0)
@@ -311,7 +317,7 @@ function ingredientValueForNutrient(
 
   switch (nutrientId) {
     case "metabolizable-energy":
-      value = metabolizableEnergyKcalKgOf(ingredient);
+      value = ingredient.energy.metabolizableKcalKg;
       unit = "kcal/kg";
       break;
     case "net-energy":
@@ -328,7 +334,7 @@ function ingredientValueForNutrient(
       value = sid("lysine");
       break;
     case "sid-methionine-cysteine":
-      value = combinedSid("methionine", "cysteine");
+      value = combinedSid("methionineCysteine", "methionine", "cysteine");
       break;
     case "sid-threonine":
       value = sid("threonine");
@@ -349,7 +355,11 @@ function ingredientValueForNutrient(
       value = sid("histidine");
       break;
     case "sid-phenylalanine-tyrosine":
-      value = combinedSid("phenylalanine", "tyrosine");
+      value = combinedSid(
+        "phenylalanineTyrosine",
+        "phenylalanine",
+        "tyrosine",
+      );
       break;
     case "calcium":
       value = ingredient.macroMinerals.calciumPct;
@@ -398,6 +408,22 @@ function ingredientValueForNutrient(
       break;
     case "vitamin-k":
       value = ingredient.vitamins.vitaminKMgKg;
+      unit = "mg/kg";
+      break;
+    case "vitamin-b1":
+      value = ingredient.vitamins.vitaminB1MgKg;
+      unit = "mg/kg";
+      break;
+    case "vitamin-b6":
+      value = ingredient.vitamins.vitaminB6MgKg;
+      unit = "mg/kg";
+      break;
+    case "folic-acid":
+      value = ingredient.vitamins.folicAcidMgKg;
+      unit = "mg/kg";
+      break;
+    case "biotin":
+      value = ingredient.vitamins.biotinMgKg;
       unit = "mg/kg";
       break;
     case "niacin":

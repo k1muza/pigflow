@@ -2,6 +2,7 @@ import {
   BRAZILIAN_2024_BREEDER_SWINE,
   BRAZILIAN_2024_GROWING_SWINE,
   BRAZILIAN_2024_SOURCE,
+  BRAZILIAN_2024_SWINE_SUPPLEMENTATION,
 } from "./brazilian-nutrition";
 
 export type NutritionGrowthStage = "weaner" | "grower" | "finisher";
@@ -49,11 +50,34 @@ export type Vitamins = {
   vitaminDIuKg: number;
   vitaminEIuKg: number;
   vitaminKMgKg: number;
-  niacinMgKg: number;
+  vitaminB1MgKg: number;
   riboflavinMgKg: number;
-  pantothenicAcidMgKg: number;
+  vitaminB6MgKg: number;
   vitaminB12McgKg: number;
-  totalCholineMgKg?: number;
+  pantothenicAcidMgKg: number;
+  niacinMgKg: number;
+  folicAcidMgKg: number;
+  biotinMgKg: number;
+  totalCholineMgKg: number;
+};
+
+export type TraceMineralSupplementation = {
+  zincPpm: number;
+  ironPpm: number;
+  manganesePpm: number;
+  copperPpm: number;
+  iodinePpm?: number;
+  seleniumPpm: number;
+};
+
+export type NutritionSupplementationTargets = {
+  sourceTables: readonly string[];
+  sourcePages: readonly number[];
+  vitamins: Vitamins;
+  traceMinerals: {
+    inorganic: TraceMineralSupplementation;
+    organic: TraceMineralSupplementation;
+  };
 };
 
 export type MineralRequirements = {
@@ -115,6 +139,7 @@ export type NutritionPhase = {
   sourceWeightRange: string;
   lookupMinWeightKg: number;
   lookupMaxWeightKg: number;
+  supplementation?: NutritionSupplementationTargets;
   requirements: NutritionRequirements;
 };
 
@@ -180,6 +205,41 @@ function requireBoundary(value: number | undefined, label: string): number {
   return value;
 }
 
+function growingSupplementationForPhase(
+  phase: BrazilianPhase,
+): NutritionSupplementationTargets | undefined {
+  const ageMin = phase.ageDays.min;
+  const ageMax = phase.ageDays.max;
+  if (ageMin === undefined || ageMax === undefined) return undefined;
+
+  const guidance = BRAZILIAN_2024_SWINE_SUPPLEMENTATION.growing.phases.find(
+    (candidate) =>
+      candidate.ageDays.min === ageMin && candidate.ageDays.max === ageMax,
+  );
+  if (!guidance) return undefined;
+
+  const source = BRAZILIAN_2024_SWINE_SUPPLEMENTATION.growing;
+  return {
+    sourceTables: [source.vitaminSourceTable, source.traceMineralSourceTable],
+    sourcePages: [source.vitaminPrintedPage, source.traceMineralPrintedPage],
+    vitamins: guidance.vitamins,
+    traceMinerals: {
+      inorganic: guidance.inorganic,
+      organic: guidance.organic,
+    },
+  };
+}
+
+function breederSupplementation(): NutritionSupplementationTargets {
+  const guidance = BRAZILIAN_2024_SWINE_SUPPLEMENTATION.breeders;
+  return {
+    sourceTables: [guidance.sourceTable],
+    sourcePages: [guidance.printedPage],
+    vitamins: guidance.vitamins,
+    traceMinerals: guidance.traceMinerals,
+  };
+}
+
 function normalizeBrazilianPhase(
   sourceProgramme: BrazilianProgramme,
   phase: BrazilianPhase,
@@ -211,6 +271,7 @@ function normalizeBrazilianPhase(
     sourceWeightRange: `${sourceMinWeightKg}–${sourceMaxWeightKg} kg`,
     lookupMinWeightKg,
     lookupMaxWeightKg,
+    supplementation: growingSupplementationForPhase(phase),
     requirements: {
       metabolizableEnergyKcalKg: phase.diet.metabolizableEnergyKcalKg,
       netEnergyKcalKg: phase.diet.netEnergyKcalKg,
@@ -421,6 +482,7 @@ function normalizeBreederPhase(
       : `${bodyWeightKg} kg postpartum body weight`,
     lookupMinWeightKg: bodyWeightKg,
     lookupMaxWeightKg: bodyWeightKg,
+    supplementation: breederSupplementation(),
     requirements: {
       metabolizableEnergyKcalKg: phase.diet.metabolizableEnergyKcalKg,
       netEnergyKcalKg: phase.diet.netEnergyKcalKg,

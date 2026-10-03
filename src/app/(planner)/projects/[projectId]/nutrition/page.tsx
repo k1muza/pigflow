@@ -1,5 +1,7 @@
-import { NutritionBrowser } from "@/components/nutrition-browser";
+import { redirect } from "next/navigation";
 
-export default function NutritionPage() {
-  return <NutritionBrowser />;
+import { feedFormulationHref } from "@/lib/routes";
+
+export default function LegacyProjectNutritionPage() {
+  redirect(feedFormulationHref());
 }

@@ -5,13 +5,16 @@ import { ArrowLeft } from "lucide-react";
 
 import {
   INGREDIENT_LIBRARY,
-  metabolizableEnergyKcalKgOf,
   sidAminoAcidPct,
   sttdPhosphorusPctOf,
   type IngredientNutrientRecord,
 } from "@/lib/ingredient-nutrients";
 import { feedFormulationHref } from "@/lib/routes";
-import { ingredientDefaultPrice } from "@/lib/feed-ingredient-prices";
+import {
+  ingredientDefaultPlanningPricePerTonne,
+  ingredientDefaultPrice,
+  ingredientImportPriceMultiplier,
+} from "@/lib/feed-ingredient-prices";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,6 +49,10 @@ function ValueRows({ rows }: { rows: Array<[string, string]> }) {
 export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
   const ingredient = INGREDIENT_LIBRARY.ingredients.find((row) => row.id === ingredientId);
   const defaultPrice = ingredientDefaultPrice(ingredientId);
+  const planningPrice = ingredientDefaultPlanningPricePerTonne(ingredientId);
+  const importMultiplier = defaultPrice
+    ? ingredientImportPriceMultiplier(defaultPrice.sourceScope)
+    : 1;
   const recordSource = ingredient?.provenance.source;
   const nutrientSources = ingredient
     ? Object.entries(ingredient.provenance.nutrientSources)
@@ -65,7 +72,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           <CardHeader>
             <CardTitle>Ingredient not found</CardTitle>
             <CardDescription>
-              “{ingredientId}” is not present in the canonical Brazilian Tables ingredient library.
+              “{ingredientId}” is not present in the checked-in Brazilian Tables ingredient library.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -90,7 +97,9 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           </Badge>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
-          {ingredient.aliases.length > 0 ? ingredient.aliases.join(" · ") : "Brazilian Tables feed ingredient"}
+          {ingredient.aliases.length > 0
+            ? ingredient.aliases.join(" · ")
+            : "Brazilian Tables feed ingredient"}
         </p>
       </div>
 
@@ -98,8 +107,8 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
         <CardHeader>
           <CardTitle className="text-base">Default market price</CardTitle>
           <CardDescription>
-            Pricing is kept separate from Brazilian Tables nutrient composition and is only shown when PigFlow
-            has a sourced market reference.
+            Pricing is kept separate from Brazilian Tables nutrient composition and is only shown
+            when PigFlow has a sourced market reference.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -107,12 +116,16 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
             <div className="space-y-3">
               <div>
                 <div className="text-3xl font-semibold tracking-tight text-ink">
-                  US${defaultPrice.usdPerTonne.toLocaleString()}
+                  US${planningPrice?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
-                <div className="text-sm text-ink-muted">per tonne</div>
+                <div className="text-sm text-ink-muted">
+                  planning default per tonne
+                </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <SourceFact label="Source price" value={`US${defaultPrice.usdPerTonne.toLocaleString()}/t`} />
                 <SourceFact label="Market" value={defaultPrice.market} />
+                <SourceFact label="Import multiplier" value={`×${importMultiplier.toFixed(2)}`} />
                 <SourceFact label="Reference date" value={defaultPrice.asOf} />
               </div>
               {defaultPrice.note ? (
@@ -145,14 +158,16 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
               rows={[
                 ["Dry matter", display(ingredient.composition.dryMatterPct, "%")],
                 ["Crude protein", display(ingredient.composition.crudeProteinPct, "%")],
+                ["Digestible protein (swine SID)", display(ingredient.composition.digestibleProteinPct, "%")],
                 ["Crude fat", display(ingredient.composition.crudeFatPct, "%")],
+                ["Linoleic acid", display(ingredient.composition.linoleicAcidPct, "%")],
                 ["Crude fibre", display(ingredient.composition.crudeFibrePct, "%")],
                 ["Ash", display(ingredient.composition.ashPct, "%")],
                 ["Starch", display(ingredient.composition.starchPct, "%")],
                 ["NDF", display(ingredient.composition.neutralDetergentFibrePct, "%")],
                 ["ADF", display(ingredient.composition.acidDetergentFibrePct, "%")],
                 ["DE", display(ingredient.energy.digestibleKcalKg, "kcal/kg")],
-                ["ME / std. ME", display(metabolizableEnergyKcalKgOf(ingredient), "kcal/kg")],
+                ["ME", display(ingredient.energy.metabolizableKcalKg, "kcal/kg")],
                 ["NE", display(ingredient.energy.netKcalKg, "kcal/kg")],
               ]}
             />
@@ -169,10 +184,13 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
                 ["Calcium", display(ingredient.macroMinerals.calciumPct, "%")],
                 ["Total phosphorus", display(ingredient.macroMinerals.totalPhosphorusPct, "%")],
                 [
-                  "STTD P digestibility",
+                  "Digestible P coefficient",
                   display(ingredient.macroMinerals.sttdPhosphorusDigestibilityPct, "%"),
                 ],
-                ["Derived STTD phosphorus", display(sttdPhosphorusPctOf(ingredient), "%")],
+                [
+                  "Standardized digestible phosphorus",
+                  display(sttdPhosphorusPctOf(ingredient), "%"),
+                ],
                 ["Available phosphorus", display(ingredient.macroMinerals.availablePhosphorusPct, "%")],
                 ["Sodium", display(ingredient.macroMinerals.sodiumPct, "%")],
                 ["Chloride", display(ingredient.macroMinerals.chloridePct, "%")],
@@ -248,7 +266,7 @@ export function IngredientDetail({ ingredientId }: { ingredientId: string }) {
           {nutrientSources.length > 0 ? (
             <div className="space-y-2 pt-2">
               <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">
-                Nutrient-specific source records
+                Nutrient-specific fallback sources
               </div>
               <div className="overflow-x-auto rounded-lg border border-hairline">
                 <Table>
@@ -318,8 +336,9 @@ function AminoAcids({ ingredient }: { ingredient: IngredientNutrientRecord }) {
       <CardHeader>
         <CardTitle className="text-base">Amino acids</CardTitle>
         <CardDescription>
-          Brazilian Tables total concentration and SID digestibility are shown independently. SID %
-          uses the source value when published and is otherwise derived by PigFlow.
+          Brazilian Tables total, SID concentration and SID digestibility values are shown where
+          the source publishes them. PigFlow derives SID only when a direct SID concentration is
+          unavailable.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -330,7 +349,7 @@ function AminoAcids({ ingredient }: { ingredient: IngredientNutrientRecord }) {
                 <TableHead>Amino acid</TableHead>
                 <TableHead className="text-right">Total %</TableHead>
                 <TableHead className="text-right">SID digestibility %</TableHead>
-                <TableHead className="text-right">Derived SID %</TableHead>
+                <TableHead className="text-right">SID %</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

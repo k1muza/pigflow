@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
-import { INGREDIENT_LIBRARY, metabolizableEnergyKcalKgOf } from "@/lib/ingredient-nutrients";
+import { INGREDIENT_LIBRARY } from "@/lib/ingredient-nutrients";
 import { ingredientDefaultPrice } from "@/lib/feed-ingredient-prices";
 import { feedIngredientHref } from "@/lib/routes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,8 +27,10 @@ function display(value: number | undefined, unit = ""): string {
   return `${Number(value.toFixed(3))}${unit ? ` ${unit}` : ""}`;
 }
 
-function sourceLabel(): string {
-  return "Brazilian Tables 2024";
+function sourceLabel(ingredient: (typeof library.ingredients)[number]): string {
+  return ingredient.provenance.source?.year === 2024
+    ? "Brazilian 2024"
+    : ingredient.provenance.source?.publisher ?? library.source.publisher;
 }
 
 export function IngredientNutrientBrowser() {
@@ -80,7 +82,8 @@ export function IngredientNutrientBrowser() {
         <div>
           <CardTitle>Feed ingredient nutrient library</CardTitle>
           <CardDescription>
-            Browse the Brazilian Tables 2024 ingredient matrix used by PigFlow formulation.
+            Browse the canonical swine-feed ingredient set transcribed from the Brazilian Tables
+            for Poultry and Swine, 5th Edition (2024).
           </CardDescription>
         </div>
         <div className="relative max-w-xl">
@@ -101,7 +104,7 @@ export function IngredientNutrientBrowser() {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
           <Badge variant="secondary">{library.ingredients.length} ingredients</Badge>
-          <span>Canonical source: Brazilian Tables 2024</span>
+          <span>Brazilian Tables 2024 · Tables 1.01, 1.09 and 1.10</span>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-hairline">
@@ -134,7 +137,7 @@ export function IngredientNutrientBrowser() {
                     ) : null}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{sourceLabel()}</Badge>
+                    <Badge variant="secondary">{sourceLabel(ingredient)}</Badge>
                   </TableCell>
                   <TableCell className="capitalize text-ink-muted">
                     {ingredient.category.replaceAll("_", " ")}
@@ -143,7 +146,7 @@ export function IngredientNutrientBrowser() {
                     {display(ingredient.composition.crudeProteinPct, "%")}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {display(metabolizableEnergyKcalKgOf(ingredient), "kcal/kg")}
+                    {display(ingredient.energy.metabolizableKcalKg, "kcal/kg")}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {display(ingredient.energy.netKcalKg, "kcal/kg")}

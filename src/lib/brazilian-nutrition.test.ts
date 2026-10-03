@@ -7,6 +7,7 @@ import {
   BRAZILIAN_2024_GROWING_SWINE,
   BRAZILIAN_2024_MINERAL_SOURCES,
   BRAZILIAN_2024_SOURCE,
+  BRAZILIAN_2024_SWINE_SUPPLEMENTATION,
 } from "./brazilian-nutrition";
 
 describe("Brazilian Tables 2024 source data", () => {
@@ -125,6 +126,39 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
+  it("loads Chapter 7 swine supplementation guidance separately from requirements", () => {
+    const growing = BRAZILIAN_2024_SWINE_SUPPLEMENTATION.growing;
+    expect(growing).toMatchObject({
+      vitaminSourceTable: "7.05",
+      traceMineralSourceTable: "7.06",
+      vitaminPrintedPage: 473,
+      traceMineralPrintedPage: 474,
+    });
+    expect(growing.phases).toHaveLength(7);
+    expect(growing.phases[0]).toMatchObject({
+      ageDays: { min: 21, max: 35 },
+      weightKg: { min: 6.2, max: 8.4 },
+      vitamins: {
+        vitaminAIuKg: 11387,
+        vitaminB12McgKg: 41,
+        biotinMgKg: 0.196,
+      },
+      inorganic: {
+        copperPpm: 18.32,
+        seleniumPpm: 0.502,
+        zincPpm: 165.6,
+      },
+    });
+    expect(BRAZILIAN_2024_SWINE_SUPPLEMENTATION.breeders).toMatchObject({
+      sourceTable: "7.07",
+      printedPage: 475,
+      vitamins: {
+        vitaminAIuKg: 9927,
+        totalCholineMgKg: 750,
+      },
+    });
+  });
+
   it("keeps the Brazilian amino-acid ratios as source-native data", () => {
     expect(BRAZILIAN_2024_GROWING_SWINE.aminoAcidRatios.phases.grower.sid).toMatchObject({
       methionineCysteine: 60,
@@ -136,7 +170,7 @@ describe("Brazilian Tables 2024 source data", () => {
     });
   });
 
-  it("does not silently map the wrong DDGS or soybean-meal identity", () => {
+  it("maps exact Brazilian feedstuff identities to the canonical PigFlow ids", () => {
     const ddgs = BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.find(
       (ingredient) => ingredient.id === "corn-ddgs-6-9-ee",
     );
@@ -144,9 +178,108 @@ describe("Brazilian Tables 2024 source data", () => {
       (ingredient) => ingredient.id === "soybean-meal-45.6-cp-average",
     );
 
-    expect(ddgs?.mappingConfidence).toBe("unmapped");
-    expect(ddgs?.pigflowIngredientId).toBeUndefined();
-    expect(soybean?.mappingConfidence).toBe("unmapped");
+    expect(ddgs).toMatchObject({
+      mappingConfidence: "high",
+      pigflowIngredientId: "corn-ddgs",
+    });
+    expect(soybean).toMatchObject({
+      mappingConfidence: "high",
+      pigflowIngredientId: "soybean-meal-solvent-extracted",
+    });
+  });
+
+  it("extracts degummed soybean oil with its published swine energy and inclusion guidance", () => {
+    const oil = BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.find(
+      (ingredient) => ingredient.id === "soybean-degummed-oil",
+    );
+
+    expect(oil).toMatchObject({
+      pigflowIngredientId: "soybean-degummed-oil",
+      sourcePage: 153,
+      compositionPct: {
+        dryMatter: 99.7,
+        etherExtract: 99.5,
+        linoleicAcid: 52.2,
+        linolenicAcid: 6.8,
+      },
+      swineEnergyKcalKg: {
+        digestible: 8600,
+        metabolizable: 8300,
+        net: 7362,
+      },
+      recommendedInclusionPct: {
+        growingPigs: {
+          starter: { practical: 2, max: 5 },
+          grower: { practical: 2, max: 5 },
+          finisher: { practical: 2, max: 5 },
+        },
+      },
+    });
+  });
+
+  it("extracts the additional priority feed ingredients from Table 1.01", () => {
+    const byId = new Map(
+      BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.map((ingredient) => [
+        ingredient.id,
+        ingredient,
+      ]),
+    );
+
+    expect(byId.get("soybean-full-fat-extruded")).toMatchObject({
+      pigflowIngredientId: "soybean-full-fat-extruded",
+      sourcePage: 155,
+      swineEnergyKcalKg: { metabolizable: 3956 },
+    });
+    expect(byId.get("rice-bran")).toMatchObject({
+      pigflowIngredientId: "rice-bran",
+      sourcePage: 137,
+      digestibleProteinSwinePct: 9.4,
+    });
+    expect(byId.get("cassava-whole")).toMatchObject({
+      pigflowIngredientId: "cassava-whole",
+      sourcePage: 49,
+      swineEnergyKcalKg: { metabolizable: 3020 },
+    });
+    expect(byId.get("cottonseed-meal-38")).toMatchObject({
+      pigflowIngredientId: "cottonseed-meal-38",
+      sourcePage: 87,
+      digestibleProteinSwinePct: 29.7,
+    });
+    expect(byId.get("fish-meal-54")).toMatchObject({
+      pigflowIngredientId: "fish-meal-54",
+      sourcePage: 97,
+      digestibleProteinSwinePct: 41.7,
+    });
+  });
+
+  it("extracts the priority grain alternatives from Table 1.01", () => {
+    const byId = new Map(
+      BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.map((ingredient) => [
+        ingredient.id,
+        ingredient,
+      ]),
+    );
+
+    expect(byId.get("corn-high-lysine-grain")).toMatchObject({
+      pigflowIngredientId: "corn-high-lysine-grain",
+      sourcePage: 77,
+      swineEnergyKcalKg: { metabolizable: 3409 },
+    });
+    expect(byId.get("corn-high-oil-grain")).toMatchObject({
+      pigflowIngredientId: "corn-high-oil-grain",
+      sourcePage: 79,
+      swineEnergyKcalKg: { metabolizable: 3582 },
+    });
+    expect(byId.get("rice-broken")).toMatchObject({
+      pigflowIngredientId: "rice-broken",
+      sourcePage: 139,
+      digestibleProteinSwinePct: 7.07,
+    });
+    expect(byId.get("sorghum-grain-high-tannin")).toMatchObject({
+      pigflowIngredientId: "sorghum-grain-high-tannin",
+      sourcePage: 149,
+      digestibleProteinSwinePct: 6.61,
+    });
   });
 
   it("preserves swine-specific energy and SID amino acids for feedstuffs", () => {
@@ -159,12 +292,31 @@ describe("Brazilian Tables 2024 source data", () => {
       net: 2667,
     });
     expect(corn?.aminoAcids.sidSwinePct.lysine).toBe(0.2);
+    expect(corn?.digestibleProteinSwinePct).toBe(6.72);
 
     const soy = BRAZILIAN_2024_CORE_FEEDSTUFFS.ingredients.find(
       (ingredient) => ingredient.id === "soybean-meal-45.6-cp-average",
     );
     expect(soy?.aminoAcids.sidSwinePct.lysine).toBe(2.59);
     expect(soy?.macroMineralsPct.standardizedDigestiblePhosphorusSwine).toBe(0.26);
+  });
+
+  it("maps Brazilian crystalline valine and isoleucine into the canonical library", () => {
+    const valine = BRAZILIAN_2024_CRYSTALLINE_AMINO_ACIDS.ingredients.find(
+      (ingredient) => ingredient.id === "valine",
+    );
+    const isoleucine = BRAZILIAN_2024_CRYSTALLINE_AMINO_ACIDS.ingredients.find(
+      (ingredient) => ingredient.id === "isoleucine",
+    );
+
+    expect(valine).toMatchObject({
+      pigflowIngredientId: "l-valine",
+      standardizedDigestibilityPct: 95.5,
+    });
+    expect(isoleucine).toMatchObject({
+      pigflowIngredientId: "l-isoleucine",
+      standardizedDigestibilityPct: 97.1,
+    });
   });
 
   it("keeps crystalline amino-acid energy semantics explicit", () => {
@@ -177,6 +329,7 @@ describe("Brazilian Tables 2024 source data", () => {
       standardizedMetabolizable: 4546,
       net: 3523,
     });
+    expect(lysine?.digestibleProteinEquivalentPct).toBeCloseTo(84.1796, 4);
   });
 
   it("loads exact inorganic mineral-source values separately from feedstuffs", () => {
