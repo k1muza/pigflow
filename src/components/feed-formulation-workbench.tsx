@@ -214,7 +214,7 @@ export function FeedFormulationWorkbench({
     initialResult,
   );
   const [activeSavedId, setActiveSavedId] = useState(initialFormulaSet?.id);
-  const skipInitialSuggestion = useRef(Boolean(initialFormulaSet));
+  const requirementsWereEdited = useRef(false);
 
   const allIngredientOptions = useMemo<IngredientOption[]>(
     () => [
@@ -264,10 +264,13 @@ export function FeedFormulationWorkbench({
 
   useEffect(() => {
     if (!programmeId || !phaseId) return;
-    if (skipInitialSuggestion.current) {
-      skipInitialSuggestion.current = false;
-      return;
-    }
+
+    // A saved formulation already contains the exact ingredient setup and
+    // generated recipe set that the user chose to save. Do not replace that
+    // snapshot with a fresh suggestion just because the editor mounted (React
+    // Strict Mode mounts effects twice in development). Suggestions only become
+    // authoritative after the user explicitly changes a requirement input.
+    if (initialFormulaSet && !requirementsWereEdited.current) return;
 
     const controller = new AbortController();
     setSuggesting(true);
@@ -328,6 +331,7 @@ export function FeedFormulationWorkbench({
   }, [programmeId, phaseId, energySystem, ingredients]);
 
   function changeProgramme(value: string) {
+    requirementsWereEdited.current = true;
     const programme = programmes.find((candidate) => candidate.id === value);
     setProgrammeId(value);
     setPhaseId(programme?.phases[0]?.id ?? "");
@@ -905,6 +909,7 @@ export function FeedFormulationWorkbench({
               <select
                 value={phaseId}
                 onChange={(event) => {
+                  requirementsWereEdited.current = true;
                   setPhaseId(event.target.value);
                   setResult(null);
                 }}
@@ -921,6 +926,7 @@ export function FeedFormulationWorkbench({
               <select
                 value={energySystem}
                 onChange={(event) => {
+                  requirementsWereEdited.current = true;
                   setEnergySystem(event.target.value as "ME" | "NE");
                   setResult(null);
                 }}
