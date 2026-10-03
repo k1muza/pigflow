@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
   Calculator,
+  ChevronDown,
   Download,
   Eye,
   FileSpreadsheet,
@@ -23,6 +24,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { downloadFile, XLSX_MIME } from "@/lib/download";
 import {
@@ -386,6 +394,28 @@ export function FeedFormulationWorkbench({
     }
   }
 
+  const reportContext: RecipeReportContext = {
+    programmeName: selectedProgramme?.name ?? programmeId,
+    phaseLabel: selectedPhase?.label ?? phaseId,
+    sourceTable: selectedPhase?.sourceTable,
+    energySystem,
+    targetBatchKg: displayBatchKg,
+    ingredients: [
+      ...rows.map((row) => ({
+        ingredientId: row.ingredientId,
+        name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
+        pricePerKg: Number(row.price),
+      })),
+      ...(useFixedPremix
+        ? [{
+            ingredientId: FIXED_PREMIX_ID,
+            name: fixedPremixName.trim() || "Commercial premix",
+            pricePerKg: Number(fixedPremixPricePerKg),
+          }]
+        : []),
+    ],
+  };
+
   const sidebarItems = [
     {
       id: "setup",
@@ -414,15 +444,29 @@ export function FeedFormulationWorkbench({
   ] as const;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-      <aside className="overflow-hidden rounded-xl border border-hairline bg-raised/20 lg:sticky lg:top-[74px]">
-        <div className="border-b border-hairline px-4 py-4">
-          <div className="text-sm font-semibold text-ink">Formulation</div>
-          <div className="mt-1 text-xs leading-5 text-ink-muted">
-            Build, review and refine this ration.
+    <div className="space-y-5">
+      <div className="sticky top-[74px] z-20 overflow-hidden rounded-xl border border-hairline bg-background/95 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-ink">Formulation workspace</div>
+            <div className="mt-0.5 truncate text-xs text-ink-muted">
+              {selectedProgramme?.name ?? "Programme"} · {selectedPhase?.label ?? "Phase"} · {energySystem}
+            </div>
           </div>
+          {result?.status === "optimal" ? (
+            <RecipeExportMenu result={result} context={reportContext} />
+          ) : (
+            <Button type="button" variant="outline" size="sm" disabled>
+              <Download />
+              Export
+              <ChevronDown />
+            </Button>
+          )}
         </div>
-        <nav className="space-y-1 p-2" aria-label="Feed formulation sections">
+        <nav
+          className="flex max-w-full gap-1 overflow-x-auto px-2 py-2"
+          aria-label="Feed formulation sections"
+        >
           {sidebarItems.map((item) => {
             const active = activeTab === item.id;
             return (
@@ -432,23 +476,20 @@ export function FeedFormulationWorkbench({
                 disabled={item.disabled}
                 aria-current={active ? "page" : undefined}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   active
-                    ? "border-hairline bg-background text-ink shadow-sm"
+                    ? "border-hairline bg-raised text-ink shadow-sm"
                     : item.disabled
                       ? "cursor-not-allowed border-transparent text-ink-faint opacity-45"
-                      : "border-transparent text-ink-muted hover:bg-background/70 hover:text-ink"
+                      : "border-transparent text-ink-muted hover:bg-raised/70 hover:text-ink"
                 }`}
               >
-                <span className="block text-sm font-medium">{item.label}</span>
-                <span className="mt-0.5 block text-[11px] leading-4">
-                  {item.description}
-                </span>
+                {item.label}
               </button>
             );
           })}
         </nav>
-      </aside>
+      </div>
 
       <div className="min-w-0">
         {activeTab === "setup" ? (
@@ -776,27 +817,7 @@ export function FeedFormulationWorkbench({
               selectedRecipeId={selectedRecipeId}
               onSelectedRecipeChange={setSelectedRecipeId}
               batchWeightKg={displayBatchKg}
-              reportContext={{
-                programmeName: selectedProgramme?.name ?? programmeId,
-                phaseLabel: selectedPhase?.label ?? phaseId,
-                sourceTable: selectedPhase?.sourceTable,
-                energySystem,
-                targetBatchKg: displayBatchKg,
-                ingredients: [
-                  ...rows.map((row) => ({
-                    ingredientId: row.ingredientId,
-                    name: ingredientById.get(row.ingredientId)?.name ?? row.ingredientId,
-                    pricePerKg: Number(row.price),
-                  })),
-                  ...(useFixedPremix
-                    ? [{
-                        ingredientId: FIXED_PREMIX_ID,
-                        name: fixedPremixName.trim() || "Commercial premix",
-                        pricePerKg: Number(fixedPremixPricePerKg),
-                      }]
-                    : []),
-                ],
-              }}
+              reportContext={reportContext}
             />
           ) : null}
 
@@ -856,7 +877,7 @@ function ResultPanel({
               <Badge variant="secondary">Hard constraints satisfied</Badge>
             </div>
             <div className="flex flex-wrap gap-2">
-              <RecipeReportActions recipe={selectedRecipe} context={reportContext} />
+              <RecipeReportPreviewDialog recipe={selectedRecipe} context={reportContext} />
               <NutrientProfileDialog
                 recipeLabel={selectedRecipe.label}
                 profile={selectedRecipe.nutrientProfile}
@@ -1024,20 +1045,31 @@ function recipeReportInput(
   };
 }
 
-function RecipeReportActions({
-  recipe,
+function RecipeExportMenu({
+  result,
   context,
 }: {
-  recipe: RecipeView;
+  result: Extract<LeastCostFormulationResult, { status: "optimal" }>;
   context: RecipeReportContext;
 }) {
-  const [busy, setBusy] = useState(false);
-  const input = recipeReportInput(recipe, context);
+  const [busyRecipeId, setBusyRecipeId] = useState<string | null>(null);
+  const recipes: RecipeView[] = [
+    {
+      id: "least-cost",
+      label: "Least cost",
+      description: "The minimum-cost formula for the prices entered above.",
+      solution: result.solution,
+      nutrientProfile: result.nutrientProfile,
+      costIncreasePct: 0,
+    },
+    ...result.alternatives,
+  ];
 
-  async function downloadReport() {
-    if (busy) return;
-    setBusy(true);
+  async function downloadReport(recipe: RecipeView) {
+    if (busyRecipeId) return;
+    setBusyRecipeId(recipe.id);
     try {
+      const input = recipeReportInput(recipe, context);
       const { buildFeedRecipeReport } = await import("@/lib/feed-formulation-report");
       const output = await buildFeedRecipeReport({
         ...input,
@@ -1055,18 +1087,41 @@ function RecipeReportActions({
       console.error(error);
       window.alert("The recipe report could not be generated. Please try again.");
     } finally {
-      setBusy(false);
+      setBusyRecipeId(null);
     }
   }
 
   return (
-    <>
-      <RecipeReportPreviewDialog recipe={recipe} context={context} />
-      <Button type="button" size="sm" onClick={() => void downloadReport()} disabled={busy}>
-        <Download />
-        {busy ? "Preparing…" : "Download report"}
-      </Button>
-    </>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="sm" disabled={busyRecipeId !== null}>
+          <Download />
+          {busyRecipeId ? "Preparing…" : "Export"}
+          <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel>Recipe reports</DropdownMenuLabel>
+        {recipes.map((recipe) => (
+          <DropdownMenuItem
+            key={recipe.id}
+            disabled={busyRecipeId !== null}
+            onSelect={() => void downloadReport(recipe)}
+          >
+            <FileSpreadsheet />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{recipe.label}</div>
+              <div className="mt-0.5 text-[11px] text-ink-faint">
+                ${recipe.solution.costPerKg.toFixed(4)}/kg
+                {recipe.costIncreasePct > 0
+                  ? ` · +${recipe.costIncreasePct.toFixed(2)}% vs least cost`
+                  : " · baseline"}
+              </div>
+            </div>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
