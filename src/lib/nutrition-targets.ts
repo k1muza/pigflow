@@ -30,9 +30,9 @@ export type ResolvedMineralTargets = {
 export type ResolvedNutritionTargets = {
   phaseId: string;
   energy: DietEnergy;
-  crudeProteinPct: number;
-  digestibleProteinPct: number;
-  potassiumPct: number;
+  crudeProteinPct?: number;
+  digestibleProteinPct?: number;
+  potassiumPct?: number;
   linoleicAcidPct?: number;
   aminoAcids: ResolvedAminoAcidTargets;
   minerals: ResolvedMineralTargets;
@@ -58,6 +58,17 @@ export function resolveNutritionTargets(
   assertEnergy(publishedEnergy);
 
   const sid = phase.requirements.sidAminoAcidsPct;
+  const ratios = phase.requirements.aminoAcids;
+  const relative = phase.requirements.energyRelative;
+  const relativeLysine = relative?.sidLysineGPerMcal?.[publishedEnergy.system];
+  const sidLysinePct =
+    relativeLysine === undefined
+      ? sid.lysine
+      : (relativeLysine * publishedEnergy.kcalKg) / 10000;
+  const aminoPct = (ratioPct: number) => sidLysinePct * (ratioPct / 100);
+  const sttdRelative = relative?.sttdPhosphorusGPerMcal?.[publishedEnergy.system];
+  const availableRelative =
+    relative?.availablePhosphorusGPerMcal?.[publishedEnergy.system];
 
   return {
     phaseId: phase.id,
@@ -67,20 +78,50 @@ export function resolveNutritionTargets(
     potassiumPct: phase.requirements.potassiumPct,
     linoleicAcidPct: phase.requirements.linoleicAcidPct,
     aminoAcids: {
-      sidLysinePct: sid.lysine,
-      sidMethionineCysteinePct: sid.methionineCysteine,
-      sidThreoninePct: sid.threonine,
-      sidTryptophanPct: sid.tryptophan,
-      sidValinePct: sid.valine,
-      sidIsoleucinePct: sid.isoleucine,
-      sidLeucinePct: sid.leucine,
-      sidHistidinePct: sid.histidine,
-      sidPhenylalanineTyrosinePct: sid.phenylalanineTyrosine,
+      sidLysinePct,
+      sidMethionineCysteinePct:
+        relativeLysine === undefined
+          ? sid.methionineCysteine
+          : aminoPct(ratios.methionineCysteineToLysPct),
+      sidThreoninePct:
+        relativeLysine === undefined
+          ? sid.threonine
+          : aminoPct(ratios.threonineToLysPct),
+      sidTryptophanPct:
+        relativeLysine === undefined
+          ? sid.tryptophan
+          : aminoPct(ratios.tryptophanToLysPct),
+      sidValinePct:
+        relativeLysine === undefined
+          ? sid.valine
+          : aminoPct(ratios.valineToLysPct),
+      sidIsoleucinePct:
+        relativeLysine === undefined
+          ? sid.isoleucine
+          : aminoPct(ratios.isoleucineToLysPct),
+      sidLeucinePct:
+        relativeLysine === undefined
+          ? sid.leucine
+          : aminoPct(ratios.leucineToLysPct),
+      sidHistidinePct:
+        relativeLysine === undefined
+          ? sid.histidine
+          : aminoPct(ratios.histidineToLysPct),
+      sidPhenylalanineTyrosinePct:
+        relativeLysine === undefined
+          ? sid.phenylalanineTyrosine
+          : aminoPct(ratios.phenylalanineTyrosineToLysPct),
     },
     minerals: {
       calciumPct: phase.requirements.minerals.calciumPct,
-      sttdPhosphorusPct: phase.requirements.minerals.sttdPhosphorusPct,
-      availablePhosphorusPct: phase.requirements.minerals.availablePhosphorusPct,
+      sttdPhosphorusPct:
+        sttdRelative === undefined
+          ? phase.requirements.minerals.sttdPhosphorusPct
+          : (sttdRelative * publishedEnergy.kcalKg) / 10000,
+      availablePhosphorusPct:
+        availableRelative === undefined
+          ? phase.requirements.minerals.availablePhosphorusPct
+          : (availableRelative * publishedEnergy.kcalKg) / 10000,
       sodiumPct: phase.requirements.minerals.sodiumPct,
       chloridePct: phase.requirements.minerals.chloridePct,
     },
