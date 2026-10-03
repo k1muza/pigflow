@@ -34,7 +34,34 @@ service cloud.firestore {
       allow delete: if signedIn();
     }
 
-    // Nothing else in this project is the planner's business.
+    function looksLikeAFeedFormulation() {
+      let formula = request.resource.data;
+      return formula.keys().hasOnly([
+          'id', 'name', 'savedAt', 'savedBy', 'programmeId', 'programmeName',
+          'phaseId', 'phaseLabel', 'sourceTable', 'energySystem', 'targetBatchKg',
+          'ingredients', 'recipes', 'setup', 'result'
+        ])
+        && formula.id is string
+        && formula.name is string
+        && formula.savedAt is string
+        && formula.savedBy is string
+        && formula.programmeId is string
+        && formula.phaseId is string
+        && formula.energySystem in ['ME', 'NE']
+        && formula.targetBatchKg is number
+        && formula.ingredients is list
+        && formula.recipes is list;
+    }
+
+    match /feedFormulations/{formulationId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && formulationId == request.resource.data.id
+        && looksLikeAFeedFormulation();
+      allow delete: if signedIn();
+    }
+
+    // Refuse every collection that is not explicitly part of PigFlow's data model.
     match /{document=**} {
       allow read, write: if false;
     }
