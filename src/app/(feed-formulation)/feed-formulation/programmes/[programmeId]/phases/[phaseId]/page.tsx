@@ -98,11 +98,14 @@ export default async function FeedProgrammePhasePage({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <div className="text-base font-medium capitalize text-ink-muted">{phase.label}</div>
           <Badge variant="secondary">{phase.sourceWeightRange}</Badge>
-          <Badge variant="secondary">Table {phase.sourceTable}</Badge>
+          <Badge variant="secondary">
+            {programme.sourceProgramme?.source.includes("PIC") ? "PIC " : "Table "}
+            {phase.sourceTable}
+          </Badge>
         </div>
         <p className="mt-2 text-sm text-ink-muted">
           {programme.sourceProgramme?.source} · {programme.sourceProgramme?.sourceVersion} ·
-          printed page {phase.sourcePage}
+          source page {phase.sourcePage}
         </p>
         {phase.periodLabel ? (
           <p className="mt-1 text-xs text-ink-faint">
@@ -151,10 +154,9 @@ export default async function FeedProgrammePhasePage({
         <CardHeader>
           <CardTitle className="text-base">Source semantics</CardTitle>
           <CardDescription>
-            These are direct {phase.sourceTable.startsWith("6.") ? "Chapter 6 breeder" : "Chapter 5 growing-swine"} requirements
-            from the Brazilian Tables 2024. Vitamin and trace-mineral values are intentionally not
-            shown as requirements here: Chapter 7 describes those values as suggested supplementation
-            levels.
+            {programme.sourceProgramme?.source.includes("PIC")
+              ? "PIC publishes the mature-boar amino-acid and phosphorus specifications relative to dietary energy. PigFlow shows the 3,175 kcal ME/kg reference-diet concentrations here and recalculates those targets when ME or NE is selected during formulation. PIC added vitamins and trace minerals are represented as supplementation targets, not natural ingredient content."
+              : `These are direct ${phase.sourceTable.startsWith("6.") ? "Chapter 6 breeder" : "Chapter 5 growing-swine"} requirements from the Brazilian Tables 2024. Vitamin and trace-mineral values are intentionally not shown as requirements here: Chapter 7 describes those values as suggested supplementation levels.`}
           </CardDescription>
         </CardHeader>
       </Card>

@@ -41,6 +41,7 @@ export type DietAnalysis = {
   };
   crudeProteinPct: AnalyzedNutrient;
   digestibleProteinPct: AnalyzedNutrient;
+  neutralDetergentFibrePct: AnalyzedNutrient;
   fattyAcids: {
     linoleicAcidPct: AnalyzedNutrient;
   };
@@ -179,6 +180,7 @@ export function analyzeDiet(
     },
     crudeProteinPct: measure(),
     digestibleProteinPct: measure(),
+    neutralDetergentFibrePct: measure(),
     fattyAcids: {
       linoleicAcidPct: measure(),
     },
@@ -300,6 +302,13 @@ export function analyzeDiet(
       share,
       ingredient.composition.digestibleProteinPct,
       structuralZero(ingredient, "digestibleProtein"),
+    );
+    add(
+      result.neutralDetergentFibrePct,
+      ingredient,
+      share,
+      ingredient.composition.neutralDetergentFibrePct,
+      structuralZero(ingredient, "fibre"),
     );
     add(
       result.fattyAcids.linoleicAcidPct,
@@ -485,7 +494,10 @@ export function evaluateDietForPhase(
     );
   }
 
-  const targets = resolveNutritionTargets(phase);
+  const targets = resolveNutritionTargets(phase, {
+    system: energySystem,
+    kcalKg: selectedPublishedEnergy,
+  });
 
   {
     const aa = targets.aminoAcids;
@@ -543,30 +555,36 @@ export function evaluateDietForPhase(
     }
   }
 
-  checkMin(
-    checks,
-    "crude-protein",
-    "Crude protein",
-    analysis.crudeProteinPct,
-    targets.crudeProteinPct,
-    "%",
-  );
-  checkMin(
-    checks,
-    "digestible-protein",
-    "Digestible protein (swine SID)",
-    analysis.digestibleProteinPct,
-    phase.requirements.digestibleProteinPct,
-    "%",
-  );
-  checkMin(
-    checks,
-    "potassium",
-    "Potassium",
-    analysis.minerals.potassiumPct,
-    phase.requirements.potassiumPct,
-    "%",
-  );
+  if (targets.crudeProteinPct !== undefined) {
+    checkMin(
+      checks,
+      "crude-protein",
+      "Crude protein",
+      analysis.crudeProteinPct,
+      targets.crudeProteinPct,
+      "%",
+    );
+  }
+  if (targets.digestibleProteinPct !== undefined) {
+    checkMin(
+      checks,
+      "digestible-protein",
+      "Digestible protein (swine SID)",
+      analysis.digestibleProteinPct,
+      targets.digestibleProteinPct,
+      "%",
+    );
+  }
+  if (targets.potassiumPct !== undefined) {
+    checkMin(
+      checks,
+      "potassium",
+      "Potassium",
+      analysis.minerals.potassiumPct,
+      targets.potassiumPct,
+      "%",
+    );
+  }
   if (phase.requirements.linoleicAcidPct !== undefined) {
     checkMin(
       checks,
@@ -645,6 +663,19 @@ export function evaluateDietForPhase(
       "%",
     );
   }
+  if (practical.neutralDetergentFibreMinPct !== undefined) {
+    checkMin(
+      checks,
+      "neutral-detergent-fibre",
+      "Neutral detergent fibre",
+      analysis.neutralDetergentFibrePct,
+      practical.neutralDetergentFibreMinPct,
+      "%",
+    );
+  }
+  if (practical.calciumToTotalPhosphorusMinRatio !== undefined) {
+    unsupportedConstraints.push("calciumToTotalPhosphorusMinRatio");
+  }
   if (practical.sidLysineToCrudeProteinMaxPct !== undefined) {
     checkRatioMax(
       checks,
@@ -689,6 +720,7 @@ type NutrientFamily =
   | "energy"
   | "crudeProtein"
   | "digestibleProtein"
+  | "fibre"
   | "fattyAcid"
   | "aminoAcid"
   | "macroMineral"
@@ -724,6 +756,13 @@ function structuralZero(
       return (
         ingredient.category === "mineral" ||
         ingredient.category === "oil_fat" ||
+        ingredient.category === "vitamin_mineral_premix"
+      );
+    case "fibre":
+      return (
+        ingredient.category === "mineral" ||
+        ingredient.category === "oil_fat" ||
+        ingredient.category === "amino_acid" ||
         ingredient.category === "vitamin_mineral_premix"
       );
     case "fattyAcid":

@@ -13,6 +13,7 @@ import {
   BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION,
   BRAZILIAN_2024_STANDARD_GILT_NUTRITION,
   BRAZILIAN_2024_STANDARD_GROWTH_NUTRITION,
+  PIC_MATURE_BOAR_NUTRITION,
   type NutritionPhase,
   type NutritionProgramme,
 } from "./nutrition";
@@ -84,6 +85,15 @@ export const FEED_PROGRAMMES: readonly FeedProgrammeDefinition[] = [
     status: "loaded",
     sourceProgramme: BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION,
     phases: BRAZILIAN_2024_STANDARD_ENTIRE_MALE_NUTRITION.phases,
+  },
+  {
+    id: "mature-boar",
+    name: "Mature Boar — PIC",
+    description:
+      "PIC mature-boar nutrient specifications, using PIC energy-relative SID amino-acid and phosphorus targets with Brazilian Tables ingredient composition.",
+    status: "loaded",
+    sourceProgramme: PIC_MATURE_BOAR_NUTRITION,
+    phases: PIC_MATURE_BOAR_NUTRITION.phases,
   },
   {
     id: "gestating-gilt-sow",

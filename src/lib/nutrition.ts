@@ -4,13 +4,14 @@ import {
   BRAZILIAN_2024_SOURCE,
   BRAZILIAN_2024_SWINE_SUPPLEMENTATION,
 } from "./brazilian-nutrition";
+import { PIC_MATURE_BOAR, PIC_MATURE_BOAR_SOURCE } from "./pic-nutrition";
 
 export type NutritionGrowthStage = "weaner" | "grower" | "finisher";
 export type NutritionVariant = "default";
 export type GrowingPerformance = "standard" | "high";
 export type NutritionPerformance = GrowingPerformance | "breeder";
 export type GrowingPhaseClass = "pre-starter" | "starter" | "grower" | "finisher";
-export type NutritionPhaseClass = GrowingPhaseClass | "gestation" | "lactation";
+export type NutritionPhaseClass = GrowingPhaseClass | "gestation" | "lactation" | "boar";
 export type Range = { min: number; max: number };
 
 export type AminoAcidRequirements = {
@@ -95,6 +96,14 @@ export type PracticalDietConstraints = {
   highlyDigestibleProteinPct?: Range;
   highlyDigestibleCarbohydratePct?: number;
   lLysineHclMaxPct?: number;
+  neutralDetergentFibreMinPct?: number;
+  calciumToTotalPhosphorusMinRatio?: number;
+};
+
+export type EnergyRelativeNutritionRequirements = {
+  sidLysineGPerMcal?: Partial<Record<"ME" | "NE", number>>;
+  sttdPhosphorusGPerMcal?: Partial<Record<"ME" | "NE", number>>;
+  availablePhosphorusGPerMcal?: Partial<Record<"ME" | "NE", number>>;
 };
 
 export type NutritionRequirements = {
@@ -103,9 +112,9 @@ export type NutritionRequirements = {
   sidLysinePct: number;
   sidAminoAcidsPct: SidAminoAcidConcentrations;
   aminoAcids: AminoAcidRequirements;
-  crudeProteinPct: number;
-  digestibleProteinPct: number;
-  potassiumPct: number;
+  crudeProteinPct?: number;
+  digestibleProteinPct?: number;
+  potassiumPct?: number;
   linoleicAcidPct?: number;
   minerals: MineralRequirements;
   /**
@@ -116,6 +125,12 @@ export type NutritionRequirements = {
   traceMinerals?: TraceMinerals;
   vitamins?: Vitamins;
   practical: PracticalDietConstraints;
+  /**
+   * Some external programmes publish nutrients relative to dietary energy
+   * rather than as fixed diet concentrations. Brazilian Tables phases leave
+   * this undefined because they publish concentrations directly.
+   */
+  energyRelative?: EnergyRelativeNutritionRequirements;
 };
 
 export type NutritionPhase = {
@@ -626,6 +641,125 @@ export const BRAZILIAN_2024_HIGH_MIXED_SEX_HOT_NUTRITION =
     "high",
     HIGH_PERFORMANCE_MIXED_SEX_HOT_PROGRAMME_ID,
   );
+
+
+function pctFromGPerMcal(gPerMcal: number, kcalKg: number): number {
+  return (gPerMcal * kcalKg) / 10000;
+}
+
+function buildPicMatureBoarProgramme(): NutritionProgramme {
+  const source = PIC_MATURE_BOAR;
+  const lysinePct = pctFromGPerMcal(
+    source.sidLysineGPerMcal.ME,
+    source.dietEnergy.metabolizableKcalKg,
+  );
+  const ratios = source.aminoAcidRatiosToLysPct;
+  const aminoPct = (ratio: number) => lysinePct * (ratio / 100);
+  const sttdPhosphorusPct = pctFromGPerMcal(
+    source.phosphorusGPerMcal.sttd.ME,
+    source.dietEnergy.metabolizableKcalKg,
+  );
+  const availablePhosphorusPct = pctFromGPerMcal(
+    source.phosphorusGPerMcal.available.ME,
+    source.dietEnergy.metabolizableKcalKg,
+  );
+
+  const phase: NutritionPhase = {
+    id: "pic-mature-boar",
+    label: "Mature boar",
+    variant: "default",
+    phaseClass: "boar",
+    periodLabel:
+      "Production boar; adjust daily feed allowance for body weight, body condition and temperature",
+    sourceTable: source.sourceTable,
+    sourcePage: source.sourcePage,
+    sourceMinWeightKg: source.sourceWeightKg.min,
+    sourceMaxWeightKg: source.sourceWeightKg.max,
+    sourceWeightRange: `${source.sourceWeightKg.min}–${source.sourceWeightKg.max} kg reference feeding range`,
+    lookupMinWeightKg: source.sourceWeightKg.min,
+    lookupMaxWeightKg: source.sourceWeightKg.max,
+    supplementation: {
+      sourceTables: ["PIC M-1/M-2"],
+      sourcePages: [71, 72],
+      vitamins: source.supplementation.vitamins,
+      traceMinerals: {
+        inorganic: {
+          zincPpm: source.supplementation.traceMineralsPpm.zinc,
+          ironPpm: source.supplementation.traceMineralsPpm.iron,
+          manganesePpm: source.supplementation.traceMineralsPpm.manganese,
+          copperPpm: source.supplementation.traceMineralsPpm.copper,
+          iodinePpm: source.supplementation.traceMineralsPpm.iodine,
+          seleniumPpm: source.supplementation.traceMineralsPpm.selenium,
+        },
+        organic: {
+          zincPpm: source.supplementation.traceMineralsPpm.zinc,
+          ironPpm: source.supplementation.traceMineralsPpm.iron,
+          manganesePpm: source.supplementation.traceMineralsPpm.manganese,
+          copperPpm: source.supplementation.traceMineralsPpm.copper,
+          iodinePpm: source.supplementation.traceMineralsPpm.iodine,
+          seleniumPpm: source.supplementation.traceMineralsPpm.selenium,
+        },
+      },
+    },
+    requirements: {
+      metabolizableEnergyKcalKg: source.dietEnergy.metabolizableKcalKg,
+      netEnergyKcalKg: source.dietEnergy.netKcalKg,
+      sidLysinePct: lysinePct,
+      sidAminoAcidsPct: {
+        lysine: lysinePct,
+        methionineCysteine: aminoPct(ratios.methionineCysteine),
+        threonine: aminoPct(ratios.threonine),
+        tryptophan: aminoPct(ratios.tryptophan),
+        valine: aminoPct(ratios.valine),
+        isoleucine: aminoPct(ratios.isoleucine),
+        leucine: aminoPct(ratios.leucine),
+        histidine: aminoPct(ratios.histidine),
+        phenylalanineTyrosine: aminoPct(ratios.phenylalanineTyrosine),
+      },
+      aminoAcids: {
+        methionineCysteineToLysPct: ratios.methionineCysteine,
+        threonineToLysPct: ratios.threonine,
+        tryptophanToLysPct: ratios.tryptophan,
+        valineToLysPct: ratios.valine,
+        isoleucineToLysPct: ratios.isoleucine,
+        leucineToLysPct: ratios.leucine,
+        histidineToLysPct: ratios.histidine,
+        phenylalanineTyrosineToLysPct: ratios.phenylalanineTyrosine,
+      },
+      linoleicAcidPct: source.recommendedSpecifications.linoleicAcidPct,
+      minerals: {
+        sttdPhosphorusPct,
+        availablePhosphorusPct,
+        sodiumPct: source.minerals.sodiumPct,
+        chloridePct: source.minerals.chloridePct,
+      },
+      practical: {
+        lLysineHclMaxPct: source.recommendedSpecifications.lLysineHclMaxPct,
+        neutralDetergentFibreMinPct:
+          source.recommendedSpecifications.neutralDetergentFibreMinPct,
+        calciumToTotalPhosphorusMinRatio:
+          source.minerals.analyzedCalciumToPhosphorusRatio,
+      },
+      energyRelative: {
+        sidLysineGPerMcal: source.sidLysineGPerMcal,
+        sttdPhosphorusGPerMcal: source.phosphorusGPerMcal.sttd,
+        availablePhosphorusGPerMcal: source.phosphorusGPerMcal.available,
+      },
+    },
+  };
+
+  return {
+    id: "pic-mature-boar",
+    name: source.name,
+    source: `${PIC_MATURE_BOAR_SOURCE.publisher} — ${PIC_MATURE_BOAR_SOURCE.title}`,
+    sourceVersion: PIC_MATURE_BOAR_SOURCE.version,
+    sourceSections: PIC_MATURE_BOAR_SOURCE.sections,
+    performance: "breeder",
+    phases: [phase],
+  };
+}
+
+export const PIC_MATURE_BOAR_NUTRITION = buildPicMatureBoarProgramme();
 
 export const BRAZILIAN_2024_GESTATION_NUTRITION = buildBreederProgramme("gestation");
 export const BRAZILIAN_2024_LACTATION_NUTRITION = buildBreederProgramme("lactation");

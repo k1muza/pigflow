@@ -14,6 +14,7 @@ describe("feed programme catalogue", () => {
       "developing-gilt",
       "growing-barrows-standard",
       "growing-entire-immunocastrated-males-standard",
+      "mature-boar",
       "gestating-gilt-sow",
       "lactating-gilt-sow",
       "lactating-gilt-sow-25c",
@@ -27,7 +28,7 @@ describe("feed programme catalogue", () => {
       "grow-finish-pig-high-performance-hot",
     ]);
     expect(FEED_PROGRAMMES.every((programme) => programme.status === "loaded")).toBe(true);
-    expect(feedProgrammeById("mature-boar")).toBeUndefined();
+    expect(feedProgrammeById("mature-boar")?.sourceProgramme?.source).toContain("PIC");
     expect(feedProgrammeById("weaned-sow")).toBeUndefined();
   });
 
@@ -78,6 +79,20 @@ describe("feed programme catalogue", () => {
       expect(programme?.phases.every((phase) => phase.sourceTable === table)).toBe(true);
       expect(programme?.phases[0].phaseClass).toBe("grower");
     }
+  });
+
+  it("loads the PIC mature-boar programme without relabelling it as Brazilian Tables", () => {
+    const boar = feedProgrammeById("mature-boar");
+
+    expect(boar?.name).toBe("Mature Boar — PIC");
+    expect(boar?.phases).toHaveLength(1);
+    expect(boar?.phases[0]).toMatchObject({
+      phaseClass: "boar",
+      sourceTable: "M-1/M-2",
+      sourceMinWeightKg: 180,
+      sourceMaxWeightKg: 340,
+    });
+    expect(boar?.sourceProgramme?.sourceVersion).toBe("Metric Version 2021.04.14");
   });
 
   it("loads Chapter 6 gestation and both lactation temperature programmes", () => {
