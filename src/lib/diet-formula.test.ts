@@ -6,7 +6,7 @@ import {
   loadIngredientLibrary,
   type IngredientLibrary,
 } from "./ingredient-nutrients";
-import { nutritionPhaseAtWeight } from "./nutrition";
+import { PIC_MATURE_BOAR_NUTRITION, nutritionPhaseAtWeight } from "./nutrition";
 import { analyzeDiet, evaluateDietForPhase } from "./diet-formula";
 
 const simple = {
@@ -33,7 +33,8 @@ function completeLibrary(): IngredientLibrary {
           dryMatterPct: 90,
           crudeProteinPct: 25,
           digestibleProteinPct: 22,
-          linoleicAcidPct: 1.2,
+          neutralDetergentFibrePct: 12,
+          linoleicAcidPct: 2.2,
         },
         energy: {
           digestibleKcalKg: 3600,
@@ -178,6 +179,37 @@ describe("diet formula analysis", () => {
       actual: 1.2,
       status: "pass",
     });
+  });
+
+  it("evaluates PIC mature-boar requirements without inventing unpublished protein or potassium minima", () => {
+    const library = completeLibrary();
+    const phase = PIC_MATURE_BOAR_NUTRITION.phases[0];
+    const result = evaluateDietForPhase(
+      { ingredients: [{ ingredientId: "complete-test-feed", inclusionPct: 100 }] },
+      phase,
+      "ME",
+      [],
+      library,
+    );
+
+    expect(result.checks.find((check) => check.id === "crude-protein")).toBeUndefined();
+    expect(result.checks.find((check) => check.id === "digestible-protein")).toBeUndefined();
+    expect(result.checks.find((check) => check.id === "potassium")).toBeUndefined();
+    expect(result.checks.find((check) => check.id === "sid-lysine")?.bound).toBeCloseTo(
+      0.619125,
+      6,
+    );
+    expect(result.checks.find((check) => check.id === "neutral-detergent-fibre")).toMatchObject({
+      bound: 11,
+      status: "pass",
+    });
+    expect(result.checks.find((check) => check.id === "linoleic-acid")).toMatchObject({
+      bound: 1.9,
+      status: "pass",
+    });
+    expect(result.unsupportedConstraints).toContain(
+      "calciumToTotalPhosphorusMinRatio",
+    );
   });
 
   it("tracks premix supplementation separately from naturally occurring micronutrients", () => {
