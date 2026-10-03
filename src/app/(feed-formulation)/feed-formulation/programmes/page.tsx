@@ -14,13 +14,13 @@ export default function FeedProgrammesPage() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Programmes</h1>
           <Badge variant="secondary">
-            {loaded} Brazilian-backed programmes
+            {loaded} source-backed programmes
           </Badge>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-muted">
-          Every programme shown here is backed directly by the Brazilian Tables 2024. Unsupported
-          placeholder programmes have been removed; Chapter 5 covers growing pigs and gilts, while
-          Chapter 6 supplies gestation and lactation requirements.
+          Programmes are loaded from explicit published sources. Brazilian Tables 2024 provides
+          the growing, gilt, gestation and lactation requirements, while PIC supplies the mature-boar
+          requirement programme. Brazilian Tables remains the canonical ingredient-composition source.
         </p>
       </div>
 
