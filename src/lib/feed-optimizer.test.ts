@@ -511,6 +511,66 @@ describe("least-cost feed optimizer", () => {
     ).toBeCloseTo(100, 6);
   });
 
+  it("prefers lower crude-protein surplus before cost in the simpler recipe", async () => {
+    const phase = nutritionPhaseAtWeight(30);
+    const target = phase.requirements.crudeProteinPct!;
+    const lysineTarget = phase.requirements.sidAminoAcidsPct.lysine;
+
+    const highProtein = ingredient(
+      "high-protein",
+      "Cheap high-protein ingredient",
+      target + 10,
+    );
+    highProtein.aminoAcids.sidPct.lysine = lysineTarget * 0.5;
+
+    const lowerProtein = ingredient(
+      "lower-protein",
+      "Slightly dearer lower-protein ingredient",
+      target - 5,
+    );
+
+    const library = loadIngredientLibrary({
+      ...INGREDIENT_LIBRARY,
+      ingredients: [highProtein, lowerProtein],
+    });
+
+    const result = await formulateLeastCostDiet(
+      phase,
+      "ME",
+      [
+        { ingredientId: "high-protein", pricePerKg: 0.2 },
+        { ingredientId: "lower-protein", pricePerKg: 0.205 },
+      ],
+      library,
+    );
+
+    expect(result.status).toBe("optimal");
+    if (result.status !== "optimal") return;
+
+    const simpler = result.alternatives.find(
+      (alternative) => alternative.id === "simple",
+    );
+    expect(simpler).toBeDefined();
+    if (!simpler) return;
+
+    expect(result.solution.analysis.crudeProteinPct.value).toBeGreaterThan(
+      target + 4,
+    );
+    expect(simpler.solution.analysis.crudeProteinPct.value).toBeCloseTo(
+      target,
+      4,
+    );
+    expect(simpler.solution.analysis.crudeProteinPct.value).toBeLessThan(
+      result.solution.analysis.crudeProteinPct.value,
+    );
+    expect(simpler.solution.formula.ingredients).toHaveLength(
+      result.solution.formula.ingredients.length,
+    );
+    expect(simpler.solution.costPerKg).toBeLessThanOrEqual(
+      result.solution.costPerKg * 1.03 + 1e-8,
+    );
+  });
+
   it("returns the hard-constraint nutrient profile used by the optimizer", async () => {
     const phase = nutritionPhaseAtWeight(30);
     const suggestion = await suggestFormulationIngredients(phase, "ME");
