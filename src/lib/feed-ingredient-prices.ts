@@ -233,6 +233,17 @@ export const INGREDIENT_DEFAULT_PRICES: readonly IngredientDefaultPrice[] = [
       "No transparent current Southern-African bulk quote was found. China Q2 2026 benchmark is used only as a planning floor and excludes freight/import costs.",
   },
   {
+    ingredientId: "soybean-full-fat-extruded",
+    usdPerTonne: 610,
+    market: "Gauteng, South Africa",
+    asOf: "2026-10-05",
+    sourceScope: "regional",
+    sourceLabel: "MF Feeds — Full Fat Soya 35kg",
+    sourceUrl: "https://www.mf-feeds.com/collections/raw-materials",
+    note:
+      "Regional planning proxy from a listed R350 per 35 kg full-fat soya price, normalized to about USD 610/t. PigFlow applies the standard 1.15x regional import multiplier, giving a landed planning value of about USD 701.50/t before any supplier-specific freight or border adjustments.",
+  },
+  {
     ingredientId: "soybean-degummed-oil",
     usdPerTonne: 1960,
     market: "Harare, Zimbabwe",

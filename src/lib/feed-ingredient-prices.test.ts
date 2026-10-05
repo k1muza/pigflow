@@ -48,6 +48,21 @@ describe("feed ingredient default prices", () => {
     });
   });
 
+  it("uses the regional full-fat soya quote as the extruded-soy planning proxy", () => {
+    expect(ingredientDefaultPrice("soybean-full-fat-extruded")).toMatchObject({
+      usdPerTonne: 610,
+      market: "Gauteng, South Africa",
+      sourceScope: "regional",
+    });
+    expect(
+      ingredientDefaultPlanningPricePerTonne("soybean-full-fat-extruded"),
+    ).toBeCloseTo(701.5, 6);
+    expect(ingredientDefaultPricePerKg("soybean-full-fat-extruded")).toBeCloseTo(
+      0.7015,
+      6,
+    );
+  });
+
   it("uses the local refined-soybean-oil observation as the degummed-oil planning proxy", () => {
     expect(ingredientDefaultPrice("soybean-degummed-oil")).toMatchObject({
       usdPerTonne: 1960,
@@ -65,6 +80,7 @@ describe("feed ingredient default prices", () => {
       "corn-yellow-dent",
       "soybean-meal-dehulled-solvent-extracted",
       "soybean-meal-solvent-extracted",
+      "soybean-full-fat-extruded",
       "dicalcium-phosphate",
       "sodium-chloride",
       "l-lysine-hcl",
