@@ -884,12 +884,20 @@ type LinearObjective = {
   coefficient: (ingredient: PreparedIngredient) => number;
 };
 
+type LinearBound = {
+  name: string;
+  coefficient: (ingredient: PreparedIngredient) => number;
+  relation: "min" | "max";
+  bound: number;
+};
+
 async function solveAlternativeObjective(
   glpk: GLPK,
   ingredients: readonly PreparedIngredient[],
   constraints: readonly ConstraintSpec[],
   objective: LinearObjective,
   costCapPerKg: number,
+  extraBounds: readonly LinearBound[] = [],
 ): Promise<{ status: "optimal"; vars: Record<string, number> } | { status: "infeasible" }> {
   const {
     GLP_DB,
@@ -931,6 +939,17 @@ async function solveAlternativeObjective(
         })),
         bnds: { type: GLP_UP, lb: 0, ub: costCapPerKg },
       },
+      ...extraBounds.map((bound) => ({
+        name: `extra_${bound.name}`,
+        vars: ingredients.map((ingredient) => ({
+          name: ingredient.variable,
+          coef: bound.coefficient(ingredient),
+        })),
+        bnds:
+          bound.relation === "min"
+            ? { type: GLP_LO, lb: bound.bound, ub: 0 }
+            : { type: GLP_UP, lb: 0, ub: bound.bound },
+      })),
       ...constraints.map((constraint) => ({
         name: `nutrient_${constraint.id}`,
         vars: ingredients.map((ingredient) => ({
@@ -1042,6 +1061,18 @@ function sameFormula(
   );
 }
 
+function linearObjectiveValue(
+  vars: Record<string, number>,
+  ingredients: readonly PreparedIngredient[],
+  coefficient: LinearObjective["coefficient"],
+): number {
+  return ingredients.reduce(
+    (sum, ingredient) =>
+      sum + (vars[ingredient.variable] ?? 0) * coefficient(ingredient),
+    0,
+  );
+}
+
 async function buildSimplerAlternative(
   glpk: GLPK,
   ingredients: readonly PreparedIngredient[],
@@ -1050,15 +1081,17 @@ async function buildSimplerAlternative(
   costCapPerKg: number,
   library: IngredientLibrary,
 ): Promise<FormulationSolution | undefined> {
+  const costObjective: LinearObjective = {
+    name: "simplify_cost",
+    coefficient: (ingredient) => ingredient.option.pricePerKg,
+  };
+
   let active = [...ingredients];
   let solved = await solveAlternativeObjective(
     glpk,
     active,
     constraints,
-    {
-      name: "simplify_cost",
-      coefficient: (ingredient) => ingredient.option.pricePerKg,
-    },
+    costObjective,
     costCapPerKg,
   );
   if (solved.status !== "optimal") return undefined;
@@ -1087,10 +1120,7 @@ async function buildSimplerAlternative(
         glpk,
         trialIngredients,
         constraints,
-        {
-          name: "simplify_cost",
-          coefficient: (ingredient) => ingredient.option.pricePerKg,
-        },
+        costObjective,
         costCapPerKg,
       );
       if (trial.status !== "optimal") continue;
@@ -1104,7 +1134,71 @@ async function buildSimplerAlternative(
     if (!removed) break;
   }
 
-  return sameFormula(current, optimum) ? undefined : current;
+  // Freeze the ingredients that survived the simplicity pass. The nutritional
+  // tie-breaker must not add previously unused ingredients back into the recipe.
+  const usedIngredientIds = new Set(
+    current.formula.ingredients.map((row) => row.ingredientId),
+  );
+  const simpleIngredients = active.filter(
+    (ingredient) =>
+      ingredient.minFraction > 1e-12 ||
+      usedIngredientIds.has(ingredient.option.ingredientId),
+  );
+
+  const crudeProteinConstraint = constraints.find(
+    (constraint) => constraint.id === "crude-protein",
+  );
+  if (!crudeProteinConstraint) {
+    return sameFormula(current, optimum) ? undefined : current;
+  }
+
+  const proteinObjective: LinearObjective = {
+    name: "simplify_crude_protein",
+    coefficient: (ingredient) =>
+      ingredient.coefficients.get("crude-protein") ?? 0,
+  };
+  const proteinSolved = await solveAlternativeObjective(
+    glpk,
+    simpleIngredients,
+    constraints,
+    proteinObjective,
+    costCapPerKg,
+  );
+  if (proteinSolved.status !== "optimal") {
+    return sameFormula(current, optimum) ? undefined : current;
+  }
+
+  const minimumCrudeProtein = linearObjectiveValue(
+    proteinSolved.vars,
+    simpleIngredients,
+    proteinObjective.coefficient,
+  );
+  const proteinTolerancePct = Math.max(minimumCrudeProtein * 1e-7, 1e-7);
+
+  const costTieBreak = await solveAlternativeObjective(
+    glpk,
+    simpleIngredients,
+    constraints,
+    {
+      name: "simplify_cost_after_protein",
+      coefficient: (ingredient) => ingredient.option.pricePerKg,
+    },
+    costCapPerKg,
+    [{
+      name: "simplify_crude_protein_cap",
+      coefficient: proteinObjective.coefficient,
+      relation: "max",
+      bound: minimumCrudeProtein + proteinTolerancePct,
+    }],
+  );
+
+  const efficient = buildSolution(
+    costTieBreak.status === "optimal" ? costTieBreak.vars : proteinSolved.vars,
+    simpleIngredients,
+    library,
+  );
+
+  return sameFormula(efficient, optimum) ? undefined : efficient;
 }
 
 async function buildIngredientOpportunities(
@@ -1269,7 +1363,7 @@ async function buildAlternativeFormulations(
       id: "simple",
       label: "Simpler recipe",
       description:
-        "Greedily removes dispensable ingredients while keeping hard constraints and the cost ceiling.",
+        "Greedily removes dispensable ingredients, then minimizes crude-protein surplus and cost without adding ingredients back.",
       solution: simpler,
       nutrientProfile: buildNutrientProfile(simpler.analysis, constraints),
       costIncreasePct: costIncreasePct(simpler, optimum),
